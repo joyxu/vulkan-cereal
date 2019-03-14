@@ -13,9 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from generator import noneStr
-
 from copy import copy
+
+def noneStr(str):
+    if (str):
+        return str
+    else:
+        return ""
 
 # Holds information about core Vulkan objects
 # and the API calls that are used to create/destroy each one.
