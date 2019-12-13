@@ -40,3 +40,22 @@ to rename this project to something more appropriate like
 `device/generic/gfxstream`.
 
 Then, we add a new go/ab target that builds + runs any relevant tests.
+
+# Structure
+
+- `CMakeLists.txt`: specifies all host-side build targets. This includes all
+  backends along with client/server setups that live only on the host.
+- `Android.bp`: specifies all guest-side build targets for Android
+- `BUILD.gn`: specifies all guest-side build targets for Fuchsia
+- `base/`: common libraries that are built for both the guest and host.
+  Contains utility code related to synchronization, threading, and suballocation.
+- `protocols/`: implementations of protocols for various graphics APIs. May contain
+code generators to make it easy to regen the protocol based on certain things.
+- `stream-clients/`: implementations of various frontends for various graphics
+  APIs that generate protocol.
+- `stream-servers/`: implementations of various backends for various graphics
+  APIs that consume protocol.
+- `toolchain/`: includes various CMake toolchain files for the host-side build
+- `transports/`: libraries that live on both guest and host that implement
+  various transports.  Does not care about what data is passed through, only
+  how.
