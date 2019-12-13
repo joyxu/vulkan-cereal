@@ -11,24 +11,27 @@ add_executable(buildtest test.c)
 
 # Common base library###########################################################
 
-add_library(
-    gfxstreambase
-    base/MemStream.cpp
-    base/Stream.cpp
-    base/StreamSerializing.cpp
-    base/SubAllocator.cpp)
-target_include_directories(
-    gfxstreambase PRIVATE .)
+add_subdirectory(base)
 
 # Protocols and associated code generators######################################
 
+# add_subdirectory(protocols)
+
 # Frontends#####################################################################
+
+# add_subdirectory(stream-clients)
 
 # Backends######################################################################
 
+add_subdirectory(stream-servers)
+
 # Transport implementations#####################################################
 
+# add_subdirectory(transports)
+
 # Test environments#############################################################
+
+# add_subdirectory(testenvs)
 
 # Target: Host backend to consume real guest traffic############################
 
