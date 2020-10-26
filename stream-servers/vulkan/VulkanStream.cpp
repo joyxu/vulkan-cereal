@@ -15,7 +15,7 @@
 
 #include "IOStream.h"
 
-#include "android/base/Pool.h"
+#include "base/BumpPool.h"
 
 #include "emugl/common/feature_control.h"
 
@@ -38,6 +38,12 @@ public:
 
         if (emugl_feature_is_enabled(android::featurecontrol::VulkanNullOptionalStrings)) {
             mFeatureBits |= VULKAN_STREAM_FEATURE_NULL_OPTIONAL_STRINGS_BIT;
+        }
+        if (emugl_feature_is_enabled(android::featurecontrol::VulkanIgnoredHandles)) {
+            mFeatureBits |= VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT;
+        }
+        if (emugl_feature_is_enabled(android::featurecontrol::VulkanShaderFloat16Int8)) {
+            mFeatureBits |= VULKAN_STREAM_FEATURE_SHADER_FLOAT16_INT8_BIT;
         }
     }
 
@@ -129,7 +135,7 @@ private:
         return size;
     }
 
-    android::base::Pool mPool { 8, 4096, 64 };
+    android::base::BumpPool mPool;
 
     size_t mWritePos = 0;
     std::vector<uint8_t> mWriteBuffer;
