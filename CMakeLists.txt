@@ -1,12 +1,6 @@
 project(gfx-streaming-kit)
 cmake_minimum_required(VERSION 3.5)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/toolchain")
-
-include(toolchain)
-
-_get_host_tag(TAG)
-toolchain_configure_tags(${TAG})
 add_executable(buildtest test.c)
 
 # Common base library###########################################################

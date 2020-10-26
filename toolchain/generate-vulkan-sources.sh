@@ -1,5 +1,4 @@
 #!/bin/sh
-
 # Copyright 2019 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,24 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-. $(dirname "$0")/utils/common.shi
-
-shell_import utils/aosp_dir.shi
-
-PROGRAM_PARAMETERS=""
-
-PROGRAM_DESCRIPTION=\
-"Regenerate gfxstream Vulkan sources."
-
-option_register_var "--only=<module-name>" OPT_ONLY "Only update a particular generated module"
-
-aosp_dir_register_option
-
-option_parse "$@"
-
-aosp_dir_parse_option
-
-REPO_DIR=$AOSP_DIR/device/generic/vulkan-cereal
+REPO_DIR=`pwd`
 VULKAN_REGISTRY_XML_DIR=$REPO_DIR/protocols/vk-gen/xml
 VULKAN_SRC_DIR=$REPO_DIR/stream-servers/vulkan
 CEREAL_OUTPUT_DIR=$VULKAN_SRC_DIR/cereal
@@ -45,10 +27,6 @@ export VK_CEREAL_BASELIB_PREFIX=base
 export VK_CEREAL_BASELIB_LINKNAME=gfxstreambase
 
 mkdir -p $CEREAL_OUTPUT_DIR
-
-if [ "$OPT_ONLY" ]; then
-export ANDROID_EMU_VK_CEREAL_SUPPRESS=$OPT_ONLY
-fi
 
 python3 $VULKAN_REGISTRY_XML_DIR/genvk.py -registry $VULKAN_REGISTRY_XML_DIR/vk.xml cereal -o $CEREAL_OUTPUT_DIR
 
