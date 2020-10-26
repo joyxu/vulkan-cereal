@@ -17,15 +17,13 @@
 
 #include "base/BumpPool.h"
 
-#include "emugl/common/feature_control.h"
+#include "host-common/feature_control.h"
 
 #include <vector>
 
 #include <inttypes.h>
 
 #define E(fmt,...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
-
-using emugl::emugl_feature_is_enabled;
 
 namespace goldfish_vk {
 
@@ -36,13 +34,13 @@ public:
 
         unsetHandleMapping();
 
-        if (emugl_feature_is_enabled(android::featurecontrol::VulkanNullOptionalStrings)) {
+        if (feature_is_enabled(kFeature_VulkanNullOptionalStrings)) {
             mFeatureBits |= VULKAN_STREAM_FEATURE_NULL_OPTIONAL_STRINGS_BIT;
         }
-        if (emugl_feature_is_enabled(android::featurecontrol::VulkanIgnoredHandles)) {
+        if (feature_is_enabled(kFeature_VulkanIgnoredHandles)) {
             mFeatureBits |= VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT;
         }
-        if (emugl_feature_is_enabled(android::featurecontrol::VulkanShaderFloat16Int8)) {
+        if (feature_is_enabled(kFeature_VulkanShaderFloat16Int8)) {
             mFeatureBits |= VULKAN_STREAM_FEATURE_SHADER_FLOAT16_INT8_BIT;
         }
     }

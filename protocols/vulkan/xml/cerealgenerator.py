@@ -408,7 +408,7 @@ using DlSymFunc = void* (void*, const char*);
 #include "VkDecoderGlobalState.h"
 #include "VkReconstruction.h"
 
-#include "{self.baseLibDirPrefix}/synchronization/Lock.h"
+#include "{self.baseLibDirPrefix}/Lock.h"
 """
 
         decoderHeaderIncludes = """
@@ -428,11 +428,10 @@ class BumpPool;
 #include "common/goldfish_vk_transform.h"
 
 #include "{self.baseLibDirPrefix}/BumpPool.h"
-#include "{self.baseLibDirPrefix}/system/System.h"
+#include "{self.baseLibDirPrefix}/System.h"
 #include "{self.baseLibDirPrefix}/Tracing.h"
 
-#include "IOStream.h"
-#include "emugl/common/logging.h"
+#include "stream-servers/IOStream.h"
 
 #include "VkDecoderGlobalState.h"
 #include "VkDecoderSnapshot.h"

@@ -22,41 +22,42 @@
 
 #include "DecompressionShaders.h"
 #include "FrameBuffer.h"
-#include "GLcommon/etc.h"
+#include "compressedTextureFormats/etc.h"
 #include "VkAndroidNativeBuffer.h"
 #include "VkCommonOperations.h"
 #include "VkDecoderSnapshot.h"
 #include "VkFormatUtils.h"
 #include "VulkanDispatch.h"
-#include "android/base/ArraySize.h"
-#include "android/base/Optional.h"
-#include "android/base/containers/EntityManager.h"
-#include "android/base/containers/Lookup.h"
-#include "android/base/files/PathUtils.h"
-#include "android/base/files/Stream.h"
-#include "android/base/memory/LazyInstance.h"
-#include "android/base/synchronization/ConditionVariable.h"
-#include "android/base/synchronization/Lock.h"
+#include "base/ArraySize.h"
+#include "base/Optional.h"
+#include "base/EntityManager.h"
+#include "base/Lookup.h"
+#include "base/Stream.h"
+#include "base/ConditionVariable.h"
+#include "base/Lock.h"
+#include "base/System.h"
 #include "common/goldfish_vk_deepcopy.h"
 #include "common/goldfish_vk_dispatch.h"
-#include "emugl/common/address_space_device_control_ops.h"
-#include "emugl/common/crash_reporter.h"
-#include "emugl/common/feature_control.h"
-#include "emugl/common/vm_operations.h"
+#include "host-common/address_space_device_control_ops.h"
+#include "host-common/vm_operations.h"
+#include "host-common/feature_control.h"
 #include "vk_util.h"
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
+#include <climits>
+
 using android::base::arraySize;
 using android::base::AutoLock;
 using android::base::ConditionVariable;
-using android::base::LazyInstance;
 using android::base::Lock;
 using android::base::Optional;
-using android::base::pj;
-using android::base::System;
 
 #define VKDGS_DEBUG 0
 
@@ -98,18 +99,16 @@ public:
         m_vk(emugl::vkDispatch()),
         m_emu(getGlobalVkEmulation()) {
         mSnapshotsEnabled =
-            emugl::emugl_feature_is_enabled(
-                android::featurecontrol::VulkanSnapshots);
-        mVkCleanupEnabled = System::get()->envGet("ANDROID_EMU_VK_NO_CLEANUP") != "1";
-        mLogging = System::get()->envGet("ANDROID_EMU_VK_LOG_CALLS") == "1";
-        mVerbosePrints = System::get()->envGet("ANDROID_EMUGL_VERBOSE") == "1";
+            feature_is_enabled(kFeature_VulkanSnapshots);
+        mVkCleanupEnabled = android::base::getEnvironmentVariable("ANDROID_EMU_VK_NO_CLEANUP") != "1";
+        mLogging = android::base::getEnvironmentVariable("ANDROID_EMU_VK_LOG_CALLS") == "1";
+        mVerbosePrints = android::base::getEnvironmentVariable("ANDROID_EMUGL_VERBOSE") == "1";
         if (get_emugl_address_space_device_control_ops().control_get_hw_funcs &&
             get_emugl_address_space_device_control_ops().control_get_hw_funcs()) {
             mUseOldMemoryCleanupPath = 0 == get_emugl_address_space_device_control_ops().control_get_hw_funcs()->getPhysAddrStartLocked();
         }
         mGuestUsesAngle =
-            emugl::emugl_feature_is_enabled(
-                android::featurecontrol::GuestUsesAngle);
+            feature_is_enabled(kFeature_GuestUsesAngle);
     }
 
     ~Impl() = default;
@@ -279,8 +278,7 @@ public:
 
         // TODO: bug 129484301
         get_emugl_vm_operations().setSkipSnapshotSave(
-                !emugl::emugl_feature_is_enabled(
-                    android::featurecontrol::VulkanSnapshots));
+                !feature_is_enabled(kFeature_VulkanSnapshots));
 
         InstanceInfo info;
         info.apiVersion = apiVersion;
@@ -753,10 +751,8 @@ public:
                 heap.size = kMaxSafeHeapSize;
             }
 
-            if (!emugl::emugl_feature_is_enabled(
-                        android::featurecontrol::GLDirectMem) &&
-                !emugl::emugl_feature_is_enabled(
-                        android::featurecontrol::VirtioGpuNext)) {
+            if (!feature_is_enabled(kFeature_GLDirectMem) &&
+                !feature_is_enabled(kFeature_VirtioGpuNext)) {
                 pMemoryProperties->memoryTypes[i].propertyFlags =
                     pMemoryProperties->memoryTypes[i].propertyFlags &
                     ~(VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -812,10 +808,8 @@ public:
                 heap.size = kMaxSafeHeapSize;
             }
 
-            if (!emugl::emugl_feature_is_enabled(
-                        android::featurecontrol::GLDirectMem) &&
-                !emugl::emugl_feature_is_enabled(
-                        android::featurecontrol::VirtioGpuNext)) {
+            if (!feature_is_enabled(kFeature_GLDirectMem) &&
+                !feature_is_enabled(kFeature_VirtioGpuNext)) {
                 pMemoryProperties->memoryProperties.memoryTypes[i].propertyFlags =
                     pMemoryProperties->memoryProperties.memoryTypes[i].propertyFlags &
                     ~(VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -2155,9 +2149,7 @@ public:
         if (!physdevInfo) {
             // If this fails, we crash, as we assume that the memory properties
             // map should have the info.
-            emugl::emugl_crash_reporter(
-                    "FATAL: Could not get image memory requirement for "
-                    "VkPhysicalDevice");
+            fprintf(stderr, "%s: Could not get image memory requirement for VkPhysicalDevice\n");
         }
 
         if ((physdevInfo->props.apiVersion >= VK_MAKE_VERSION(1, 1, 0)) &&
@@ -2460,13 +2452,10 @@ public:
             VkDeviceMemory memory,
             uint64_t physAddr) {
 
-        if (!emugl::emugl_feature_is_enabled(
-                    android::featurecontrol::GLDirectMem) &&
-            !emugl::emugl_feature_is_enabled(
-                    android::featurecontrol::VirtioGpuNext)) {
-            emugl::emugl_crash_reporter(
-                    "FATAL: Tried to use direct mapping "
-                    "while GLDirectMem is not enabled!");
+        if (!feature_is_enabled(kFeature_GLDirectMem) &&
+            !feature_is_enabled(kFeature_VirtioGpuNext)) {
+            fprintf(stderr, "%s: Tried to use direct mapping "
+                    "while GLDirectMem is not enabled!\n");
         }
 
         auto info = android::base::find(mMapInfo, memory);
@@ -2656,9 +2645,7 @@ public:
         if (!physdevInfo) {
             // If this fails, we crash, as we assume that the memory properties
             // map should have the info.
-            emugl::emugl_crash_reporter(
-                    "FATAL: Could not get memory properties for "
-                    "VkPhysicalDevice");
+            fprintf(stderr, "Error: Could not get memory properties for VkPhysicalDevice\n");
         }
 
         // If the memory was allocated with a type index that corresponds
@@ -2933,10 +2920,8 @@ public:
     }
 
     bool usingDirectMapping() const {
-        return emugl::emugl_feature_is_enabled(
-                android::featurecontrol::GLDirectMem) ||
-               emugl::emugl_feature_is_enabled(
-                android::featurecontrol::VirtioGpuNext);
+        return feature_is_enabled(kFeature_GLDirectMem) ||
+               feature_is_enabled(kFeature_VirtioGpuNext);
     }
 
     HostFeatureSupport getHostFeatureSupport() const {
@@ -3088,11 +3073,9 @@ public:
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
 
-        if (!emugl::emugl_feature_is_enabled(
-                    android::featurecontrol::GLDirectMem)) {
-            emugl::emugl_crash_reporter(
-                    "FATAL: Tried to use direct mapping "
-                    "while GLDirectMem is not enabled!");
+        if (!feature_is_enabled(kFeature_GLDirectMem)) {
+            fprintf(stderr, "FATAL: Tried to use direct mapping "
+                    "while GLDirectMem is not enabled!\n");
         }
 
         AutoLock lock(mLock);
@@ -3563,10 +3546,10 @@ public:
         uint32_t sequenceNumber) {
 
         auto nextDeadline = []() {
-            return System::get()->getUnixTimeUs() + 10000; // 10 ms
+            return android::base::getUnixTimeUs() + 10000; // 10 ms
         };
 
-        auto timeoutDeadline = System::get()->getUnixTimeUs() + 5000000; // 5 s
+        auto timeoutDeadline = android::base::getUnixTimeUs() + 5000000; // 5 s
 
         auto commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
 
@@ -3582,7 +3565,7 @@ public:
                     &mLock, waitUntilUs);
                 doWait = true;
 
-                if (timeoutDeadline < System::get()->getUnixTimeUs()) {
+                if (timeoutDeadline < android::base::getUnixTimeUs()) {
                     fprintf(stderr, "%s: warning: command buffer sync timed out! curr %u info %u\n", __func__, sequenceNumber, info.sequenceNumber);
                     break;
                 }
@@ -3600,10 +3583,10 @@ public:
         uint32_t sequenceNumber) {
 
         auto nextDeadline = []() {
-            return System::get()->getUnixTimeUs() + 10000; // 10 ms
+            return android::base::getUnixTimeUs() + 10000; // 10 ms
         };
 
-        auto timeoutDeadline = System::get()->getUnixTimeUs() + 5000000; // 5 s
+        auto timeoutDeadline = android::base::getUnixTimeUs() + 5000000; // 5 s
 
         auto queue = unbox_VkQueue(boxed_queue);
 
@@ -3619,7 +3602,7 @@ public:
                     &mLock, waitUntilUs);
                 doWait = true;
 
-                if (timeoutDeadline < System::get()->getUnixTimeUs()) {
+                if (timeoutDeadline < android::base::getUnixTimeUs()) {
                     fprintf(stderr, "%s: warning: command buffer sync timed out! curr %u info %u\n", __func__, sequenceNumber, info.sequenceNumber);
                     break;
                 }
@@ -3874,18 +3857,16 @@ public:
                 VkResult result =
                         vk->vkCreateImage(device, &createInfo, nullptr, &image);
                 if (result != VK_SUCCESS) {
-                    LOG(ERROR) << "vkCreateImage failed. width: " << width
-                               << " result: " << result;
+                    fprintf(stderr, "%s: vkCreateImage failed. w h %u %u result 0x%x\n", __func__,
+                            width, createInfo.extent.height,
+                            result);
                     continue;
                 }
                 vk->vkGetImageSubresourceLayout(device, image, &subresource, &subresourceLayout);
                 vk->vkDestroyImage(device, image, nullptr);
 
                 if (width > kMinWidth && subresourceLayout.offset != offset) {
-                    LOG(WARNING) << "Image size " << width << " x 1 has a different "
-                                 << "offset (offset = " << subresourceLayout.offset
-                                 << ", offset of other images = " << offset
-                                 << "), returned pOffset might be invalid.";
+                    fprintf(stderr, "Image size %u x %u has a different offset (%u), offset of other images %u, returned pOffset might be invalid.\n", width, createInfo.extent.height, offset);
                 }
                 offset = subresourceLayout.offset;
 
@@ -5792,12 +5773,13 @@ VkDecoderGlobalState::VkDecoderGlobalState()
 
 VkDecoderGlobalState::~VkDecoderGlobalState() = default;
 
-static LazyInstance<VkDecoderGlobalState> sGlobalDecoderState =
-        LAZY_INSTANCE_INIT;
+static VkDecoderGlobalState* sGlobalDecoderState = nullptr;
 
 // static
 VkDecoderGlobalState* VkDecoderGlobalState::get() {
-    return sGlobalDecoderState.ptr();
+    if (sGlobalDecoderState) return sGlobalDecoderState;
+    sGlobalDecoderState = new VkDecoderGlobalState;
+    return sGlobalDecoderState;
 }
 
 // Snapshots

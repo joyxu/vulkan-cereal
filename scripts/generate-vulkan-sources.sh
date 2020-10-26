@@ -26,7 +26,7 @@ export VK_CEREAL_HOST_DECODER_DIR=$REPO_DIR/stream-servers/vulkan
 export VK_CEREAL_HOST_PROTO_DIR=$REPO_DIR/stream-servers/vulkan/cereal/proto
 export VK_CEREAL_HOST_INCLUDE_DIR=$REPO_DIR/include
 export VK_CEREAL_BASELIB_PREFIX=base
-export VK_CEREAL_BASELIB_LINKNAME=gfxstreambase
+export VK_CEREAL_BASELIB_LINKNAME=gfxstream-base
 
 mkdir -p $CEREAL_OUTPUT_DIR
 

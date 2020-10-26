@@ -13,8 +13,8 @@
 // limitations under the License.
 #pragma once
 
-#include "android/base/files/Stream.h"
-#include "android/base/containers/EntityManager.h"
+#include "base/Stream.h"
+#include "base/EntityManager.h"
 
 #include "VulkanHandleMapping.h"
 #include "VulkanHandles.h"

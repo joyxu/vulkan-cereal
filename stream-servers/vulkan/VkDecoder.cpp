@@ -30,11 +30,10 @@
 #include "common/goldfish_vk_transform.h"
 
 #include "base/BumpPool.h"
-#include "base/system/System.h"
+#include "base/System.h"
 #include "base/Tracing.h"
 
-#include "IOStream.h"
-#include "emugl/common/logging.h"
+#include "stream-servers/IOStream.h"
 
 #include "VkDecoderGlobalState.h"
 #include "VkDecoderSnapshot.h"
@@ -52,11 +51,9 @@ using emugl::vkDispatch;
 
 using namespace goldfish_vk;
 
-using android::base::System;
-
 class VkDecoder::Impl {
 public:
-    Impl() : m_logCalls(System::get()->envGet("ANDROID_EMU_VK_LOG_CALLS") == "1"),
+    Impl() : m_logCalls(android::base::getEnvironmentVariable("ANDROID_EMU_VK_LOG_CALLS") == "1"),
              m_vk(vkDispatch()),
              m_state(VkDecoderGlobalState::get()),
              m_boxedHandleUnwrapMapping(m_state),
@@ -166,7 +163,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 vkCreateInstance_VkResult_return = m_state->on_vkCreateInstance(&m_pool, pCreateInfo, pAllocator, pInstance);
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_2;
-                static_assert(8 == sizeof(VkInstance), "handle map overwrite requres VkInstance to be 8 bytes long");
+                static_assert(8 == sizeof(VkInstance), "handle map overwrite requires VkInstance to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkInstance((VkInstance*)pInstance, 1);
                 vkStream->write((VkInstance*)pInstance, 8 * 1);
                 vkStream->write(&vkCreateInstance_VkResult_return, sizeof(VkResult));
@@ -287,7 +284,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                     {
                         uint64_t* cgen_var_11;
                         vkStream->alloc((void**)&cgen_var_11, (*(pPhysicalDeviceCount)) * 8);
-                        static_assert(8 == sizeof(VkPhysicalDevice), "handle map overwrite requres VkPhysicalDevice to be 8 bytes long");
+                        static_assert(8 == sizeof(VkPhysicalDevice), "handle map overwrite requires VkPhysicalDevice to be 8 bytes long");
                         vkStream->handleMapping()->mapHandles_VkPhysicalDevice((VkPhysicalDevice*)pPhysicalDevices, (*(pPhysicalDeviceCount)));
                         vkStream->write((VkPhysicalDevice*)pPhysicalDevices, 8 * (*(pPhysicalDeviceCount)));
                     }
@@ -744,7 +741,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 vkCreateDevice_VkResult_return = m_state->on_vkCreateDevice(&m_pool, physicalDevice, pCreateInfo, pAllocator, pDevice);
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_27;
-                static_assert(8 == sizeof(VkDevice), "handle map overwrite requres VkDevice to be 8 bytes long");
+                static_assert(8 == sizeof(VkDevice), "handle map overwrite requires VkDevice to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkDevice((VkDevice*)pDevice, 1);
                 vkStream->write((VkDevice*)pDevice, 8 * 1);
                 vkStream->write(&vkCreateDevice_VkResult_return, sizeof(VkResult));
@@ -1196,7 +1193,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 m_state->on_vkGetDeviceQueue(&m_pool, device, queueFamilyIndex, queueIndex, pQueue);
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_52;
-                static_assert(8 == sizeof(VkQueue), "handle map overwrite requres VkQueue to be 8 bytes long");
+                static_assert(8 == sizeof(VkQueue), "handle map overwrite requires VkQueue to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkQueue((VkQueue*)pQueue, 1);
                 vkStream->write((VkQueue*)pQueue, 8 * 1);
                 vkStream->commitWrite();
@@ -1372,7 +1369,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin manual non dispatchable handle create for pMemory;
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_60;
-                static_assert(8 == sizeof(VkDeviceMemory), "handle map overwrite requres VkDeviceMemory to be 8 bytes long");
+                static_assert(8 == sizeof(VkDeviceMemory), "handle map overwrite requires VkDeviceMemory to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkDeviceMemory((VkDeviceMemory*)pMemory, 1);
                 vkStream->write((VkDeviceMemory*)pMemory, 8 * 1);
                 // Begin manual non dispatchable handle create for pMemory;
@@ -2169,7 +2166,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pFence;
                 if (vkCreateFence_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_100;
-                static_assert(8 == sizeof(VkFence), "handle map overwrite requres VkFence to be 8 bytes long");
+                static_assert(8 == sizeof(VkFence), "handle map overwrite requires VkFence to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkFence((VkFence*)pFence, 1);
                 vkStream->write((VkFence*)pFence, 8 * 1);
                 // Begin auto non dispatchable handle create for pFence;
@@ -2410,7 +2407,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin manual non dispatchable handle create for pSemaphore;
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_113;
-                static_assert(8 == sizeof(VkSemaphore), "handle map overwrite requres VkSemaphore to be 8 bytes long");
+                static_assert(8 == sizeof(VkSemaphore), "handle map overwrite requires VkSemaphore to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkSemaphore((VkSemaphore*)pSemaphore, 1);
                 vkStream->write((VkSemaphore*)pSemaphore, 8 * 1);
                 // Begin manual non dispatchable handle create for pSemaphore;
@@ -2528,7 +2525,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pEvent;
                 if (vkCreateEvent_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_120;
-                static_assert(8 == sizeof(VkEvent), "handle map overwrite requres VkEvent to be 8 bytes long");
+                static_assert(8 == sizeof(VkEvent), "handle map overwrite requires VkEvent to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkEvent((VkEvent*)pEvent, 1);
                 vkStream->write((VkEvent*)pEvent, 8 * 1);
                 // Begin auto non dispatchable handle create for pEvent;
@@ -2751,7 +2748,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pQueryPool;
                 if (vkCreateQueryPool_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_133;
-                static_assert(8 == sizeof(VkQueryPool), "handle map overwrite requres VkQueryPool to be 8 bytes long");
+                static_assert(8 == sizeof(VkQueryPool), "handle map overwrite requires VkQueryPool to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkQueryPool((VkQueryPool*)pQueryPool, 1);
                 vkStream->write((VkQueryPool*)pQueryPool, 8 * 1);
                 // Begin auto non dispatchable handle create for pQueryPool;
@@ -2922,7 +2919,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin manual non dispatchable handle create for pBuffer;
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_143;
-                static_assert(8 == sizeof(VkBuffer), "handle map overwrite requres VkBuffer to be 8 bytes long");
+                static_assert(8 == sizeof(VkBuffer), "handle map overwrite requires VkBuffer to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkBuffer((VkBuffer*)pBuffer, 1);
                 vkStream->write((VkBuffer*)pBuffer, 8 * 1);
                 // Begin manual non dispatchable handle create for pBuffer;
@@ -3040,7 +3037,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pView;
                 if (vkCreateBufferView_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_150;
-                static_assert(8 == sizeof(VkBufferView), "handle map overwrite requres VkBufferView to be 8 bytes long");
+                static_assert(8 == sizeof(VkBufferView), "handle map overwrite requires VkBufferView to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkBufferView((VkBufferView*)pView, 1);
                 vkStream->write((VkBufferView*)pView, 8 * 1);
                 // Begin auto non dispatchable handle create for pView;
@@ -3158,7 +3155,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin manual non dispatchable handle create for pImage;
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_157;
-                static_assert(8 == sizeof(VkImage), "handle map overwrite requres VkImage to be 8 bytes long");
+                static_assert(8 == sizeof(VkImage), "handle map overwrite requires VkImage to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkImage((VkImage*)pImage, 1);
                 vkStream->write((VkImage*)pImage, 8 * 1);
                 // Begin manual non dispatchable handle create for pImage;
@@ -3332,7 +3329,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin manual non dispatchable handle create for pView;
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_166;
-                static_assert(8 == sizeof(VkImageView), "handle map overwrite requres VkImageView to be 8 bytes long");
+                static_assert(8 == sizeof(VkImageView), "handle map overwrite requires VkImageView to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkImageView((VkImageView*)pView, 1);
                 vkStream->write((VkImageView*)pView, 8 * 1);
                 // Begin manual non dispatchable handle create for pView;
@@ -3450,7 +3447,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pShaderModule;
                 if (vkCreateShaderModule_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_173;
-                static_assert(8 == sizeof(VkShaderModule), "handle map overwrite requres VkShaderModule to be 8 bytes long");
+                static_assert(8 == sizeof(VkShaderModule), "handle map overwrite requires VkShaderModule to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkShaderModule((VkShaderModule*)pShaderModule, 1);
                 vkStream->write((VkShaderModule*)pShaderModule, 8 * 1);
                 // Begin auto non dispatchable handle create for pShaderModule;
@@ -3568,7 +3565,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pPipelineCache;
                 if (vkCreatePipelineCache_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_180;
-                static_assert(8 == sizeof(VkPipelineCache), "handle map overwrite requres VkPipelineCache to be 8 bytes long");
+                static_assert(8 == sizeof(VkPipelineCache), "handle map overwrite requires VkPipelineCache to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkPipelineCache((VkPipelineCache*)pPipelineCache, 1);
                 vkStream->write((VkPipelineCache*)pPipelineCache, 8 * 1);
                 // Begin auto non dispatchable handle create for pPipelineCache;
@@ -3825,7 +3822,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 {
                     uint64_t* cgen_var_199;
                     vkStream->alloc((void**)&cgen_var_199, ((createInfoCount)) * 8);
-                    static_assert(8 == sizeof(VkPipeline), "handle map overwrite requres VkPipeline to be 8 bytes long");
+                    static_assert(8 == sizeof(VkPipeline), "handle map overwrite requires VkPipeline to be 8 bytes long");
                     vkStream->handleMapping()->mapHandles_VkPipeline((VkPipeline*)pPipelines, ((createInfoCount)));
                     vkStream->write((VkPipeline*)pPipelines, 8 * ((createInfoCount)));
                 }
@@ -3912,7 +3909,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 {
                     uint64_t* cgen_var_204;
                     vkStream->alloc((void**)&cgen_var_204, ((createInfoCount)) * 8);
-                    static_assert(8 == sizeof(VkPipeline), "handle map overwrite requres VkPipeline to be 8 bytes long");
+                    static_assert(8 == sizeof(VkPipeline), "handle map overwrite requires VkPipeline to be 8 bytes long");
                     vkStream->handleMapping()->mapHandles_VkPipeline((VkPipeline*)pPipelines, ((createInfoCount)));
                     vkStream->write((VkPipeline*)pPipelines, 8 * ((createInfoCount)));
                 }
@@ -4033,7 +4030,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pPipelineLayout;
                 if (vkCreatePipelineLayout_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_211;
-                static_assert(8 == sizeof(VkPipelineLayout), "handle map overwrite requres VkPipelineLayout to be 8 bytes long");
+                static_assert(8 == sizeof(VkPipelineLayout), "handle map overwrite requires VkPipelineLayout to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkPipelineLayout((VkPipelineLayout*)pPipelineLayout, 1);
                 vkStream->write((VkPipelineLayout*)pPipelineLayout, 8 * 1);
                 // Begin auto non dispatchable handle create for pPipelineLayout;
@@ -4153,7 +4150,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin manual non dispatchable handle create for pSampler;
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_218;
-                static_assert(8 == sizeof(VkSampler), "handle map overwrite requres VkSampler to be 8 bytes long");
+                static_assert(8 == sizeof(VkSampler), "handle map overwrite requires VkSampler to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkSampler((VkSampler*)pSampler, 1);
                 vkStream->write((VkSampler*)pSampler, 8 * 1);
                 // Begin manual non dispatchable handle create for pSampler;
@@ -4271,7 +4268,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin manual non dispatchable handle create for pSetLayout;
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_225;
-                static_assert(8 == sizeof(VkDescriptorSetLayout), "handle map overwrite requres VkDescriptorSetLayout to be 8 bytes long");
+                static_assert(8 == sizeof(VkDescriptorSetLayout), "handle map overwrite requires VkDescriptorSetLayout to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkDescriptorSetLayout((VkDescriptorSetLayout*)pSetLayout, 1);
                 vkStream->write((VkDescriptorSetLayout*)pSetLayout, 8 * 1);
                 // Begin manual non dispatchable handle create for pSetLayout;
@@ -4389,7 +4386,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin manual non dispatchable handle create for pDescriptorPool;
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_232;
-                static_assert(8 == sizeof(VkDescriptorPool), "handle map overwrite requres VkDescriptorPool to be 8 bytes long");
+                static_assert(8 == sizeof(VkDescriptorPool), "handle map overwrite requires VkDescriptorPool to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkDescriptorPool((VkDescriptorPool*)pDescriptorPool, 1);
                 vkStream->write((VkDescriptorPool*)pDescriptorPool, 8 * 1);
                 // Begin manual non dispatchable handle create for pDescriptorPool;
@@ -4539,7 +4536,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 {
                     uint64_t* cgen_var_240;
                     vkStream->alloc((void**)&cgen_var_240, pAllocateInfo->descriptorSetCount * 8);
-                    static_assert(8 == sizeof(VkDescriptorSet), "handle map overwrite requres VkDescriptorSet to be 8 bytes long");
+                    static_assert(8 == sizeof(VkDescriptorSet), "handle map overwrite requires VkDescriptorSet to be 8 bytes long");
                     vkStream->handleMapping()->mapHandles_VkDescriptorSet((VkDescriptorSet*)pDescriptorSets, pAllocateInfo->descriptorSetCount);
                     vkStream->write((VkDescriptorSet*)pDescriptorSets, 8 * pAllocateInfo->descriptorSetCount);
                 }
@@ -4723,7 +4720,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pFramebuffer;
                 if (vkCreateFramebuffer_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_249;
-                static_assert(8 == sizeof(VkFramebuffer), "handle map overwrite requres VkFramebuffer to be 8 bytes long");
+                static_assert(8 == sizeof(VkFramebuffer), "handle map overwrite requires VkFramebuffer to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkFramebuffer((VkFramebuffer*)pFramebuffer, 1);
                 vkStream->write((VkFramebuffer*)pFramebuffer, 8 * 1);
                 // Begin auto non dispatchable handle create for pFramebuffer;
@@ -4841,7 +4838,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin manual non dispatchable handle create for pRenderPass;
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_256;
-                static_assert(8 == sizeof(VkRenderPass), "handle map overwrite requres VkRenderPass to be 8 bytes long");
+                static_assert(8 == sizeof(VkRenderPass), "handle map overwrite requires VkRenderPass to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkRenderPass((VkRenderPass*)pRenderPass, 1);
                 vkStream->write((VkRenderPass*)pRenderPass, 8 * 1);
                 // Begin manual non dispatchable handle create for pRenderPass;
@@ -5008,7 +5005,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin manual non dispatchable handle create for pCommandPool;
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_265;
-                static_assert(8 == sizeof(VkCommandPool), "handle map overwrite requres VkCommandPool to be 8 bytes long");
+                static_assert(8 == sizeof(VkCommandPool), "handle map overwrite requires VkCommandPool to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkCommandPool((VkCommandPool*)pCommandPool, 1);
                 vkStream->write((VkCommandPool*)pCommandPool, 8 * 1);
                 // Begin manual non dispatchable handle create for pCommandPool;
@@ -5156,7 +5153,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 {
                     uint64_t* cgen_var_273;
                     vkStream->alloc((void**)&cgen_var_273, pAllocateInfo->commandBufferCount * 8);
-                    static_assert(8 == sizeof(VkCommandBuffer), "handle map overwrite requres VkCommandBuffer to be 8 bytes long");
+                    static_assert(8 == sizeof(VkCommandBuffer), "handle map overwrite requires VkCommandBuffer to be 8 bytes long");
                     vkStream->handleMapping()->mapHandles_VkCommandBuffer((VkCommandBuffer*)pCommandBuffers, pAllocateInfo->commandBufferCount);
                     vkStream->write((VkCommandBuffer*)pCommandBuffers, 8 * pAllocateInfo->commandBufferCount);
                 }
@@ -8311,7 +8308,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pYcbcrConversion;
                 if (vkCreateSamplerYcbcrConversion_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_400;
-                static_assert(8 == sizeof(VkSamplerYcbcrConversion), "handle map overwrite requres VkSamplerYcbcrConversion to be 8 bytes long");
+                static_assert(8 == sizeof(VkSamplerYcbcrConversion), "handle map overwrite requires VkSamplerYcbcrConversion to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkSamplerYcbcrConversion((VkSamplerYcbcrConversion*)pYcbcrConversion, 1);
                 vkStream->write((VkSamplerYcbcrConversion*)pYcbcrConversion, 8 * 1);
                 // Begin auto non dispatchable handle create for pYcbcrConversion;
@@ -8429,7 +8426,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin manual non dispatchable handle create for pDescriptorUpdateTemplate;
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_407;
-                static_assert(8 == sizeof(VkDescriptorUpdateTemplate), "handle map overwrite requres VkDescriptorUpdateTemplate to be 8 bytes long");
+                static_assert(8 == sizeof(VkDescriptorUpdateTemplate), "handle map overwrite requires VkDescriptorUpdateTemplate to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkDescriptorUpdateTemplate((VkDescriptorUpdateTemplate*)pDescriptorUpdateTemplate, 1);
                 vkStream->write((VkDescriptorUpdateTemplate*)pDescriptorUpdateTemplate, 8 * 1);
                 // Begin manual non dispatchable handle create for pDescriptorUpdateTemplate;
@@ -9120,7 +9117,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pSwapchain;
                 if (vkCreateSwapchainKHR_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_441;
-                static_assert(8 == sizeof(VkSwapchainKHR), "handle map overwrite requres VkSwapchainKHR to be 8 bytes long");
+                static_assert(8 == sizeof(VkSwapchainKHR), "handle map overwrite requires VkSwapchainKHR to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkSwapchainKHR((VkSwapchainKHR*)pSwapchain, 1);
                 vkStream->write((VkSwapchainKHR*)pSwapchain, 8 * 1);
                 // Begin auto non dispatchable handle create for pSwapchain;
@@ -10014,7 +10011,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pMode;
                 if (vkCreateDisplayModeKHR_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_497;
-                static_assert(8 == sizeof(VkDisplayModeKHR), "handle map overwrite requres VkDisplayModeKHR to be 8 bytes long");
+                static_assert(8 == sizeof(VkDisplayModeKHR), "handle map overwrite requires VkDisplayModeKHR to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkDisplayModeKHR((VkDisplayModeKHR*)pMode, 1);
                 vkStream->write((VkDisplayModeKHR*)pMode, 8 * 1);
                 // Begin auto non dispatchable handle create for pMode;
@@ -12125,7 +12122,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin manual non dispatchable handle create for pDescriptorUpdateTemplate;
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_581;
-                static_assert(8 == sizeof(VkDescriptorUpdateTemplate), "handle map overwrite requres VkDescriptorUpdateTemplate to be 8 bytes long");
+                static_assert(8 == sizeof(VkDescriptorUpdateTemplate), "handle map overwrite requires VkDescriptorUpdateTemplate to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkDescriptorUpdateTemplate((VkDescriptorUpdateTemplate*)pDescriptorUpdateTemplate, 1);
                 vkStream->write((VkDescriptorUpdateTemplate*)pDescriptorUpdateTemplate, 8 * 1);
                 // Begin manual non dispatchable handle create for pDescriptorUpdateTemplate;
@@ -13432,7 +13429,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pYcbcrConversion;
                 if (vkCreateSamplerYcbcrConversionKHR_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_636;
-                static_assert(8 == sizeof(VkSamplerYcbcrConversion), "handle map overwrite requres VkSamplerYcbcrConversion to be 8 bytes long");
+                static_assert(8 == sizeof(VkSamplerYcbcrConversion), "handle map overwrite requires VkSamplerYcbcrConversion to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkSamplerYcbcrConversion((VkSamplerYcbcrConversion*)pYcbcrConversion, 1);
                 vkStream->write((VkSamplerYcbcrConversion*)pYcbcrConversion, 8 * 1);
                 // Begin auto non dispatchable handle create for pYcbcrConversion;
@@ -13945,7 +13942,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pCallback;
                 if (vkCreateDebugReportCallbackEXT_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_661;
-                static_assert(8 == sizeof(VkDebugReportCallbackEXT), "handle map overwrite requres VkDebugReportCallbackEXT to be 8 bytes long");
+                static_assert(8 == sizeof(VkDebugReportCallbackEXT), "handle map overwrite requires VkDebugReportCallbackEXT to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkDebugReportCallbackEXT((VkDebugReportCallbackEXT*)pCallback, 1);
                 vkStream->write((VkDebugReportCallbackEXT*)pCallback, 8 * 1);
                 // Begin auto non dispatchable handle create for pCallback;
@@ -14808,7 +14805,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pIndirectCommandsLayout;
                 if (vkCreateIndirectCommandsLayoutNVX_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_700;
-                static_assert(8 == sizeof(VkIndirectCommandsLayoutNVX), "handle map overwrite requres VkIndirectCommandsLayoutNVX to be 8 bytes long");
+                static_assert(8 == sizeof(VkIndirectCommandsLayoutNVX), "handle map overwrite requires VkIndirectCommandsLayoutNVX to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkIndirectCommandsLayoutNVX((VkIndirectCommandsLayoutNVX*)pIndirectCommandsLayout, 1);
                 vkStream->write((VkIndirectCommandsLayoutNVX*)pIndirectCommandsLayout, 8 * 1);
                 // Begin auto non dispatchable handle create for pIndirectCommandsLayout;
@@ -14926,7 +14923,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pObjectTable;
                 if (vkCreateObjectTableNVX_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_707;
-                static_assert(8 == sizeof(VkObjectTableNVX), "handle map overwrite requres VkObjectTableNVX to be 8 bytes long");
+                static_assert(8 == sizeof(VkObjectTableNVX), "handle map overwrite requires VkObjectTableNVX to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkObjectTableNVX((VkObjectTableNVX*)pObjectTable, 1);
                 vkStream->write((VkObjectTableNVX*)pObjectTable, 8 * 1);
                 // Begin auto non dispatchable handle create for pObjectTable;
@@ -16318,7 +16315,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pMessenger;
                 if (vkCreateDebugUtilsMessengerEXT_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_769;
-                static_assert(8 == sizeof(VkDebugUtilsMessengerEXT), "handle map overwrite requres VkDebugUtilsMessengerEXT to be 8 bytes long");
+                static_assert(8 == sizeof(VkDebugUtilsMessengerEXT), "handle map overwrite requires VkDebugUtilsMessengerEXT to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkDebugUtilsMessengerEXT((VkDebugUtilsMessengerEXT*)pMessenger, 1);
                 vkStream->write((VkDebugUtilsMessengerEXT*)pMessenger, 8 * 1);
                 // Begin auto non dispatchable handle create for pMessenger;
@@ -16681,7 +16678,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin auto non dispatchable handle create for pValidationCache;
                 if (vkCreateValidationCacheEXT_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
                 uint64_t cgen_var_781;
-                static_assert(8 == sizeof(VkValidationCacheEXT), "handle map overwrite requres VkValidationCacheEXT to be 8 bytes long");
+                static_assert(8 == sizeof(VkValidationCacheEXT), "handle map overwrite requires VkValidationCacheEXT to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkValidationCacheEXT((VkValidationCacheEXT*)pValidationCache, 1);
                 vkStream->write((VkValidationCacheEXT*)pValidationCache, 8 * 1);
                 // Begin auto non dispatchable handle create for pValidationCache;
@@ -17552,7 +17549,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin manual non dispatchable handle create for pImage;
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_832;
-                static_assert(8 == sizeof(VkImage), "handle map overwrite requres VkImage to be 8 bytes long");
+                static_assert(8 == sizeof(VkImage), "handle map overwrite requires VkImage to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkImage((VkImage*)pImage, 1);
                 vkStream->write((VkImage*)pImage, 8 * 1);
                 // Begin manual non dispatchable handle create for pImage;
@@ -17635,7 +17632,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream)
                 // Begin manual non dispatchable handle create for pBuffer;
                 vkStream->unsetHandleMapping();
                 uint64_t cgen_var_836;
-                static_assert(8 == sizeof(VkBuffer), "handle map overwrite requres VkBuffer to be 8 bytes long");
+                static_assert(8 == sizeof(VkBuffer), "handle map overwrite requires VkBuffer to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkBuffer((VkBuffer*)pBuffer, 1);
                 vkStream->write((VkBuffer*)pBuffer, 8 * 1);
                 // Begin manual non dispatchable handle create for pBuffer;

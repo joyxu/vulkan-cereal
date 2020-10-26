@@ -1,11 +1,16 @@
 project(gfx-streaming-kit)
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.11)
 
 add_executable(buildtest test.c)
 
-# Common base library###########################################################
+# Common base libraries for host################################################
 
 add_subdirectory(base)
+add_subdirectory(host-common)
+
+# Backends######################################################################
+
+add_subdirectory(stream-servers)
 
 # Protocols and associated code generators######################################
 
@@ -14,14 +19,6 @@ add_subdirectory(base)
 # Frontends#####################################################################
 
 # add_subdirectory(stream-clients)
-
-# Backends######################################################################
-
-add_subdirectory(stream-servers)
-
-# Transport implementations#####################################################
-
-# add_subdirectory(transports)
 
 # Test environments#############################################################
 

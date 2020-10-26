@@ -19,6 +19,8 @@
 #include <algorithm>
 #include <utility>
 
+#include <string.h>
+
 namespace android {
 namespace base {
 

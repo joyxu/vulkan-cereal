@@ -13,12 +13,14 @@
 // limitations under the License.
 #include "VkReconstruction.h"
 
-#include "android/base/containers/EntityManager.h"
+#include "base/EntityManager.h"
 
 #include "VkDecoder.h"
 #include "IOStream.h"
 
 #include <unordered_map>
+
+#include <string.h>
 
 #define DEBUG_RECONSTRUCTION 0
 

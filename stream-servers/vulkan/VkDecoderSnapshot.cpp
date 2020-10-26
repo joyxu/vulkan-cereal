@@ -29,7 +29,7 @@
 #include "VkDecoderGlobalState.h"
 #include "VkReconstruction.h"
 
-#include "base/synchronization/Lock.h"
+#include "base/Lock.h"
 
 
 

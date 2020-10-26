@@ -32,11 +32,9 @@ using emugl::vkDispatch;
 
 using namespace goldfish_vk;
 
-using android::base::System;
-
 class VkDecoder::Impl {
 public:
-    Impl() : m_logCalls(System::get()->envGet("ANDROID_EMU_VK_LOG_CALLS") == "1"),
+    Impl() : m_logCalls(android::base::getEnvironmentVariable("ANDROID_EMU_VK_LOG_CALLS") == "1"),
              m_vk(vkDispatch()),
              m_state(VkDecoderGlobalState::get()),
              m_boxedHandleUnwrapMapping(m_state),
