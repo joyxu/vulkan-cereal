@@ -14,7 +14,7 @@ add_subdirectory(stream-servers)
 
 # Protocols and associated code generators######################################
 
-# add_subdirectory(protocols)
+add_subdirectory(protocols)
 
 # Frontends#####################################################################
 
