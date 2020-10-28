@@ -1,13 +1,19 @@
 project(gfx-streaming-kit)
 cmake_minimum_required(VERSION 3.11)
 
+set(CMAKE_CXX_STANDARD 17)
+
 set(GFXSTREAM_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Third party dependencies
+add_subdirectory(third-party)
 
 add_executable(buildtest test.c)
 
 # Common base libraries for host################################################
 
 add_subdirectory(base)
+add_subdirectory(snapshot)
 add_subdirectory(host-common)
 
 # Backends######################################################################
