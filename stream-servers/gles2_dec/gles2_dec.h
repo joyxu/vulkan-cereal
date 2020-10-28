@@ -4,12 +4,11 @@
 #ifndef GUARD_gles2_decoder_context_t
 #define GUARD_gles2_decoder_context_t
 
-#include "OpenglRender/IOStream.h"
+#include "IOStream.h"
 #include "ChecksumCalculator.h"
 #include "gles2_server_context.h"
 
 
-#include "emugl/common/logging.h"
 
 struct gles2_decoder_context_t : public gles2_server_context_t {
 

@@ -23,4 +23,4 @@ add_library(
 endif()
 
 target_include_directories(
-    gfxstream-base PUBLIC ../)
+    gfxstream-base PUBLIC ${GFXSTREAM_REPO_ROOT})
