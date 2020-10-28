@@ -4,6 +4,7 @@ endif()
 
 set(gfxstream-base-common-sources
     CompressingStream.cpp
+    CpuTime.cpp
     DecompressingStream.cpp
     GLObjectCounter.cpp
     MemStream.cpp

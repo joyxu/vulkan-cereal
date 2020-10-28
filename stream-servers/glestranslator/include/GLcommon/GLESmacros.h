@@ -7,20 +7,27 @@
 #include "base/PathUtils.h"
 #include "base/MemoryTracker.h"
 
+#if 0
+
 #define MEM_TRACE_IF(condition, group)                                  \
     if ((condition)) {                                                  \
         static std::once_flag once_flag;                                \
         const std::string func(__FUNCTION__);                           \
         std::call_once(once_flag, [&func]() {                           \
-            if (emugl::getMemoryTracker()) {                            \
-                android::base::StringView file(__FILE__);               \
-                android::base::StringView baseName;                     \
-                android::base::PathUtils::split(file, NULL, &baseName); \
-                emugl::getMemoryTracker()->addToGroup(                  \
-                        group, baseName.str() + ":" + func);            \
+            if (android::base::MemoryTracker::get()) {                            \
+                std::string baseName; \
+                android::base::PathUtils::split(std::string(__FILE__), NULL, &baseName); \
+                android::base::MemoryTracker::get()->addToGroup(                  \
+                        group, baseName.r() + ":" + func);            \
             }                                                           \
         });                                                             \
     }
+#else
+
+#define MEM_TRACE_IF(condition, group)
+
+#endif
+
 #else
 // windows
 #define MEM_TRACE_IF(condition, group)

@@ -1,3 +1,5 @@
+#include "base/CpuTime.h"
+
 #include <string>
 
 namespace android {
@@ -16,6 +18,8 @@ std::string getLauncherDirectory();
 uint64_t getFileSize(int fd, uint64_t* size);
 
 void sleepMs(uint64_t ms);
+
+CpuTime cpuTime();
 
 } // namespace base
 } // namespace android

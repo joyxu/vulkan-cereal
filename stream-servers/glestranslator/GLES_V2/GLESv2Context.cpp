@@ -20,9 +20,10 @@
 #include "SamplerData.h"
 #include "ShaderParser.h"
 #include "TransformFeedbackData.h"
-#include "android/base/files/StreamSerializing.h"
+#include "base/Lock.h"
+#include "base/StreamSerializing.h"
 
-#include "emugl/common/crash_reporter.h"
+#include "host-common/crash_reporter.h"
 
 #include <string.h>
 
@@ -64,7 +65,7 @@ void GLESv2Context::initGlobal(EGLiface* iface) {
 }
 
 void GLESv2Context::init() {
-    emugl::Mutex::AutoLock mutex(s_lock);
+    android::base::AutoLock mutex(s_lock);
     if(!m_initialized) {
         GLEScontext::init();
         addVertexArrayObject(0);
@@ -585,8 +586,8 @@ void GLESv2Context::drawWithEmulations(
             s_glDispatch.glDrawArraysInstanced(mode, first, count, primcount);
             break;
         default:
-            emugl::emugl_crash_reporter(
-                    "drawWithEmulations has corrupt call parameters!");
+            emugl_crash_reporter(
+                "drawWithEmulations has corrupt call parameters!");
     }
 
     if (needClientIBOSetup) {

@@ -18,8 +18,7 @@
 
 #include "ShaderParser.h"
 
-#include "android/base/containers/HybridComponentManager.h"
-#include "android/base/StringView.h"
+#include "base/HybridComponentManager.h"
 
 #include <memory>
 #include <sstream>
@@ -74,8 +73,8 @@ public:
     GLuint getAttachedComputeShader() const;
     GLuint getAttachedShader(GLenum type) const;
 
-    android::base::StringView getTranslatedName(android::base::StringView userVarName) const;
-    android::base::StringView getDetranslatedName(android::base::StringView driverName) const;
+    std::string getTranslatedName(const std::string& userVarName) const;
+    std::string getDetranslatedName(const std::string& driverName) const;
 
     bool attachShader(GLuint shader, ShaderParser* shaderData, GLenum type);
     bool isAttached(GLuint shader) const;
@@ -117,9 +116,9 @@ public:
 
     // Virtualize uniform locations
     // It handles location -1 as well
-    void initGuestUniformLocForKey(android::base::StringView key);
-    void initGuestUniformLocForKey(android::base::StringView key,
-                                   android::base::StringView key2);
+    void initGuestUniformLocForKey(const std::string& key);
+    void initGuestUniformLocForKey(const std::string& key,
+                                   const std::string& key2);
     int getGuestUniformLocation(const char* uniName);
     int getHostUniformLocation(int guestLocation);
 

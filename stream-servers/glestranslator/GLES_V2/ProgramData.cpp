@@ -15,10 +15,10 @@
 */
 
 #include "ProgramData.h"
-#include "OpenglCodecCommon/glUtils.h"
+#include "apigen-codec-common/glUtils.h"
 
-#include "android/base/containers/Lookup.h"
-#include "android/base/files/StreamSerializing.h"
+#include "base/Lookup.h"
+#include "base/StreamSerializing.h"
 #include "ANGLEShaderParser.h"
 #include "GLcommon/GLutils.h"
 #include "GLcommon/GLESmacros.h"
@@ -27,9 +27,6 @@
 #include <GLES3/gl31.h>
 #include <string.h>
 #include <unordered_set>
-
-using android::base::c_str;
-using android::base::StringView;
 
 GLUniformDesc::GLUniformDesc(const char* name, GLint location, GLsizei count, GLboolean transpose,
             GLenum type, GLsizei size, unsigned char* val)
@@ -466,7 +463,7 @@ void ProgramData::restore(ObjectLocalName localName,
 #endif // DEBUG
         for (const auto& uniform : mUniNameToGuestLoc) {
             GLint hostLoc = dispatcher.glGetUniformLocation(
-                    globalName, c_str(getTranslatedName(uniform.first)));
+                    globalName, getTranslatedName(uniform.first).c_str());
             if (hostLoc != -1) {
                 mGuestLocToHostLoc.add(uniform.second, hostLoc);
             }
@@ -474,7 +471,7 @@ void ProgramData::restore(ObjectLocalName localName,
         for (const auto& uniformEntry : uniforms) {
             const auto& uniform = uniformEntry.second;
             GLint location = dispatcher.glGetUniformLocation(
-                    globalName, c_str(getTranslatedName(uniform.mGuestName)));
+                    globalName, getTranslatedName(uniform.mGuestName).c_str());
             if (location == -1) {
                 // Location changed after loading from a snapshot.
                 // likely loading from different GPU backend (and they
@@ -662,8 +659,8 @@ GLuint ProgramData::getAttachedShader(GLenum type) const {
     return attachedShaders[s_glShaderType2ShaderType(type)].localName;
 }
 
-StringView
-ProgramData::getTranslatedName(StringView userVarName) const {
+std::string
+ProgramData::getTranslatedName(const std::string& userVarName) const {
     if (isGles2Gles()) {
         return userVarName;
     }
@@ -677,8 +674,8 @@ ProgramData::getTranslatedName(StringView userVarName) const {
     return userVarName;
 }
 
-StringView
-ProgramData::getDetranslatedName(StringView driverName) const {
+std::string
+ProgramData::getDetranslatedName(const std::string& driverName) const {
     if (isGles2Gles()) {
         return driverName;
     }
@@ -1110,7 +1107,7 @@ static void sInitializeUniformLocs(ProgramData* pData,
     }
 }
 
-void ProgramData::initGuestUniformLocForKey(StringView key) {
+void ProgramData::initGuestUniformLocForKey(const std::string& key) {
     // fprintf(stderr, "%s: for %s\n", __func__, key.str().c_str());
     if (mUniNameToGuestLoc.find(key) == mUniNameToGuestLoc.end()) {
         mUniNameToGuestLoc[key] = mCurrUniformBaseLoc;
@@ -1129,7 +1126,7 @@ void ProgramData::initGuestUniformLocForKey(StringView key) {
     }
 }
 
-void ProgramData::initGuestUniformLocForKey(StringView key, StringView key2) {
+void ProgramData::initGuestUniformLocForKey(const std::string& key, const std::string& key2) {
     bool newUniform = false;
     if (mUniNameToGuestLoc.find(key) == mUniNameToGuestLoc.end()) {
         mUniNameToGuestLoc[key] = mCurrUniformBaseLoc;
@@ -1199,7 +1196,7 @@ int ProgramData::getGuestUniformLocation(const char* uniName) {
         }
     } else {
         return dispatcher.glGetUniformLocation(
-                ProgramName, c_str(getTranslatedName(uniName)));
+                ProgramName, getTranslatedName(uniName).c_str());
     }
 }
 

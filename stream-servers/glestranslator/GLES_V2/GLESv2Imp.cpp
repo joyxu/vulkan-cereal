@@ -26,9 +26,8 @@
 #include <GLES3/gl3.h>
 #include <GLES3/gl31.h>
 
-#include "android/base/memory/LazyInstance.h"
-#include "android/base/system/System.h"
-#include "OpenglCodecCommon/ErrorLog.h"
+#include "base/System.h"
+#include "ErrorLog.h"
 #include "GLESv2Context.h"
 #include "GLESv2Validate.h"
 #include "GLcommon/FramebufferData.h"
@@ -37,14 +36,12 @@
 #include "GLcommon/TextureData.h"
 #include "GLcommon/TextureUtils.h"
 #include "GLcommon/TranslatorIfaces.h"
-#include "OpenglCodecCommon/ErrorLog.h"
 #include "ProgramData.h"
 #include "SamplerData.h"
 #include "ShaderParser.h"
 #include "TransformFeedbackData.h"
 
-#include "emugl/common/crash_reporter.h"
-#include "emugl/common/metrics.h"
+#include "host-common/crash_reporter.h"
 
 #include "ANGLEShaderParser.h"
 
@@ -62,8 +59,6 @@
 #endif
 
 #define GLES2_NAMESPACED(f) translator::gles2::f
-
-using android::base::c_str;
 
 namespace translator {
 namespace gles2 {
@@ -144,8 +139,6 @@ static GLESiface s_glesIface = {
 };
 
 #include <GLcommon/GLESmacros.h>
-
-static android::base::LazyInstance<GLES3Usage> gles30usages = {};
 
 namespace translator {
 namespace gles2 {
@@ -352,10 +345,10 @@ static void blitFromCurrentReadBufferANDROID(EGLImage image) {
     ImagePtr img = s_eglIface->getEGLImage(imagehndl);
     if (!img ||
         !ctx->shareGroup().get()) {
-        emugl::emugl_crash_reporter(
-                "FATAL: blitFromCurrentReadBufferANDROID: "
-                "image (%p) or share group (%p) not found",
-                img.get(), ctx->shareGroup().get());
+        // emugl_crash_reporter(
+        //         "FATAL: blitFromCurrentReadBufferANDROID: "
+        //         "image (%p) or share group (%p) not found",
+        //         img.get(), ctx->shareGroup().get());
         return;
     }
 
@@ -471,7 +464,7 @@ GL_APICALL void  GL_APIENTRY glBindAttribLocation(GLuint program, GLuint index, 
 
         ctx->dispatcher().glBindAttribLocation(
                 globalProgramName, index,
-                c_str(pData->getTranslatedName(name)));
+                pData->getTranslatedName(name).c_str());
 
         pData->bindAttribLocation(name, index);
     }
@@ -1081,7 +1074,7 @@ GL_APICALL GLuint GL_APIENTRY glCreateShader(GLenum type){
     if (!shaderParserInitialized) {
         shaderParserInitialized = true;
         sDebugPrintShaders =
-            android::base::System::getEnvironmentVariable(
+            android::base::getEnvironmentVariable(
                 "ANDROID_EMUGL_SHADER_PRINT") == "1";
 
         auto& gl = ctx->dispatcher();
@@ -1900,7 +1893,7 @@ GL_APICALL int GL_APIENTRY glGetAttribLocation(GLuint program, const GLchar* nam
                               -1);
 #endif
          int ret = ctx->dispatcher().glGetAttribLocation(
-                 globalProgramName, c_str(pData->getTranslatedName(name)));
+                 globalProgramName, pData->getTranslatedName(name).c_str());
          if (ret != -1) {
              pData->linkedAttribLocation(name, ret);
          }
@@ -4306,7 +4299,7 @@ glTestHostDriverPerformance(GLuint count,
 
     uint32_t drawCount = 0;
 
-    auto cpuTimeStart = android::base::System::cpuTime();
+    auto cpuTimeStart = android::base::cpuTime();
 
 fprintf(stderr, "%s: transform loc %d\n", __func__, transformLoc);
 fprintf(stderr, "%s: begin count %d\n", __func__, count);
@@ -4319,7 +4312,7 @@ fprintf(stderr, "%s: begin count %d\n", __func__, count);
 
     gl->glFinish();
 
-    auto cpuTime = android::base::System::cpuTime() - cpuTimeStart;
+    auto cpuTime = android::base::cpuTime() - cpuTimeStart;
 
     *duration_us = cpuTime.wall_time_us;
     *duration_cpu_us = cpuTime.usageUs();
@@ -4386,7 +4379,6 @@ GL_APICALL void GL_APIENTRY glGetMemoryObjectParameterivEXT(GLuint memoryObject,
 
 GL_APICALL void GL_APIENTRY glTexStorageMem2DEXT(GLenum target, GLsizei levels, GLenum internalFormat, GLsizei width, GLsizei height, GLuint memory, GLuint64 offset) {
     GET_CTX_V2();
-    gles30usages->set_is_used(true);
     GLint err = GL_NO_ERROR;
     GLenum format, type;
     GLESv2Validate::getCompatibleFormatTypeForInternalFormat(internalFormat, &format, &type);

@@ -112,6 +112,10 @@ void Stream::putString(const char* str, size_t len) {
     this->write(str, len);
 }
 
+void Stream::putString(const std::string& str) {
+    putString(str.c_str());
+}
+
 std::string Stream::getString() {
     std::string result;
     size_t len = this->getBe32();

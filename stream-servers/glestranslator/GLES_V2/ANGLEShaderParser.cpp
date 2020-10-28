@@ -10,14 +10,14 @@
 // GNU General Public License for more details.
 
 #include "ANGLEShaderParser.h"
+#include "ShaderTranslator.h"
 
-#include "android/base/synchronization/Lock.h"
-#include "android/base/memory/LazyInstance.h"
-
-#include "emugl/common/shared_library.h"
+#include "base/Lock.h"
 
 #include <map>
 #include <string>
+
+#include <string.h>
 
 #define GL_COMPUTE_SHADER 0x91B9
 
@@ -26,81 +26,6 @@ namespace ANGLEShaderParser {
 ST_BuiltInResources kResources;
 bool kInitialized = false;
 bool sIsGles2Gles = false;
-
-class LazyLoadedSTDispatch {
-public:
-    LazyLoadedSTDispatch() {
-        memset(&mDispatch, 0, sizeof(STDispatch));
-
-#ifdef __APPLE__
-        const char kLibName[] = "libshadertranslator.dylib";
-#elif defined(_WIN32)
-        const char kLibName[] = "libshadertranslator.dll";
-#else
-        const char kLibName[] = "libshadertranslator.so";
-#endif
-        char error[256];
-        mLib = emugl::SharedLibrary::open(kLibName, error, sizeof(error));
-        if (!mLib) {
-            fprintf(stderr, "%s: Could not open shader translator library %s [%s]\n",
-                __func__, kLibName, error);
-            return;
-        }
-
-        mDispatch.initialize =
-            (STInitialize_t)mLib->findSymbol("STInitialize");
-        mDispatch.finalize =
-            (STFinalize_t)mLib->findSymbol("STFinalize");
-        mDispatch.generateResources =
-            (STGenerateResources_t)mLib->findSymbol("STGenerateResources");
-        mDispatch.compileAndResolve =
-            (STCompileAndResolve_t)mLib->findSymbol("STCompileAndResolve");
-        mDispatch.freeShaderResolveState =
-            (STFreeShaderResolveState_t)mLib->findSymbol("STFreeShaderResolveState");
-        mDispatch.copyVariable =
-            (STCopyVariable_t)mLib->findSymbol("STCopyVariable");
-        mDispatch.copyInterfaceBlock =
-            (STCopyInterfaceBlock_t)mLib->findSymbol("STCopyInterfaceBlock");
-        mDispatch.destroyVariable =
-            (STDestroyVariable_t)mLib->findSymbol("STDestroyVariable");
-        mDispatch.destroyInterfaceBlock =
-            (STDestroyInterfaceBlock_t)mLib->findSymbol("STDestroyInterfaceBlock");
-
-        mValid = dispatchValid();
-
-        if (!mValid) {
-            fprintf(stderr, "%s: error, shader translator dispatch not valid\n", __func__);
-        }
-    }
-
-    STDispatch* getDispatch() {
-        if (!mValid) return nullptr;
-        return &mDispatch;
-    }
-
-private:
-    bool dispatchValid() {
-        return (nullptr != mDispatch.initialize) &&
-               (nullptr != mDispatch.finalize) &&
-               (nullptr != mDispatch.generateResources) &&
-               (nullptr != mDispatch.compileAndResolve) &&
-               (nullptr != mDispatch.copyVariable) &&
-               (nullptr != mDispatch.copyInterfaceBlock) &&
-               (nullptr != mDispatch.destroyVariable) &&
-               (nullptr != mDispatch.destroyInterfaceBlock);
-    }
-
-    emugl::SharedLibrary* mLib = nullptr;
-    bool mValid = false;
-    STDispatch mDispatch;
-};
-
-static android::base::LazyInstance<LazyLoadedSTDispatch> sLazyLoadedSTDispatch =
-    LAZY_INSTANCE_INIT;
-
-STDispatch* getSTDispatch() {
-    return sLazyLoadedSTDispatch->getDispatch();
-}
 
 ShaderLinkInfo::ShaderLinkInfo() = default;
 ShaderLinkInfo::ShaderLinkInfo(const ShaderLinkInfo& other) {
@@ -140,12 +65,11 @@ void ShaderLinkInfo::copyFromOther(const ShaderLinkInfo& other) {
     esslVersion = other.esslVersion;
 
     if (!sIsGles2Gles) {
-        auto dispatch = getSTDispatch();
-        for (const auto& var: other.uniforms) { uniforms.push_back(dispatch->copyVariable(&var)); }
-        for (const auto& var: other.varyings) { varyings.push_back(dispatch->copyVariable(&var)); }
-        for (const auto& var: other.attributes) { attributes.push_back(dispatch->copyVariable(&var)); }
-        for (const auto& var: other.outputVars) { outputVars.push_back(dispatch->copyVariable(&var)); }
-        for (const auto& var: other.interfaceBlocks) { interfaceBlocks.push_back(dispatch->copyInterfaceBlock(&var)); }
+        for (const auto& var: other.uniforms) { uniforms.push_back(STCopyVariable(&var)); }
+        for (const auto& var: other.varyings) { varyings.push_back(STCopyVariable(&var)); }
+        for (const auto& var: other.attributes) { attributes.push_back(STCopyVariable(&var)); }
+        for (const auto& var: other.outputVars) { outputVars.push_back(STCopyVariable(&var)); }
+        for (const auto& var: other.interfaceBlocks) { interfaceBlocks.push_back(STCopyInterfaceBlock(&var)); }
     }
 
     nameMap = other.nameMap;
@@ -155,12 +79,11 @@ void ShaderLinkInfo::copyFromOther(const ShaderLinkInfo& other) {
 void ShaderLinkInfo::clear() {
 
     if (!sIsGles2Gles) {
-        auto dispatch = getSTDispatch();
-        for (auto& var: uniforms) { dispatch->destroyVariable(&var); }
-        for (auto& var: varyings) { dispatch->destroyVariable(&var); }
-        for (auto& var: attributes) { dispatch->destroyVariable(&var); }
-        for (auto& var: outputVars) { dispatch->destroyVariable(&var); }
-        for (auto& var: interfaceBlocks) { dispatch->destroyInterfaceBlock(&var); }
+        for (auto& var: uniforms) { STDestroyVariable(&var); }
+        for (auto& var: varyings) { STDestroyVariable(&var); }
+        for (auto& var: attributes) { STDestroyVariable(&var); }
+        for (auto& var: outputVars) { STDestroyVariable(&var); }
+        for (auto& var: interfaceBlocks) { STDestroyInterfaceBlock(&var); }
     }
 
     uniforms.clear();
@@ -221,11 +144,14 @@ struct ShaderSpecKeyCompare {
 };
 
 typedef std::map<ShaderSpecKey, ST_Handle, ShaderSpecKeyCompare> ShaderCompilerMap;
-static android::base::LazyInstance<ShaderCompilerMap> sCompilerMap = LAZY_INSTANCE_INIT;
+static ShaderCompilerMap* sCompilerMap() {
+    static ShaderCompilerMap* m = new ShaderCompilerMap;
+    return m;
+}
 
 static ST_Handle getShaderCompiler(bool coreProfileHost, ShaderSpecKey key) {
-    auto it = sCompilerMap->find(key);
-    if (it == sCompilerMap->end()) return (ST_Handle)nullptr;
+    auto it = sCompilerMap()->find(key);
+    if (it == sCompilerMap()->end()) return (ST_Handle)nullptr;
     return it->second;
 }
 
@@ -235,7 +161,7 @@ void initializeResources(
     BuiltinResourcesEditCallback callback) {
 
     if (!sIsGles2Gles) {
-        getSTDispatch()->generateResources(&kResources);
+        STGenerateResources(&kResources);
     }
 
     callback(kResources);
@@ -248,7 +174,7 @@ bool globalInitialize(
     sIsGles2Gles = isGles2Gles;
 
     if (!sIsGles2Gles) {
-        getSTDispatch()->initialize();
+        STInitialize();
     }
 
     initializeResources(editCallback);
@@ -286,23 +212,19 @@ static void getShaderLinkInfo(int esslVersion,
         linkInfo->nameMapReverse[elt.second] = elt.first;
     }
 
-    auto st = getSTDispatch();
-    auto stCopyVar = st->copyVariable;
-    auto stCopyIb = st->copyInterfaceBlock;
-
     linkInfo->uniforms = convertArrayToVecWithCopy(
         compileResult->uniformsCount,
         compileResult->pUniforms,
-        stCopyVar);
+        STCopyVariable);
 
     std::vector<ST_ShaderVariable> inputVaryings =
         convertArrayToVecWithCopy(
             compileResult->inputVaryingsCount, compileResult->pInputVaryings,
-            stCopyVar);
+            STCopyVariable);
     std::vector<ST_ShaderVariable> outputVaryings =
         convertArrayToVecWithCopy(
             compileResult->outputVaryingsCount, compileResult->pOutputVaryings,
-            stCopyVar);
+            STCopyVariable);
 
     linkInfo->varyings.clear();
     linkInfo->varyings.insert(
@@ -318,19 +240,19 @@ static void getShaderLinkInfo(int esslVersion,
         convertArrayToVecWithCopy(
             compileResult->allAttributesCount,
             compileResult->pAllAttributes,
-            stCopyVar);
+            STCopyVariable);
 
     linkInfo->outputVars =
         convertArrayToVecWithCopy(
             compileResult->activeOutputVariablesCount,
             compileResult->pActiveOutputVariables,
-            stCopyVar);
+            STCopyVariable);
 
     linkInfo->interfaceBlocks =
         convertArrayToVecWithCopy(
             compileResult->uniformBlocksCount,
             compileResult->pUniformBlocks,
-            stCopyIb);
+            STCopyInterfaceBlock);
     // todo: split to uniform and ssbo
 }
 
@@ -411,11 +333,9 @@ bool translate(bool hostUsesCoreProfile,
 
     ST_ShaderCompileResult* res = nullptr;
 
-    auto st = getSTDispatch();
+    STCompileAndResolve(&ci, &res);
 
-    st->compileAndResolve(&ci, &res);
-
-    sCompilerMap->emplace(key, res->outputHandle);
+    sCompilerMap()->emplace(key, res->outputHandle);
     *outInfolog = std::string(res->infoLog);
     *outObjCode = std::string(res->translatedSource);
 
@@ -423,7 +343,7 @@ bool translate(bool hostUsesCoreProfile,
 
     bool ret = res->compileStatus == 1;
 
-    st->freeShaderResolveState(res);
+    STFreeShaderResolveState(res);
     return ret;
 }
 

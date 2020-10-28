@@ -371,7 +371,9 @@ target_include_directories(
     src/compiler/translator/tree_ops
     src/compiler/translator/tree_util
     src/compiler/preprocessor
-    src/third_party/compiler)
+    src/third_party/compiler
+    PUBLIC
+    src/libShaderTranslator)
 target_compile_definitions(
     angle_shader_translator
     PRIVATE
