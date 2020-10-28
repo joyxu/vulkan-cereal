@@ -21,8 +21,8 @@
 #include "GLcommon/GLESpointer.h"
 #include "GLEScmContext.h"
 
-#include "android/base/containers/Lookup.h"
-#include "emugl/common/crash_reporter.h"
+#include "base/Lookup.h"
+#include "host-common/crash_reporter.h"
 
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
@@ -201,9 +201,10 @@ static std::string sMakeGeometryDrawShader(bool isGles, GLenum shaderType, bool 
         shaderTemplate = kGeometryDrawFShaderSrcTemplateCore;
         break;
     default:
-        emugl::emugl_crash_reporter(
-                "%s: unknown shader type 0x%x (memory corrupt)\n", __func__,
-                shaderType);
+        break;
+        // emugl_crash_reporter(
+        //     "%s: unknown shader type 0x%x (memory corrupt)\n", __func__,
+        //     shaderType);
     }
 
     if (shaderTemplate) {

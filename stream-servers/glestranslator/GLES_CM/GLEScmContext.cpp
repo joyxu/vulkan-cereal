@@ -22,8 +22,9 @@
 #include <GLES/gl.h>
 #include <GLES/glext.h>
 
-#include "android/base/files/StreamSerializing.h"
-#include "emugl/common/crash_reporter.h"
+#include "base/Lock.h"
+#include "base/StreamSerializing.h"
+#include "host-common/crash_reporter.h"
 #include "GLEScmValidate.h"
 
 #include <glm/vec3.hpp>
@@ -38,7 +39,7 @@ void GLEScmContext::setMaxGlesVersion(GLESVersion version) {
 }
 
 void GLEScmContext::init() {
-    emugl::Mutex::AutoLock mutex(s_lock);
+    android::base::AutoLock mutex(s_lock);
     if(!m_initialized) {
         GLEScontext::init();
 
@@ -641,8 +642,8 @@ GLEScmContext::MatrixStack& GLEScmContext::currMatrixStack() {
     case GL_MODELVIEW:
         return mModelviewMatrices;
     default:
-        emugl::emugl_crash_reporter("error: matrix mode set to 0x%x!",
-                                    mCurrMatrixMode);
+        break;
+        // emugl_crash_reporter("error: matrix mode set to 0x%x!", mCurrMatrixMode);
     }
     // Make compiler happy
     return mModelviewMatrices;
