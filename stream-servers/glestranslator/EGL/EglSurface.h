@@ -19,13 +19,13 @@
 #include "EglConfig.h"
 #include "EglOsApi.h"
 
-#include "emugl/common/smart_ptr.h"
-
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
 
+#include <memory>
+
 class EglSurface;
-typedef emugl::SmartPtr<EglSurface> SurfacePtr;
+typedef std::shared_ptr<EglSurface> SurfacePtr;
 
 class EglDisplay;
 

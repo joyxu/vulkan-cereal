@@ -16,8 +16,6 @@
 #include "EglThreadInfo.h"
 #include "EglOsApi.h"
 
-#include "emugl/common/lazy_instance.h"
-
 static thread_local EglThreadInfo thread_eglInfo;
 
 EglThreadInfo::EglThreadInfo() :

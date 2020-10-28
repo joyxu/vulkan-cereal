@@ -24,11 +24,12 @@
 #include "GLcommon/GLutils.h"
 #include "GLcommon/TextureData.h"
 #include "GLcommon/TranslatorIfaces.h"
-#include "OpenglCodecCommon/ErrorLog.h"
+#include "apigen-codec-common/ErrorLog.h"
 #include "ThreadInfo.h"
-#include "android/base/files/Stream.h"
-#include "android/base/system/System.h"
-#include "emugl/common/shared_library.h"
+#include "base/Lock.h"
+#include "base/Stream.h"
+#include "base/System.h"
+#include "base/SharedLibrary.h"
 
 #include "EglWindowSurface.h"
 #include "EglPbufferSurface.h"
@@ -73,12 +74,12 @@ static bool unbindAuxiliaryContext();
 #define tls_thread  EglThreadInfo::get()
 
 EglGlobalInfo* g_eglInfo = NULL;
-emugl::Mutex  s_eglLock;
-emugl::Mutex  s_surfaceDestroyLock;
+android::base::Lock  s_eglLock;
+android::base::Lock  s_surfaceDestroyLock;
 
 void initGlobalInfo()
 {
-    emugl::Mutex::AutoLock mutex(s_eglLock);
+    android::base::AutoLock mutex(s_eglLock);
     if (!g_eglInfo) {
         g_eglInfo = EglGlobalInfo::getInstance();
     }
@@ -766,7 +767,7 @@ EGLAPI EGLSurface EGLAPIENTRY eglCreateWindowSurface(EGLDisplay display, EGLConf
         RETURN_ERROR(EGL_NO_SURFACE,EGL_BAD_ALLOC);
     }
 
-    emugl::Mutex::AutoLock mutex(s_eglLock);
+    android::base::AutoLock mutex(s_eglLock);
     unsigned int width,height;
     if(!dpy->nativeType()->checkWindowPixelFormatMatch(
             win, cfg->nativeFormat(), &width, &height)) {
@@ -829,7 +830,7 @@ EGLAPI EGLSurface EGLAPIENTRY eglCreatePbufferSurface(
 
     tmpPbSurfacePtr->getAttrib(EGL_MIPMAP_TEXTURE, &pbinfo.hasMipmap);
 
-    emugl::Mutex::AutoLock mutex(s_eglLock);
+    android::base::AutoLock mutex(s_eglLock);
     EglOS::Surface* pb = dpy->nativeType()->createPbufferSurface(
             cfg->nativeFormat(), &pbinfo);
     if(!pb) {
@@ -843,7 +844,7 @@ EGLAPI EGLSurface EGLAPIENTRY eglCreatePbufferSurface(
 
 EGLAPI EGLBoolean EGLAPIENTRY eglDestroySurface(EGLDisplay display, EGLSurface surface) {
     VALIDATE_DISPLAY(display);
-    emugl::Mutex::AutoLock mutex(s_eglLock);
+    android::base::AutoLock mutex(s_eglLock);
     SurfacePtr srfc = dpy->getSurface(surface);
     if(!srfc.get()) {
         RETURN_ERROR(EGL_FALSE,EGL_BAD_SURFACE);
@@ -994,7 +995,7 @@ static EGLContext eglCreateOrLoadContext(EGLDisplay display, EGLConfig config,
         assert(shareGroupId);
     }
 
-    emugl::Mutex::AutoLock mutex(s_eglLock);
+    android::base::AutoLock mutex(s_eglLock);
 
     ContextPtr ctx(new EglContext(dpy, shareGroupId, cfg,
                                   glesCtx, glesVersion,
@@ -1025,7 +1026,7 @@ EGLAPI EGLBoolean EGLAPIENTRY eglDestroyContext(EGLDisplay display, EGLContext c
     VALIDATE_DISPLAY(display);
     VALIDATE_CONTEXT(context);
 
-    emugl::Mutex::AutoLock mutex(s_eglLock);
+    android::base::AutoLock mutex(s_eglLock);
     dpy->removeContext(context);
     return EGL_TRUE;
 }
@@ -1142,7 +1143,7 @@ EGLAPI EGLBoolean EGLAPIENTRY eglMakeCurrent(EGLDisplay display,
         }
 
         {
-            emugl::Mutex::AutoLock mutex(s_eglLock);
+            android::base::AutoLock mutex(s_eglLock);
             if (!dpy->nativeType()->makeCurrent(
                         newReadPtr->native(),
                         newDrawPtr->native(),
@@ -1242,7 +1243,7 @@ EGLAPI EGLBoolean EGLAPIENTRY eglSwapBuffers(EGLDisplay display, EGLSurface surf
 
 EGLAPI EGLContext EGLAPIENTRY eglGetCurrentContext(void) {
     MEM_TRACE("EMUGL");
-    emugl::Mutex::AutoLock mutex(s_eglLock);
+    android::base::AutoLock mutex(s_eglLock);
     ThreadInfo* thread = getThreadInfo();
     EglDisplay* dpy    = static_cast<EglDisplay*>(thread->eglDisplay);
     ContextPtr  ctx    = thread->eglContext;
@@ -1260,7 +1261,7 @@ EGLAPI EGLContext EGLAPIENTRY eglGetCurrentContext(void) {
 
 EGLAPI EGLSurface EGLAPIENTRY eglGetCurrentSurface(EGLint readdraw) {
     MEM_TRACE("EMUGL");
-    emugl::Mutex::AutoLock mutex(s_eglLock);
+    android::base::AutoLock mutex(s_eglLock);
     if (!EglValidate::surfaceTarget(readdraw)) {
         return EGL_NO_SURFACE;
     }
@@ -1425,7 +1426,7 @@ EGLAPI EGLSyncKHR EGLAPIENTRY eglCreateSyncKHR(EGLDisplay dpy, EGLenum type, con
 
 EGLAPI EGLint EGLAPIENTRY eglClientWaitSyncKHR(EGLDisplay dpy, EGLSyncKHR sync, EGLint flags, EGLTimeKHR timeout) {
     MEM_TRACE("EMUGL");
-    emugl::Mutex::AutoLock mutex(s_eglLock);
+    android::base::AutoLock mutex(s_eglLock);
     if (!g_eglInfo->isEgl2EglSyncSafeToUse()) {
         return EGL_CONDITION_SATISFIED_KHR;
     }
@@ -1572,7 +1573,7 @@ EGLAPI void EGLAPIENTRY eglWaitImageFenceANDROID(EGLDisplay dpy, void* fence) {
 
 EGLAPI void EGLAPIENTRY eglAddLibrarySearchPathANDROID(const char* path) {
     MEM_TRACE("EMUGL");
-    emugl::SharedLibrary::addLibrarySearchPath(path);
+    android::base::SharedLibrary::addLibrarySearchPath(path);
 }
 
 EGLAPI EGLBoolean EGLAPIENTRY eglQueryVulkanInteropSupportANDROID(void) {
@@ -1678,7 +1679,7 @@ EGLAPI EGLBoolean EGLAPIENTRY eglPostLoadAllImages(EGLDisplay display, EGLStream
 EGLAPI void EGLAPIENTRY eglUseOsEglApi(EGLBoolean enable) {
     MEM_TRACE("EMUGL");
     EglGlobalInfo::setEgl2Egl(enable);
-    bool safeToUse = android::base::System::getEnvironmentVariable("ANDROID_GFXSTREAM_EGL") == "1";
+    bool safeToUse = android::base::getEnvironmentVariable("ANDROID_GFXSTREAM_EGL") == "1";
     EglGlobalInfo::setEgl2EglSyncSafeToUse(
         safeToUse ? EGL_TRUE : EGL_FALSE);
 }

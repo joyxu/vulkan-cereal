@@ -16,11 +16,10 @@
 
 #include "EglOsApi.h"
 
-#include "android/base/system/System.h"
+#include "base/System.h"
+#include "base/SharedLibrary.h"
 #include "GLcommon/GLLibrary.h"
-#include "OpenglCodecCommon/ErrorLog.h"
-#include "emugl/common/lazy_instance.h"
-#include "emugl/common/shared_library.h"
+#include "apigen-codec-common/ErrorLog.h"
 
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
@@ -101,8 +100,6 @@ static const char* kGLES2LibName = "libGLESv2.dylib";
       (EGLDisplay display, EGLConfig config,                                   \
        EGLNativeWindowType native_window, EGLint const* attrib_list))
 
-using android::base::System;
-
 namespace {
 using namespace EglOS;
 
@@ -115,12 +112,12 @@ public:
     EglOsEglDispatcher() {
         D("loading %s\n", kEGLLibName);
         char error[256];
-        mLib = emugl::SharedLibrary::open(kEGLLibName, error, sizeof(error));
+        mLib = android::base::SharedLibrary::open(kEGLLibName, error, sizeof(error));
         if (!mLib) {
 #ifdef __linux__
             ERR("%s: Could not open EGL library %s [%s]. Trying again with [%s]\n", __FUNCTION__,
                 kEGLLibName, error, kEGLLibNameAlt);
-            mLib = emugl::SharedLibrary::open(kEGLLibNameAlt, error, sizeof(error));
+            mLib = android::base::SharedLibrary::open(kEGLLibNameAlt, error, sizeof(error));
             if (!mLib) {
                 ERR("%s: Could not open EGL library %s [%s]\n", __FUNCTION__,
                     kEGLLibNameAlt, error);
@@ -151,19 +148,19 @@ public:
     ~EglOsEglDispatcher() = default;
 
 private:
-    emugl::SharedLibrary* mLib = nullptr;
+    android::base::SharedLibrary* mLib = nullptr;
 };
 
 class EglOsGlLibrary : public GlLibrary {
 public:
     EglOsGlLibrary() {
         char error[256];
-        mLib = emugl::SharedLibrary::open(kGLES2LibName, error, sizeof(error));
+        mLib = android::base::SharedLibrary::open(kGLES2LibName, error, sizeof(error));
         if (!mLib) {
 #ifdef __linux__
             ERR("%s: Could not open GL library %s [%s]. Trying again with [%s]\n", __FUNCTION__,
                 kGLES2LibName, error, kGLES2LibNameAlt);
-            mLib = emugl::SharedLibrary::open(kGLES2LibNameAlt, error, sizeof(error));
+            mLib = android::base::SharedLibrary::open(kGLES2LibNameAlt, error, sizeof(error));
             if (!mLib) {
                 ERR("%s: Could not open GL library %s [%s]\n", __FUNCTION__,
                     kGLES2LibNameAlt, error);
@@ -183,7 +180,7 @@ public:
     ~EglOsGlLibrary() = default;
 
 private:
-    emugl::SharedLibrary* mLib = nullptr;
+    android::base::SharedLibrary* mLib = nullptr;
 };
 
 class EglOsEglPixelFormat : public EglOS::PixelFormat {
@@ -250,7 +247,7 @@ public:
     void queryConfigs(int renderableType,
                       AddConfigCallback* addConfigFunc,
                       void* addConfigOpaque);
-    virtual emugl::SmartPtr<Context>
+    virtual std::shared_ptr<Context>
     createContext(EGLint profileMask,
                   const PixelFormat* pixelFormat,
                   Context* sharedContext) override;
@@ -279,7 +276,7 @@ private:
 };
 
 EglOsEglDisplay::EglOsEglDisplay() {
-    mVerbose = System::getEnvironmentVariable("ANDROID_EMUGL_VERBOSE") == "1";
+    mVerbose = android::base::getEnvironmentVariable("ANDROID_EMUGL_VERBOSE") == "1";
 
     mDisplay = mDispatcher.eglGetDisplay(EGL_DEFAULT_DISPLAY);
     mDispatcher.eglInitialize(mDisplay, nullptr, nullptr);
@@ -292,7 +289,7 @@ EglOsEglDisplay::EglOsEglDisplay() {
     mDispatcher.eglBindAPI(EGL_OPENGL_ES_API);
     CHECK_EGL_ERR
 
-    mHeadless = System::getEnvironmentVariable("ANDROID_EMU_HEADLESS") == "1";
+    mHeadless = android::base::getEnvironmentVariable("ANDROID_EMU_HEADLESS") == "1";
 
 #ifdef __linux__
     if (mHeadless) mGlxDisplay = nullptr;
@@ -413,7 +410,7 @@ void EglOsEglDisplay::queryConfigs(int renderableType,
     D("Host gets %d configs\n", numConfigs);
 }
 
-emugl::SmartPtr<Context>
+std::shared_ptr<Context>
 EglOsEglDisplay::createContext(EGLint profileMask,
                                const PixelFormat* pixelFormat,
                                Context* sharedContext) {
@@ -431,7 +428,7 @@ EglOsEglDisplay::createContext(EGLint profileMask,
             nativeSharedCtx ? nativeSharedCtx->context() : nullptr,
             attrib_list);
     CHECK_EGL_ERR
-    emugl::SmartPtr<Context> res =
+    std::shared_ptr<Context> res =
         std::make_shared<EglOsEglContext>(
             &mDispatcher, mDisplay, newNativeCtx);
     D("%s done\n", __FUNCTION__);
@@ -579,7 +576,10 @@ bool EglOsEglDisplay::checkWindowPixelFormatMatch(EGLNativeWindowType win,
 #endif // __APPLE__
 }
 
-static emugl::LazyInstance<EglOsEglDisplay> sHostDisplay = LAZY_INSTANCE_INIT;
+static EglOsEglDisplay* sHostDisplay() {
+    static EglOsEglDisplay* d = new EglOsEglDisplay;
+    return d;
+}
 
 class EglEngine : public EglOS::Engine {
 public:
@@ -588,7 +588,7 @@ public:
 
     EglOS::Display* getDefaultDisplay() {
         D("%s\n", __FUNCTION__);
-        return sHostDisplay.ptr();
+        return sHostDisplay();
     }
     GlLibrary* getGlLibrary() {
         D("%s\n", __FUNCTION__);
@@ -597,7 +597,7 @@ public:
     virtual EglOS::Surface* createWindowSurface(PixelFormat* pf,
                                                 EGLNativeWindowType wnd) {
         D("%s\n", __FUNCTION__);
-        return sHostDisplay->createWindowSurface(pf, wnd);
+        return sHostDisplay()->createWindowSurface(pf, wnd);
     }
 
 private:
@@ -606,11 +606,14 @@ private:
 
 }  // namespace
 
-static emugl::LazyInstance<EglEngine> sHostEngine = LAZY_INSTANCE_INIT;
+static EglEngine* sHostEngine() {
+    static EglEngine* res = new EglEngine;
+    return res;
+}
 
 namespace EglOS {
 Engine* getEgl2EglHostInstance() {
     D("%s\n", __FUNCTION__);
-    return sHostEngine.ptr();
+    return sHostEngine();
 }
 }  // namespace EglOS

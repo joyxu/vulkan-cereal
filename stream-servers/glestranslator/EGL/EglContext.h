@@ -16,13 +16,11 @@
 #ifndef EGL_CONTEXT_H
 #define EGL_CONTEXT_H
 
-#include "android/base/files/Stream.h"
+#include "base/Stream.h"
 
 #include "EglConfig.h"
 #include "EglOsApi.h"
 #include "EglSurface.h"
-
-#include "emugl/common/smart_ptr.h"
 
 #include "GLcommon/GLutils.h"
 #include "GLcommon/TranslatorIfaces.h"
@@ -30,8 +28,10 @@
 
 #include <EGL/egl.h>
 
+#include <memory>
+
 class EglContext;
-typedef emugl::SmartPtr<EglContext> ContextPtr;
+typedef std::shared_ptr<EglContext> ContextPtr;
 
 class EglDisplay;
 
@@ -64,7 +64,7 @@ public:
 private:
     static unsigned int s_nextContextHndl;
     EglDisplay* m_dpy = nullptr;
-    emugl::SmartPtr<EglOS::Context> m_native = {};
+    std::shared_ptr<EglOS::Context> m_native = {};
     EglConfig* m_config = nullptr;
     GLEScontext* m_glesContext = nullptr;
     ShareGroupPtr m_shareGroup;

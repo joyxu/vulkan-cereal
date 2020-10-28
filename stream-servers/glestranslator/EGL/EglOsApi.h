@@ -16,11 +16,11 @@
 #ifndef EGL_OS_API_H
 #define EGL_OS_API_H
 
-#include "android/base/Compiler.h"
-
-#include "emugl/common/smart_ptr.h"
+#include "base/Compiler.h"
 
 #include <EGL/egl.h>
+
+#include <memory>
 
 #define PBUFFER_MAX_WIDTH  32767
 #define PBUFFER_MAX_HEIGHT 32767
@@ -171,7 +171,7 @@ public:
                                              unsigned int* width,
                                              unsigned int* height) = 0;
 
-    virtual emugl::SmartPtr<Context> createContext(
+    virtual std::shared_ptr<Context> createContext(
             EGLint profileMask,
             const PixelFormat* pixelFormat,
             Context* sharedContext) = 0;

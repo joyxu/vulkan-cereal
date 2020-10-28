@@ -18,10 +18,9 @@
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include "emugl/common/mutex.h"
-#include "emugl/common/smart_ptr.h"
 
-#include "android/base/files/Stream.h"
+#include "base/Lock.h"
+#include "base/Stream.h"
 #include "EglConfig.h"
 #include "EglContext.h"
 #include "EglOsApi.h"
@@ -129,10 +128,10 @@ private:
     SurfacesHndlMap         m_surfaces;
     GlobalNameSpace         m_globalNameSpace;
     ObjectNameManager*      m_manager[MAX_GLES_VERSION];
-    mutable emugl::Mutex    m_lock;
+    mutable android::base::Lock    m_lock;
     ImagesHndlMap           m_eglImages;
     unsigned int            m_nextEglImageId = 0;
-    mutable emugl::SmartPtr<EglOS::Context> m_globalSharedContext;
+    mutable std::shared_ptr<EglOS::Context> m_globalSharedContext;
     ConfigSet               m_uniqueConfigs;
 };
 

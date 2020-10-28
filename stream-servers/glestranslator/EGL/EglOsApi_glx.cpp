@@ -15,15 +15,13 @@
 */
 #include "EglOsApi.h"
 
-#include "android/base/synchronization/Lock.h"
+#include "base/Lock.h"
+#include "base/SharedLibrary.h"
 
 #include "CoreProfileConfigs.h"
-#include "emugl/common/lazy_instance.h"
-#include "emugl/common/mutex.h"
-#include "emugl/common/shared_library.h"
 #include "GLcommon/GLLibrary.h"
 
-#include "OpenglCodecCommon/ErrorLog.h"
+#include "apigen-codec-common/ErrorLog.h"
 
 #include <string.h>
 #include <X11/Xlib.h>
@@ -31,7 +29,9 @@
 
 #include <EGL/eglext.h>
 
+#include <algorithm>
 #include <unordered_map>
+#include <vector>
 
 #define DEBUG_PBUF_POOL 0
 
@@ -51,7 +51,7 @@ public:
 private:
     static int s_lastErrorCode;
     int (*m_oldErrorHandler)(Display *, XErrorEvent *) = nullptr;
-    static emugl::Mutex s_lock;
+    static android::base::Lock s_lock;
     static int errorHandlerProc(EGLNativeDisplayType dpy,XErrorEvent* event);
 };
 
@@ -59,19 +59,19 @@ private:
 int ErrorHandler::s_lastErrorCode = 0;
 
 // static
-emugl::Mutex ErrorHandler::s_lock;
+android::base::Lock ErrorHandler::s_lock;
 
 ErrorHandler::ErrorHandler(EGLNativeDisplayType dpy) {
-   emugl::Mutex::AutoLock mutex(s_lock);
-   XSync(dpy,False);
-   s_lastErrorCode = 0;
-   m_oldErrorHandler = XSetErrorHandler(errorHandlerProc);
+    android::base::AutoLock mutex(s_lock);
+    XSync(dpy,False);
+    s_lastErrorCode = 0;
+    m_oldErrorHandler = XSetErrorHandler(errorHandlerProc);
 }
 
 ErrorHandler::~ErrorHandler() {
-   emugl::Mutex::AutoLock mutex(s_lock);
-   XSetErrorHandler(m_oldErrorHandler);
-   s_lastErrorCode = 0;
+    android::base::AutoLock mutex(s_lock);
+    XSetErrorHandler(m_oldErrorHandler);
+    s_lastErrorCode = 0;
 }
 
 int ErrorHandler::errorHandlerProc(EGLNativeDisplayType dpy,
@@ -97,7 +97,7 @@ public:
     GlxLibrary() {
         static const char kLibName[] = "libGL.so.1";
         char error[256];
-        mLib = emugl::SharedLibrary::open(kLibName, error, sizeof(error));
+        mLib = android::base::SharedLibrary::open(kLibName, error, sizeof(error));
         if (!mLib) {
             ERR("%s: Could not open GL library %s [%s]\n",
                 __func__, kLibName, error);
@@ -131,11 +131,14 @@ public:
     }
 
 private:
-    emugl::SharedLibrary* mLib = nullptr;
+    android::base::SharedLibrary* mLib = nullptr;
     ResolverFunc* mResolver = nullptr;
 };
 
-emugl::LazyInstance<GlxLibrary> sGlxLibrary = LAZY_INSTANCE_INIT;
+static GlxLibrary* sGlxLibrary() {
+    static GlxLibrary* l = new GlxLibrary;
+    return l;
+}
 
 // Implementation of EglOS::PixelFormat based on GLX.
 class GlxPixelFormat : public EglOS::PixelFormat {
@@ -435,7 +438,7 @@ public:
         return depth >= configDepth;
     }
 
-    virtual emugl::SmartPtr<EglOS::Context> createContext(
+    virtual std::shared_ptr<EglOS::Context> createContext(
             EGLint profileMask,
             const EglOS::PixelFormat* pixelFormat,
             EglOS::Context* sharedContext) {
@@ -609,7 +612,7 @@ private:
         mCoreProfileSupported = false;
         ErrorHandler handler(mDisplay);
 
-        GlxLibrary* lib = sGlxLibrary.ptr();
+        GlxLibrary* lib = sGlxLibrary();
         mCreateContextAttribs =
             (CreateContextAttribs)lib->findSymbol("glXCreateContextAttribsARB");
         mSwapInterval =
@@ -696,7 +699,7 @@ public:
     }
 
     virtual GlLibrary* getGlLibrary() {
-        return sGlxLibrary.ptr();
+        return sGlxLibrary();
     }
 
     virtual EglOS::Surface* createWindowSurface(EglOS::PixelFormat* pf,
@@ -705,11 +708,14 @@ public:
     }
 };
 
-emugl::LazyInstance<GlxEngine> sHostEngine = LAZY_INSTANCE_INIT;
+static GlxEngine* sHostEngine() {
+    static GlxEngine* e = new GlxEngine;
+    return e;
+}
 
 }  // namespace
 
 // static
 EglOS::Engine* EglOS::Engine::getHostInstance() {
-    return sHostEngine.ptr();
+    return sHostEngine();
 }

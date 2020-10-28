@@ -21,8 +21,7 @@
 #include "EglContext.h"
 #include "EglOsApi.h"
 
-#include "emugl/common/lazy_instance.h"
-#include "emugl/common/mutex.h"
+#include "base/Lock.h"
 
 #include <GLcommon/TranslatorIfaces.h>
 
@@ -118,11 +117,10 @@ public:
     static void setEgl2EglSyncSafeToUse(EGLBoolean enable);
     static bool isEgl2EglSyncSafeToUse();
 
-private:
     EglGlobalInfo();
     ~EglGlobalInfo();
 
-    friend emugl::LazyInstance<EglGlobalInfo>;
+private:
 
     std::vector<EglDisplay*>       m_displays;
 
@@ -134,7 +132,7 @@ private:
     const GLESiface*               m_gles_ifaces[MAX_GLES_VERSION] = {};
     const EGLiface*                m_eglIface = nullptr;
     bool                           m_gles_extFuncs_inited[MAX_GLES_VERSION] = {};
-    mutable emugl::Mutex           m_lock;
+    mutable android::base::Lock           m_lock;
 };
 
 #endif

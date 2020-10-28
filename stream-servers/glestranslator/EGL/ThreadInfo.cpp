@@ -16,8 +16,6 @@
 
 #include "ThreadInfo.h"
 
-#include "emugl/common/lazy_instance.h"
-
 #include <stdio.h>
 
 void ThreadInfo::updateInfo(ContextPtr eglCtx,
