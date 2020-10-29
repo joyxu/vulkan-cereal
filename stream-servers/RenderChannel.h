@@ -13,10 +13,10 @@
 // limitations under the License.
 #pragma once
 
-#include "android/base/EnumFlags.h"
-#include "android/base/containers/BufferQueue.h"
-#include "android/base/containers/SmallVector.h"
-#include "android/base/files/Stream.h"
+#include "base/EnumFlags.h"
+#include "base/BufferQueue.h"
+#include "base/SmallVector.h"
+#include "base/Stream.h"
 
 #include <functional>
 #include <memory>
@@ -61,7 +61,7 @@ public:
     };
 
     using IoResult = android::base::BufferQueueResult;
-    using Duration = android::base::System::Duration;
+    using Duration = uint64_t;
 
     // Type of a callback used to tell the guest when the RenderChannel
     // state changes. Used by setEventCallback(). The parameter contains

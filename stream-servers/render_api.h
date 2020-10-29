@@ -15,16 +15,12 @@
 */
 #pragma once
 
-#include "OpenglRender/render_api_functions.h"
-
-#include "android/utils/compiler.h"
+#include "render_api_functions.h"
 
 #include <KHR/khrplatform.h>
 
 // All interfaces which can fail return an int, with zero indicating failure
 // and anything else indicating success.
-
-ANDROID_BEGIN_HEADER
 
 // Use KHRONOS_APICALL to control visibility, but do not use KHRONOS_APIENTRY
 // because we don't need the functions to be __stdcall on Win32.
@@ -36,5 +32,3 @@ ANDROID_BEGIN_HEADER
     RENDER_APICALL return_type RENDER_APIENTRY func_name signature;
 
 LIST_RENDER_API_FUNCTIONS(RENDER_API_DECLARE)
-
-ANDROID_END_HEADER

@@ -15,13 +15,13 @@
 
 #include <memory>
 
-#include "OpenglRender/Renderer.h"
-#include "OpenglRender/render_api_types.h"
-#include "android/base/files/Stream.h"
-#include "android/emulation/RefcountPipe.h"
-#include "android/emulation/control/vm_operations.h"
-#include "android/emulation/control/window_agent.h"
-#include "android/opengl/emugl_config.h"
+#include "Renderer.h"
+#include "render_api_types.h"
+#include "base/Stream.h"
+#include "host-common/RefcountPipe.h"
+#include "host-common/vm_operations.h"
+#include "host-common/window_agent.h"
+#include "host-common/emugl_config.h"
 
 namespace android {
 namespace base {

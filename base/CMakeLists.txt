@@ -6,11 +6,13 @@ set(gfxstream-base-common-sources
     CompressingStream.cpp
     CpuTime.cpp
     DecompressingStream.cpp
+    FunctorThread.cpp
     GLObjectCounter.cpp
     MemStream.cpp
     MemoryTracker.cpp
     MessageChannel.cpp
     PathUtils.cpp
+    ring_buffer.c
     SharedLibrary.cpp
     Stream.cpp
     StreamSerializing.cpp

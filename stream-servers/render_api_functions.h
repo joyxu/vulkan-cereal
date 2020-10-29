@@ -4,7 +4,7 @@
 #ifndef RENDER_API_FUNCTIONS_H
 #define RENDER_API_FUNCTIONS_H
 
-#include "OpenglRender/RenderLib.h"
+#include "RenderLib.h"
 
 #define LIST_RENDER_API_FUNCTIONS(X) \
   X(emugl::RenderLibPtr, initLibrary, (), ()) \
