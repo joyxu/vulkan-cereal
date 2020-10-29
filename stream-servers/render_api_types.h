@@ -15,9 +15,9 @@
 
 // Interface between android-emu non-base libraries and emugl
 
-#include "android/emulation/GoldfishDma.h"
-#include "android/emulation/goldfish_sync.h"
-#include "android/featurecontrol/FeatureControl.h"
+#include "host-common/GoldfishDma.h"
+#include "host-common/goldfish_sync.h"
+#include "host-common/FeatureControl.h"
 
 // Crash reporter
 typedef void (*emugl_crash_reporter_t)(const char* format, ...);

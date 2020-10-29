@@ -2,6 +2,11 @@ add_library(
     gfxstream-host-common
     crash_reporter.cpp
     vm_operations.cpp
-    feature_control.cpp)
+    feature_control.cpp
+    dma_device.cpp
+    sync_device.cpp)
 target_include_directories(
-    gfxstream-host-common PUBLIC ../)
+    gfxstream-host-common
+    PRIVATE
+    ${GFXSTREAM_REPO_ROOT}
+    ${GFXSTREAM_REPO_ROOT}/stream-servers)
