@@ -12,29 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "emugl/common/OpenGLDispatchLoader.h"
-
-#include "android/base/memory/LazyInstance.h"
+#include "OpenGLDispatchLoader.h"
 
 #include "OpenGLESDispatch/DispatchTables.h"
 
 GLESv1Dispatch s_gles1;
 GLESv2Dispatch s_gles2;
 
-using android::base::LazyInstance;
 using emugl::LazyLoadedGLESv1Dispatch;
 using emugl::LazyLoadedGLESv2Dispatch;
 using emugl::LazyLoadedEGLDispatch;
 
 // Must be declared outside of LazyLoaded*Dispatch scope due to the use of
 // sizeof(T) within the template definition.
-LazyInstance<LazyLoadedGLESv1Dispatch> sGLESv1Dispatch = LAZY_INSTANCE_INIT;
-LazyInstance<LazyLoadedGLESv2Dispatch> sGLESv2Dispatch = LAZY_INSTANCE_INIT;
-LazyInstance<LazyLoadedEGLDispatch> sEGLDispatch = LAZY_INSTANCE_INIT;
+static LazyLoadedGLESv1Dispatch* sGLESv1Dispatch() {
+    static LazyLoadedGLESv1Dispatch* l = new LazyLoadedGLESv1Dispatch;
+    return l;
+}
+static LazyLoadedGLESv2Dispatch* sGLESv2Dispatch() {
+    static LazyLoadedGLESv2Dispatch* l = new LazyLoadedGLESv2Dispatch;
+    return l;
+}
+static LazyLoadedEGLDispatch* sEGLDispatch() {
+    static LazyLoadedEGLDispatch* l = new LazyLoadedEGLDispatch;
+    return l;
+}
 
 // static
 const GLESv1Dispatch* LazyLoadedGLESv1Dispatch::get() {
-    LazyLoadedGLESv1Dispatch* instance = sGLESv1Dispatch.ptr();
+    LazyLoadedGLESv1Dispatch* instance = sGLESv1Dispatch();
     if (instance->mValid) {
         return &s_gles1;
     } else {
@@ -49,7 +55,7 @@ LazyLoadedGLESv1Dispatch::LazyLoadedGLESv1Dispatch() {
 
 // static
 const GLESv2Dispatch* LazyLoadedGLESv2Dispatch::get() {
-    LazyLoadedGLESv2Dispatch* instance = sGLESv2Dispatch.ptr();
+    LazyLoadedGLESv2Dispatch* instance = sGLESv2Dispatch();
     if (instance->mValid) {
         return &s_gles2;
     } else {
@@ -64,7 +70,7 @@ LazyLoadedGLESv2Dispatch::LazyLoadedGLESv2Dispatch() {
 
 // static
 const EGLDispatch* LazyLoadedEGLDispatch::get() {
-    LazyLoadedEGLDispatch* instance = sEGLDispatch.ptr();
+    LazyLoadedEGLDispatch* instance = sEGLDispatch();
     if (instance->mValid) {
         return &s_egl;
     } else {

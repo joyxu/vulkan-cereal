@@ -15,8 +15,6 @@
 */
 #include "OpenGLESDispatch/EGLDispatch.h"
 
-#include "emugl/common/shared_library.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 

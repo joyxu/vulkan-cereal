@@ -18,13 +18,9 @@
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "OpenGLESDispatch/StaticDispatch.h"
 
-#include "android/utils/debug.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "emugl/common/shared_library.h"
 
 #define DEBUG 0
 
@@ -36,8 +32,6 @@
 #else
 #define DPRINT(...)
 #endif
-
-static emugl::SharedLibrary *s_gles1_lib = NULL;
 
 // An unimplemented function which prints out an error message.
 // To make it consistent with the guest, all GLES1 functions not supported by
@@ -121,28 +115,4 @@ bool gles1_dispatch_init(GLESv1Dispatch* dispatch_table) {
 
     dispatch_table->initialized = true;
     return true;
-}
-
-//
-// This function is called only during initialization of the decoder before
-// any thread has been created - hence it should NOT be thread safe.
-//
-void *gles1_dispatch_get_proc_func(const char *name, void *userData)
-{
-    void* func = NULL;
-    if (s_gles1_lib) {
-        func = (void *)s_gles1_lib->findSymbol(name);
-    }
-
-    // Check the static functions
-    if (!func) {
-        func = gles1_dispatch_get_proc_func_static(name);
-    }
-
-    // To make it consistent with the guest, redirect any unsupported functions
-    // to gles1_unimplemented.
-    if (!func) {
-        func = (void *)gles1_unimplemented;
-    }
-    return func;
 }

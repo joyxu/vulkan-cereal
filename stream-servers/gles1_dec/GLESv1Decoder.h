@@ -19,7 +19,7 @@
 #include "gles1_dec.h"
 
 #include "GLDecoderContextData.h"
-#include "emugl/common/shared_library.h"
+#include "base/SharedLibrary.h"
 
 typedef void (gles1_APIENTRY *glColorPointerWithDataSize_server_proc_t) (GLint, GLenum, GLsizei, const GLvoid*, GLsizei);
 typedef void (gles1_APIENTRY *glNormalPointerWithDataSize_server_proc_t) (GLenum, GLsizei, const GLvoid*, GLsizei);
@@ -89,7 +89,7 @@ private:
         static void * s_getProc(const char *name, void *userData);
 
     GLDecoderContextData *m_contextData;
-    emugl::SharedLibrary* m_glesDso;
+    android::base::SharedLibrary* m_glesDso;
 };
 
 #endif
