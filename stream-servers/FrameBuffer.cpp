@@ -22,36 +22,32 @@
 #include "RenderControl.h"
 #include "RenderThreadInfo.h"
 #include "YUVConverter.h"
-#include "gles2_dec.h"
+#include "gles2_dec/gles2_dec.h"
 
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "vulkan/VkCommonOperations.h"
 #include "vulkan/VkDecoderGlobalState.h"
 
-#include "android/base/LayoutResolver.h"
-#include "android/base/CpuUsage.h"
-#include "android/base/containers/Lookup.h"
-#include "android/base/files/StreamSerializing.h"
-#include "android/base/memory/LazyInstance.h"
-#include "android/base/memory/MemoryTracker.h"
-#include "android/base/memory/ScopedPtr.h"
-#include "android/base/system/System.h"
-#include "android/base/Tracing.h"
+#include "base/LayoutResolver.h"
+#include "base/Lock.h"
+#include "base/Lookup.h"
+#include "base/StreamSerializing.h"
+#include "base/MemoryTracker.h"
+#include "base/System.h"
+#include "base/Tracing.h"
 
-#include "emugl/common/crash_reporter.h"
-#include "emugl/common/feature_control.h"
-#include "emugl/common/logging.h"
-#include "emugl/common/misc.h"
-#include "emugl/common/vm_operations.h"
+#include "host-common/crash_reporter.h"
+#include "host-common/feature_control.h"
+#include "host-common/logging.h"
+#include "host-common/misc.h"
+#include "host-common/vm_operations.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 
 using android::base::AutoLock;
-using android::base::LazyInstance;
 using android::base::Stream;
-using android::base::System;
 using android::base::WorkerProcessingResult;
 
 namespace {
@@ -89,7 +85,7 @@ private:
 }  // namespace
 
 static std::string getTimeStampString() {
-    const time_t timestamp = System::get()->getUnixTime();
+    const time_t timestamp = android::base::getUnixTimeUs();
     const struct tm *timeinfo = localtime(&timestamp);
     // Target format: 07-31 4:44:33
     char b[64];
@@ -106,23 +102,22 @@ static std::string getTimeStampString() {
 }
 
 static unsigned int getUptimeMs() {
-    const System::Times times = System::get()->getProcessTimes();
-    return (unsigned int)(times.wallClockMs);
+    return android::base::getUptimeMs();
 }
 
 static void dumpPerfStats() {
-    auto usage = System::get()->getMemUsage();
-    std::string memoryStats =
-        emugl::getMemoryTracker()
-                ? emugl::getMemoryTracker()->printUsage()
-                : "";
-    auto cpuUsage = emugl::getCpuUsage();
-    std::string lastStats =
-        cpuUsage ? cpuUsage->printUsage() : "";
-    printf("%s Uptime: %u ms Resident memory: %f mb %s \n%s\n",
-        getTimeStampString().c_str(), getUptimeMs(),
-        (float)usage.resident / 1048576.0f, lastStats.c_str(),
-        memoryStats.c_str());
+    // auto usage = System::get()->getMemUsage();
+    // std::string memoryStats =
+    //     emugl::getMemoryTracker()
+    //             ? emugl::getMemoryTracker()->printUsage()
+    //             : "";
+    // auto cpuUsage = emugl::getCpuUsage();
+    // std::string lastStats =
+    //     cpuUsage ? cpuUsage->printUsage() : "";
+    // printf("%s Uptime: %u ms Resident memory: %f mb %s \n%s\n",
+    //     getTimeStampString().c_str(), getUptimeMs(),
+    //     (float)usage.resident / 1048576.0f, lastStats.c_str(),
+    //     memoryStats.c_str());
 }
 
 class PerfStatThread : public android::base::Thread {
@@ -252,7 +247,10 @@ struct InitializedGlobals {
 // |sInitialized| caches the initialized framebuffer state - this way
 // happy path doesn't need to lock the mutex.
 static std::atomic<bool> sInitialized{false};
-static LazyInstance<InitializedGlobals> sGlobals = {};
+static InitializedGlobals* sGlobals() {
+    static InitializedGlobals* g = new InitializedGlobals;
+    return g;
+}
 
 void FrameBuffer::waitUntilInitialized() {
     if (sInitialized.load(std::memory_order_relaxed)) {
@@ -260,25 +258,25 @@ void FrameBuffer::waitUntilInitialized() {
     }
 
 #if SNAPSHOT_PROFILE > 1
-    const auto startTime = System::get()->getHighResTimeUs();
+    const auto startTime = android::base::getHighResTimeUs();
 #endif
     {
-        AutoLock l(sGlobals->lock);
-        sGlobals->condVar.wait(
+        AutoLock l(sGlobals()->lock);
+        sGlobals()->condVar.wait(
                 &l, [] { return sInitialized.load(std::memory_order_acquire); });
     }
 #if SNAPSHOT_PROFILE > 1
     printf("Waited for FrameBuffer initialization for %.03f ms\n",
-           (System::get()->getHighResTimeUs() - startTime) / 1000.0);
+           (android::base::getHighResTimeUs() - startTime) / 1000.0);
 #endif
 }
 
 void FrameBuffer::finalize() {
-    AutoLock lock(sGlobals->lock);
+    AutoLock lock(sGlobals()->lock);
     m_perfStats = false;
     m_perfThread->wait(NULL);
     sInitialized.store(true, std::memory_order_relaxed);
-    sGlobals->condVar.broadcastAndUnlock(&lock);
+    sGlobals()->condVar.broadcastAndUnlock(&lock);
 
     if (m_shuttingDown) {
         // The only visible thing in the framebuffer is subwindow. Everything else
@@ -351,13 +349,13 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     // used by underlying EGL driver might become invalid,
     // preventing new contexts from being created that share
     // against those contexts.
-    if (emugl::emugl_feature_is_enabled(android::featurecontrol::Vulkan)) {
+    if (feature_is_enabled(kFeature_Vulkan)) {
         auto dispatch = emugl::vkDispatch(false /* not for testing */);
         auto emu = goldfish_vk::createOrGetGlobalVkEmulation(dispatch);
         bool useDeferredCommands =
-            android::base::System::get()->envGet("ANDROID_EMU_VK_DISABLE_DEFERRED_COMMANDS").empty();
+            android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_DEFERRED_COMMANDS").empty();
         bool useCreateResourcesWithRequirements =
-            android::base::System::get()->envGet("ANDROID_EMU_VK_DISABLE_USE_CREATE_RESOURCES_WITH_REQUIREMENTS").empty();
+            android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_USE_CREATE_RESOURCES_WITH_REQUIREMENTS").empty();
         goldfish_vk::setUseDeferredCommands(emu, useDeferredCommands);
         goldfish_vk::setUseCreateResourcesWithRequirements(emu, useCreateResourcesWithRequirements);
     }
@@ -412,22 +410,20 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     }
 
     fb->m_fastBlitSupported =
-        System::get()->getProgramBitness() != 32 &&
         (dispatchMaxVersion > GLES_DISPATCH_MAX_VERSION_2) &&
         (emugl::getRenderer() == SELECTED_RENDERER_HOST ||
          emugl::getRenderer() == SELECTED_RENDERER_SWIFTSHADER_INDIRECT ||
          emugl::getRenderer() == SELECTED_RENDERER_ANGLE_INDIRECT);
 
     fb->m_guestUsesAngle =
-        emugl::emugl_feature_is_enabled(
-            android::featurecontrol::GuestUsesAngle);
+        feature_is_enabled(
+            kFeature_GuestUsesAngle);
 
     //
     // if GLES2 plugin has loaded - try to make GLES2 context and
     // get GLES2 extension string
     //
-    android::base::ScopedCPtr<char> gles2Extensions(
-            getGLES2ExtensionString(fb->m_eglDisplay));
+    char* gles2Extensions = getGLES2ExtensionString(fb->m_eglDisplay);
     if (!gles2Extensions) {
         // Could not create GLES2 context - drop GL2 capability
         GL_LOG("Failed to obtain GLES 2.x extensions string!");
@@ -540,8 +536,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     // Initilize framebuffer capabilities
     //
     const bool has_gl_oes_image =
-            emugl::hasExtension(gles2Extensions.get(), "GL_OES_EGL_image");
-    gles2Extensions.reset();
+            emugl::hasExtension(gles2Extensions, "GL_OES_EGL_image");
 
     fb->m_caps.has_eglimage_texture_2d = false;
     fb->m_caps.has_eglimage_renderbuffer = false;
@@ -638,7 +633,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     }
 
     // TODO: 0-copy gl interop on swiftshader vk
-    if (System::get()->envGet("ANDROID_EMU_VK_ICD") == "swiftshader") {
+    if (android::base::getEnvironmentVariable("ANDROID_EMU_VK_ICD") == "swiftshader") {
         fb->m_vulkanInteropSupported = false;
     }
 
@@ -649,13 +644,13 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     //
     s_theFrameBuffer = fb.release();
     {
-        AutoLock lock(sGlobals->lock);
+        AutoLock lock(sGlobals()->lock);
         sInitialized.store(true, std::memory_order_release);
-        sGlobals->condVar.broadcastAndUnlock(&lock);
+        sGlobals()->condVar.broadcastAndUnlock(&lock);
     }
 
     // Start up the single sync thread if GLAsyncSwap enabled
-    if (emugl::emugl_feature_is_enabled(android::featurecontrol::GLAsyncSwap)) {
+    if (feature_is_enabled(kFeature_GLAsyncSwap)) {
         SyncThread::get();
     }
 
@@ -733,13 +728,13 @@ FrameBuffer::FrameBuffer(int p_width, int p_height, bool useSubWindow)
       m_useSubWindow(useSubWindow),
       m_fpsStats(getenv("SHOW_FPS_STATS") != nullptr),
       m_perfStats(
-              !android::base::System::get()->envGet("SHOW_PERF_STATS").empty()),
+              !android::base::getEnvironmentVariable("SHOW_PERF_STATS").empty()),
       m_perfThread(new PerfStatThread(&m_perfStats)),
       m_colorBufferHelper(new ColorBufferHelper(this)),
-      m_refCountPipeEnabled(emugl::emugl_feature_is_enabled(
-              android::featurecontrol::RefCountPipe)),
-      m_noDelayCloseColorBufferEnabled(emugl::emugl_feature_is_enabled(
-              android::featurecontrol::NoDelayCloseColorBuffer)),
+      m_refCountPipeEnabled(feature_is_enabled(
+              kFeature_RefCountPipe)),
+      m_noDelayCloseColorBufferEnabled(feature_is_enabled(
+              kFeature_NoDelayCloseColorBuffer)),
       m_readbackThread([this](FrameBuffer::Readback&& readback) {
           return sendReadbackWorkerCmd(readback);
       }),
@@ -949,23 +944,23 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
         assert(sInitialized.load(std::memory_order_relaxed));
         GL_LOG("Exit setupSubWindow (nothing to do)");
 #if SNAPSHOT_PROFILE > 1
-        printf("FrameBuffer::%s(): nothing to do at %lld ms\n", __func__,
-               (long long)System::get()->getProcessTimes().wallClockMs);
+        // printf("FrameBuffer::%s(): nothing to do at %lld ms\n", __func__,
+               // (long long)System::get()->getProcessTimes().wallClockMs);
 #endif
         return true;
     }
 
 #if SNAPSHOT_PROFILE > 1
-    printf("FrameBuffer::%s(%s): start at %lld ms\n", __func__,
-           deleteExisting ? "deleteExisting" : "keepExisting",
-           (long long)System::get()->getProcessTimes().wallClockMs);
+    // printf("FrameBuffer::%s(%s): start at %lld ms\n", __func__,
+    //        deleteExisting ? "deleteExisting" : "keepExisting",
+    //        (long long)System::get()->getProcessTimes().wallClockMs);
 #endif
 
     AutoLock mutex(m_lock);
 
 #if SNAPSHOT_PROFILE > 1
-    printf("FrameBuffer::%s(): got lock at %lld ms\n", __func__,
-           (long long)System::get()->getProcessTimes().wallClockMs);
+    // printf("FrameBuffer::%s(): got lock at %lld ms\n", __func__,
+    //        (long long)System::get()->getProcessTimes().wallClockMs);
 #endif
 
     if (deleteExisting) {
@@ -1065,13 +1060,13 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
     // even aborted run; if we don't mark the framebuffer as initialized here
     // its users will hang forever; if we do mark it, they will crash - which
     // is a better outcome (crash report == bug fixed).
-    AutoLock lock(sGlobals->lock);
+    AutoLock lock(sGlobals()->lock);
     sInitialized.store(true, std::memory_order_relaxed);
-    sGlobals->condVar.broadcastAndUnlock(&lock);
+    sGlobals()->condVar.broadcastAndUnlock(&lock);
 
 #if SNAPSHOT_PROFILE > 1
-    printf("FrameBuffer::%s(): end at %lld ms\n", __func__,
-           (long long)System::get()->getProcessTimes().wallClockMs);
+    // printf("FrameBuffer::%s(): end at %lld ms\n", __func__,
+    //        (long long)System::get()->getProcessTimes().wallClockMs);
 #endif
 
     GL_LOG("Exit setupSubWindow (successful setup)");
@@ -1084,9 +1079,9 @@ bool FrameBuffer::removeSubWindow() {
             __FUNCTION__);
         return false;
     }
-    AutoLock lock(sGlobals->lock);
+    AutoLock lock(sGlobals()->lock);
     sInitialized.store(false, std::memory_order_relaxed);
-    sGlobals->condVar.broadcastAndUnlock(&lock);
+    sGlobals()->condVar.broadcastAndUnlock(&lock);
 
     AutoLock mutex(m_lock);
     return removeSubWindow_locked();
@@ -1144,9 +1139,9 @@ void FrameBuffer::createColorBufferWithHandle(
 
     // Check for handle collision
     if (m_colorbuffers.count(handle) != 0) {
-        emugl::emugl_crash_reporter(
-            "FATAL: color buffer with handle %u already exists",
-            handle);
+        // emugl::emugl_crash_reporter(
+        //     "FATAL: color buffer with handle %u already exists",
+        //     handle);
     }
 
     createColorBufferWithHandleLocked(
@@ -1230,15 +1225,15 @@ HandleType FrameBuffer::createBufferLocked(int p_size) {
 HandleType FrameBuffer::createBufferWithHandleLocked(int p_size,
                                                      HandleType handle) {
     if (m_colorbuffers.count(handle) != 0) {
-        emugl::emugl_crash_reporter(
-                "FATAL: color buffer with handle %u already exists", handle);
-        abort();
+        // emugl::emugl_crash_reporter(
+        //         "FATAL: color buffer with handle %u already exists", handle);
+        // abort();
     }
 
     if (m_buffers.count(handle) != 0) {
-        emugl::emugl_crash_reporter(
-                "FATAL: buffer with handle %u already exists", handle);
-        abort();
+        // emugl::emugl_crash_reporter(
+        //         "FATAL: buffer with handle %u already exists", handle);
+        // abort();
     }
 
     BufferPtr buffer(Buffer::create(p_size, handle));
@@ -1256,7 +1251,7 @@ HandleType FrameBuffer::createRenderContext(int p_config,
                                             HandleType p_share,
                                             GLESApi version) {
     AutoLock mutex(m_lock);
-    emugl::ReadWriteMutex::AutoWriteLock contextLock(m_contextStructureLock);
+    android::base::AutoWriteLock contextLock(m_contextStructureLock);
     HandleType ret = 0;
 
     const FbConfig* config = getConfigs()->get(p_config);
@@ -1337,7 +1332,7 @@ void FrameBuffer::drainRenderContext() {
     }
 
     AutoLock mutex(m_lock);
-    emugl::ReadWriteMutex::AutoWriteLock contextLock(m_contextStructureLock);
+    android::base::AutoWriteLock contextLock(m_contextStructureLock);
     for (const HandleType contextHandle : tinfo->m_contextSet) {
         m_contexts.erase(contextHandle);
     }
@@ -1389,7 +1384,7 @@ void FrameBuffer::DestroyRenderContext(HandleType p_context) {
     AutoLock mutex(m_lock);
     sweepColorBuffersLocked();
 
-    emugl::ReadWriteMutex::AutoWriteLock contextLock(m_contextStructureLock);
+    android::base::AutoWriteLock contextLock(m_contextStructureLock);
     m_contexts.erase(p_context);
     RenderThreadInfo* tinfo = RenderThreadInfo::get();
     uint64_t puid = tinfo->m_puid;
@@ -1560,7 +1555,7 @@ bool FrameBuffer::closeColorBufferLocked(HandleType p_colorbuffer,
             m_colorbuffers.erase(c);
             deleted = true;
         } else {
-            c->second.closedTs = System::get()->getUnixTime();
+            c->second.closedTs = android::base::getUnixTimeUs();
             m_colorBufferDelayedCloseList.push_back(
                     {c->second.closedTs, p_colorbuffer});
         }
@@ -1578,7 +1573,7 @@ void FrameBuffer::performDelayedColorBufferCloseLocked(bool forced) {
     // are quick.
     static constexpr int kColorBufferClosingDelaySec = 1;
 
-    const auto now = System::get()->getUnixTime();
+    const auto now = android::base::getUnixTimeUs();
     auto it = m_colorBufferDelayedCloseList.begin();
     while (it != m_colorBufferDelayedCloseList.end() &&
            (forced ||
@@ -1596,13 +1591,13 @@ void FrameBuffer::performDelayedColorBufferCloseLocked(bool forced) {
 }
 
 void FrameBuffer::eraseDelayedCloseColorBufferLocked(
-        HandleType cb, android::base::System::Duration ts)
+        HandleType cb, uint64_t ts)
 {
     // Find the first delayed buffer with a timestamp <= |ts|
     auto it = std::lower_bound(
                   m_colorBufferDelayedCloseList.begin(),
                   m_colorBufferDelayedCloseList.end(), ts,
-                  [](const ColorBufferCloseInfo& ci, System::Duration ts) {
+                  [](const ColorBufferCloseInfo& ci, uint64_t ts) {
         return ci.ts < ts;
     });
     while (it != m_colorBufferDelayedCloseList.end() &&
@@ -1627,7 +1622,7 @@ void FrameBuffer::cleanupProcGLObjects(uint64_t puid) {
                 renderThreadWithThisPuidExists = true;
             }
         });
-        System::get()->sleepUs(10000);
+        android::base::sleepUs(10000);
     } while (renderThreadWithThisPuidExists);
 
     AutoLock mutex(m_lock);
@@ -2149,17 +2144,14 @@ bool FrameBuffer::bindContext(HandleType p_context,
 }
 
 RenderContextPtr FrameBuffer::getContext_locked(HandleType p_context) {
-    assert(m_lock.isLocked());
     return android::base::findOrDefault(m_contexts, p_context);
 }
 
 ColorBufferPtr FrameBuffer::getColorBuffer_locked(HandleType p_colorBuffer) {
-    assert(m_lock.isLocked());
     return android::base::findOrDefault(m_colorbuffers, p_colorBuffer).cb;
 }
 
 WindowSurfacePtr FrameBuffer::getWindowSurface_locked(HandleType p_windowsurface) {
-    assert(m_lock.isLocked());
     return android::base::findOrDefault(m_windows, p_windowsurface).first;
 }
 
@@ -2409,7 +2401,7 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
     // output FPS and performance usage statistics
     //
     if (m_fpsStats) {
-        long long currTime = System::get()->getHighResTimeUs() / 1000;
+        long long currTime = android::base::getHighResTimeUs() / 1000;
         m_statsNumFrames++;
         if (currTime - m_statsStartTime >= 1000) {
             if (m_fpsStats) {
@@ -2570,7 +2562,7 @@ static void loadProcOwnedCollection(Stream* stream, Collection* c) {
 
 void FrameBuffer::getScreenshot(unsigned int nChannels, unsigned int* width,
         unsigned int* height, std::vector<unsigned char>& pixels, int displayId,
-        int desiredWidth, int desiredHeight, SkinRotation desiredRotation) {
+        int desiredWidth, int desiredHeight, int desiredRotation) {
     AutoLock mutex(m_lock);
     uint32_t w, h, cb;
     if (!emugl::get_emugl_multi_display_operations().getMultiDisplay(displayId,
@@ -2738,14 +2730,14 @@ void FrameBuffer::onSave(Stream* stream,
 
     // We don't need to save |m_colorBufferCloseTsMap| here - there's enough
     // information to reconstruct it when loading.
-    System::Duration now = System::get()->getUnixTime();
+    uint64_t now = android::base::getUnixTimeUs();
 
     saveCollection(stream, m_colorbuffers,
                    [now](Stream* s, const ColorBufferMap::value_type& pair) {
         pair.second.cb->onSave(s);
         s->putBe32(pair.second.refcount);
         s->putByte(pair.second.opened);
-        s->putBe32(std::max<System::Duration>(0, now - pair.second.closedTs));
+        s->putBe32(std::max<uint64_t>(0, now - pair.second.closedTs));
     });
     stream->putBe32(m_lastPostedColorBuffer);
     saveCollection(stream, m_windows,
@@ -2760,7 +2752,7 @@ void FrameBuffer::onSave(Stream* stream,
     saveProcOwnedCollection(stream, m_procOwnedRenderContext);
 
     // Save Vulkan state
-    if (emugl::emugl_feature_is_enabled(android::featurecontrol::VulkanSnapshots) &&
+    if (feature_is_enabled(kFeature_VulkanSnapshots) &&
         goldfish_vk::VkDecoderGlobalState::get()) {
         goldfish_vk::VkDecoderGlobalState::get()->save(stream);
     }
@@ -2864,14 +2856,14 @@ bool FrameBuffer::onLoad(Stream* stream,
         }
         assert(m_colorbuffers.empty());
 #ifdef SNAPSHOT_PROFILE
-        System::Duration texTime = System::get()->getUnixTimeUs();
+        uint64_t texTime = android::base::getUnixTimeUs();
 #endif
         if (s_egl.eglLoadAllImages) {
             s_egl.eglLoadAllImages(m_eglDisplay, stream, &textureLoader);
         }
 #ifdef SNAPSHOT_PROFILE
         printf("Texture load time: %lld ms\n",
-               (long long)(System::get()->getUnixTimeUs() - texTime) / 1000);
+               (long long)(android::base::getUnixTimeUs() - texTime) / 1000);
 #endif
     }
     // See comment about subwindow position in onSave().
@@ -2894,7 +2886,7 @@ bool FrameBuffer::onLoad(Stream* stream,
     });
     assert(!android::base::find(m_contexts, 0));
 
-    auto now = System::get()->getUnixTime();
+    auto now = android::base::getUnixTimeUs();
     loadCollection(stream, &m_colorbuffers,
                    [this, now](Stream* stream) -> ColorBufferMap::value_type {
         ColorBufferPtr cb(ColorBuffer::onLoad(stream, m_eglDisplay,
@@ -2903,7 +2895,7 @@ bool FrameBuffer::onLoad(Stream* stream,
         const HandleType handle = cb->getHndl();
         const unsigned refCount = stream->getBe32();
         const bool opened = stream->getByte();
-        const System::Duration closedTs = now - stream->getBe32();
+        const uint64_t closedTs = now - stream->getBe32();
         if (refCount == 0) {
             m_colorBufferDelayedCloseList.push_back({closedTs, handle});
         }
@@ -2941,7 +2933,7 @@ bool FrameBuffer::onLoad(Stream* stream,
     }
 
     // Restore Vulkan state
-    if (emugl::emugl_feature_is_enabled(android::featurecontrol::VulkanSnapshots) &&
+    if (feature_is_enabled(kFeature_VulkanSnapshots) &&
         goldfish_vk::VkDecoderGlobalState::get()) {
 
         lock.unlock();

@@ -8,6 +8,7 @@ set(gfxstream-base-common-sources
     DecompressingStream.cpp
     FunctorThread.cpp
     GLObjectCounter.cpp
+    LayoutResolver.cpp
     MemStream.cpp
     MemoryTracker.cpp
     MessageChannel.cpp

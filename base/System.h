@@ -12,6 +12,8 @@ bool isVerboseLogging();
 uint64_t getUnixTimeUs();
 uint64_t getHighResTimeUs();
 
+uint64_t getUptimeMs();
+
 std::string getProgramDirectory();
 std::string getLauncherDirectory();
 
