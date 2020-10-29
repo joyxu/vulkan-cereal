@@ -13,11 +13,11 @@
 // limitations under the License.
 #pragma once
 
-#include "OpenglRender/RenderLib.h"
+#include "RenderLib.h"
 
-#include "android/base/Compiler.h"
-#include "emugl/common/vm_operations.h"
-#include "emugl/common/misc.h"
+#include "base/Compiler.h"
+#include "host-common/vm_operations.h"
+#include "host-common/misc.h"
 
 #include <memory>
 

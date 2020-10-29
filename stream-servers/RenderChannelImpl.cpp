@@ -14,7 +14,7 @@
 #include "RenderChannelImpl.h"
 
 #include "RenderThread.h"
-#include "android/base/synchronization/Lock.h"
+#include "base/Lock.h"
 
 #include <algorithm>
 #include <utility>
@@ -23,7 +23,7 @@
 #include <string.h>
 
 #define EMUGL_DEBUG_LEVEL 0
-#include "emugl/common/debug.h"
+#include "host-common/debug.h"
 
 namespace emugl {
 

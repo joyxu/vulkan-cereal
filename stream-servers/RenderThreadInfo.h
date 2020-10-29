@@ -16,12 +16,12 @@
 #ifndef _LIB_OPENGL_RENDER_THREAD_INFO_H
 #define _LIB_OPENGL_RENDER_THREAD_INFO_H
 
-#include "android/base/files/Stream.h"
+#include "base/Stream.h"
 #include "RenderContext.h"
 #include "WindowSurface.h"
-#include "GLESv1Decoder.h"
-#include "GLESv2Decoder.h"
-#include "renderControl_dec.h"
+#include "gles1_dec/GLESv1Decoder.h"
+#include "gles2_dec/GLESv2Decoder.h"
+#include "renderControl_dec/renderControl_dec.h"
 #include "VkDecoder.h"
 #include "StalePtrRegistry.h"
 #include "SyncThread.h"

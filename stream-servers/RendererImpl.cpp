@@ -16,10 +16,10 @@
 #include "RenderChannelImpl.h"
 #include "RenderThread.h"
 
-#include "android/base/system/System.h"
-#include "android/utils/debug.h"
+#include "base/System.h"
+#include "snapshot/common.h"
+#include "host-common/logging.h"
 
-#include "emugl/common/logging.h"
 #include "ErrorLog.h"
 #include "FenceSync.h"
 #include "FrameBuffer.h"
@@ -101,8 +101,8 @@ RendererImpl::~RendererImpl() {
 }
 
 bool RendererImpl::initialize(int width, int height, bool useSubWindow, bool egl2egl) {
-    if (android::base::System::get()->envGet("ANDROID_EMUGL_VERBOSE") == "1") {
-        base_enable_verbose_logs();
+    if (android::base::getEnvironmentVariable("ANDROID_EMUGL_VERBOSE") == "1") {
+        // base_enable_verbose_logs();
     }
 
     if (mRenderWindow) {
@@ -325,7 +325,7 @@ void RendererImpl::fillGLESUsages(android_studio::EmulatorGLESUsages* usages) {
 
 void RendererImpl::getScreenshot(unsigned int nChannels, unsigned int* width,
         unsigned int* height, std::vector<unsigned char>& pixels, int displayId,
-        int desiredWidth, int desiredHeight, SkinRotation desiredRotation) {
+        int desiredWidth, int desiredHeight, int desiredRotation) {
     auto fb = FrameBuffer::getFB();
     if (fb) fb->getScreenshot(nChannels, width, height, pixels, displayId,
                               desiredWidth, desiredHeight, desiredRotation);
@@ -572,13 +572,11 @@ struct AndroidVirtioGpuOps* RendererImpl::getVirtioGpuOps() {
     return &sVirtioGpuOps;
 }
 
-void RendererImpl::snapshotOperationCallback(
-        android::snapshot::Snapshotter::Operation op,
-        android::snapshot::Snapshotter::Stage stage) {
+void RendererImpl::snapshotOperationCallback(int op, int stage) {
     using namespace android::snapshot;
     switch (op) {
-        case Snapshotter::Operation::Load:
-            if (stage == Snapshotter::Stage::Start) {
+        case SNAPSHOTTER_OPERATION_LOAD:
+            if (stage == SNAPSHOTTER_STAGE_START) {
 #ifdef SNAPSHOT_PROFILE
              android::base::System::Duration startTime =
                      android::base::System::get()->getUnixTimeUs();
@@ -593,7 +591,7 @@ void RendererImpl::snapshotOperationCallback(
                                1000);
 #endif
             }
-            if (stage == Snapshotter::Stage::End) {
+            if (stage == SNAPSHOTTER_STAGE_END) {
                 mRenderWindow->setPaused(false);
             }
             break;

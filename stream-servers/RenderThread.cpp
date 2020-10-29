@@ -28,20 +28,19 @@
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "OpenGLESDispatch/GLESv2Dispatch.h"
 #include "OpenGLESDispatch/GLESv1Dispatch.h"
-#include "../../../shared/OpenglCodecCommon/ChecksumCalculatorThreadInfo.h"
+#include "apigen-codec-common/ChecksumCalculatorThreadInfo.h"
 
-#include "android/base/system/System.h"
-#include "android/base/Tracing.h"
-#include "android/base/files/StreamSerializing.h"
-#include "android/base/synchronization/MessageChannel.h"
-#include "android/utils/path.h"
-#include "android/utils/file_io.h"
+#include "base/System.h"
+#include "base/Tracing.h"
+#include "base/StreamSerializing.h"
+#include "base/MessageChannel.h"
 
 #define EMUGL_DEBUG_LEVEL 0
-#include "emugl/common/crash_reporter.h"
-#include "emugl/common/debug.h"
+#include "host-common/crash_reporter.h"
+#include "host-common/debug.h"
 
 #include <assert.h>
+#include <string.h>
 
 using android::base::AutoLock;
 using android::base::MessageChannel;
@@ -57,14 +56,14 @@ struct RenderThread::SnapshotObjects {
 };
 
 static bool getBenchmarkEnabledFromEnv() {
-    auto threadEnabled = android::base::System::getEnvironmentVariable("ANDROID_EMUGL_RENDERTHREAD_STATS");
+    auto threadEnabled = android::base::getEnvironmentVariable("ANDROID_EMUGL_RENDERTHREAD_STATS");
     if (threadEnabled == "1") return true;
     return false;
 }
 
 static uint64_t currTimeUs(bool enable) {
     if (enable) {
-        return android::base::System::get()->getHighResTimeUs();
+        return android::base::getHighResTimeUs();
     } else {
         return 0;
     }
@@ -75,7 +74,7 @@ static constexpr int kStreamBufferSize = 128 * 1024;
 
 RenderThread::RenderThread(RenderChannelImpl* channel,
                            android::base::Stream* loadStream)
-    : emugl::Thread(android::base::ThreadFlags::MaskSignals, 2 * 1024 * 1024),
+    : android::base::Thread(android::base::ThreadFlags::MaskSignals, 2 * 1024 * 1024),
       mChannel(channel) {
     if (loadStream) {
         const bool success = loadStream->getByte();
@@ -93,7 +92,7 @@ RenderThread::RenderThread(
         struct asg_context context,
         android::emulation::asg::ConsumerCallbacks callbacks,
         android::base::Stream* loadStream)
-    : emugl::Thread(android::base::ThreadFlags::MaskSignals, 2 * 1024 * 1024),
+    : android::base::Thread(android::base::ThreadFlags::MaskSignals, 2 * 1024 * 1024),
       mRingStream(
           new RingStream(context, callbacks, kStreamBufferSize)) {
     if (loadStream) {
@@ -298,7 +297,7 @@ intptr_t RenderThread::main() {
 
     int stats_totalBytes = 0;
     uint64_t stats_progressTimeUs = 0;
-    auto stats_t0 = android::base::System::get()->getHighResTimeUs() / 1000;
+    auto stats_t0 = android::base::getHighResTimeUs() / 1000;
     bool benchmarkEnabled = getBenchmarkEnabledFromEnv();
 
     //
@@ -307,15 +306,15 @@ intptr_t RenderThread::main() {
     const char* dump_dir = getenv("RENDERER_DUMP_DIR");
     FILE* dumpFP = nullptr;
     if (dump_dir) {
-        size_t bsize = strlen(dump_dir) + 32;
-        char* fname = new char[bsize];
-        snprintf(fname, bsize, "%s" PATH_SEP "stream_%p", dump_dir, this);
-        dumpFP = android_fopen(fname, "wb");
-        if (!dumpFP) {
-            fprintf(stderr, "Warning: stream dump failed to open file %s\n",
-                    fname);
-        }
-        delete[] fname;
+        // size_t bsize = strlen(dump_dir) + 32;
+        // char* fname = new char[bsize];
+        // snprintf(fname, bsize, "%s" PATH_SEP "stream_%p", dump_dir, this);
+        // dumpFP = android_fopen(fname, "wb");
+        // if (!dumpFP) {
+        //     fprintf(stderr, "Warning: stream dump failed to open file %s\n",
+        //             fname);
+        // }
+        // delete[] fname;
     }
 
     while (1) {
@@ -327,8 +326,8 @@ intptr_t RenderThread::main() {
             if (!packetSize) {
                 // Emulator will get live-stuck here if packet size is read to be zero;
                 // crash right away so we can see these events.
-                emugl::emugl_crash_reporter(
-                    "Guest should never send a size-0 GL packet\n");
+                // emugl::emugl_crash_reporter(
+                //     "Guest should never send a size-0 GL packet\n");
             }
         } else {
             // Read enough data to at least be able to get the packet size next
@@ -369,14 +368,14 @@ intptr_t RenderThread::main() {
         //
         if (benchmarkEnabled) {
             stats_totalBytes += readBuf.validData();
-            auto dt = android::base::System::get()->getHighResTimeUs() / 1000 - stats_t0;
+            auto dt = android::base::getHighResTimeUs() / 1000 - stats_t0;
             if (dt > 1000) {
                 float dts = (float)dt / 1000.0f;
                 printf("Used Bandwidth %5.3f MB/s, time in progress %f ms total %f ms\n", ((float)stats_totalBytes / dts) / (1024.0f*1024.0f),
                         stats_progressTimeUs / 1000.0f,
                         (float)dt);
                 readBuf.printStats();
-                stats_t0 = android::base::System::get()->getHighResTimeUs() / 1000;
+                stats_t0 = android::base::getHighResTimeUs() / 1000;
                 stats_progressTimeUs = 0;
                 stats_totalBytes = 0;
             }

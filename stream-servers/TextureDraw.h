@@ -21,6 +21,7 @@
 #include "Hwc2.h"
 #include "base/Lock.h"
 
+#include <vector>
 
 // Helper class used to draw a simple texture to the current framebuffer.
 // Usage is pretty simple:

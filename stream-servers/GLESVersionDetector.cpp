@@ -18,18 +18,12 @@
 
 #include "EGLDispatch.h"
 
-#include "android/base/misc/StringUtils.h"
-#include "android/base/StringView.h"
-#include "android/base/system/System.h"
-#include "emugl/common/feature_control.h"
-#include "emugl/common/misc.h"
+#include "base/System.h"
+#include "base/StringUtils.h"
+#include "host-common/feature_control.h"
+#include "host-common/misc.h"
 
 #include <algorithm>
-
-using android::base::c_str;
-using android::base::OsType;
-using android::base::StringView;
-using android::base::System;
 
 // Config + context attributes to query the underlying OpenGL if it is
 // a OpenGL ES backend. Only try for OpenGL ES 3, and assume OpenGL ES 2
@@ -103,8 +97,8 @@ GLESDispatchMaxVersion calcMaxVersionFromDispatch(EGLDisplay dpy) {
        GLES_DISPATCH_MAX_VERSION_3_1;
 
     // TODO: CTS conformance for OpenGL ES 3.1
-    bool playStoreImage = emugl::emugl_feature_is_enabled(
-            android::featurecontrol::PlayStoreImage);
+    bool playStoreImage = feature_is_enabled(
+            kFeature_PlayStoreImage);
 
     if (emugl::getRenderer() == SELECTED_RENDERER_HOST
         || emugl::getRenderer() == SELECTED_RENDERER_SWIFTSHADER_INDIRECT
@@ -163,19 +157,19 @@ bool shouldEnableCoreProfile() {
 void sAddExtensionIfSupported(GLESDispatchMaxVersion currVersion,
                               const std::string& from,
                               GLESDispatchMaxVersion extVersion,
-                              StringView ext,
+                              const std::string& ext,
                               std::string& to) {
     // If we chose a GLES version less than or equal to
     // the |extVersion| the extension |ext| is tagged with,
     // filter it according to the whitelist.
-    if (emugl::hasExtension(from.c_str(), c_str(ext)) &&
+    if (emugl::hasExtension(from.c_str(), ext.c_str()) &&
         currVersion > extVersion) {
         to += ext;
         to += " ";
     }
 }
 
-static bool sWhitelistedExtensionsGLES2(StringView hostExt) {
+static bool sWhitelistedExtensionsGLES2(const std::string& hostExt) {
 
 #define WHITELIST(ext) \
     if (hostExt == #ext) return true; \
@@ -228,14 +222,14 @@ std::string filterExtensionsBasedOnMaxVersion(GLESDispatchMaxVersion ver,
     // b. the guest image is not updated for ES 3+
     // (GLESDynamicVersion is disabled)
     if (ver > GLES_DISPATCH_MAX_VERSION_2 &&
-        emugl::emugl_feature_is_enabled(
-                android::featurecontrol::GLESDynamicVersion)) {
+        feature_is_enabled(
+            kFeature_GLESDynamicVersion)) {
         return exts;
     }
 
     std::string filteredExtensions;
     filteredExtensions.reserve(4096);
-    auto add = [ver, &filteredExtensions](StringView hostExt) {
+    auto add = [ver, &filteredExtensions](const std::string& hostExt) {
         if (!hostExt.empty() &&
             sWhitelistedExtensionsGLES2(hostExt)) {
             filteredExtensions += hostExt;
@@ -243,7 +237,7 @@ std::string filterExtensionsBasedOnMaxVersion(GLESDispatchMaxVersion ver,
         }
     };
 
-    android::base::split(exts, " ", add);
+    android::base::split<std::string>(exts, " ", add);
 
     return filteredExtensions;
 }

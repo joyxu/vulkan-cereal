@@ -16,7 +16,7 @@
 
 #include "DispatchTables.h"
 
-#include "emugl/common/crash_reporter.h"
+#include "host-common/crash_reporter.h"
 
 #include <string>
 #include <assert.h>
@@ -58,11 +58,11 @@ GLuint createShader(GLint shaderType, const char* shaderText) {
 
         // No point in continuing as it's going to be a black screen.
         // Send a crash report.
-        emugl::emugl_crash_reporter(
-            "FATAL: Could not compile shader for guest framebuffer blit. "
-            "There may be an issue with the GPU drivers on your machine. "
-            "Try using software rendering; launch the emulator "
-            "from the command line with -gpu swiftshader_indirect. ");
+        // emugl::emugl_crash_reporter(
+        //     "FATAL: Could not compile shader for guest framebuffer blit. "
+        //     "There may be an issue with the GPU drivers on your machine. "
+        //     "Try using software rendering; launch the emulator "
+        //     "from the command line with -gpu swiftshader_indirect. ");
     }
 
     return shader;

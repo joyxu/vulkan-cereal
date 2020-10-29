@@ -18,9 +18,8 @@
 
 #include "DispatchTables.h"
 #include "FrameBuffer.h"
-#include "android/utils/debug.h"
 
-#include "emugl/common/misc.h"
+#include "host-common/misc.h"
 
 #include "GLES2/gl2ext.h"
 
@@ -31,7 +30,8 @@
 #include <utility>
 
 #define ERR(...)  fprintf(stderr, __VA_ARGS__)
-#define V(...)  VERBOSE_PRINT(gles,__VA_ARGS__)
+// #define V(...)  VERBOSE_PRINT(gles,__VA_ARGS__)
+#define V(...)
 #define MAX_FACTOR_POWER 4
 
 static const char kCommonShaderSource[] =
@@ -336,7 +336,7 @@ GLuint TextureResize::update(GLuint texture) {
     return mFBHeight.texture;
 }
 
-GLuint TextureResize::update(GLuint texture, int width, int height, SkinRotation rotation) {
+GLuint TextureResize::update(GLuint texture, int width, int height, int rotation) {
     if (mGenericResizer.get() == nullptr) {
         mGenericResizer.reset(new TextureResize::GenericResizer());
     }
@@ -532,7 +532,7 @@ TextureResize::GenericResizer::GenericResizer() :
 }
 
 GLuint TextureResize::GenericResizer::draw(GLuint texture, int width, int height,
-                                           SkinRotation rotation) {
+                                           int rotation) {
     if (mWidth != width || mHeight != height) {
         // update the framebuffer to match the new resolution
         mWidth = width;

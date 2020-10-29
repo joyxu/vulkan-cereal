@@ -14,10 +14,9 @@
 
 #include "RenderWindow.h"
 
-#include "emugl/common/logging.h"
-#include "emugl/common/message_channel.h"
-#include "emugl/common/mutex.h"
-#include "emugl/common/thread.h"
+#include "base/Thread.h"
+#include "base/MessageChannel.h"
+#include "host-common/logging.h"
 #include "FrameBuffer.h"
 #include "RendererImpl.h"
 
@@ -40,7 +39,7 @@ namespace {
 
 #if DEBUG
 void my_debug(const char* function, int line, const char* format, ...) {
-    static ::emugl::Mutex mutex;
+    static ::android::base::Lock mutex;
     va_list args;
     va_start(args, format);
     mutex.lock();
@@ -318,8 +317,8 @@ public:
     }
 
 private:
-    emugl::MessageChannel<RenderWindowMessage, 16U> mIn;
-    emugl::MessageChannel<bool, 16U> mOut;
+    android::base::MessageChannel<RenderWindowMessage, 16U> mIn;
+    android::base::MessageChannel<bool, 16U> mOut;
 };
 
 namespace {
@@ -330,7 +329,7 @@ namespace {
 //
 // The thread ends with a CMD_FINALIZE.
 //
-class RenderWindowThread : public emugl::Thread {
+class RenderWindowThread : public android::base::Thread {
 public:
     RenderWindowThread(RenderWindowChannel* channel) : mChannel(channel) {}
 

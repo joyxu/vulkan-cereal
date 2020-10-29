@@ -22,16 +22,14 @@
 #include "RenderThreadInfo.h"
 #include "StalePtrRegistry.h"
 
-#include "android/base/containers/Lookup.h"
-#include "android/base/containers/StaticMap.h"
-#include "android/base/files/StreamSerializing.h"
-#include "android/base/memory/LazyInstance.h"
-#include "android/base/synchronization/Lock.h"
+#include "base/Lookup.h"
+#include "base/StaticMap.h"
+#include "base/StreamSerializing.h"
+#include "base/Lock.h"
 
 #include <unordered_set>
 
 using android::base::AutoLock;
-using android::base::LazyInstance;
 using android::base::Lock;
 using android::base::StaticMap;
 
@@ -79,11 +77,14 @@ private:
     StaticMap<FenceSync*, int> mFences;
 };
 
-static LazyInstance<Timeline> sTimeline = LAZY_INSTANCE_INIT;
+static Timeline* sTimeline() {
+    static Timeline* t = new Timeline;
+    return t;
+}
 
 // static
 void FenceSync::incrementTimelineAndDeleteOldFences() {
-    sTimeline->incrementTimelineAndDeleteOldFences();
+    sTimeline()->incrementTimelineAndDeleteOldFences();
 }
 
 FenceSync::FenceSync(bool hasNativeFence,
@@ -95,7 +96,7 @@ FenceSync::FenceSync(bool hasNativeFence,
     assert(mCount == 1);
     if (hasNativeFence) {
         incRef();
-        sTimeline->addFence(this);
+        sTimeline()->addFence(this);
     }
 
     // assumes that there is a valid + current OpenGL context
@@ -157,31 +158,33 @@ void FenceSync::destroy() {
 // snapshot.
 
 // Maintain a StalePtrRegistry<FenceSync>:
-static android::base::LazyInstance<StalePtrRegistry<FenceSync> >
-    sFenceRegistry = LAZY_INSTANCE_INIT;
+static StalePtrRegistry<FenceSync>* sFenceRegistry() {
+    static StalePtrRegistry<FenceSync>* s = new StalePtrRegistry<FenceSync>;
+    return s;
+}
 
 // static
 void FenceSync::addToRegistry() {
-    sFenceRegistry->addPtr(this);
+    sFenceRegistry()->addPtr(this);
 }
 
 // static
 void FenceSync::removeFromRegistry() {
-    sFenceRegistry->removePtr(this);
+    sFenceRegistry()->removePtr(this);
 }
 
 // static
 void FenceSync::onSave(android::base::Stream* stream) {
-    sFenceRegistry->makeCurrentPtrsStale();
-    sFenceRegistry->onSave(stream);
+    sFenceRegistry()->makeCurrentPtrsStale();
+    sFenceRegistry()->onSave(stream);
 }
 
 // static
 void FenceSync::onLoad(android::base::Stream* stream) {
-    sFenceRegistry->onLoad(stream);
+    sFenceRegistry()->onLoad(stream);
 }
 
 // static
 FenceSync* FenceSync::getFromHandle(uint64_t handle) {
-    return sFenceRegistry->getPtr(handle);
+    return sFenceRegistry()->getPtr(handle);
 }

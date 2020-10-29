@@ -14,8 +14,8 @@
 * limitations under the License.
 */
 #pragma once
-#include "android/base/files/Stream.h"
-#include "OpenglRender/IOStream.h"
+#include "base/Stream.h"
+#include "IOStream.h"
 
 namespace emugl {
 

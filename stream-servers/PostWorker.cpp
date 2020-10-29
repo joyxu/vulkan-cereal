@@ -6,7 +6,7 @@
 #include "RenderThreadInfo.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "OpenGLESDispatch/GLESv2Dispatch.h"
-#include "emugl/common/misc.h"
+#include "host-common/misc.h"
 
 #define POST_DEBUG 0
 #if POST_DEBUG >= 1
@@ -267,7 +267,7 @@ void PostWorker::screenshot(
     int height,
     GLenum format,
     GLenum type,
-    SkinRotation rotation,
+    int rotation,
     void* pixels) {
     cb->readPixelsScaled(
         width, height, format, type, rotation, pixels);

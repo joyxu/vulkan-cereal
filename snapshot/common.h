@@ -130,5 +130,15 @@ bool isSnapshotAlive();
 #define SNAPSHOT_METRICS 1
 #endif
 
+enum SnapshotterOperation {
+    SNAPSHOTTER_OPERATION_SAVE,
+    SNAPSHOTTER_OPERATION_LOAD,
+};
+
+enum SnapshotterStage {
+    SNAPSHOTTER_STAGE_START,
+    SNAPSHOTTER_STAGE_END,
+};
+
 }  // namespace snapshot
 }  // namespace android

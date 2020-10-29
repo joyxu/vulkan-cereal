@@ -16,9 +16,40 @@ add_subdirectory(OpenGLESDispatch)
 add_subdirectory(renderControl_dec)
 
 # Stream server core
+set(gfxstream-server-common-sources
+    ChannelStream.cpp
+    ColorBuffer.cpp
+    FbConfig.cpp
+    FenceSync.cpp
+    GLESVersionDetector.cpp
+    PostWorker.cpp
+    ReadbackWorker.cpp
+    ReadBuffer.cpp
+    render_api.cpp
+    RenderChannelImpl.cpp
+    RenderThreadInfo.cpp
+    RingStream.cpp
+    SyncThread.cpp
+    TextureDraw.cpp
+    TextureResize.cpp
+    WindowSurface.cpp
+    YUVConverter.cpp
+    RenderThread.cpp
+    RenderWindow.cpp
+    RenderLibImpl.cpp
+    RendererImpl.cpp)
+if (APPLE)
+    set(gfxstream-server-platform-sources NativeSubWindow_cocoa.m)
+elseif (WIN32)
+    set(gfxstream-server-platform-sources NativeSubWindow_win32.cpp)
+else()
+    set(gfxstream-server-platform-sources NativeSubWindow_x11.cpp)
+endif()
+
 add_library(
     gfxstream-server
-    ChannelStream.cpp)
+    ${gfxstream-server-common-sources}
+    ${gfxstream-server-platform-sources})
 target_link_libraries(
     gfxstream-server
     gfxstream-host-common

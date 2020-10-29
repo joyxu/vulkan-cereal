@@ -13,24 +13,22 @@
 // limitations under the License.
 #include "RingStream.h"
 
-#include "android/base/system/System.h"
+#include "base/System.h"
 
 #define EMUGL_DEBUG_LEVEL  0
 
-#include "emugl/common/crash_reporter.h"
-#include "emugl/common/debug.h"
-#include "emugl/common/dma_device.h"
+#include "host-common/crash_reporter.h"
+#include "host-common/debug.h"
+#include "host-common/dma_device.h"
 
 #include <assert.h>
 #include <memory.h>
-
-using android::base::System;
 
 namespace emugl {
 
 static bool getBenchmarkEnabledFromEnv() {
     auto threadEnabled =
-        System::getEnvironmentVariable("ANDROID_EMUGL_RENDERTHREAD_STATS");
+        android::base::getEnvironmentVariable("ANDROID_EMUGL_RENDERTHREAD_STATS");
     if (threadEnabled == "1") return true;
     return false;
 }
@@ -75,7 +73,7 @@ int RingStream::commitBuffer(size_t size) {
             } else {
                 ring_buffer_yield();
                 if (iters > kBackoffIters) {
-                    System::get()->sleepUs(10);
+                    android::base::sleepUs(10);
                     ++backedOffIters;
                 }
             }
@@ -158,13 +156,13 @@ const unsigned char* RingStream::readRaw(void* buf, size_t* inout_len) {
                     type2Read(ringAvailable, &count, &current, ptrEnd);
                     break;
                 case 3:
-                    emugl::emugl_crash_reporter(
-                        "Guest should never set to "
-                        "transfer mode 3 with ringAvailable != 0\n");
+                    // emugl::emugl_crash_reporter(
+                    //     "Guest should never set to "
+                    //     "transfer mode 3 with ringAvailable != 0\n");
                 default:
-                    emugl::emugl_crash_reporter(
-                        "Unknown transfer mode %u\n",
-                        transferMode);
+                    // emugl::emugl_crash_reporter(
+                    //     "Unknown transfer mode %u\n",
+                    //     transferMode);
                     break;
             }
         } else if (ringLargeXferAvailable) {

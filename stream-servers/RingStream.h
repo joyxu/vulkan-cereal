@@ -13,11 +13,11 @@
 // limitations under the License.
 #pragma once
 
-#include "OpenglRender/IOStream.h"
-#include "OpenglRender/RenderChannel.h"
+#include "IOStream.h"
+#include "RenderChannel.h"
 
-#include "android/base/ring_buffer.h"
-#include "android/emulation/address_space_graphics_types.h"
+#include "base/ring_buffer.h"
+#include "host-common/address_space_graphics_types.h"
 
 #include <functional>
 #include <vector>

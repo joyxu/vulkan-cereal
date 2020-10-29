@@ -21,7 +21,14 @@
 #include "host-common/RefcountPipe.h"
 #include "host-common/vm_operations.h"
 #include "host-common/window_agent.h"
+#include "host-common/multi_display_agent.h"
 #include "host-common/emugl_config.h"
+
+extern "C" {
+
+struct address_space_device_control_ops;
+
+} // extern "C"
 
 namespace android {
 namespace base {
@@ -73,15 +80,17 @@ public:
     virtual void setDmaOps(emugl_dma_ops) = 0;
 
     virtual void setVmOps(const QAndroidVmOperations &vm_operations) = 0;
+    virtual void setAddressSpaceDeviceControlOps(struct address_space_device_control_ops* ops) = 0;
 
-    virtual void setWindowOps(const QAndroidEmulatorWindowAgent &window_operations) = 0;
+    virtual void setWindowOps(const QAndroidEmulatorWindowAgent &window_operations,
+                              const QAndroidMultiDisplayAgent &multi_display_operations) = 0;
 
     virtual void setUsageTracker(android::base::CpuUsage* cpuUsage,
                                  android::base::MemoryTracker* memUsage) = 0;
 
-    virtual void* getGL(void) = 0;
+    virtual void* getGLESv2Dispatch(void) = 0;
 
-    virtual void* getEGL(void) = 0;
+    virtual void* getEGLDispatch(void) = 0;
 
     virtual bool getOpt(RenderOpt* opt) = 0;
 

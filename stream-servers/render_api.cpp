@@ -13,12 +13,13 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#include "OpenglRender/render_api.h"
+#include "render_api.h"
 
-#include "emugl/common/OpenGLDispatchLoader.h"
 #include "ErrorLog.h"
-#include "OpenGLESDispatch/DispatchTables.h"
 #include "RenderLibImpl.h"
+
+#include "OpenGLESDispatch/OpenGLDispatchLoader.h"
+#include "OpenGLESDispatch/DispatchTables.h"
 
 #include <memory>
 

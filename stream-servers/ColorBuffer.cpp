@@ -15,18 +15,17 @@
 */
 #include "ColorBuffer.h"
 
-#include "android/base/memory/ScopedPtr.h"
-
 #include "DispatchTables.h"
-#include "GLcommon/GLutils.h"
+#include "glestranslator/include/GLcommon/GLutils.h"
 #include "RenderThreadInfo.h"
 #include "TextureDraw.h"
 #include "TextureResize.h"
 #include "YUVConverter.h"
 
+#include "OpenGLESDispatch/DispatchTables.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
 
-#include "emugl/common/misc.h"
+#include "host-common/misc.h"
 
 #include <GLES2/gl2ext.h>
 
@@ -218,16 +217,6 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
 
     const unsigned long bufsize = ((unsigned long)bytesPerPixel) * p_width
             * p_height;
-    android::base::ScopedCPtr<char> initialImage(
-                static_cast<char*>(::malloc(bufsize)));
-    if (!initialImage) {
-        fprintf(stderr,
-                "error: failed to allocate initial memory for ColorBuffer "
-                "of size %dx%dx%d (%lu KB)\n",
-                p_width, p_height, bytesPerPixel * 8, bufsize / 1024);
-        return nullptr;
-    }
-    memset(initialImage.get(), 0x0, bufsize);
 
     RecursiveScopedHelperContext context(helper);
     if (!context.isOk()) {
@@ -244,9 +233,7 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
     s_gles2.glBindTexture(GL_TEXTURE_2D, cb->m_tex);
 
     s_gles2.glTexImage2D(GL_TEXTURE_2D, 0, p_internalFormat, p_width, p_height,
-                         0, texFormat, pixelType,
-                         initialImage.get());
-    initialImage.reset();
+                         0, texFormat, pixelType, nullptr);
 
     s_gles2.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     s_gles2.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -375,7 +362,7 @@ void ColorBuffer::readPixelsScaled(int width,
                                    int height,
                                    GLenum p_format,
                                    GLenum p_type,
-                                   SkinRotation rotation,
+                                   int rotation,
                                    void* pixels) {
     RecursiveScopedHelperContext context(m_helper);
     if (!context.isOk()) {

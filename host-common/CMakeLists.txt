@@ -4,7 +4,8 @@ add_library(
     vm_operations.cpp
     feature_control.cpp
     dma_device.cpp
-    sync_device.cpp)
+    sync_device.cpp
+    misc.cpp)
 target_include_directories(
     gfxstream-host-common
     PRIVATE

@@ -16,12 +16,11 @@
 
 #include "SyncThread.h"
 
-#include "android/base/memory/LazyInstance.h"
-#include "android/base/system/System.h"
-#include "android/utils/debug.h"
-#include "emugl/common/crash_reporter.h"
-#include "emugl/common/OpenGLDispatchLoader.h"
-#include "emugl/common/sync_device.h"
+#include "base/System.h"
+#include "base/Thread.h"
+#include "OpenGLESDispatch/OpenGLDispatchLoader.h"
+#include "host-common/crash_reporter.h"
+#include "host-common/sync_device.h"
 
 #ifndef _MSC_VER
 #include <sys/time.h>
@@ -49,8 +48,6 @@ static uint64_t curr_ms() {
 
 #endif
 
-using android::base::LazyInstance;
-
 // The single global sync thread instance.
 class GlobalSyncThread {
 public:
@@ -62,13 +59,16 @@ private:
     SyncThread mSyncThread;
 };
 
-static LazyInstance<GlobalSyncThread> sGlobalSyncThread = LAZY_INSTANCE_INIT;
+static GlobalSyncThread* sGlobalSyncThread() {
+    static GlobalSyncThread* t = new GlobalSyncThread;
+    return t;
+}
 
 static const uint32_t kTimelineInterval = 1;
 static const uint64_t kDefaultTimeoutNsecs = 5ULL * 1000ULL * 1000ULL * 1000ULL;
 
 SyncThread::SyncThread() :
-    emugl::Thread(android::base::ThreadFlags::MaskSignals, 512 * 1024) {
+    android::base::Thread(android::base::ThreadFlags::MaskSignals, 512 * 1024) {
     this->start();
     initSyncContext();
 }
@@ -325,5 +325,5 @@ int SyncThread::doSyncThreadCmd(SyncThreadCmd* cmd) {
 
 /* static */
 SyncThread* SyncThread::get() {
-    return sGlobalSyncThread->syncThreadPtr();
+    return sGlobalSyncThread()->syncThreadPtr();
 }

@@ -16,15 +16,14 @@
 #include "FrameBuffer.h"
 #include "RendererImpl.h"
 
-#include "android/base/CpuUsage.h"
-#include "android/base/files/Stream.h"
-#include "emugl/common/address_space_device_control_ops.h"
-#include "emugl/common/crash_reporter.h"
-#include "emugl/common/dma_device.h"
-#include "emugl/common/feature_control.h"
-#include "emugl/common/logging.h"
-#include "emugl/common/misc.h"
-#include "emugl/common/sync_device.h"
+#include "base/Stream.h"
+#include "host-common/address_space_device_control_ops.h"
+#include "host-common/crash_reporter.h"
+#include "host-common/dma_device.h"
+#include "host-common/feature_control.h"
+#include "host-common/logging.h"
+#include "host-common/misc.h"
+#include "host-common/sync_device.h"
 
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "OpenGLESDispatch/DispatchTables.h"
@@ -44,8 +43,8 @@ void RenderLibImpl::getGlesVersion(int* maj, int* min) {
 }
 
 void RenderLibImpl::setLogger(emugl_logger_struct logger) {
-    set_emugl_logger(logger.coarse);
-    set_emugl_cxt_logger(logger.fine);
+    // set_emugl_logger(logger.coarse);
+    // set_emugl_cxt_logger(logger.fine);
 }
 
 void RenderLibImpl::setGLObjectCounter(
@@ -54,11 +53,11 @@ void RenderLibImpl::setGLObjectCounter(
 }
 
 void RenderLibImpl::setCrashReporter(emugl_crash_reporter_t reporter) {
-    set_emugl_crash_reporter(reporter);
+    // set_emugl_crash_reporter(reporter);
 }
 
 void RenderLibImpl::setFeatureController(emugl_feature_is_enabled_t featureController) {
-    set_emugl_feature_is_enabled(featureController);
+    // set_emugl_feature_is_enabled(featureController);
 }
 
 void RenderLibImpl::setSyncDevice

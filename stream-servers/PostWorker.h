@@ -10,7 +10,6 @@
 #include "Hwc2.h"
 #include "base/Compiler.h"
 #include "base/Lock.h"
-// #include "android/skin/rect.h"
 
 class ColorBuffer;
 class FrameBuffer;

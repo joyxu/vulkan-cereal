@@ -22,10 +22,9 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
-#include "android/base/synchronization/Lock.h"
-#include "android/base/synchronization/MessageChannel.h"
-
-#include "emugl/common/thread.h"
+#include "base/Lock.h"
+#include "base/Thread.h"
+#include "base/MessageChannel.h"
 
 // SyncThread///////////////////////////////////////////////////////////////////
 // The purpose of SyncThread is to track sync device timelines and give out +
@@ -55,7 +54,7 @@ struct SyncThreadCmd {
 };
 
 struct RenderThreadInfo;
-class SyncThread : public emugl::Thread {
+class SyncThread : public android::base::Thread {
 public:
     // - constructor: start up the sync thread for a given context.
     // The initialization of the sync thread is nonblocking.
