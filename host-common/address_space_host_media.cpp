@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "android/emulation/address_space_host_media.h"
-#include "android/emulation/control/vm_operations.h"
-#include "android/base/AlignedBuf.h"
+#include "host-common/address_space_host_media.h"
+#include "host-common/control/vm_operations.h"
+#include "base/AlignedBuf.h"
 
 #define AS_DEVICE_DEBUG 0
 

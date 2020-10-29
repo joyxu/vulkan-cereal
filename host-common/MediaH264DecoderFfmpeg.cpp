@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "android/emulation/MediaH264DecoderFfmpeg.h"
-#include "android/base/system/System.h"
-#include "android/emulation/H264NaluParser.h"
-#include "android/emulation/H264PingInfoParser.h"
-#include "android/emulation/YuvConverter.h"
+#include "host-common/MediaH264DecoderFfmpeg.h"
+#include "base/System.h"
+#include "host-common/H264NaluParser.h"
+#include "host-common/H264PingInfoParser.h"
+#include "host-common/YuvConverter.h"
 
 #include <cstdint>
 #include <string>

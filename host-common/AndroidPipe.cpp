@@ -407,11 +407,11 @@ struct Globals {
     }
 };
 
-android::base::LazyInstance<Globals> sGlobals = LAZY_INSTANCE_INIT;
+static Globals* sGlobals() { static Globals* g = new Globals; return g; }
 
 Service* findServiceByName(const char* name) {
-    const int pos = sGlobals->findServicePositionByName(name);
-    return pos < 0 ? nullptr : sGlobals->services[pos].get();
+    const int pos = sGlobals()->findServicePositionByName(name);
+    return pos < 0 ? nullptr : sGlobals()->services[pos].get();
 }
 
 AndroidPipe* loadPipeFromStreamCommon(BaseStream* stream,
@@ -444,7 +444,7 @@ AndroidPipe* loadPipeFromStreamCommon(BaseStream* stream,
                             .c_str());
             abort();
         }
-        sGlobals->pipeWaker.signalWake(hwPipe, pendingFlags);
+        sGlobals()->pipeWaker.signalWake(hwPipe, pendingFlags);
         DD("%s: singalled wake flags %d for pipe hwpipe=%p", __func__,
            pendingFlags, hwPipe);
     }
@@ -456,7 +456,7 @@ AndroidPipe* loadPipeFromStreamCommon(BaseStream* stream,
 
 // static
 void AndroidPipe::initThreading(VmLock* vmLock) {
-    sGlobals->pipeWaker.init(vmLock);
+    sGlobals()->pipeWaker.init(vmLock);
 }
 
 AndroidPipe::~AndroidPipe() {
@@ -468,13 +468,13 @@ AndroidPipe::~AndroidPipe() {
 void AndroidPipe::Service::add(std::unique_ptr<Service> service) {
     DD("Adding new pipe service '%s' this=%p", service->name().c_str(),
        service);
-    sGlobals->services.push_back(std::move(service));
+    sGlobals()->services.push_back(std::move(service));
 }
 
 // static
 void AndroidPipe::Service::resetAll() {
     DD("Resetting all pipe services");
-    sGlobals->services.clear();
+    sGlobals()->services.clear();
 }
 
 void AndroidPipe::signalWake(int wakeFlags) {
@@ -488,7 +488,7 @@ void AndroidPipe::signalWake(int wakeFlags) {
                         .c_str());
         abort();
     }
-    sGlobals->pipeWaker.signalWake(mHwPipe, wakeFlags);
+    sGlobals()->pipeWaker.signalWake(mHwPipe, wakeFlags);
 }
 
 void AndroidPipe::closeFromHost() {
@@ -501,7 +501,7 @@ void AndroidPipe::closeFromHost() {
                         .c_str());
         abort();
     }
-    sGlobals->pipeWaker.closeFromHost(mHwPipe);
+    sGlobals()->pipeWaker.closeFromHost(mHwPipe);
 }
 
 void AndroidPipe::abortPendingOperation() {
@@ -515,12 +515,12 @@ void AndroidPipe::abortPendingOperation() {
                         .c_str());
         abort();
     }
-    sGlobals->pipeWaker.abortPending(mHwPipe);
+    sGlobals()->pipeWaker.abortPending(mHwPipe);
 }
 
 void AndroidPipe::saveToStream(BaseStream* stream) {
     // First, write service name.
-    if (mService == &sGlobals->connectorService) {
+    if (mService == &sGlobals()->connectorService) {
         // A connector pipe
         stream->putByte(0);
     } else {
@@ -538,7 +538,7 @@ void AndroidPipe::saveToStream(BaseStream* stream) {
     }
 
     // Save the pending wake or close operations as well.
-    const int pendingFlags = sGlobals->pipeWaker.getPendingFlags(mHwPipe);
+    const int pendingFlags = sGlobals()->pipeWaker.getPendingFlags(mHwPipe);
     pipeStream.putBe32(pendingFlags);
 
     pipeStream.save(stream);
@@ -548,7 +548,7 @@ void AndroidPipe::saveToStream(BaseStream* stream) {
 AndroidPipe* AndroidPipe::loadFromStream(BaseStream* stream,
                                          void* hwPipe,
                                          char* pForceClose) {
-    Service* service = sGlobals->loadServiceByName(stream);
+    Service* service = sGlobals()->loadServiceByName(stream);
     // Always load the pipeStream, it allows us to safely skip loading streams.
     MemStream pipeStream;
     pipeStream.load(stream);
@@ -566,7 +566,7 @@ AndroidPipe* AndroidPipe::loadFromStreamLegacy(BaseStream* stream,
                                                unsigned char* pWakes,
                                                unsigned char* pClosed,
                                                char* pForceClose) {
-    Service* service = sGlobals->loadServiceByName(stream);
+    Service* service = sGlobals()->loadServiceByName(stream);
     // Always load the pipeStream, it allows us to safely skip loading streams.
     MemStream pipeStream;
     pipeStream.load(stream);
@@ -592,13 +592,13 @@ void android_pipe_reset_services() {
 void* android_pipe_guest_open(void* hwpipe) {
     CHECK_VM_STATE_LOCK();
     DD("%s: Creating new connector pipe for hwpipe=%p", __FUNCTION__, hwpipe);
-    return android::sGlobals->connectorService.create(hwpipe, nullptr);
+    return android::sGlobals()->connectorService.create(hwpipe, nullptr);
 }
 
 void* android_pipe_guest_open_with_flags(void* hwpipe, uint32_t flags) {
     CHECK_VM_STATE_LOCK();
     DD("%s: Creating new connector pipe for hwpipe=%p", __FUNCTION__, hwpipe);
-    auto pipe = android::sGlobals->connectorService.create(hwpipe, nullptr);
+    auto pipe = android::sGlobals()->connectorService.create(hwpipe, nullptr);
     pipe->setFlags((AndroidPipeFlags)flags);
     return pipe;
 }
@@ -617,8 +617,8 @@ void android_pipe_guest_close(void* internalPipe, PipeCloseReason reason) {
 template <class Func>
 static void forEachServiceToStream(CStream* stream, Func&& func) {
     BaseStream* const bs = asBaseStream(stream);
-    bs->putBe16(android::sGlobals->services.size());
-    for (const auto& service : android::sGlobals->services) {
+    bs->putBe16(android::sGlobals()->services.size());
+    for (const auto& service : android::sGlobals()->services) {
         bs->putString(service->name());
 
         // Write to the pipeStream first so that we know the length and can
@@ -631,7 +631,7 @@ static void forEachServiceToStream(CStream* stream, Func&& func) {
 
 template <class Func>
 static void forEachServiceFromStream(CStream* stream, Func&& func) {
-    const auto& services = android::sGlobals->services;
+    const auto& services = android::sGlobals()->services;
     BaseStream* const bs = asBaseStream(stream);
     const int count = bs->getBe16();
     int servicePos = -1;
@@ -641,7 +641,7 @@ static void forEachServiceFromStream(CStream* stream, Func&& func) {
     }
     for (int i = 0; i < count; ++i) {
         const auto name = bs->getString();
-        servicePos = android::sGlobals->findServicePositionByName(
+        servicePos = android::sGlobals()->findServicePositionByName(
                                  name.c_str(), servicePos + 1);
 
         // Always load the pipeStream, so that if the pipe is missing it does
@@ -674,8 +674,8 @@ static void forEachServiceFromStream(CStream* stream, Func&& func) {
 void android_pipe_guest_pre_load(CStream* stream) {
     CHECK_VM_STATE_LOCK();
     // We may not call qemu_set_irq() until the snapshot is loaded.
-    android::sGlobals->pipeWaker.abortAllPending();
-    android::sGlobals->pipeWaker.setContextRunMode(
+    android::sGlobals()->pipeWaker.abortAllPending();
+    android::sGlobals()->pipeWaker.setContextRunMode(
                 android::ContextRunMode::DeferAlways);
     forEachServiceFromStream(stream, [](Service* service, BaseStream* bs) {
         if (service->canLoad()) {
@@ -692,7 +692,7 @@ void android_pipe_guest_post_load(CStream* stream) {
         }
     });
     // Restore the regular handling of pipe interrupt requests.
-    android::sGlobals->pipeWaker.setContextRunMode(
+    android::sGlobals()->pipeWaker.setContextRunMode(
                 android::ContextRunMode::DeferIfNotLocked);
 }
 
@@ -780,11 +780,11 @@ void android_pipe_guest_wake_on(void* internalPipe, unsigned wakes) {
 void android_pipe_host_close(void* hwpipe) {
     auto pipe = static_cast<android::AndroidPipe*>(hwpipe);
     D("%s: host=%p [%s]", __FUNCTION__, pipe, pipe->name());
-    android::sGlobals->pipeWaker.closeFromHost(pipe);
+    android::sGlobals()->pipeWaker.closeFromHost(pipe);
 }
 
 void android_pipe_host_signal_wake(void* hwpipe, unsigned flags) {
-    android::sGlobals->pipeWaker.signalWake(hwpipe, flags);
+    android::sGlobals()->pipeWaker.signalWake(hwpipe, flags);
 }
 
 // Not used when in virtio mode.

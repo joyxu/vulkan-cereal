@@ -12,18 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "android/emulation/hostdevices/HostGoldfishPipe.h"
+#include "host-common/HostGoldfishPipe.h"
 
-#include "android/base/containers/Lookup.h"
-#include "android/base/Result.h"
+#include "base/Lookup.h"
+#include "base/Result.h"
 #include "android/crashreport/crash-handler.h"
-#include "android/emulation/android_pipe_device.h"
-#include "android/emulation/AndroidPipe.h"
-#include "android/emulation/testing/TestVmLock.h"
-#include "android/emulation/VmLock.h"
-
-#include "android/base/memory/LazyInstance.h"
-#include "android/utils/stream.h"
+#include "host-common/android_pipe_device.h"
+#include "host-common/AndroidPipe.h"
+#include "host-common/testing/TestVmLock.h"
+#include "host-common/VmLock.h"
 
 #include <algorithm>
 #include <unordered_map>
@@ -52,7 +49,6 @@
 
 #endif
 
-using android::base::LazyInstance;
 using android::base::Result;
 using android::base::Ok;
 using android::base::Err;
@@ -440,11 +436,14 @@ void HostGoldfishPipeDevice::signalWake(const int fd, const int wakes) {
     }
 }
 
-static LazyInstance<HostGoldfishPipeDevice> sDevice = LAZY_INSTANCE_INIT;
+static HostGoldfishPipeDevice* sDevice() {
+    static HostGoldfishPipeDevice* d = new HostGoldfishPipeDevice;
+    return d;
+}
 
 // static
 HostGoldfishPipeDevice* HostGoldfishPipeDevice::get() {
-    auto res = sDevice.ptr();
+    auto res = sDevice();
     // Must be separate from construction
     // as some initialization routines require
     // the instance to be constructed.

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "android/emulation/MediaH264DecoderVideoToolBoxProxy.h"
+#include "host-common/MediaH264DecoderVideoToolBoxProxy.h"
 
 #include <cstdint>
 #include <string>

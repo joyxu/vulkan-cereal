@@ -14,13 +14,13 @@
 
 #pragma once
 
-#include "android/emulation/GoldfishMediaDefs.h"
-#include "android/emulation/H264PingInfoParser.h"
-#include "android/emulation/MediaFfmpegVideoHelper.h"
-#include "android/emulation/MediaH264DecoderPlugin.h"
-#include "android/emulation/MediaHostRenderer.h"
-#include "android/emulation/MediaSnapshotHelper.h"
-#include "android/emulation/MediaSnapshotState.h"
+#include "host-common/GoldfishMediaDefs.h"
+#include "host-common/H264PingInfoParser.h"
+#include "host-common/MediaFfmpegVideoHelper.h"
+#include "host-common/MediaH264DecoderPlugin.h"
+#include "host-common/MediaHostRenderer.h"
+#include "host-common/MediaSnapshotHelper.h"
+#include "host-common/MediaSnapshotState.h"
 
 #include <cstdint>
 #include <string>

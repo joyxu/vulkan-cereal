@@ -14,10 +14,10 @@
 
 #pragma once
 
-#include "android/emulation/MediaSnapshotState.h"
-#include "android/emulation/MediaTexturePool.h"
-#include "android/emulation/MediaVideoHelper.h"
-#include "android/emulation/YuvConverter.h"
+#include "host-common/MediaSnapshotState.h"
+#include "host-common/MediaTexturePool.h"
+#include "host-common/MediaVideoHelper.h"
+#include "host-common/YuvConverter.h"
 
 #include <cstdint>
 #include <list>
@@ -26,8 +26,8 @@
 #include <vector>
 
 extern "C" {
-#include "android/emulation/dynlink_cuda.h"
-#include "android/emulation/dynlink_nvcuvid.h"
+#include "host-common/dynlink_cuda.h"
+#include "host-common/dynlink_nvcuvid.h"
 }
 #include <stdio.h>
 #include <string.h>

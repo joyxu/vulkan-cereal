@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "android/emulation/MediaSnapshotState.h"
+#include "host-common/MediaSnapshotState.h"
 
 #include <cstdint>
 #include <list>

@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "android/emulation/GoldfishMediaDefs.h"
-#include "android/emulation/MediaTexturePool.h"
+#include "host-common/GoldfishMediaDefs.h"
+#include "host-common/MediaTexturePool.h"
 #include "android/opengles.h"
 
 #include <stddef.h>

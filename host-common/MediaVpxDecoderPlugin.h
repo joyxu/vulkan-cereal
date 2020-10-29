@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "android/emulation/GoldfishMediaDefs.h"
-#include "android/emulation/VpxPingInfoParser.h"
+#include "host-common/GoldfishMediaDefs.h"
+#include "host-common/VpxPingInfoParser.h"
 
 #include <stddef.h>
 #include <vector>

@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "android/emulation/GoldfishMediaDefs.h"
-#include "android/emulation/MediaCodec.h"
+#include "host-common/GoldfishMediaDefs.h"
+#include "host-common/MediaCodec.h"
 
 #include <stddef.h>
 

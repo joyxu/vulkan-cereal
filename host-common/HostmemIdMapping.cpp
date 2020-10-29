@@ -11,10 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "android/emulation/HostmemIdMapping.h"
-#include "android/base/memory/LazyInstance.h"
-
-using android::base::LazyInstance;
+#include "host-common/HostmemIdMapping.h"
 
 namespace android {
 namespace emulation {
@@ -22,7 +19,10 @@ namespace emulation {
 // static
 const HostmemIdMapping::Id HostmemIdMapping::kInvalidHostmemId = 0;
 
-static LazyInstance<HostmemIdMapping> sMapping = LAZY_INSTANCE_INIT;
+static HostmemIdMapping* sMapping() {
+    static HostmemIdMapping* s = new HostmemIdMapping;
+    return s;
+}
 
 // static
 HostmemIdMapping* HostmemIdMapping::get() {

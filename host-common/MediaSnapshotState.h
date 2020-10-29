@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #pragma once
-#include "android/base/files/Stream.h"
+#include "base/Stream.h"
 
 #include <stddef.h>
 #include <list>

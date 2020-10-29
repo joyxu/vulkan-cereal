@@ -13,8 +13,8 @@
 // limitations under the License.
 #pragma once
 
-#include "android/base/files/Stream.h"
-#include "android/emulation/GoldfishMediaDefs.h"
+#include "base/Stream.h"
+#include "host-common/GoldfishMediaDefs.h"
 
 namespace android {
 namespace emulation {

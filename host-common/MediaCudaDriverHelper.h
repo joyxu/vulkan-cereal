@@ -21,8 +21,8 @@
 #include <vector>
 
 extern "C" {
-#include "android/emulation/dynlink_cuda.h"
-#include "android/emulation/dynlink_nvcuvid.h"
+#include "host-common/dynlink_cuda.h"
+#include "host-common/dynlink_nvcuvid.h"
 }
 #include <stdio.h>
 #include <string.h>

@@ -14,9 +14,9 @@
 
 #pragma once
 
-#include "android/emulation/GoldfishMediaDefs.h"
-#include "android/emulation/MediaH264DecoderPlugin.h"
-#include "android/emulation/MediaH264Decoder.h"
+#include "host-common/GoldfishMediaDefs.h"
+#include "host-common/MediaH264DecoderPlugin.h"
+#include "host-common/MediaH264Decoder.h"
 
 #include <stddef.h>
 #include <mutex>

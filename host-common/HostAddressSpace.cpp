@@ -12,13 +12,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "android/emulation/hostdevices/HostAddressSpace.h"
+#include "host-common/HostAddressSpace.h"
 
-#include "android/base/SubAllocator.h"
-#include "android/base/memory/LazyInstance.h"
-#include "android/base/synchronization/Lock.h"
-#include "android/emulation/address_space_device.h"
-#include "android/emulation/address_space_device.hpp"
+#include "base/SubAllocator.h"
+#include "base/Lock.h"
+#include "host-common/address_space_device.h"
+#include "host-common/address_space_device.hpp"
 
 #include <unordered_map>
 
@@ -31,7 +30,6 @@
 #endif
 
 using android::base::AutoLock;
-using android::base::LazyInstance;
 using android::base::Lock;
 using android::base::SubAllocator;
 using android::emulation::AddressSpaceDevicePingInfo;
@@ -372,15 +370,17 @@ private:
     MemoryMap mSharedRegions;
 };
 
-static android::base::LazyInstance<HostAddressSpaceDevice> sHostAddressSpace =
-    LAZY_INSTANCE_INIT;
+static HostAddressSpaceDevice* sHostAddressSpace() {
+    static HostAddressSpaceDevice* h = new HostAddressSpaceDevice;
+    return h;
+}
 
 HostAddressSpaceDevice::HostAddressSpaceDevice() :
     mImpl(new HostAddressSpaceDevice::Impl()) { }
 
 // static
 HostAddressSpaceDevice* HostAddressSpaceDevice::get() {
-    auto res = sHostAddressSpace.ptr();
+    auto res = sHostAddressSpace();
     res->initialize();
     return res;
 }

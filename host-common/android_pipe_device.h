@@ -93,7 +93,7 @@
 // VERY IMPORTANT NOTE:
 //
 // All operations should happen on the thread that currently holds the
-// global VM state lock (see android/emulation/VmLock.h). It's up to
+// global VM state lock (see host-common/VmLock.h). It's up to
 // the host implementation to ensure that this is always the case.
 //
 

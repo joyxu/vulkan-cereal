@@ -11,12 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "android/emulation/hostdevices/HostAddressSpace.h"
+#include "host-common/HostAddressSpace.h"
 
-#include "android/base/AlignedBuf.h"
+#include "base/AlignedBuf.h"
 #include "android/console.h"
-#include "android/emulation/address_space_device.h"
-#include "android/emulation/address_space_device.hpp"
+#include "host-common/address_space_device.h"
+#include "host-common/address_space_device.hpp"
 
 #include <gtest/gtest.h>
 

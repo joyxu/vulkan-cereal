@@ -14,7 +14,7 @@
 #pragma once
 
 #include <memory>
-#include "android/base/files/Stream.h"
+#include "base/Stream.h"
 
 namespace android {
 namespace emulation {

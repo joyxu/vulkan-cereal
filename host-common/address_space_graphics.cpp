@@ -12,15 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "android/emulation/address_space_graphics.h"
+#include "host-common/address_space_graphics.h"
 
-#include "android/emulation/address_space_device.hpp"
-#include "android/emulation/address_space_device.h"
-#include "android/emulation/control/vm_operations.h"
-#include "android/base/AlignedBuf.h"
-#include "android/base/memory/LazyInstance.h"
-#include "android/base/SubAllocator.h"
-#include "android/base/synchronization/Lock.h"
+#include "host-common/address_space_device.hpp"
+#include "host-common/address_space_device.h"
+#include "host-common/control/vm_operations.h"
+#include "base/AlignedBuf.h"
+#include "base/SubAllocator.h"
+#include "base/Lock.h"
 #include "android/crashreport/crash-handler.h"
 #include "android/globals.h"
 
@@ -36,7 +35,6 @@
 
 using android::base::AutoLock;
 using android::base::Lock;
-using android::base::LazyInstance;
 using android::base::SubAllocator;
 
 namespace android {
@@ -377,41 +375,44 @@ private:
     std::vector<Block> mCombinedBlocks;
 };
 
-static LazyInstance<Globals> sGlobals = LAZY_INSTANCE_INIT;
+static Globals* sGlobals() {
+    static Globals* g = new Globals;
+    return g;
+}
 
 // static
 void AddressSpaceGraphicsContext::init(const address_space_device_control_ops* ops) {
-    sGlobals->initialize(ops);
+    sGlobals()->initialize(ops);
 }
 
 // static
 void AddressSpaceGraphicsContext::clear() {
-    sGlobals->clear();
+    sGlobals()->clear();
 }
 
 // static
 void AddressSpaceGraphicsContext::setConsumer(
     ConsumerInterface interface) {
-    sGlobals->setConsumer(interface);
+    sGlobals()->setConsumer(interface);
 }
 
 AddressSpaceGraphicsContext::AddressSpaceGraphicsContext(bool isVirtio) :
     mConsumerCallbacks((ConsumerCallbacks){
         [this] { return onUnavailableRead(); },
         [](uint64_t physAddr) {
-            return (char*)sGlobals->controlOps()->get_host_ptr(physAddr);
+            return (char*)sGlobals()->controlOps()->get_host_ptr(physAddr);
         },
     }),
-    mConsumerInterface(sGlobals->getConsumerInterface()),
+    mConsumerInterface(sGlobals()->getConsumerInterface()),
     mIsVirtio(isVirtio) {
 
     if (mIsVirtio) {
-        mCombinedAllocation = sGlobals->allocRingAndBufferStorageDedicated();
-        mRingAllocation = sGlobals->allocRingViewIntoCombined(mCombinedAllocation);
-        mBufferAllocation = sGlobals->allocBufferViewIntoCombined(mCombinedAllocation);
+        mCombinedAllocation = sGlobals()->allocRingAndBufferStorageDedicated();
+        mRingAllocation = sGlobals()->allocRingViewIntoCombined(mCombinedAllocation);
+        mBufferAllocation = sGlobals()->allocBufferViewIntoCombined(mCombinedAllocation);
     } else {
-        mRingAllocation = sGlobals->allocRingStorage();
-        mBufferAllocation = sGlobals->allocBuffer();
+        mRingAllocation = sGlobals()->allocRingStorage();
+        mBufferAllocation = sGlobals()->allocBuffer();
     }
 
     if (!mRingAllocation.buffer) {
@@ -427,9 +428,9 @@ AddressSpaceGraphicsContext::AddressSpaceGraphicsContext(bool isVirtio) :
     mHostContext = asg_context_create(
         mRingAllocation.buffer,
         mBufferAllocation.buffer,
-        sGlobals->perContextBufferSize());
+        sGlobals()->perContextBufferSize());
     mHostContext.ring_config->buffer_size =
-        sGlobals->perContextBufferSize();
+        sGlobals()->perContextBufferSize();
     mHostContext.ring_config->flush_interval =
         android_hw->hw_gltransport_asg_writeStepSize;
     mHostContext.ring_config->host_consumed_pos = 0;
@@ -448,9 +449,9 @@ AddressSpaceGraphicsContext::~AddressSpaceGraphicsContext() {
         mConsumerInterface.destroy(mCurrentConsumer);
     }
 
-    sGlobals->freeBuffer(mBufferAllocation);
-    sGlobals->freeRingStorage(mRingAllocation);
-    sGlobals->freeRingAndBuffer(mCombinedAllocation);
+    sGlobals()->freeBuffer(mBufferAllocation);
+    sGlobals()->freeRingStorage(mRingAllocation);
+    sGlobals()->freeRingAndBuffer(mCombinedAllocation);
 }
 
 void AddressSpaceGraphicsContext::perform(AddressSpaceDevicePingInfo* info) {

@@ -11,25 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "android/emulation/address_space_device.h"
-#include "android/emulation/AddressSpaceService.h"
-#include "android/emulation/address_space_graphics.h"
+#include "host-common/address_space_device.h"
+#include "host-common/AddressSpaceService.h"
+#include "host-common/address_space_graphics.h"
 #ifndef AEMU_MIN
-#include "android/emulation/address_space_host_media.h"
+#include "host-common/address_space_host_media.h"
 #endif
-#include "android/emulation/address_space_host_memory_allocator.h"
-#include "android/emulation/address_space_shared_slots_host_memory_allocator.h"
-#include "android/emulation/control/vm_operations.h"
+#include "host-common/address_space_host_memory_allocator.h"
+#include "host-common/address_space_shared_slots_host_memory_allocator.h"
+#include "host-common/control/vm_operations.h"
 
-#include "android/base/memory/LazyInstance.h"
-#include "android/base/synchronization/Lock.h"
+#include "base/Lock.h"
 
 #include <map>
 #include <unordered_map>
 #include <memory>
 
 using android::base::AutoLock;
-using android::base::LazyInstance;
 using android::base::Lock;
 using android::base::Stream;
 
@@ -398,68 +396,70 @@ private:
     std::map<uint64_t, std::vector<DeallocationCallbackEntry>> mDeallocationCallbacks; // do not save/load, users re-register on load
 };
 
-static LazyInstance<AddressSpaceDeviceState> sAddressSpaceDeviceState =
-        LAZY_INSTANCE_INIT;
+static AddressSpaceDeviceState* sAddressSpaceDeviceState() {
+    static AddressSpaceDeviceState* s = new AddressSpaceDeviceState;
+    return s;
+}
 
 static uint32_t sCurrentHandleIndex = 0;
 
 static uint32_t sAddressSpaceDeviceGenHandle() {
-    return sAddressSpaceDeviceState->genHandle();
+    return sAddressSpaceDeviceState()->genHandle();
 }
 
 static void sAddressSpaceDeviceDestroyHandle(uint32_t handle) {
-    sAddressSpaceDeviceState->destroyHandle(handle);
+    sAddressSpaceDeviceState()->destroyHandle(handle);
 }
 
 static void sAddressSpaceDeviceTellPingInfo(uint32_t handle, uint64_t gpa) {
-    sAddressSpaceDeviceState->tellPingInfo(handle, gpa);
+    sAddressSpaceDeviceState()->tellPingInfo(handle, gpa);
 }
 
 static void sAddressSpaceDevicePing(uint32_t handle) {
-    sAddressSpaceDeviceState->ping(handle);
+    sAddressSpaceDeviceState()->ping(handle);
 }
 
 int sAddressSpaceDeviceAddMemoryMapping(uint64_t gpa, void *ptr, uint64_t size) {
-    return sAddressSpaceDeviceState->addMemoryMapping(gpa, ptr, size) ? 1 : 0;
+    return sAddressSpaceDeviceState()->addMemoryMapping(gpa, ptr, size) ? 1 : 0;
 }
 
 int sAddressSpaceDeviceRemoveMemoryMapping(uint64_t gpa, void *ptr, uint64_t size) {
     (void)ptr; // TODO(lfy): remove arg
-    return sAddressSpaceDeviceState->removeMemoryMapping(gpa, size) ? 1 : 0;
+    return sAddressSpaceDeviceState()->removeMemoryMapping(gpa, size) ? 1 : 0;
 }
 
 void* sAddressSpaceDeviceGetHostPtr(uint64_t gpa) {
-    return sAddressSpaceDeviceState->getHostPtr(gpa);
+    return sAddressSpaceDeviceState()->getHostPtr(gpa);
 }
 
 static void* sAddressSpaceHandleToContext(uint32_t handle) {
-    return (void*)(sAddressSpaceDeviceState->handleToContext(handle));
+    return (void*)(sAddressSpaceDeviceState()->handleToContext(handle));
 }
 
 static void sAddressSpaceDeviceClear() {
-    sAddressSpaceDeviceState->clear();
+    sAddressSpaceDeviceState()->clear();
 }
 
 static uint64_t sAddressSpaceDeviceHostmemRegister(uint64_t hva, uint64_t size) {
-    return sAddressSpaceDeviceState->hostmemRegister(hva, size);
+    return sAddressSpaceDeviceState()->hostmemRegister(hva, size);
 }
 
 static void sAddressSpaceDeviceHostmemUnregister(uint64_t id) {
-    sAddressSpaceDeviceState->hostmemUnregister(id);
+    sAddressSpaceDeviceState()->hostmemUnregister(id);
 }
 
 static void sAddressSpaceDevicePingAtHva(uint32_t handle, void* hva) {
-    sAddressSpaceDeviceState->pingAtHva(
+    sAddressSpaceDeviceState()->pingAtHva(
         handle, (AddressSpaceDevicePingInfo*)hva);
 }
 
 static void sAddressSpaceDeviceRegisterDeallocationCallback(
     void* context, uint64_t gpa, address_space_device_deallocation_callback_t func) {
-    sAddressSpaceDeviceState->registerDeallocationCallback(gpa, context, func);
+    sAddressSpaceDeviceState()->registerDeallocationCallback(gpa, context, func);
 }
 
 static void sAddressSpaceDeviceRunDeallocationCallbacks(uint64_t gpa) {
-    sAddressSpaceDeviceState->runDeallocationCallbacks(gpa);
+    sAddressSpaceDeviceState()->runDeallocationCallbacks(gpa);
 }
 
 static const struct AddressSpaceHwFuncs* sAddressSpaceDeviceControlGetHwFuncs() {
@@ -524,11 +524,11 @@ const QAndroidVmOperations* goldfish_address_space_get_vm_operations() {
 }
 
 int goldfish_address_space_memory_state_load(android::base::Stream *stream) {
-    return sAddressSpaceDeviceState->load(stream) ? 0 : 1;
+    return sAddressSpaceDeviceState()->load(stream) ? 0 : 1;
 }
 
 int goldfish_address_space_memory_state_save(android::base::Stream *stream) {
-    sAddressSpaceDeviceState->save(stream);
+    sAddressSpaceDeviceState()->save(stream);
     return 0;
 }
 

@@ -13,11 +13,11 @@
 // limitations under the License.
 #pragma once
 
-#include "android/emulation/AddressSpaceService.h"
-#include "android/emulation/address_space_device.h"
-#include "android/emulation/GoldfishMediaDefs.h"
-#include "android/emulation/MediaVpxDecoder.h"
-#include "android/emulation/MediaH264Decoder.h"
+#include "host-common/AddressSpaceService.h"
+#include "host-common/address_space_device.h"
+#include "host-common/GoldfishMediaDefs.h"
+#include "host-common/MediaVpxDecoder.h"
+#include "host-common/MediaH264Decoder.h"
 
 #include <unordered_map>
 

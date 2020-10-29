@@ -14,11 +14,11 @@
 
 #pragma once
 
-#include "android/emulation/GoldfishMediaDefs.h"
-#include "android/emulation/H264NaluParser.h"
-#include "android/emulation/MediaCodec.h"
-#include "android/emulation/MediaH264DecoderFfmpeg.h"
-#include "android/emulation/MediaH264DecoderVideoToolBox.h"
+#include "host-common/GoldfishMediaDefs.h"
+#include "host-common/H264NaluParser.h"
+#include "host-common/MediaCodec.h"
+#include "host-common/MediaH264DecoderFfmpeg.h"
+#include "host-common/MediaH264DecoderVideoToolBox.h"
 
 #include <VideoToolbox/VideoToolbox.h>
 

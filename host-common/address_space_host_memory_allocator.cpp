@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "android/emulation/address_space_host_memory_allocator.h"
-#include "android/emulation/address_space_device.hpp"
-#include "android/emulation/control/vm_operations.h"
-#include "android/base/AlignedBuf.h"
+#include "host-common/address_space_host_memory_allocator.h"
+#include "host-common/address_space_device.hpp"
+#include "host-common/control/vm_operations.h"
+#include "base/AlignedBuf.h"
 #include "android/crashreport/crash-handler.h"
 
 namespace android {

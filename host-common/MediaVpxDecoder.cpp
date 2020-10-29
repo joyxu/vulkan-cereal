@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "android/emulation/MediaVpxDecoder.h"
-#include "android/base/system/System.h"
-#include "android/emulation/MediaVpxDecoderGeneric.h"
-#include "android/emulation/VpxPingInfoParser.h"
+#include "host-common/MediaVpxDecoder.h"
+#include "base/System.h"
+#include "host-common/MediaVpxDecoderGeneric.h"
+#include "host-common/VpxPingInfoParser.h"
 
 #include <cstdint>
 #include <string>

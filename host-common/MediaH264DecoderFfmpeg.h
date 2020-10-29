@@ -14,11 +14,11 @@
 
 #pragma once
 
-#include "android/emulation/GoldfishMediaDefs.h"
-#include "android/emulation/H264PingInfoParser.h"
-#include "android/emulation/MediaH264DecoderDefault.h"
-#include "android/emulation/MediaH264DecoderPlugin.h"
-#include "android/emulation/MediaHostRenderer.h"
+#include "host-common/GoldfishMediaDefs.h"
+#include "host-common/H264PingInfoParser.h"
+#include "host-common/MediaH264DecoderDefault.h"
+#include "host-common/MediaH264DecoderPlugin.h"
+#include "host-common/MediaHostRenderer.h"
 
 
 extern "C" {

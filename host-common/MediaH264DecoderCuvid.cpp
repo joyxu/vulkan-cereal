@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "android/emulation/MediaH264DecoderCuvid.h"
-#include "android/emulation/H264NaluParser.h"
-#include "android/emulation/YuvConverter.h"
+#include "host-common/MediaH264DecoderCuvid.h"
+#include "host-common/H264NaluParser.h"
+#include "host-common/YuvConverter.h"
 #include "android/main-emugl.h"
 // MediaH264DecoderCuvid.h
 #include <cstdint>
@@ -32,9 +32,9 @@
 
 extern "C" {
 #define INIT_CUDA_GL 1
-#include "android/emulation/dynlink_cuda.h"
-#include "android/emulation/dynlink_cudaGL.h"
-#include "android/emulation/dynlink_nvcuvid.h"
+#include "host-common/dynlink_cuda.h"
+#include "host-common/dynlink_cudaGL.h"
+#include "host-common/dynlink_nvcuvid.h"
 }
 #define MEDIA_H264_DEBUG 0
 

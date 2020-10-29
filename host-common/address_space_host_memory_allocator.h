@@ -13,8 +13,8 @@
 // limitations under the License.
 #pragma once
 
-#include "android/emulation/AddressSpaceService.h"
-#include "android/emulation/address_space_device.h"
+#include "host-common/AddressSpaceService.h"
+#include "host-common/address_space_device.h"
 
 #include <unordered_map>
 
