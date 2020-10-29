@@ -1,7 +1,9 @@
 project(gfx-streaming-kit)
 cmake_minimum_required(VERSION 3.11)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_C_STANDARD 11)
 
 set(GFXSTREAM_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -23,6 +25,10 @@ add_subdirectory(stream-servers)
 # Protocols and associated code generators######################################
 
 add_subdirectory(protocols)
+
+# Fake Android guest#########################3##################################
+
+# add_subdirectory(fake-android-guest)
 
 # Frontends#####################################################################
 

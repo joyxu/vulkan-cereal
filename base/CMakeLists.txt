@@ -21,8 +21,10 @@ set(gfxstream-base-common-sources
     System.cpp
     Tracing.cpp)
 set(gfxstream-base-posix-sources
+    SharedMemory_posix.cpp
     Thread_pthread.cpp)
 set(gfxstream-base-windows-sources
+    SharedMemory_win32.cpp
     Thread_win32.cpp
     Win32UnicodeString.cpp)
 if (WIN32)
