@@ -28,7 +28,7 @@ add_subdirectory(protocols)
 
 # Fake Android guest#########################3##################################
 
-# add_subdirectory(fake-android-guest)
+add_subdirectory(fake-android-guest)
 
 # Frontends#####################################################################
 
