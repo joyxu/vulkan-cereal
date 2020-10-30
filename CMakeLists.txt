@@ -16,8 +16,6 @@ set(GFXSTREAM_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 # Third party dependencies
 add_subdirectory(third-party)
 
-add_executable(buildtest test.c)
-
 # Common base libraries for host################################################
 
 add_subdirectory(base)
