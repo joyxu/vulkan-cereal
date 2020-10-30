@@ -16,7 +16,6 @@
 #include "base/Compiler.h"
 #include "base/StaticMap.h"
 #include "base/export.h"
-#include "host-common/control/structs.h"
 
 #include <atomic>
 

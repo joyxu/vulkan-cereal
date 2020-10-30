@@ -22,7 +22,7 @@
 #include "host-common/vm_operations.h"
 #include "host-common/window_agent.h"
 #include "host-common/multi_display_agent.h"
-#include "host-common/emugl_config.h"
+#include "host-common/opengl/emugl_config.h"
 
 extern "C" {
 

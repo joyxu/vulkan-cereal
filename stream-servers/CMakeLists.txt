@@ -38,7 +38,9 @@ set(gfxstream-server-common-sources
     RenderWindow.cpp
     RenderLibImpl.cpp
     RendererImpl.cpp
-    FrameBuffer.cpp)
+    FrameBuffer.cpp
+    GfxStreamAgents.cpp
+    GfxStreamBackend.cpp)
 if (APPLE)
     set(gfxstream-server-platform-sources NativeSubWindow_cocoa.m)
 elseif (WIN32)

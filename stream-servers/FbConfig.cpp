@@ -14,7 +14,7 @@
 
 #include "FbConfig.h"
 
-#include "host-common/emugl_config.h"
+#include "host-common/opengl/emugl_config.h"
 #include "host-common/feature_control.h"
 #include "host-common/misc.h"
 #include "FrameBuffer.h"

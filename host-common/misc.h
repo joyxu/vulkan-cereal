@@ -16,7 +16,7 @@
 
 #include "multi_display_agent.h"
 #include "window_agent.h"
-#include "emugl_config.h"
+#include "opengl/emugl_config.h"
 
 #ifdef _MSC_VER
 # ifdef BUILDING_EMUGL_COMMON_SHARED

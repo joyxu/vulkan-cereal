@@ -1,0 +1,92 @@
+/* Copyright (C) 2007-2008 The Android Open Source Project
+**
+** This software is licensed under the terms of the GNU General Public
+** License version 2, as published by the Free Software Foundation, and
+** may be copied, distributed, and modified under those terms.
+**
+** This program is distributed in the hope that it will be useful,
+** but WITHOUT ANY WARRANTY; without even the implied warranty of
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+** GNU General Public License for more details.
+*/
+
+#pragma once
+
+#include "base/export.h"
+#include "constants.h"
+#include "avd/info.h"
+#include "avd/hw-config.h"
+
+/* this structure is setup when loading the virtual device
+ * after that, you can read the 'flags' field to determine
+ * wether a data or cache wipe has been in effect.
+ */
+extern AvdInfoParams     android_avdParams[1];
+
+/* a pointer to the android virtual device information
+ * object, which can be queried for the paths of various
+ * image files or the skin
+ */
+extern AvdInfo*          android_avdInfo;
+
+/* MSVC only exports function pointers */
+extern AEMU_EXPORT AvdInfo** aemu_get_android_avdInfoPtr();
+
+/* the hardware configuration for this specific virtual device */
+extern AndroidHwConfig   android_hw[1];
+
+/* MSVC only exports function pointers */
+AEMU_EXPORT AndroidHwConfig* aemu_get_android_hw();
+
+/* this is to support snapshot (currently only qemu1+software-renderer) */
+extern const char* savevm_on_exit;
+
+/* this indicates that guest has mounted data partition */
+extern int guest_data_partition_mounted;
+
+/* this indicates that guest has boot completed */
+extern int guest_boot_completed;
+
+extern int arm_snapshot_save_completed;
+
+extern int host_emulator_is_headless;
+
+/* are we using the emulator in the android mode or plain qemu? */
+extern int android_qemu_mode;
+
+/* are we using android-emu libraries for a minimal configuration? */
+extern int min_config_qemu_mode;
+
+extern int android_snapshot_update_timer;
+
+/* are we using qemu 2? */
+/* remove this flag once we deprecate qemu1 on both dev and release branches. */
+extern int engine_supports_snapshot;
+
+/* are we changing the language, country, or locale? */
+extern int changing_language_country_locale;
+extern const char* to_set_language;
+extern const char* to_set_country;
+extern const char* to_set_locale;
+
+/* True if we are using keycode forwarding instead of translating text value to
+ * keycode */
+/* on emulator host. */
+extern int use_keycode_forwarding;
+
+enum WinsysPreferredGlesBackend {
+    WINSYS_GLESBACKEND_PREFERENCE_AUTO = 0,
+    WINSYS_GLESBACKEND_PREFERENCE_ANGLE = 1,
+    WINSYS_GLESBACKEND_PREFERENCE_ANGLE9 = 2,
+    WINSYS_GLESBACKEND_PREFERENCE_SWIFTSHADER = 3,
+    WINSYS_GLESBACKEND_PREFERENCE_NATIVEGL = 4,
+    WINSYS_GLESBACKEND_PREFERENCE_NUM = 5,
+};
+
+enum WinsysPreferredGlesApiLevel {
+    WINSYS_GLESAPILEVEL_PREFERENCE_AUTO = 0,
+    WINSYS_GLESAPILEVEL_PREFERENCE_MAX = 1,
+    WINSYS_GLESAPILEVEL_PREFERENCE_COMPAT = 2,
+    WINSYS_GLESAPILEVEL_PREFERENCE_NUM = 3,
+};
+
