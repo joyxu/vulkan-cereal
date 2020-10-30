@@ -1,9 +1,15 @@
 project(gfx-streaming-kit)
 cmake_minimum_required(VERSION 3.11)
+find_package(Threads)
+include(ExternalProject)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
+
+# GoogleTest support: uses CMake ExternalProject to pull in external repo
+# without manual steps (during CMake build script generation phase)
+include(gtest.cmake)
 
 set(GFXSTREAM_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
