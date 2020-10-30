@@ -44,7 +44,8 @@ set(gfxstream_backend-common-sources
     RendererImpl.cpp
     FrameBuffer.cpp
     GfxStreamAgents.cpp
-    GfxStreamBackend.cpp)
+    GfxStreamBackend.cpp
+    virtio-gpu-gfxstream-renderer.cpp)
 if (APPLE)
     set(gfxstream_backend-platform-sources NativeSubWindow_cocoa.m)
 elseif (WIN32)
@@ -90,6 +91,7 @@ target_link_libraries(
     PRIVATE
     OSWindow
     gfxstream_backend
+    gfxstream-base
     gtest_main)
 
 

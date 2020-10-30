@@ -15,11 +15,13 @@ set(gfxstream-base-common-sources
     PathUtils.cpp
     ring_buffer.c
     SharedLibrary.cpp
+    StringFormat.cpp
     Stream.cpp
     StreamSerializing.cpp
     SubAllocator.cpp
     System.cpp
     Tracing.cpp)
+
 set(gfxstream-base-posix-sources
     SharedMemory_posix.cpp
     Thread_pthread.cpp)
@@ -27,17 +29,22 @@ set(gfxstream-base-windows-sources
     SharedMemory_win32.cpp
     Thread_win32.cpp
     Win32UnicodeString.cpp)
-if (WIN32)
-add_library(
-    gfxstream-base
-    ${gfxstream-base-common-sources}
-    ${gfxstream-base-windows-sources})
+if (APPLE)
+    set(gfxstream-platform-sources
+        ${gfxstream-base-posix-sources}
+        system-native-mac.mm)
+elseif (WIN32)
+    set(gfxstream-platform-sources
+        ${gfxstream-base-windows-sources})
 else()
+    set(gfxstream-platform-sources
+        ${gfxstream-base-posix-sources})
+endif()
+
 add_library(
     gfxstream-base
     ${gfxstream-base-common-sources}
-    ${gfxstream-base-posix-sources})
-endif()
+    ${gfxstream-platform-sources})
 
 target_link_libraries(
     gfxstream-base PRIVATE lz4)
