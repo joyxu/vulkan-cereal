@@ -1,6 +1,6 @@
 extern "C" {
-#include "hw/misc/goldfish_pipe.h"
-#include "hw/virtio/virtio-goldfish-pipe.h"
+#include "host-common/goldfish_pipe.h"
+#include "virtio-gpu-gfxstream-renderer.h"
 #include "virgl_hw.h"
 }  // extern "C"
 

@@ -60,7 +60,7 @@ add_library(
     ${gfxstream_backend-platform-sources})
 target_link_libraries(
     gfxstream_backend
-    PRIVATE
+    PUBLIC
     gfxstream-host-common
     gfxstream-base
     OpenGLESDispatch
@@ -71,10 +71,25 @@ target_link_libraries(
     apigen-codec-common)
 target_include_directories(
     gfxstream_backend
-    PRIVATE
+    PUBLIC
     ${GFXSTREAM_REPO_ROOT}
     ${GFXSTREAM_REPO_ROOT}/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers
     ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
     ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan)
+
+# Testing libraries
+add_subdirectory(testlibs)
+
+# Backend unit tests
+add_executable(
+    gfxstream_backend_unittests
+    gfxstream_unittest.cpp)
+target_link_libraries(
+    gfxstream_backend_unittests
+    PRIVATE
+    OSWindow
+    gfxstream_backend
+    gtest_main)
+
 
