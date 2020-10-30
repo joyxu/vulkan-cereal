@@ -39,6 +39,8 @@ set(gfxstream_backend-common-sources
     WindowSurface.cpp
     YUVConverter.cpp
     RenderThread.cpp
+    RenderContext.cpp
+    RenderControl.cpp
     RenderWindow.cpp
     RenderLibImpl.cpp
     RendererImpl.cpp
@@ -93,5 +95,4 @@ target_link_libraries(
     gfxstream_backend
     gfxstream-base
     gtest_main)
-
 

@@ -1,3 +1,18 @@
+if (APPLE)
+    set(angle-common-platform-sources
+        src/common/system_utils_posix.cpp
+        src/common/system_utils_mac.cpp)
+elseif (WIN32)
+    set(angle-common-platform-sources
+        src/common/system_utils_win.cpp
+        src/common/system_utils_win32.cpp
+        src/common/system_utils_winuwp)
+else()
+    set(angle-common-platform-sources
+        src/common/system_utils_posix.cpp
+        src/common/system_utils_linux.cpp)
+endif()
+
 add_library(
     angle_common
     src/common/Color.h
@@ -55,7 +70,10 @@ add_library(
     src/common/uniform_type_info_autogen.cpp
     src/common/utilities.cpp
     src/common/utilities.h
-    src/common/vector_utils.h)
+    src/common/vector_utils.h
+    src/common/system_utils.h
+    src/common/system_utils.cpp
+    ${angle-common-platform-sources})
 target_include_directories(
     angle_common
     PRIVATE

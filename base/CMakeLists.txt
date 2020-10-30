@@ -13,7 +13,7 @@ set(gfxstream-base-common-sources
     MemoryTracker.cpp
     MessageChannel.cpp
     PathUtils.cpp
-    ring_buffer.c
+    ring_buffer.cpp
     SharedLibrary.cpp
     StringFormat.cpp
     Stream.cpp
@@ -21,7 +21,6 @@ set(gfxstream-base-common-sources
     SubAllocator.cpp
     System.cpp
     Tracing.cpp)
-
 set(gfxstream-base-posix-sources
     SharedMemory_posix.cpp
     Thread_pthread.cpp)
@@ -50,3 +49,5 @@ target_link_libraries(
     gfxstream-base PRIVATE lz4)
 target_include_directories(
     gfxstream-base PUBLIC ${GFXSTREAM_REPO_ROOT})
+target_compile_options(
+    gfxstream-base PRIVATE -fvisibility=default)

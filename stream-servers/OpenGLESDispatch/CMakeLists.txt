@@ -7,7 +7,7 @@ add_library(
     GLESv2Dispatch.cpp
     OpenGLDispatchLoader.cpp
     StaticDispatch.cpp)
-target_compile_options(OpenGLESDispatch PRIVATE -fvisibility=hidden)
+target_compile_options(OpenGLESDispatch PRIVATE -fvisibility=default)
 target_link_libraries(OpenGLESDispatch PRIVATE gfxstream-base)
 target_link_libraries(OpenGLESDispatch PUBLIC gles1_dec gles2_dec apigen-codec-common)
 target_link_libraries(OpenGLESDispatch PRIVATE EGL_translator_static)

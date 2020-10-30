@@ -47,3 +47,17 @@ bool gles2_dispatch_init(GLESv2Dispatch* dispatch_table) {
     dispatch_table->initialized = true;
     return true;
 }
+
+
+void *gles2_dispatch_get_proc_func(const char *name, void *userData)
+{
+    void* func = NULL;
+    func = gles2_dispatch_get_proc_func_static(name);
+
+    // To make it consistent with the guest, redirect any unsupported functions
+    // to gles2_unimplemented.
+    if (!func) {
+        func = (void *)gles2_unimplemented;
+    }
+    return func;
+}

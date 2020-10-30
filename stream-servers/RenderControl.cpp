@@ -29,15 +29,11 @@
 #include "vulkan/VkCommonOperations.h"
 #include "vulkan/VkDecoderGlobalState.h"
 
-#include "android/utils/debug.h"
-#include "android/base/StringView.h"
-#include "android/base/Tracing.h"
-#include "emugl/common/feature_control.h"
-#include "emugl/common/lazy_instance.h"
-#include "emugl/common/sync_device.h"
-#include "emugl/common/dma_device.h"
-#include "emugl/common/misc.h"
-#include "emugl/common/thread.h"
+#include "base/Tracing.h"
+#include "host-common/feature_control.h"
+#include "host-common/sync_device.h"
+#include "host-common/dma_device.h"
+#include "host-common/misc.h"
 #include "math.h"
 
 #include <atomic>
@@ -46,7 +42,6 @@
 
 using android::base::AutoLock;
 using android::base::Lock;
-using emugl::emugl_feature_is_enabled;
 using emugl::emugl_sync_device_exists;
 using emugl::emugl_sync_register_trigger_wait;
 
@@ -97,7 +92,7 @@ public:
         // in many situations
         // (switching camera sides, exiting benchmark apps, etc)
         // So, we put GrallocSync under the feature control.
-        mEnabled = emugl_feature_is_enabled(android::featurecontrol::GrallocSync);
+        mEnabled = feature_is_enabled(kFeature_GrallocSync);
 
         // There are two potential tricky situations to handle:
         // a. Multiple users of gralloc buffers that all want to
@@ -150,7 +145,10 @@ public:
         android::base::AutoWriteLock(grallocsync.mGrallocColorBufferLock) { }
 };
 
-static ::emugl::LazyInstance<GrallocSync> sGrallocSync = LAZY_INSTANCE_INIT;
+static GrallocSync* sGrallocSync() {
+    static GrallocSync* g = new GrallocSync;
+    return g;
+}
 
 static const GLint rendererVersion = 1;
 
@@ -161,66 +159,66 @@ static const GLint rendererVersion = 1;
 // "ANDROIDEMU_native_sync_v4": Correct eglGetSyncAttrib via rcIsSyncSignaled
 // (We need all the different strings to not be prefixes of any other
 // due to how they are checked for in the GL extensions on the guest)
-static constexpr android::base::StringView kAsyncSwapStrV2 = "ANDROID_EMU_native_sync_v2";
-static constexpr android::base::StringView kAsyncSwapStrV3 = "ANDROID_EMU_native_sync_v3";
-static constexpr android::base::StringView kAsyncSwapStrV4 = "ANDROID_EMU_native_sync_v4";
+static const char* kAsyncSwapStrV2 = "ANDROID_EMU_native_sync_v2";
+static const char* kAsyncSwapStrV3 = "ANDROID_EMU_native_sync_v3";
+static const char* kAsyncSwapStrV4 = "ANDROID_EMU_native_sync_v4";
 
 // DMA version history:
 // "ANDROID_EMU_dma_v1": add dma device and rcUpdateColorBufferDMA and do
 // yv12 conversion on the GPU
 // "ANDROID_EMU_dma_v2": adds DMA support glMapBufferRange (and unmap)
-static constexpr android::base::StringView kDma1Str = "ANDROID_EMU_dma_v1";
-static constexpr android::base::StringView kDma2Str = "ANDROID_EMU_dma_v2";
-static constexpr android::base::StringView kDirectMemStr = "ANDROID_EMU_direct_mem";
+static const char* kDma1Str = "ANDROID_EMU_dma_v1";
+static const char* kDma2Str = "ANDROID_EMU_dma_v2";
+static const char* kDirectMemStr = "ANDROID_EMU_direct_mem";
 
 // GLESDynamicVersion: up to 3.1 so far
-static constexpr android::base::StringView kGLESDynamicVersion_2 = "ANDROID_EMU_gles_max_version_2";
-static constexpr android::base::StringView kGLESDynamicVersion_3_0 = "ANDROID_EMU_gles_max_version_3_0";
-static constexpr android::base::StringView kGLESDynamicVersion_3_1 = "ANDROID_EMU_gles_max_version_3_1";
+static const char* kGLESDynamicVersion_2 = "ANDROID_EMU_gles_max_version_2";
+static const char* kGLESDynamicVersion_3_0 = "ANDROID_EMU_gles_max_version_3_0";
+static const char* kGLESDynamicVersion_3_1 = "ANDROID_EMU_gles_max_version_3_1";
 
 // HWComposer Host Composition
-static constexpr android::base::StringView kHostCompositionV1 = "ANDROID_EMU_host_composition_v1";
-static constexpr android::base::StringView kHostCompositionV2 = "ANDROID_EMU_host_composition_v2";
+static const char* kHostCompositionV1 = "ANDROID_EMU_host_composition_v1";
+static const char* kHostCompositionV2 = "ANDROID_EMU_host_composition_v2";
 
-static constexpr android::base::StringView kGLESNoHostError = "ANDROID_EMU_gles_no_host_error";
+static const char* kGLESNoHostError = "ANDROID_EMU_gles_no_host_error";
 
 // Vulkan
-static constexpr android::base::StringView kVulkanFeatureStr = "ANDROID_EMU_vulkan";
-static constexpr android::base::StringView kDeferredVulkanCommands = "ANDROID_EMU_deferred_vulkan_commands";
-static constexpr android::base::StringView kVulkanNullOptionalStrings = "ANDROID_EMU_vulkan_null_optional_strings";
-static constexpr android::base::StringView kVulkanCreateResourcesWithRequirements = "ANDROID_EMU_vulkan_create_resources_with_requirements";
+static const char* kVulkanFeatureStr = "ANDROID_EMU_vulkan";
+static const char* kDeferredVulkanCommands = "ANDROID_EMU_deferred_vulkan_commands";
+static const char* kVulkanNullOptionalStrings = "ANDROID_EMU_vulkan_null_optional_strings";
+static const char* kVulkanCreateResourcesWithRequirements = "ANDROID_EMU_vulkan_create_resources_with_requirements";
 
 // treat YUV420_888 as NV21
-static constexpr android::base::StringView kYUV420888toNV21 = "ANDROID_EMU_YUV420_888_to_NV21";
+static const char* kYUV420888toNV21 = "ANDROID_EMU_YUV420_888_to_NV21";
 
 // Cache YUV frame
-static constexpr android::base::StringView kYUVCache = "ANDROID_EMU_YUV_Cache";
+static const char* kYUVCache = "ANDROID_EMU_YUV_Cache";
 
 // GL protocol v2
-static constexpr android::base::StringView kAsyncUnmapBuffer = "ANDROID_EMU_async_unmap_buffer";
+static const char* kAsyncUnmapBuffer = "ANDROID_EMU_async_unmap_buffer";
 // Vulkan: Correct marshaling for ignored handles
-static constexpr android::base::StringView kVulkanIgnoredHandles = "ANDROID_EMU_vulkan_ignored_handles";
+static const char* kVulkanIgnoredHandles = "ANDROID_EMU_vulkan_ignored_handles";
 
 // virtio-gpu-next
-static constexpr android::base::StringView kVirtioGpuNext = "ANDROID_EMU_virtio_gpu_next";
+static const char* kVirtioGpuNext = "ANDROID_EMU_virtio_gpu_next";
 
 // address space subdevices
-static constexpr android::base::StringView kHasSharedSlotsHostMemoryAllocator = "ANDROID_EMU_has_shared_slots_host_memory_allocator";
+static const char* kHasSharedSlotsHostMemoryAllocator = "ANDROID_EMU_has_shared_slots_host_memory_allocator";
 
 // vulkan free memory sync
-static constexpr android::base::StringView kVulkanFreeMemorySync = "ANDROID_EMU_vulkan_free_memory_sync";
+static const char* kVulkanFreeMemorySync = "ANDROID_EMU_vulkan_free_memory_sync";
 
 // virtio-gpu native sync
-static constexpr android::base::StringView kVirtioGpuNativeSync = "ANDROID_EMU_virtio_gpu_native_sync";
+static const char* kVirtioGpuNativeSync = "ANDROID_EMU_virtio_gpu_native_sync";
 
 // Struct defs for VK_KHR_shader_float16_int8
-static constexpr android::base::StringView kVulkanShaderFloat16Int8 = "ANDROID_EMU_vulkan_shader_float16_int8";
+static const char* kVulkanShaderFloat16Int8 = "ANDROID_EMU_vulkan_shader_float16_int8";
 
 // Async queue submit
-static constexpr android::base::StringView kVulkanAsyncQueueSubmit = "ANDROID_EMU_vulkan_async_queue_submit";
+static const char* kVulkanAsyncQueueSubmit = "ANDROID_EMU_vulkan_async_queue_submit";
 
 // Host side tracing
-static constexpr android::base::StringView kHostSideTracing = "ANDROID_EMU_host_side_tracing";
+static const char* kHostSideTracing = "ANDROID_EMU_host_side_tracing";
 
 static void rcTriggerWait(uint64_t glsync_ptr,
                           uint64_t thread_ptr,
@@ -234,7 +232,7 @@ static GLint rcGetRendererVersion()
 {
     registerTriggerWait();
 
-    sGrallocSync.ptr();
+    sGrallocSync();
     return rendererVersion;
 }
 
@@ -264,7 +262,7 @@ static EGLint rcQueryEGLString(EGLenum name, void* buffer, EGLint bufferSize)
 
     std::string eglStr(str);
     if ((FrameBuffer::getMaxGLESVersion() >= GLES_DISPATCH_MAX_VERSION_3_0) &&
-        emugl_feature_is_enabled(android::featurecontrol::GLESDynamicVersion) &&
+        feature_is_enabled(kFeature_GLESDynamicVersion) &&
         eglStr.find("EGL_KHR_create_context") == std::string::npos) {
         eglStr += "EGL_KHR_create_context ";
     }
@@ -279,21 +277,20 @@ static EGLint rcQueryEGLString(EGLenum name, void* buffer, EGLint bufferSize)
 }
 
 static bool shouldEnableAsyncSwap() {
-    bool isPhone;
-    emugl::getAvdInfo(&isPhone, NULL);
-    bool playStoreImage = emugl::emugl_feature_is_enabled(
-            android::featurecontrol::PlayStoreImage);
-    return emugl_feature_is_enabled(android::featurecontrol::GLAsyncSwap) &&
+    bool isPhone = true;
+    bool playStoreImage = feature_is_enabled(
+            kFeature_PlayStoreImage);
+    return feature_is_enabled(kFeature_GLAsyncSwap) &&
            emugl_sync_device_exists() && (isPhone || playStoreImage) &&
            sizeof(void*) == 8;
 }
 
 static bool shouldEnableVirtioGpuNativeSync() {
-    return emugl_feature_is_enabled(android::featurecontrol::VirtioGpuNativeSync);
+    return feature_is_enabled(kFeature_VirtioGpuNativeSync);
 }
 
 static bool shouldEnableHostComposition() {
-    return emugl_feature_is_enabled(android::featurecontrol::HostComposition);
+    return feature_is_enabled(kFeature_HostComposition);
 }
 
 static bool shouldEnableVulkan() {
@@ -301,7 +298,7 @@ static bool shouldEnableVulkan() {
         goldfish_vk::VkDecoderGlobalState::get()->
             getHostFeatureSupport();
     bool flagEnabled =
-        emugl_feature_is_enabled(android::featurecontrol::Vulkan);
+        feature_is_enabled(kFeature_Vulkan);
     // TODO: Restrict further to devices supporting external memory.
     return supportInfo.supportsVulkan &&
            flagEnabled;
@@ -325,14 +322,14 @@ static bool shouldEnableCreateResourcesWithRequirements() {
 
 static bool shouldEnableVulkanShaderFloat16Int8() {
     return shouldEnableVulkan() &&
-        emugl_feature_is_enabled(android::featurecontrol::VulkanShaderFloat16Int8);
+        feature_is_enabled(kFeature_VulkanShaderFloat16Int8);
 }
 
 static bool shouldEnableAsyncQueueSubmit() {
     return shouldEnableVulkan();
 }
 
-android::base::StringView maxVersionToFeatureString(GLESDispatchMaxVersion version) {
+const char* maxVersionToFeatureString(GLESDispatchMaxVersion version) {
     switch (version) {
         case GLES_DISPATCH_MAX_VERSION_2:
             return kGLESDynamicVersion_2;
@@ -356,7 +353,7 @@ android::base::StringView maxVersionToFeatureString(GLESDispatchMaxVersion versi
 // is Translator, SwiftShader, ANGLE, et al) may not advertise a GL_VERSION
 // string reflecting their maximum capabilities.
 std::string replaceESVersionString(const std::string& prev,
-                                   android::base::StringView newver) {
+                                   const std::string& newver) {
 
     // There is no need to fiddle with the string
     // if we are in a ES 1.x context.
@@ -423,34 +420,34 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
     }
 
     bool isChecksumEnabled =
-        emugl_feature_is_enabled(android::featurecontrol::GLPipeChecksum);
+        feature_is_enabled(kFeature_GLPipeChecksum);
     bool asyncSwapEnabled = shouldEnableAsyncSwap();
     bool virtioGpuNativeSyncEnabled = shouldEnableVirtioGpuNativeSync();
     bool dma1Enabled =
-        emugl_feature_is_enabled(android::featurecontrol::GLDMA);
+        feature_is_enabled(kFeature_GLDMA);
     bool dma2Enabled =
-        emugl_feature_is_enabled(android::featurecontrol::GLDMA2);
+        feature_is_enabled(kFeature_GLDMA2);
     bool directMemEnabled =
-        emugl_feature_is_enabled(android::featurecontrol::GLDirectMem);
+        feature_is_enabled(kFeature_GLDirectMem);
     bool hostCompositionEnabled = shouldEnableHostComposition();
     bool vulkanEnabled = shouldEnableVulkan();
     bool deferredVulkanCommandsEnabled =
         shouldEnableVulkan() && shouldEnableDeferredVulkanCommands();
     bool vulkanNullOptionalStringsEnabled =
-        shouldEnableVulkan() && emugl_feature_is_enabled(android::featurecontrol::VulkanNullOptionalStrings);
+        shouldEnableVulkan() && feature_is_enabled(kFeature_VulkanNullOptionalStrings);
     bool vulkanCreateResourceWithRequirementsEnabled =
         shouldEnableVulkan() && shouldEnableCreateResourcesWithRequirements();
     bool YUV420888toNV21Enabled =
-        emugl_feature_is_enabled(android::featurecontrol::YUV420888toNV21);
+        feature_is_enabled(kFeature_YUV420888toNV21);
     bool YUVCacheEnabled =
-        emugl_feature_is_enabled(android::featurecontrol::YUVCache);
+        feature_is_enabled(kFeature_YUVCache);
     bool AsyncUnmapBufferEnabled = true;
     bool vulkanIgnoredHandlesEnabled =
-        shouldEnableVulkan() && emugl_feature_is_enabled(android::featurecontrol::VulkanIgnoredHandles);
+        shouldEnableVulkan() && feature_is_enabled(kFeature_VulkanIgnoredHandles);
     bool virtioGpuNextEnabled =
-        emugl_feature_is_enabled(android::featurecontrol::VirtioGpuNext);
+        feature_is_enabled(kFeature_VirtioGpuNext);
     bool hasSharedSlotsHostMemoryAllocatorEnabled =
-        emugl_feature_is_enabled(android::featurecontrol::HasSharedSlotsHostMemoryAllocator);
+        feature_is_enabled(kFeature_HasSharedSlotsHostMemoryAllocator);
     bool vulkanFreeMemorySyncEnabled =
         shouldEnableVulkan();
     bool vulkanShaderFloat16Int8Enabled = shouldEnableVulkanShaderFloat16Int8();
@@ -571,7 +568,7 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
     if (name == GL_EXTENSIONS) {
 
         GLESDispatchMaxVersion guestExtVer = GLES_DISPATCH_MAX_VERSION_2;
-        if (emugl_feature_is_enabled(android::featurecontrol::GLESDynamicVersion)) {
+        if (feature_is_enabled(kFeature_GLESDynamicVersion)) {
             // If the image is in ES 3 mode, add GL_OES_EGL_image_external_essl3 for better Skia support.
             glStr += "GL_OES_EGL_image_external_essl3 ";
             guestExtVer = maxVersion;
@@ -587,7 +584,7 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         glStr += "GL_KHR_texture_compression_astc_ldr ";
 
         // BPTC compressed texture support
-        if (emugl_feature_is_enabled(android::featurecontrol::BptcTextureSupport)) {
+        if (feature_is_enabled(kFeature_BptcTextureSupport)) {
             glStr += "GL_EXT_texture_compression_bptc ";
         }
 
@@ -595,7 +592,7 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         glStr += kHostSideTracing;
         glStr += " ";
 
-        if (emugl_feature_is_enabled(android::featurecontrol::IgnoreHostOpenGLErrors)) {
+        if (feature_is_enabled(kFeature_IgnoreHostOpenGLErrors)) {
             glStr += kGLESNoHostError;
             glStr += " ";
         }
@@ -605,7 +602,7 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
     }
 
     if (name == GL_VERSION) {
-        if (emugl_feature_is_enabled(android::featurecontrol::GLESDynamicVersion)) {
+        if (feature_is_enabled(kFeature_GLESDynamicVersion)) {
             GLESDispatchMaxVersion maxVersion = FrameBuffer::getMaxGLESVersion();
             switch (maxVersion) {
             // Underlying GLES implmentation's max version string
@@ -809,7 +806,7 @@ static void rcCloseColorBuffer(uint32_t colorbuffer)
 static int rcFlushWindowColorBuffer(uint32_t windowSurface)
 {
     GRSYNC_DPRINT("waiting for gralloc cb lock");
-    GrallocSyncPostLock lock(sGrallocSync.get());
+    GrallocSyncPostLock lock(*sGrallocSync());
     GRSYNC_DPRINT("lock gralloc cb lock {");
 
     FrameBuffer *fb = FrameBuffer::getFB();
@@ -936,7 +933,7 @@ static EGLint rcColorBufferCacheFlush(uint32_t colorBuffer,
 {
     // gralloc_lock() on the guest calls rcColorBufferCacheFlush
     GRSYNC_DPRINT("waiting for gralloc cb lock");
-    sGrallocSync->lockColorBufferPrepare();
+    sGrallocSync()->lockColorBufferPrepare();
     GRSYNC_DPRINT("lock gralloc cb lock {");
     return 0;
 }
@@ -966,7 +963,7 @@ static int rcUpdateColorBuffer(uint32_t colorBuffer,
 
     if (!fb) {
         GRSYNC_DPRINT("unlock gralloc cb lock");
-        sGrallocSync->unlockColorBufferPrepare();
+        sGrallocSync()->unlockColorBufferPrepare();
         return -1;
     }
 
@@ -977,7 +974,7 @@ static int rcUpdateColorBuffer(uint32_t colorBuffer,
     fb->updateColorBuffer(colorBuffer, x, y, width, height, format, type, pixels);
 
     GRSYNC_DPRINT("unlock gralloc cb lock");
-    sGrallocSync->unlockColorBufferPrepare();
+    sGrallocSync()->unlockColorBufferPrepare();
 
     // Update to Vulkan if necessary
     goldfish_vk::updateVkImageFromColorBuffer(colorBuffer);
@@ -995,7 +992,7 @@ static int rcUpdateColorBufferDMA(uint32_t colorBuffer,
 
     if (!fb) {
         GRSYNC_DPRINT("unlock gralloc cb lock");
-        sGrallocSync->unlockColorBufferPrepare();
+        sGrallocSync()->unlockColorBufferPrepare();
         return -1;
     }
 
@@ -1007,7 +1004,7 @@ static int rcUpdateColorBufferDMA(uint32_t colorBuffer,
                           format, type, pixels);
 
     GRSYNC_DPRINT("unlock gralloc cb lock");
-    sGrallocSync->unlockColorBufferPrepare();
+    sGrallocSync()->unlockColorBufferPrepare();
 
     // Update to Vulkan if necessary
     goldfish_vk::updateVkImageFromColorBuffer(colorBuffer);

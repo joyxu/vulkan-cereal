@@ -20,13 +20,13 @@
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "OpenGLESDispatch/GLESv1Dispatch.h"
 
-#include "android/base/containers/SmallVector.h"
+#include "base/SmallVector.h"
 
-#include "emugl/common/feature_control.h"
-#include "emugl/common/misc.h"
+#include "host-common/feature_control.h"
+#include "host-common/misc.h"
 
 #include <assert.h>
-#include <OpenglCodecCommon/ErrorLog.h>
+#include "ErrorLog.h"
 
 RenderContext* RenderContext::create(EGLDisplay display,
                                      EGLConfig config,

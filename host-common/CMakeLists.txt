@@ -1,12 +1,14 @@
 add_library(
     gfxstream-host-common
     STATIC
+    address_space_device_control_ops.cpp
     crash_reporter.cpp
     vm_operations.cpp
     feature_control.cpp
     dma_device.cpp
     sync_device.cpp
-    misc.cpp)
+    misc.cpp
+    window_operations.cpp)
 target_include_directories(
     gfxstream-host-common
     PRIVATE
