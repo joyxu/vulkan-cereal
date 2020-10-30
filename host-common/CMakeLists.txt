@@ -1,5 +1,6 @@
 add_library(
     gfxstream-host-common
+    STATIC
     crash_reporter.cpp
     vm_operations.cpp
     feature_control.cpp

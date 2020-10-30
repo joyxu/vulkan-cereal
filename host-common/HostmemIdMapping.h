@@ -16,6 +16,7 @@
 #include "base/Compiler.h"
 #include "base/StaticMap.h"
 #include "base/export.h"
+#include "vm_operations.h"
 
 #include <atomic>
 

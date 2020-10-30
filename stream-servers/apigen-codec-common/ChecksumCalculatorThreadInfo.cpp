@@ -26,11 +26,6 @@
 
 namespace {
 
-class ChecksumCalculatorThreadStore : public ::emugl::ThreadStore {
-public:
-    ChecksumCalculatorThreadStore() : ::emugl::ThreadStore(nullptr) {}
-};
-
 #if TRACE_CHECKSUMHELPER
 std::atomic<size_t> sNumInstances(0);
 #endif  // TRACE_CHECKSUMHELPER

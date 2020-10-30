@@ -54,7 +54,7 @@
 
 extern "C" {
 #include "host-common/goldfish_pipe.h"
-#include "host-common/virtio-goldfish-pipe.h"
+#include "virtio-gpu-gfxstream-renderer.h"
 }  // extern "C"
 
 using android::AndroidPipe;

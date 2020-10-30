@@ -18,7 +18,7 @@
 #include "base/Stream.h"
 #include "base/ring_buffer.h"
 #include "host-common/address_space_graphics_types.h"
-#include "host-common/virtio_gpu_ops.h"
+#include "virtio_gpu_ops.h"
 #include "snapshot/common.h"
 
 #include <functional>

@@ -1,3 +1,7 @@
+# Codec common sources
+add_subdirectory(apigen-codec-common)
+add_subdirectory(compressedTextureFormats)
+
 # Vulkan
 add_subdirectory(vulkan)
 
@@ -16,7 +20,7 @@ add_subdirectory(OpenGLESDispatch)
 add_subdirectory(renderControl_dec)
 
 # Stream server core
-set(gfxstream-server-common-sources
+set(gfxstream_backend-common-sources
     ChannelStream.cpp
     ColorBuffer.cpp
     FbConfig.cpp
@@ -42,30 +46,31 @@ set(gfxstream-server-common-sources
     GfxStreamAgents.cpp
     GfxStreamBackend.cpp)
 if (APPLE)
-    set(gfxstream-server-platform-sources NativeSubWindow_cocoa.m)
+    set(gfxstream_backend-platform-sources NativeSubWindow_cocoa.m)
 elseif (WIN32)
-    set(gfxstream-server-platform-sources NativeSubWindow_win32.cpp)
+    set(gfxstream_backend-platform-sources NativeSubWindow_win32.cpp)
 else()
-    set(gfxstream-server-platform-sources NativeSubWindow_x11.cpp)
+    set(gfxstream_backend-platform-sources NativeSubWindow_x11.cpp)
 endif()
 
 add_library(
-    gfxstream-server
-    ${gfxstream-server-common-sources}
-    ${gfxstream-server-platform-sources})
+    gfxstream_backend
+    SHARED
+    ${gfxstream_backend-common-sources}
+    ${gfxstream_backend-platform-sources})
 target_link_libraries(
-    gfxstream-server
+    gfxstream_backend
+    PRIVATE
     gfxstream-host-common
     gfxstream-base
     OpenGLESDispatch
-    glestranslator
     gles1_dec
     gles2_dec
     renderControl_dec
     gfxstream-vulkan-server
     apigen-codec-common)
 target_include_directories(
-    gfxstream-server
+    gfxstream_backend
     PRIVATE
     ${GFXSTREAM_REPO_ROOT}
     ${GFXSTREAM_REPO_ROOT}/include
