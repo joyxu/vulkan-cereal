@@ -38,6 +38,7 @@
 
 #include "VulkanDispatch.h"
 #include "GfxStreamAgents.h"
+#include "render_api.h"
 
 #define GFXSTREAM_DEBUG_LEVEL 1
 
@@ -423,7 +424,16 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
 
     emuglConfig_setupEnv(&config);
 
-    android_initOpenglesEmulation();
+    android_prepareOpenglesEmulation();
+
+    {
+        static emugl::RenderLibPtr renderLibPtr = initLibrary();
+        void* egldispatch = renderLibPtr->getEGLDispatch();
+        void* glesv2Dispatch = renderLibPtr->getGLESv2Dispatch();
+        android_setOpenglesEmulation(
+                renderLibPtr.get(), egldispatch, glesv2Dispatch);
+    }
+
     int maj;
     int min;
     android_startOpenglesRenderer(

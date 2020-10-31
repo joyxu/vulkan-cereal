@@ -8,22 +8,21 @@
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-#include "android/opengl/OpenglEsPipe.h"
+#include "OpenglEsPipe.h"
 
-#include "android/base/Optional.h"
-#include "android/base/Stopwatch.h"
-#include "android/base/async/Looper.h"
-#include "android/base/files/PathUtils.h"
-#include "android/base/files/StreamSerializing.h"
-#include "android/base/threads/FunctorThread.h"
-#include "android/globals.h"
-#include "android/loadpng.h"
-#include "android/opengl/GLProcessPipe.h"
-#include "android/opengles-pipe.h"
-#include "android/opengles.h"
-#include "android/snapshot/Loader.h"
-#include "android/snapshot/Saver.h"
-#include "android/snapshot/Snapshotter.h"
+#include "base/Optional.h"
+#include "base/PathUtils.h"
+#include "base/StreamSerializing.h"
+#include "base/FunctorThread.h"
+#include "base/System.h"
+#include "../globals.h"
+// #include "loadpng.h"
+#include "GLProcessPipe.h"
+#include "../opengles-pipe.h"
+#include "../opengles.h"
+// #include "snapshot/Loader.h"
+// #include "snapshot/Saver.h"
+// #include "snapshot/Snapshotter.h"
 
 #include <atomic>
 
@@ -51,8 +50,8 @@ using emugl::RenderChannel;
 using emugl::RenderChannelPtr;
 using ChannelState = emugl::RenderChannel::State;
 using IoResult = emugl::RenderChannel::IoResult;
-using android::base::Stopwatch;
-using android::snapshot::Snapshotter;
+// using android::base::Stopwatch;
+// using android::snapshot::Snapshotter;
 
 #define OPENGL_SAVE_VERSION 1
 
@@ -88,25 +87,25 @@ public:
         bool canLoad() const override { return true; }
 
         virtual void preLoad(android::base::Stream* stream) override {
-#ifdef SNAPSHOT_PROFILE
-            mLoadMeter.restartUs();
-#endif
-            const bool hasRenderer = stream->getByte();
-            const auto& renderer = android_getOpenglesRenderer();
-            if (hasRenderer != (bool)renderer) {
-                // die?
-                return;
-            }
-            if (!hasRenderer) {
-                return;
-            }
-            int version = stream->getBe32();
-            (void)version;
-            renderer->load(stream, Snapshotter::get().loader().textureLoader());
-#ifdef SNAPSHOT_PROFILE
-            printf("OpenglEs preload time: %lld ms\n",
-                   (long long)(mLoadMeter.elapsedUs() / 1000));
-#endif
+// #ifdef SNAPSHOT_PROFILE
+//             mLoadMeter.restartUs();
+// #endif
+//             const bool hasRenderer = stream->getByte();
+//             const auto& renderer = android_getOpenglesRenderer();
+//             if (hasRenderer != (bool)renderer) {
+//                 // die?
+//                 return;
+//             }
+//             if (!hasRenderer) {
+//                 return;
+//             }
+//             int version = stream->getBe32();
+//             (void)version;
+//             renderer->load(stream, Snapshotter::get().loader().textureLoader());
+// #ifdef SNAPSHOT_PROFILE
+//             printf("OpenglEs preload time: %lld ms\n",
+//                    (long long)(mLoadMeter.elapsedUs() / 1000));
+// #endif
         }
 
         void postLoad(android::base::Stream* stream) override {
@@ -120,20 +119,20 @@ public:
         }
 
         void preSave(android::base::Stream* stream) override {
-#ifdef SNAPSHOT_PROFILE
-            mSaveMeter.restartUs();
-#endif
-            if (const auto& renderer = android_getOpenglesRenderer()) {
-                renderer->pauseAllPreSave();
-                stream->putByte(1);
-                stream->putBe32(OPENGL_SAVE_VERSION);
-                renderer->save(stream,
-                               Snapshotter::get().saver().textureSaver());
-
-                writeScreenshot(*renderer);
-            } else {
-                stream->putByte(0);
-            }
+// #ifdef SNAPSHOT_PROFILE
+//             mSaveMeter.restartUs();
+// #endif
+//             if (const auto& renderer = android_getOpenglesRenderer()) {
+//                 renderer->pauseAllPreSave();
+//                 stream->putByte(1);
+//                 stream->putBe32(OPENGL_SAVE_VERSION);
+//                 renderer->save(stream,
+//                                Snapshotter::get().saver().textureSaver());
+// 
+//                 writeScreenshot(*renderer);
+//             } else {
+//                 stream->putByte(0);
+//             }
         }
 
         void postSave(android::base::Stream* stream) override {
@@ -176,59 +175,59 @@ public:
         }
 
         void writeScreenshot(emugl::Renderer& renderer) {
-#if SNAPSHOT_PROFILE > 1
-            Stopwatch sw;
-#endif
-            if (!mSnapshotCallbackRegistered) {
-                // We have to wait for the screenshot saving thread, but
-                // there's no need to join it too soon: it is ok to only
-                // block when the rest of snapshot saving is complete.
-                Snapshotter::get().addOperationCallback(
-                        [this](Snapshotter::Operation op,
-                               Snapshotter::Stage stage) {
-                            if (op == Snapshotter::Operation::Save &&
-                                stage == Snapshotter::Stage::End) {
-                                if (mScreenshotSaver) {
-                                    mScreenshotSaver->wait();
-                                    mScreenshotSaver.clear();
-                                }
-                            }
-                        });
-                mSnapshotCallbackRegistered = true;
-            }
-            // always do 4 channel screenshot because swiftshader_indirect
-            // has issues with 3 channels
-            const unsigned int nChannels = 4;
-            unsigned int width;
-            unsigned int height;
-            std::vector<unsigned char> pixels;
-            renderer.getScreenshot(nChannels, &width, &height, pixels);
-#if SNAPSHOT_PROFILE > 1
-            printf("Screenshot load texture time %lld ms\n",
-                   (long long)(sw.elapsedUs() / 1000));
-#endif
-            if (width > 0 && height > 0) {
-                std::string dataDir =
-                        Snapshotter::get().saver().snapshot().dataDir();
-                mScreenshotSaver.emplace([nChannels, width, height,
-                                          dataDir = std::move(dataDir),
-                                          pixels = std::move(pixels)] {
-#if SNAPSHOT_PROFILE > 1
-                    Stopwatch sw;
-#endif
-                    std::string fileName = android::base::PathUtils::join(
-                            dataDir, "screenshot.png");
-                    // TODO: fix the screenshot rotation?
-                    savepng(fileName.c_str(), nChannels, width, height,
-                            SKIN_ROTATION_0,
-                            const_cast<unsigned char*>(pixels.data()));
-#if SNAPSHOT_PROFILE > 1
-                    printf("Screenshot image write time %lld ms\n",
-                           (long long)(sw.elapsedUs() / 1000));
-#endif
-                });
-                mScreenshotSaver->start();
-            }
+// #if SNAPSHOT_PROFILE > 1
+//             Stopwatch sw;
+// #endif
+//             if (!mSnapshotCallbackRegistered) {
+//                 // We have to wait for the screenshot saving thread, but
+//                 // there's no need to join it too soon: it is ok to only
+//                 // block when the rest of snapshot saving is complete.
+//                 // Snapshotter::get().addOperationCallback(
+//                 //         [this](Snapshotter::Operation op,
+//                 //                Snapshotter::Stage stage) {
+//                 //             if (op == Snapshotter::Operation::Save &&
+//                 //                 stage == Snapshotter::Stage::End) {
+//                 //                 if (mScreenshotSaver) {
+//                 //                     mScreenshotSaver->wait();
+//                 //                     mScreenshotSaver.clear();
+//                 //                 }
+//                 //             }
+//                 //         });
+//                 mSnapshotCallbackRegistered = true;
+//             }
+//             // always do 4 channel screenshot because swiftshader_indirect
+//             // has issues with 3 channels
+//             const unsigned int nChannels = 4;
+//             unsigned int width;
+//             unsigned int height;
+//             std::vector<unsigned char> pixels;
+//             renderer.getScreenshot(nChannels, &width, &height, pixels);
+// #if SNAPSHOT_PROFILE > 1
+//             printf("Screenshot load texture time %lld ms\n",
+//                    (long long)(sw.elapsedUs() / 1000));
+// #endif
+//             if (width > 0 && height > 0) {
+//                 std::string dataDir =
+//                         Snapshotter::get().saver().snapshot().dataDir();
+//                 mScreenshotSaver.emplace([nChannels, width, height,
+//                                           dataDir = std::move(dataDir),
+//                                           pixels = std::move(pixels)] {
+// #if SNAPSHOT_PROFILE > 1
+//                     Stopwatch sw;
+// #endif
+//                     std::string fileName = android::base::PathUtils::join(
+//                             dataDir, "screenshot.png");
+//                     // TODO: fix the screenshot rotation?
+//                     savepng(fileName.c_str(), nChannels, width, height,
+//                             SKIN_ROTATION_0,
+//                             const_cast<unsigned char*>(pixels.data()));
+// #if SNAPSHOT_PROFILE > 1
+//                     printf("Screenshot image write time %lld ms\n",
+//                            (long long)(sw.elapsedUs() / 1000));
+// #endif
+//                 });
+//                 mScreenshotSaver->start();
+//             }
         }
 
         bool mSnapshotCallbackRegistered = false;
@@ -320,7 +319,7 @@ public:
         int len = 0;
         size_t buffOffset = 0;
 
-        static constexpr android::base::System::Duration kBlockReportIntervalUs = 1000000ULL;
+        static constexpr uint64_t kBlockReportIntervalUs = 1000000ULL;
         auto buff = buffers;
         const auto buffEnd = buff + numBuffers;
         while (buff != buffEnd) {
@@ -369,10 +368,10 @@ public:
                     // the guest block on work that takes a significant
                     // amount of time.
 
-                    static constexpr android::base::System::Duration kBlockReportIntervalUs = 1000000ULL;
+                    static constexpr uint64_t kBlockReportIntervalUs = 1000000ULL;
 
                     const RenderChannel::Duration kBlockAtMostUs = 100;
-                    auto currTime = android::base::System::get()->getUnixTimeUs();
+                    auto currTime = android::base::getUnixTimeUs();
                     auto result = mChannel->readBefore(&mDataForReading, currTime + kBlockAtMostUs);
 
                     if (result != IoResult::Ok) {
@@ -407,14 +406,14 @@ public:
                     // the guest block on work that takes a significant
                     // amount of time.
 
-                    static constexpr android::base::System::Duration kBlockReportIntervalUs = 1000000ULL;
+                    static constexpr uint64_t kBlockReportIntervalUs = 1000000ULL;
 
-                    auto currUs = android::base::System::get()->getHighResTimeUs();
+                    auto currUs = android::base::getHighResTimeUs();
 
                     const RenderChannel::Duration kBlockAtMostUs = 10000;
-                    auto currTime = android::base::System::get()->getUnixTimeUs();
+                    auto currTime = android::base::getUnixTimeUs();
                     auto result = mChannel->readBefore(&mDataForReading, currTime + kBlockAtMostUs);
-                    auto nextUs = android::base::System::get()->getHighResTimeUs();
+                    auto nextUs = android::base::getHighResTimeUs();
 
                     if (result != IoResult::Ok) {
                         DD("%s: tryRead() failed with %d", __func__, (int)result);

@@ -9,12 +9,10 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#include "android/opengl/logger.h"
+#include "logger.h"
 
-#include "android/base/files/PathUtils.h"
-#include "android/base/memory/LazyInstance.h"
-#include "android/base/synchronization/Lock.h"
-#include "android/crashreport/CrashReporter.h"
+#include "base/PathUtils.h"
+#include "base/Lock.h"
 
 #include <algorithm>
 #include <fstream>
@@ -30,7 +28,6 @@
 using android::base::AutoLock;
 using android::base::Lock;
 using android::base::PathUtils;
-using android::crashreport::CrashReporter;
 
 // The purpose of the OpenGL logger is to log
 // information about such things as EGL initialization
@@ -79,25 +76,28 @@ private:
     DISALLOW_COPY_ASSIGN_AND_MOVE(OpenGLLogger);
 };
 
-::android::base::LazyInstance<OpenGLLogger> sOpenGLLogger = LAZY_INSTANCE_INIT;
+static OpenGLLogger* sOpenGLLogger() {
+    static OpenGLLogger* g = new OpenGLLogger;
+    return g;
+}
 
 OpenGLLogger* OpenGLLogger::get() {
-    return sOpenGLLogger.ptr();
+    return sOpenGLLogger();
 }
 
 OpenGLLogger::OpenGLLogger() {
-#ifdef AEMU_MIN
+// #ifdef AEMU_MIN
     return;
-#else
-    const std::string& data_dir =
-        CrashReporter::get()->getDataExchangeDir();
-    mFileName = PathUtils::join(data_dir,
-                                "opengl_log.txt");
-    mFileHandle.open(mFileName, std::ios::app);
-    mFineLogFileName = PathUtils::join(data_dir,
-                                       "opengl_cxt_log.txt");
-    mFineLogFileHandle.open(mFineLogFileName, std::ios::app);
-#endif
+// #else
+//     const std::string& data_dir =
+//         CrashReporter::get()->getDataExchangeDir();
+//     mFileName = PathUtils::join(data_dir,
+//                                 "opengl_log.txt");
+//     mFileHandle.open(mFileName, std::ios::app);
+//     mFineLogFileName = PathUtils::join(data_dir,
+//                                        "opengl_cxt_log.txt");
+//     mFineLogFileHandle.open(mFineLogFileName, std::ios::app);
+// #endif
 }
 
 OpenGLLogger::OpenGLLogger(const char* filename) :

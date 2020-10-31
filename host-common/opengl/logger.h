@@ -11,10 +11,6 @@
 
 #pragma once
 
-#include "android/utils/compiler.h"
-
-ANDROID_BEGIN_HEADER
-
 // The purpose of the OpenGL logger is to log
 // information about such things as EGL initialization
 // and possibly miscellanous OpenGL commands,
@@ -44,5 +40,3 @@ void android_stop_opengl_logger();
 // contexts (cxts). Only called when emugl is compiled
 // with -DOPENGL_DEBUG_PRINTOUT.
 void android_opengl_cxt_logger_write(const char* fmt, ...);
-
-ANDROID_END_HEADER

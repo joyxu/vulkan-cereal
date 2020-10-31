@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "android/opengl/GpuFrameBridge.h"
+#include "GpuFrameBridge.h"
 
 #include <stdio.h>   // for printf
 #include <stdlib.h>  // for NULL, free, malloc
@@ -21,11 +21,9 @@
 #include <atomic>  // for atomic_bool, memory_o...
 #include <memory>  // for unique_ptr
 
-#include "android/base/async/Looper.h"          // for Looper::Timer, Looper
-#include "android/base/async/ThreadLooper.h"    // for ThreadLooper
-#include "android/base/synchronization/Lock.h"  // for Lock, AutoLock
-#include "android/base/synchronization/MessageChannel.h"
-#include "android/opengles.h"  // for android_getFlushReadP...
+#include "base/Lock.h"  // for Lock, AutoLock
+#include "base/MessageChannel.h"
+#include "..//opengles.h"  // for android_getFlushReadP...
 
 #ifdef _WIN32
 #undef ERROR
@@ -36,7 +34,6 @@ namespace opengl {
 
 using android::base::AutoLock;
 using android::base::Lock;
-using android::base::Looper;
 using android::base::MessageChannel;
 
 namespace {
@@ -90,20 +87,20 @@ public:
         }
     }
 
-    virtual void setLooper(android::base::Looper* aLooper) override {
-        mTimer = std::unique_ptr<android::base::Looper::Timer>(
-                aLooper->createTimer(_on_frame_notify, this));
-    }
+    // virtual void setLooper(android::base::Looper* aLooper) override {
+    //     mTimer = std::unique_ptr<android::base::Looper::Timer>(
+    //             aLooper->createTimer(_on_frame_notify, this));
+    // }
 
     void notify() {
         AutoLock delay(mDelayLock);
         switch (mDelayCallback) {
             case FrameDelay::Reschedule:
-                mTimer->startRelative(kFrameDelayMs);
+                // mTimer->startRelative(kFrameDelayMs);
                 mDelayCallback = FrameDelay::Scheduled;
                 break;
             case FrameDelay::Scheduled:
-                mTimer->stop();
+                // mTimer->stop();
                 mDelayCallback = FrameDelay::Firing;
                 delay.unlock();
                 mFlushPixelPipeline(mDisplayId);
@@ -113,11 +110,11 @@ public:
         }
     }
 
-    static void _on_frame_notify(void* opaque,
-                                 android::base::Looper::Timer* timer) {
-        Bridge* worker = static_cast<Bridge*>(opaque);
-        worker->notify();
-    }
+    // static void _on_frame_notify(void* opaque,
+    //                              android::base::Looper::Timer* timer) {
+    //     Bridge* worker = static_cast<Bridge*>(opaque);
+    //     worker->notify();
+    // }
 
     // Implementation of the GpuFrameBridge::postRecordFrame() method, must be
     // called from the EmuGL thread.
@@ -196,7 +193,7 @@ public:
             AutoLock delay(mDelayLock);
             switch (mDelayCallback) {
                 case FrameDelay::NotScheduled:
-                    mTimer->startRelative(kFrameDelayMs);
+                    // mTimer->startRelative(kFrameDelayMs);
                     mDelayCallback = FrameDelay::Scheduled;
                     break;
                 case FrameDelay::Firing:
@@ -231,7 +228,7 @@ private:
     uint32_t mDisplayId = 0;
     FlushReadPixelPipeline mFlushPixelPipeline = 0;
 
-    std::unique_ptr<android::base::Looper::Timer> mTimer;
+    // std::unique_ptr<android::base::Looper::Timer> mTimer;
     Lock mDelayLock;
     FrameDelay mDelayCallback{FrameDelay::NotScheduled};
 };

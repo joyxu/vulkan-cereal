@@ -32,3 +32,5 @@
     RENDER_APICALL return_type RENDER_APIENTRY func_name signature;
 
 LIST_RENDER_API_FUNCTIONS(RENDER_API_DECLARE)
+
+RENDER_APICALL emugl::RenderLibPtr RENDER_APIENTRY initLibrary();

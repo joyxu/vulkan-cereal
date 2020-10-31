@@ -9,15 +9,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#include "android/opengl/emugl_config.h"
-#include "android/opengl/gpuinfo.h"
+#include "emugl_config.h"
+#include "gpuinfo.h"
 
-#include "android/base/StringFormat.h"
+#include "base/StringFormat.h"
 #include "base/System.h"
-#include "android/crashreport/crash-handler.h"
-#include "android/globals.h"
-#include "android/opengl/EmuglBackendList.h"
-#include "android/skin/winsys.h"
+#include "../globals.h"
+#include "../misc.h"
+#include "EmuglBackendList.h"
 
 #include <string>
 
@@ -32,28 +31,22 @@
 #if DEBUG
 #define D(...)  printf(__VA_ARGS__)
 #else
-#define D(...)  crashhandler_append_message_format(__VA_ARGS__)
+// #define D(...)  crashhandler_append_message_format(__VA_ARGS__)
+#define D(...)
 #endif
 
-using android::base::RunOptions;
 using android::base::StringFormat;
-using android::base::System;
 using android::opengl::EmuglBackendList;
 
 static EmuglBackendList* sBackendList = NULL;
 
 static void resetBackendList(int bitness) {
     delete sBackendList;
-    if (System::getEnvironmentVariable("ANDROID_EMUGL_FIXED_BACKEND_LIST") == "1") {
-        std::vector<std::string> fixedBackendNames = {
-            "swiftshader_indirect",
-            "angle_indirect",
-        };
-        sBackendList = new EmuglBackendList(64, fixedBackendNames);
-    } else {
-        sBackendList = new EmuglBackendList(
-                System::get()->getLauncherDirectory().c_str(), bitness);
-    }
+    std::vector<std::string> fixedBackendNames = {
+        "swiftshader_indirect",
+        "angle_indirect",
+    };
+    sBackendList = new EmuglBackendList(64, fixedBackendNames);
 }
 
 static bool stringVectorContains(const std::vector<std::string>& list,
@@ -275,7 +268,7 @@ bool emuglConfig_init(EmuglConfig* config,
     }
 
     if (!bitness) {
-        bitness = System::get()->getProgramBitness();
+        bitness = 64;
     }
 
     config->bitness = bitness;
@@ -291,22 +284,7 @@ bool emuglConfig_init(EmuglConfig* config,
         // 1. NX or Chrome Remote Desktop is detected, or |no_window| is true.
         // 2. The user's host GPU is on the blacklist.
         std::string sessionType;
-        if (System::get()->isRemoteSession(&sessionType)) {
-            D("%s: %s session detected\n", __FUNCTION__, sessionType.c_str());
-            if (!sBackendList->contains("swiftshader")) {
-                config->enabled = false;
-                gpu_mode = "off";
-                snprintf(config->backend, sizeof(config->backend), "%s", gpu_mode);
-                snprintf(config->status, sizeof(config->status),
-                        "GPU emulation is disabled under %s without Swiftshader",
-                        sessionType.c_str());
-                setCurrentRenderer(gpu_mode);
-                return true;
-            }
-            D("%s: 'swiftshader_indirect' mode auto-selected\n", __FUNCTION__);
-            gpu_mode = "swiftshader_indirect";
-        }
-        else if (!has_auto_no_window && (no_window || (blacklisted && !hasUiPreference))) {
+        if (!has_auto_no_window && (no_window || (blacklisted && !hasUiPreference))) {
             if (stringVectorContains(sBackendList->names(), "swiftshader")) {
                 D("%s: Headless mode or blacklisted GPU driver, "
                   "using Swiftshader backend\n",
@@ -402,13 +380,11 @@ bool emuglConfig_init(EmuglConfig* config,
 }
 
 void emuglConfig_setupEnv(const EmuglConfig* config) {
-    System* system = System::get();
-
     if (config->use_host_vulkan) {
-        system->envSet("ANDROID_EMU_VK_ICD", NULL);
+        android::base::setEnvironmentVariable("ANDROID_EMU_VK_ICD", NULL);
     } else if (sCurrentRenderer == SELECTED_RENDERER_SWIFTSHADER_INDIRECT) {
         // Use Swiftshader vk icd if using swiftshader_indirect
-        system->envSet("ANDROID_EMU_VK_ICD", "swiftshader");
+        android::base::setEnvironmentVariable("ANDROID_EMU_VK_ICD", "swiftshader");
     }
 
     if (!config->enabled) {
@@ -417,7 +393,7 @@ void emuglConfig_setupEnv(const EmuglConfig* config) {
         // software SDL renderer is being used. This allows one
         // to run with '-gpu off' under NX and Chrome Remote Desktop
         // properly.
-        system->envSet("SDL_RENDER_DRIVER", "software");
+        android::base::setEnvironmentVariable("SDL_RENDER_DRIVER", "software");
         return;
     }
 
@@ -430,7 +406,9 @@ void emuglConfig_setupEnv(const EmuglConfig* config) {
         std::string dir = sBackendList->getLibDirPath(config->backend);
         if (dir.size()) {
             D("Adding to the library search path: %s\n", dir.c_str());
-            system->addLibrarySearchDir(dir);
+            fprintf(stderr, "%s: non-host backends not supported\n", __func__);
+            abort();
+            // android::base::addLibrarySearchDir(dir);
         }
     }
 
@@ -441,7 +419,7 @@ void emuglConfig_setupEnv(const EmuglConfig* config) {
 
     if (!strcmp(config->backend, "angle_indirect")
             || !strcmp(config->backend, "swiftshader_indirect")) {
-        system->envSet("ANDROID_EGL_ON_EGL", "1");
+        android::base::setEnvironmentVariable("ANDROID_EGL_ON_EGL", "1");
         return;
     }
 
@@ -456,11 +434,11 @@ void emuglConfig_setupEnv(const EmuglConfig* config) {
     std::string lib;
     if (sBackendList->getBackendLibPath(
             config->backend, EmuglBackendList::LIBRARY_EGL, &lib)) {
-        system->envSet("ANDROID_EGL_LIB", lib);
+        android::base::setEnvironmentVariable("ANDROID_EGL_LIB", lib);
     }
     if (sBackendList->getBackendLibPath(
             config->backend, EmuglBackendList::LIBRARY_GLESv1, &lib)) {
-        system->envSet("ANDROID_GLESv1_LIB", lib);
+        android::base::setEnvironmentVariable("ANDROID_GLESv1_LIB", lib);
     } else if (strcmp(config->backend, "mesa")) {
         fprintf(stderr, "OpenGL backend '%s' without OpenGL ES 1.x library detected. "
                         "Using GLESv2 only.\n",
@@ -471,13 +449,13 @@ void emuglConfig_setupEnv(const EmuglConfig* config) {
 
     if (sBackendList->getBackendLibPath(
             config->backend, EmuglBackendList::LIBRARY_GLESv2, &lib)) {
-        system->envSet("ANDROID_GLESv2_LIB", lib);
+        android::base::setEnvironmentVariable("ANDROID_GLESv2_LIB", lib);
     }
 
     if (!strcmp(config->backend, "mesa")) {
         fprintf(stderr, "WARNING: The Mesa software renderer is deprecated. "
                         "Use Swiftshader (-gpu swiftshader) for software rendering.\n");
-        system->envSet("ANDROID_GL_LIB", "mesa");
-        system->envSet("ANDROID_GL_SOFTWARE_RENDERER", "1");
+        android::base::setEnvironmentVariable("ANDROID_GL_LIB", "mesa");
+        android::base::setEnvironmentVariable("ANDROID_GL_SOFTWARE_RENDERER", "1");
     }
 }

@@ -9,13 +9,11 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#include "android/opengl/EmuglBackendList.h"
+#include "EmuglBackendList.h"
 
-#include "android/base/Log.h"
-#include "android/base/StringFormat.h"
-#include "android/base/system/System.h"
-#include "android/opengl/EmuglBackendScanner.h"
-#include "android/utils/path.h"
+#include "base/StringFormat.h"
+#include "base/System.h"
+#include "base/PathUtils.h"
 
 #define DEBUG 0
 
@@ -28,20 +26,6 @@
 
 namespace android {
 namespace opengl {
-
-using android::base::System;
-
-EmuglBackendList::EmuglBackendList(const char* execDir,
-                                   int programBitness) :
-        mDefaultName("auto"), mNames(), mProgramBitness(0), mExecDir(execDir) {
-    // Fix host bitness if needed.
-    if (!programBitness) {
-        programBitness = System::get()->getProgramBitness();
-    }
-    mProgramBitness = programBitness;
-
-    mNames = EmuglBackendScanner::scanDir(execDir, programBitness);
-}
 
 EmuglBackendList::EmuglBackendList(int programBitness,
                                    const std::vector<std::string>& names) :
@@ -58,18 +42,14 @@ bool EmuglBackendList::contains(const char* name) const {
 
 std::string EmuglBackendList::getLibDirPath(const char* name) {
     // remove the "_indirect" suffix
-    static constexpr android::base::StringView suffix("_indirect");
+    std::string suffix("_indirect");
     std::string nameNoSuffix(name);
     int nameNoSuffixLen = (int)nameNoSuffix.size() - (int)suffix.size();
     if (nameNoSuffixLen > 0 &&
         suffix == nameNoSuffix.c_str() + nameNoSuffixLen) {
         nameNoSuffix.erase(nameNoSuffixLen);
     }
-    return android::base::StringFormat(
-            "%s" PATH_SEP "%s" PATH_SEP "gles_%s",
-            mExecDir,
-            mProgramBitness == 64 ? "lib64" : "lib",
-            nameNoSuffix.c_str());
+    return android::base::pj({mExecDir, "lib64", std::string("gles_%s") + nameNoSuffix});
 }
 
 #ifdef _WIN32
@@ -97,17 +77,9 @@ bool EmuglBackendList::getBackendLibPath(const char* name,
         return false;
     }
 
-    std::string path = android::base::StringFormat(
-            "%s" PATH_SEP "lib%s%s",
-            getLibDirPath(name),
-            libraryName,
-            kLibSuffix);
+    std::string path = android::base::pj({
+            getLibDirPath(name), std::string("lib") + libraryName + kLibSuffix});
 
-    if (!System::get()->pathIsFile(path)) {
-        D("%s(name=%s lib=%s): File does not exist: %s\n",
-          __FUNCTION__, name, libraryName, path.c_str());
-        return false;
-    }
     *libPath = path;
     return true;
 }
