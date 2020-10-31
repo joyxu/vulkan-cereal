@@ -223,7 +223,7 @@ android_startOpenglesRenderer(int width, int height, bool guestPhoneApi, int gue
     sRenderLib->setRenderer(emuglConfig_get_current_renderer());
     sRenderLib->setAvdInfo(guestPhoneApi, guestApiLevel);
     // sRenderLib->setCrashReporter(&crashhandler_die_format);
-    sRenderLib->setFeatureController(&android::featurecontrol::isEnabled);
+    // sRenderLib->setFeatureController(&android::featurecontrol::isEnabled);
     sRenderLib->setSyncDevice(goldfish_sync_create_timeline,
             goldfish_sync_create_fence,
             goldfish_sync_timeline_inc,
@@ -527,52 +527,52 @@ static EGLint s_gles_attr[5];
 
 extern void tinyepoxy_init(const GLESv2Dispatch* gles, int version);
 
-static bool prepare_epoxy(void) {
-    if (!sRenderLib->getOpt(&sOpt)) {
-        return false;
-    }
-    int major, minor;
-    sRenderLib->getGlesVersion(&major, &minor);
-    EGLint attr[] = {
-        EGL_CONTEXT_CLIENT_VERSION, major,
-        EGL_CONTEXT_MINOR_VERSION_KHR, minor,
-        EGL_NONE
-    };
-    sContext = sEgl->eglCreateContext(sOpt.display, sOpt.config, EGL_NO_CONTEXT,
-                                      attr);
-    if (sContext == nullptr) {
-        return false;
-    }
-    sRenderContext = sEgl->eglCreateContext(sOpt.display, sOpt.config,
-                                            sContext, attr);
-    if (sRenderContext == nullptr) {
-        return false;
-    }
-    static constexpr EGLint surface_attr[] = {
-        EGL_WIDTH, 1,
-        EGL_HEIGHT, 1,
-        EGL_NONE
-    };
-    sSurface = sEgl->eglCreatePbufferSurface(sOpt.display, sOpt.config,
-                                             surface_attr);
-    if (sSurface == EGL_NO_SURFACE) {
-        return false;
-    }
-    static_assert(sizeof(attr) == sizeof(s_gles_attr), "Mismatch");
-    memcpy(s_gles_attr, attr, sizeof(s_gles_attr));
-    tinyepoxy_init(sGlesv2, major * 10 + minor);
-    return true;
-}
+// static bool prepare_epoxy(void) {
+//     if (!sRenderLib->getOpt(&sOpt)) {
+//         return false;
+//     }
+//     int major, minor;
+//     sRenderLib->getGlesVersion(&major, &minor);
+//     EGLint attr[] = {
+//         EGL_CONTEXT_CLIENT_VERSION, major,
+//         EGL_CONTEXT_MINOR_VERSION_KHR, minor,
+//         EGL_NONE
+//     };
+//     sContext = sEgl->eglCreateContext(sOpt.display, sOpt.config, EGL_NO_CONTEXT,
+//                                       attr);
+//     if (sContext == nullptr) {
+//         return false;
+//     }
+//     sRenderContext = sEgl->eglCreateContext(sOpt.display, sOpt.config,
+//                                             sContext, attr);
+//     if (sRenderContext == nullptr) {
+//         return false;
+//     }
+//     static constexpr EGLint surface_attr[] = {
+//         EGL_WIDTH, 1,
+//         EGL_HEIGHT, 1,
+//         EGL_NONE
+//     };
+//     sSurface = sEgl->eglCreatePbufferSurface(sOpt.display, sOpt.config,
+//                                              surface_attr);
+//     if (sSurface == EGL_NO_SURFACE) {
+//         return false;
+//     }
+//     static_assert(sizeof(attr) == sizeof(s_gles_attr), "Mismatch");
+//     memcpy(s_gles_attr, attr, sizeof(s_gles_attr));
+//     tinyepoxy_init(sGlesv2, major * 10 + minor);
+//     return true;
+// }
 
 struct DisplayChangeListener;
 struct QEMUGLParams;
 
 void * android_gl_create_context(DisplayChangeListener * unuse1,
                                  QEMUGLParams* unuse2) {
-    static bool ok =  prepare_epoxy();
-    if (!ok) {
-        return nullptr;
-    }
+    // static bool ok =  prepare_epoxy();
+    // if (!ok) {
+    //     return nullptr;
+    // }
     sEgl->eglMakeCurrent(sOpt.display, sSurface, sSurface, sContext);
     return sEgl->eglCreateContext(sOpt.display, sOpt.config, sContext, s_gles_attr);
 }

@@ -24,6 +24,7 @@
 #include "host-common/window_agent.h"
 #include "host-common/HostmemIdMapping.h"
 #include "host-common/FeatureControl.h"
+#include "host-common/feature_control.h"
 #include "host-common/opengl/emugl_config.h"
 #include "host-common/opengles-pipe.h"
 #include "host-common/opengles.h"
@@ -360,44 +361,44 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
 #define GFXSTREAM_LIB_SUFFIX ".dll"
 #endif
 
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::GLPipeChecksum, false);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::GLESDynamicVersion, true);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::PlayStoreImage, !enableGlEs31Flag);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::GLDMA, false);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::GLAsyncSwap, false);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::RefCountPipe, false);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::NoDelayCloseColorBuffer, true);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::IgnoreHostOpenGLErrors, ignoreHostGlErrorsFlag);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::NativeTextureDecompression, nativeTextureDecompression);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::BptcTextureSupport, bptcTextureSupport);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::GLDirectMem, false);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::Vulkan, enableVk);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::VulkanSnapshots, false);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::VulkanNullOptionalStrings, true);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::HostComposition, true);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::VulkanIgnoredHandles, true);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::VirtioGpuNext, true);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::VirtioGpuNativeSync, !syncFdDisabledByFlag);
-    android::featurecontrol::setEnabledOverride(
-            android::featurecontrol::GuestUsesAngle, guestUsesAngle);
+    feature_set_enabled_override(
+            kFeature_GLPipeChecksum, false);
+    feature_set_enabled_override(
+            kFeature_GLESDynamicVersion, true);
+    feature_set_enabled_override(
+            kFeature_PlayStoreImage, !enableGlEs31Flag);
+    feature_set_enabled_override(
+            kFeature_GLDMA, false);
+    feature_set_enabled_override(
+            kFeature_GLAsyncSwap, false);
+    feature_set_enabled_override(
+            kFeature_RefCountPipe, false);
+    feature_set_enabled_override(
+            kFeature_NoDelayCloseColorBuffer, true);
+    feature_set_enabled_override(
+            kFeature_IgnoreHostOpenGLErrors, ignoreHostGlErrorsFlag);
+    feature_set_enabled_override(
+            kFeature_NativeTextureDecompression, nativeTextureDecompression);
+    feature_set_enabled_override(
+            kFeature_BptcTextureSupport, bptcTextureSupport);
+    feature_set_enabled_override(
+            kFeature_GLDirectMem, false);
+    feature_set_enabled_override(
+            kFeature_Vulkan, enableVk);
+    feature_set_enabled_override(
+            kFeature_VulkanSnapshots, false);
+    feature_set_enabled_override(
+            kFeature_VulkanNullOptionalStrings, true);
+    feature_set_enabled_override(
+            kFeature_HostComposition, true);
+    feature_set_enabled_override(
+            kFeature_VulkanIgnoredHandles, true);
+    feature_set_enabled_override(
+            kFeature_VirtioGpuNext, true);
+    feature_set_enabled_override(
+            kFeature_VirtioGpuNativeSync, !syncFdDisabledByFlag);
+    feature_set_enabled_override(
+            kFeature_GuestUsesAngle, guestUsesAngle);
 
     emugl::vkDispatch(false /* don't use test ICD */);
 

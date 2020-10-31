@@ -187,7 +187,7 @@ bool emuglConfig_init(EmuglConfig* config,
                       bool no_window,
                       bool blacklisted,
                       bool has_guest_renderer,
-                      enum WinsysPreferredGlesBackend uiPreferredBackend,
+                      int uiPreferredBackend,
                       bool use_host_vulkan) {
     D("%s: blacklisted=%d has_guest_renderer=%d, mode: %s, option: %s\n",
       __FUNCTION__,

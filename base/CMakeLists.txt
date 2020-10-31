@@ -3,6 +3,7 @@ if (WIN32)
 endif()
 
 set(gfxstream-base-common-sources
+    AlignedBuf.cpp
     CompressingStream.cpp
     CpuTime.cpp
     DecompressingStream.cpp

@@ -47,6 +47,7 @@ add_library(
 
     # android-emu avd globals
     avd/info.cpp
+    avd/hw-config.cpp
 
     # general opengles host stuff, incl process pipe
     # and opengl es pipe
