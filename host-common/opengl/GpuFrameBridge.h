@@ -15,7 +15,6 @@
 #pragma once
 
 #include <cstdint>
-#include "android/base/async/Looper.h"
 
 class Looper;
 namespace android {
@@ -67,7 +66,7 @@ public:
 
     virtual void setDisplayId(uint32_t displayId) = 0;
 
-    virtual void setLooper(android::base::Looper* aLooper) = 0;
+    // virtual void setLooper(android::base::Looper* aLooper) = 0;
 
 protected:
     GpuFrameBridge() {}

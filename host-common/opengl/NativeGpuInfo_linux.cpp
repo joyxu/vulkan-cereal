@@ -12,32 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "android/opengl/NativeGpuInfo.h"
+#include "NativeGpuInfo.h"
 
-#include "android/base/StringView.h"
-#include "android/base/files/PathUtils.h"
-#include "android/base/files/ScopedFd.h"
-#include "android/base/memory/ScopedPtr.h"
-#include "android/base/misc/FileUtils.h"
-#include "android/base/system/System.h"
+#include "base/PathUtils.h"
+#include "base/ScopedFd.h"
+#include "base/FileUtils.h"
+#include "base/System.h"
 
 #include <string>
 
-using android::base::makeCustomScopedPtr;
 using android::base::PathUtils;
-using android::base::RunOptions;
 using android::base::ScopedFd;
-using android::base::StringView;
-using android::base::System;
 
 static const int kGPUInfoQueryTimeoutMs = 5000;
 
-static std::string load_gpu_info() {
-    // Execute the command to get GPU info.
-    return System::get()
-            ->runCommandWithResult({"lspci", "-mvnn"}, kGPUInfoQueryTimeoutMs)
-            .valueOr({});
-}
+// static std::string load_gpu_info() {
+//     // Execute the command to get GPU info.
+//     return System::get()
+//             ->runCommandWithResult({"lspci", "-mvnn"}, kGPUInfoQueryTimeoutMs)
+//             .valueOr({});
+// }
 
 static std::string parse_last_hexbrackets(const std::string& str) {
     size_t closebrace_p = str.rfind("]");
@@ -91,6 +85,7 @@ void parse_gpu_info_list_linux(const std::string& contents,
 }
 
 void getGpuInfoListNative(GpuInfoList* gpulist) {
+    (void)gpulist;
     // Load it in a traditional way - by parsing output of external process.
 
     // TODO: Don't do GPU info detection on Linux for now---lspci can be
@@ -98,9 +93,9 @@ void getGpuInfoListNative(GpuInfoList* gpulist) {
 #ifdef ANDROID_DEBUG
     // Workaround for b/77586363, clang -O0 introduces some unexpected behavior
     // when it comes to the else. See the bug for details
-    load_gpu_info();
+    // load_gpu_info();
 #else
-    (void)load_gpu_info; // Make Werror happy
+    // (void)load_gpu_info; // Make Werror happy
 #endif
     // std::string gpu_info = load_gpu_info();
     // parse_gpu_info_list_linux(gpu_info, gpulist);

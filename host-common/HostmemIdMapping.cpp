@@ -26,7 +26,7 @@ static HostmemIdMapping* sMapping() {
 
 // static
 HostmemIdMapping* HostmemIdMapping::get() {
-    return sMapping.ptr();
+    return sMapping();
 }
 
 // TODO: Add registerHostmemFixed version that takes a predetermined id,

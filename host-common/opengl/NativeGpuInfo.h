@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "android/opengl/gpuinfo.h"
+#include "gpuinfo.h"
 
 void getGpuInfoListNative(GpuInfoList*);
 

@@ -9,12 +9,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#include "android/emulation/AndroidPipe.h"
+#include "../AndroidPipe.h"
 
-#include "android/opengles.h"
+#include "../opengles.h"
 #include <assert.h>
 #include <atomic>
 #include <memory>
+
+#include <string.h>
 
 namespace android {
 namespace opengl {

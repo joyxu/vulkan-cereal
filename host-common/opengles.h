@@ -19,6 +19,12 @@
 #include "host-common/vm_operations.h"
 #include "host-common/window_agent.h"
 #include "host-common/opengl/virtio_gpu_ops.h"
+#include "../stream-servers/RenderLib.h"
+
+/* A version of android_initOpenglesEmulation that is called from a library
+ * that has static access to libOpenglRender. */
+AEMU_EXPORT int android_prepareOpenglesEmulation(void);
+AEMU_EXPORT int android_setOpenglesEmulation(void* renderLib, void* eglDispatch, void* glesv2Dispatch);
 
 /* Call this function to initialize the hardware opengles emulation.
  * This function will abort if we can't find the corresponding host
@@ -127,7 +133,7 @@ namespace emugl {
     class Renderer;
 }
 
-AEMU_EXPORT const emugl::Renderer* android_getOpenglesRenderer();
+AEMU_EXPORT const emugl::RendererPtr& android_getOpenglesRenderer();
 
 AEMU_EXPORT struct AndroidVirtioGpuOps* android_getVirtioGpuOps(void);
 

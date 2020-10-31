@@ -6,6 +6,7 @@ set(gfxstream-base-common-sources
     CompressingStream.cpp
     CpuTime.cpp
     DecompressingStream.cpp
+    FileUtils.cpp
     FunctorThread.cpp
     GLObjectCounter.cpp
     LayoutResolver.cpp

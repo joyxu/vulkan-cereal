@@ -9,14 +9,13 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#include "android/opengl/gpuinfo.h"
+#include "gpuinfo.h"
 
-#include "android/base/ArraySize.h"
-#include "android/base/memory/LazyInstance.h"
-#include "android/base/system/System.h"
-#include "android/base/threads/FunctorThread.h"
-#include "android/opengl/gpuinfo.h"
-#include "android/opengl/NativeGpuInfo.h"
+#include "base/ArraySize.h"
+#include "base/System.h"
+#include "base/FunctorThread.h"
+#include "gpuinfo.h"
+#include "NativeGpuInfo.h"
 
 #include <assert.h>
 #include <inttypes.h>
@@ -28,8 +27,6 @@
 
 using android::base::arraySize;
 using android::base::FunctorThread;
-using android::base::LazyInstance;
-using android::base::System;
 
 // Try to switch to NVIDIA on Optimus systems,
 // and AMD GPU on AmdPowerXpress.
@@ -52,8 +49,8 @@ FLAG_EXPORT int AmdPowerXpressRequestHighPerformance = 0x00000001;
 
 #undef FLAG_EXPORT
 
-static const System::Duration kGPUInfoQueryTimeoutMs = 5000;
-static const System::Duration kQueryCheckIntervalMs = 66;
+static const uint64_t kGPUInfoQueryTimeoutMs = 5000;
+static const uint64_t kQueryCheckIntervalMs = 66;
 
 void GpuInfo::addDll(std::string dll_str) {
     dlls.push_back(std::move(dll_str));
@@ -391,14 +388,17 @@ private:
 
 }  // namespace
 
-static LazyInstance<Globals> sGlobals = LAZY_INSTANCE_INIT;
+static Globals* sGlobals() {
+    static Globals* g = new Globals;
+    return g;
+}
 
 void async_query_host_gpu_start() {
-    sGlobals.get();
+    sGlobals();
 }
 
 const GpuInfoList& globalGpuInfoList() {
-    return sGlobals->gpuInfoList();
+    return sGlobals()->gpuInfoList();
 }
 
 bool async_query_host_gpu_blacklisted() {

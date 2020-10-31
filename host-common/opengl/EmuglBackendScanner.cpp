@@ -9,14 +9,10 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#include "android/opengl/EmuglBackendScanner.h"
+#include "EmuglBackendScanner.h"
 
-#include "android/base/Log.h"
-#include "android/base/StringFormat.h"
-#include "android/base/system/System.h"
-#include "android/base/misc/StringUtils.h"
-
-#include "android/utils/path.h"
+#include "base/StringFormat.h"
+#include "base/System.h"
 
 #include <algorithm>
 #include <string>
@@ -26,20 +22,21 @@ namespace android {
 namespace opengl {
 
 using android::base::StringFormat;
-using android::base::System;
 
 // static
 std::vector<std::string> EmuglBackendScanner::scanDir(const char* execDir,
                                                       int programBitness) {
     std::vector<std::string> names;
 
-    if (!execDir || !System::get()->pathExists(execDir)) {
-        LOG(ERROR) << "Invalid executable directory: " << execDir;
+    if (!execDir) {
+        fpritnf(stderr, "%s: invalid exec dir: %s\n", __func__, execDir);
         return names;
     }
+
     if (!programBitness) {
         programBitness = System::get()->getProgramBitness();
     }
+
     const char* subdir = (programBitness == 64) ? "lib64" : "lib";
     std::string subDir = StringFormat("%s" PATH_SEP "%s" PATH_SEP, execDir, subdir);
 
