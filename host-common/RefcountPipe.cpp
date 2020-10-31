@@ -24,7 +24,7 @@ using android::base::arraySize;
 namespace android {
 namespace emulation {
 
-static OnLastColorBufferRef* sOnLastColorBufferRef = nullptr;
+static OnLastColorBufferRef* sOnLastColorBufferRef = new OnLastColorBufferRef;
 
 RefcountPipe::RefcountPipe(void* hwPipe, Service* svc, base::Stream* loadStream)
     : AndroidPipe(hwPipe, svc) {
