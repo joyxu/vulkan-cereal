@@ -19,6 +19,9 @@
 #include <vector>
 
 struct FeatureState {
+    FeatureState() {
+        enabled.resize(1024, 0);
+    }
     std::vector<bool> enabled;
 };
 

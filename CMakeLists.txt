@@ -2,7 +2,9 @@ project(gfx-streaming-kit)
 cmake_minimum_required(VERSION 3.11)
 find_package(Threads)
 include(ExternalProject)
-
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/distribution)
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
@@ -12,6 +14,8 @@ set(CMAKE_C_STANDARD 11)
 include(gtest.cmake)
 
 set(GFXSTREAM_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+
+include(android.cmake)
 
 # Third party dependencies
 add_subdirectory(third-party)

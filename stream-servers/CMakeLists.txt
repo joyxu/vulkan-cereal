@@ -80,6 +80,7 @@ target_include_directories(
     ${GFXSTREAM_REPO_ROOT}/stream-servers
     ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
     ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan)
+android_install_shared(gfxstream_backend)
 
 # Testing libraries
 add_subdirectory(testlibs)
@@ -95,4 +96,4 @@ target_link_libraries(
     gfxstream_backend
     gfxstream-base
     gtest_main)
-
+android_install_exe(gfxstream_backend_unittests)
