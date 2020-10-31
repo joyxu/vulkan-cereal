@@ -62,18 +62,22 @@ enum class ContextRunMode {
 template <typename T>
 class DeviceContextRunner {
 public:
+    struct TimerInterface {
+        std::function<void(DeviceContextRunner*, std::function<void()>)> installFunc;
+        std::function<void(DeviceContextRunner*)> uninstallFunc;
+        std::function<void(DeviceContextRunner*, uint64_t)> startWithTimeoutFunc;
+    };
+
     using AutoLock = android::base::AutoLock;
     using Lock = android::base::Lock;
     using Looper = android::base::Looper;
-    using ThreadLooper = android::base::ThreadLooper;
     using VmLock = android::VmLock;
     using PendingList = std::vector<T>;
 
-    void init(VmLock* vmLock) { init(vmLock, ThreadLooper::get()); }
-
     // Looper parameter is for unit testing purposes.
-    void init(VmLock* vmLock, Looper* looper) {
+    void init(VmLock* vmLock, TimerInterface timerInterface) {
         mVmLock = vmLock;
+        mTimerInterface = timerInterface;
         // TODO(digit): Find a better event abstraction.
         //
         // Operating on Looper::Timer objects is not supposed to be
@@ -86,14 +90,9 @@ public:
         // Looper implementation (for unit-testing) or any other kind of
         // runtime environment, should we one day link AndroidEmu to a
         // different emulation engine.
-        mTimer.reset(looper->createTimer(
-                [](void* that, Looper::Timer*) {
-                    static_cast<DeviceContextRunner*>(that)->onTimerEvent();
-                },
-                this));
-        if (!mTimer.get()) {
-            LOG(FATAL) << "Failed to create a loop timer in DeviceContextRunner";
-        }
+        //
+        // Solution: Feed a callback interface that acts depending on the timer object
+        mTimerInterface.installFunc(this, [this]() { this->onTimerEvent(); });
     }
 
     void setContextRunMode(ContextRunMode mode) {
@@ -103,7 +102,9 @@ public:
 
 protected:
     // Disable delete-through-interface.
-    ~DeviceContextRunner() = default;
+    ~DeviceContextRunner() {
+        mTimerInterface.uninstallFunc(this);
+    }
 
     // To be implemented by the class that derives DeviceContextRunner:
     // the method that actually touches the virtual device.
@@ -128,7 +129,7 @@ protected:
 
             // NOTE: See TODO above why this is thread-safe when used with
             // QEMU1 and QEMU2.
-            mTimer->startAbsolute(0);
+            mTimerInterface.startWithTimeoutFunc(this, 0);
         }
     }
 
@@ -167,7 +168,7 @@ private:
 
     mutable Lock mLock;
     PendingList mPending;
-    std::unique_ptr<Looper::Timer> mTimer;
+    TimerInterface mTimerInterface;
 };
 
 }  // namespace android

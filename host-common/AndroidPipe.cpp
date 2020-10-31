@@ -28,6 +28,7 @@
 #include <unordered_set>
 
 #include <assert.h>
+#include <string.h>
 
 #define DEBUG 0
 
@@ -61,7 +62,6 @@ using ServiceList = std::vector<std::unique_ptr<Service>>;
 using VmLock = android::VmLock;
 using android::base::MemStream;
 using android::base::StringFormat;
-using android::crashreport::CrashReporter;
 
 static BaseStream* asBaseStream(CStream* stream) {
     return reinterpret_cast<BaseStream*>(stream);
@@ -73,7 +73,7 @@ namespace android {
 
 namespace {
 
-static bool isPipeOptional(android::base::StringView name) {
+static bool isPipeOptional(const std::string& name) {
     return name == "OffworldPipe";
 }
 
@@ -437,11 +437,8 @@ AndroidPipe* loadPipeFromStreamCommon(BaseStream* stream,
     const int pendingFlags = stream->getBe32();
     if (pendingFlags && pipe && !*pForceClose) {
         if (!hwPipe) {
-            CrashReporter::get()->GenerateDumpAndDie(
-                    StringFormat(
-                            "AndroidPipe::%s [%s]: hwPipe is NULL (flags = 0x%x)",
-                            __func__, pipe->name(), (unsigned)pendingFlags)
-                            .c_str());
+            fprintf(stderr, "fatal: AndroidPipe::%s [%s]: hwPipe is NULL (flags = 0x%x)\n",
+                    __func__, pipe->name(), unsigned(pendingFlags));
             abort();
         }
         sGlobals()->pipeWaker.signalWake(hwPipe, pendingFlags);
@@ -456,7 +453,24 @@ AndroidPipe* loadPipeFromStreamCommon(BaseStream* stream,
 
 // static
 void AndroidPipe::initThreading(VmLock* vmLock) {
-    sGlobals()->pipeWaker.init(vmLock);
+    // TODO: Make this work in qemu with the actual goldfish pipe device.
+    // In virtio land, this won't be needed, so include trivial timer interface.
+    sGlobals()->pipeWaker.init(vmLock, {
+        // installFunc
+        [](DeviceContextRunner<PipeWakeCommand>* dcr, std::function<void()> installedFunc) {
+            (void)dcr;
+            (void)installedFunc;
+        },
+        // uninstallFunc
+        [](DeviceContextRunner<PipeWakeCommand>* dcr) {
+            (void)dcr;
+        },
+        // startWithTimeoutFunc
+        [](DeviceContextRunner<PipeWakeCommand>* dcr, uint64_t timeout) {
+            (void)dcr;
+            (void)timeout;
+        }
+    });
 }
 
 AndroidPipe::~AndroidPipe() {
@@ -481,11 +495,8 @@ void AndroidPipe::signalWake(int wakeFlags) {
     // i.e., pipe not using normal pipe device
     if (mFlags) return;
     if (!mHwPipe) {
-        CrashReporter::get()->GenerateDumpAndDie(
-                StringFormat(
-                        "AndroidPipe::%s [%s]: hwPipe is NULL (flags = 0x%x)",
-                        __func__, name(), (unsigned)wakeFlags)
-                        .c_str());
+        fprintf(stderr, "AndroidPipe::%s [%s]: hwPipe is NULL (flags = 0x%x)\n",
+                __func__, name(), (unsigned)wakeFlags);
         abort();
     }
     sGlobals()->pipeWaker.signalWake(mHwPipe, wakeFlags);
@@ -495,10 +506,7 @@ void AndroidPipe::closeFromHost() {
     // i.e., pipe not using normal pipe device
     if (mFlags) return;
     if (!mHwPipe) {
-        CrashReporter::get()->GenerateDumpAndDie(
-                StringFormat("AndroidPipe::%s [%s]: hwPipe is NULL", __func__,
-                             name())
-                        .c_str());
+        fprintf(stderr, "AndroidPipe::%s [%s]: hwPipe is NULL\n", __func__, name());
         abort();
     }
     sGlobals()->pipeWaker.closeFromHost(mHwPipe);
@@ -509,10 +517,7 @@ void AndroidPipe::abortPendingOperation() {
     if (mFlags) return;
 
     if (!mHwPipe) {
-        CrashReporter::get()->GenerateDumpAndDie(
-                StringFormat("AndroidPipe::%s [%s]: hwPipe is NULL", __func__,
-                             name())
-                        .c_str());
+        fprintf(stderr, "AndroidPipe::%s [%s]: hwPipe is NULL\n", __func__, name());
         abort();
     }
     sGlobals()->pipeWaker.abortPending(mHwPipe);
@@ -806,10 +811,9 @@ void* android_pipe_lookup_by_id(const int id) {
         void* hwPipe = (*cb.first)(id);
         if (hwPipe) {
             if (hwPipeFound) {
-                CrashReporter::get()->GenerateDumpAndDie(
-                    StringFormat("Pipe id (%d) is not unique, at least two "
-                                 "pipes are found: `%s` and `%s`",
-                                 __func__, id, tagFound, cb.second).c_str());
+                fprintf(stderr, "Pipe id (%d) is not unique, at least two "
+                        "pipes are found: `%s` and `%s`\n",
+                        __func__, id, tagFound, cb.second);
                 abort();
             } else {
                 hwPipeFound = hwPipe;

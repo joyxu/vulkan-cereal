@@ -14,6 +14,8 @@
 #include "base/ArraySize.h"
 #include "refcount-pipe.h"
 
+#include <string.h>
+
 using android::base::arraySize;
 
 namespace android {

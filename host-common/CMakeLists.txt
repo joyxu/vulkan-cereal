@@ -26,7 +26,9 @@ add_library(
 
 
     # What used to be android-emu
+    AndroidPipe.cpp
     HostmemIdMapping.cpp
+    RefcountPipe.cpp
 
     # android-emu avd globals
     avd/info.cpp
