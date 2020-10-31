@@ -15,7 +15,6 @@ add_library(
     STATIC
 
     # emugl glue
-    address_space_device_control_ops.cpp
     crash_reporter.cpp
     vm_operations.cpp
     feature_control.cpp
@@ -24,11 +23,27 @@ add_library(
     misc.cpp
     window_operations.cpp
 
-
     # What used to be android-emu
     AndroidPipe.cpp
     HostmemIdMapping.cpp
     RefcountPipe.cpp
+    AndroidAgentFactory.cpp
+
+    # goldfish sync
+    GoldfishSyncCommandQueue.cpp
+    goldfish_sync.cpp
+
+    # goldfish dma
+    DmaMap.cpp
+    GoldfishDma.cpp
+
+    # Address space device
+    address_space_device_control_ops.cpp
+    address_space_device.cpp
+    address_space_host_memory_allocator.cpp
+    address_space_shared_slots_host_memory_allocator.cpp
+    address_space_graphics.cpp
+    address_space_host_media.cpp
 
     # android-emu avd globals
     avd/info.cpp

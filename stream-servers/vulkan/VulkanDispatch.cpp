@@ -39,8 +39,8 @@ static std::string icdJsonNameToProgramAndLauncherPaths(
 
     std::string suffix = pj({"lib64", "vulkan", icdFilename});
 
-    return pj(android::base::getProgramDirectory(), suffix) + ":" +
-           pj(android::base::getLauncherDirectory(), suffix);
+    return pj({android::base::getProgramDirectory(), suffix}) + ":" +
+           pj({android::base::getLauncherDirectory(), suffix});
 }
 
 static void initIcdPaths(bool forTesting) {
@@ -126,7 +126,7 @@ static std::string getLoaderPath(const std::string& directory, bool forTesting) 
         // Skip loader when using MoltenVK as this gives us access to
         // VK_MVK_moltenvk, which is required for external memory support.
         if (androidIcd == "moltenvk") {
-            auto path = pj(directory, "lib64", "vulkan", "libMoltenVK.dylib");
+            auto path = pj({directory, "lib64", "vulkan", "libMoltenVK.dylib"});
             // LOG(VERBOSE) << "Skipping loader and using ICD directly: " << path;
             return path;
         }

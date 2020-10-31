@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "android/emulation/control/AndroidAgentFactory.h"
+#include "host-common/AndroidAgentFactory.h"
 
 #include <stdio.h>
 
@@ -28,7 +28,7 @@ const AndroidConsoleAgents* getConsoleAgents() {
         // Let's not get involved with undefined behavior, if this happens the
         // developer is not calling injectConsoleAgents early enough.
         fprintf(stderr, "Accessing console agents before injecting them.\n");
-        exit(-1);
+        *(uint32_t*)(1234) = 5;
     }
     return &sConsoleAgents;
 }

@@ -336,5 +336,23 @@ bool pathExists(const char* path) {
 #endif
 }
 
+std::string pj(const std::vector<std::string>& paths) {
+    std::string res;
+
+    if (paths.size() == 0)
+        return "";
+
+    if (paths.size() == 1)
+        return paths[0];
+
+    res = paths[0];
+
+    for (size_t i = 1; i < paths.size(); i++) {
+        res = PathUtils::join(res, paths[i]);
+    }
+
+    return res;
+}
+
 }  // namespace base
 }  // namespace android

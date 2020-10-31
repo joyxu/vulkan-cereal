@@ -14,9 +14,9 @@
 
 #include "host-common/address_space_host_memory_allocator.h"
 #include "host-common/address_space_device.hpp"
-#include "host-common/control/vm_operations.h"
+#include "host-common/vm_operations.h"
+#include "host-common/crash_reporter.h"
 #include "base/AlignedBuf.h"
-#include "android/crashreport/crash-handler.h"
 
 namespace android {
 namespace emulation {

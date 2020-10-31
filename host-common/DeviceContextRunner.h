@@ -70,7 +70,6 @@ public:
 
     using AutoLock = android::base::AutoLock;
     using Lock = android::base::Lock;
-    using Looper = android::base::Looper;
     using VmLock = android::VmLock;
     using PendingList = std::vector<T>;
 

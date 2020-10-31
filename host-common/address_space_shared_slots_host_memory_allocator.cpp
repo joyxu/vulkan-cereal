@@ -14,10 +14,10 @@
 
 #include "host-common/address_space_shared_slots_host_memory_allocator.h"
 #include "host-common/address_space_device.hpp"
-#include "host-common/control/vm_operations.h"
+#include "host-common/vm_operations.h"
+#include "host-common/crash_reporter.h"
 #include "base/AlignedBuf.h"
 #include "base/Lock.h"
-#include "android/crashreport/crash-handler.h"
 #include <map>
 #include <unordered_set>
 #include <unordered_map>

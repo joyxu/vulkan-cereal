@@ -10,7 +10,7 @@ add_library(gfxstream-vulkan-server
             VulkanDispatch.cpp
             VulkanHandleMapping.cpp
             VulkanStream.cpp)
-target_link_libraries(gfxstream-vulkan-server PUBLIC OpenglRender_vulkan_cereal gfxstream-compressedTextures apigen-codec-common)
+target_link_libraries(gfxstream-vulkan-server PUBLIC OpenglRender_vulkan_cereal gfxstream-compressedTextures apigen-codec-common gfxstream-base)
 
 if (WIN32)
 android_target_compile_definitions(gfxstream-vulkan-server windows PRIVATE -DVK_USE_PLATFORM_WIN32_KHR)

@@ -19,7 +19,7 @@
 #endif
 #include "host-common/address_space_host_memory_allocator.h"
 #include "host-common/address_space_shared_slots_host_memory_allocator.h"
-#include "host-common/control/vm_operations.h"
+#include "host-common/vm_operations.h"
 
 #include "base/Lock.h"
 

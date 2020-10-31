@@ -16,12 +16,12 @@
 
 #include "host-common/address_space_device.hpp"
 #include "host-common/address_space_device.h"
-#include "host-common/control/vm_operations.h"
+#include "host-common/vm_operations.h"
+#include "host-common/crash_reporter.h"
+#include "host-common/globals.h"
 #include "base/AlignedBuf.h"
 #include "base/SubAllocator.h"
 #include "base/Lock.h"
-#include "android/crashreport/crash-handler.h"
-#include "android/globals.h"
 
 #include <memory>
 

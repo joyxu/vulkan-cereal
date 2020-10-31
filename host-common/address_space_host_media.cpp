@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "host-common/address_space_host_media.h"
-#include "host-common/control/vm_operations.h"
+#include "host-common/vm_operations.h"
 #include "base/AlignedBuf.h"
 
 #define AS_DEVICE_DEBUG 0
@@ -86,20 +86,21 @@ bool AddressSpaceHostMediaContext::load(base::Stream* stream) {
     int numActiveDecoders = stream->getBe32();
     for (int i = 0; i < numActiveDecoders; ++i) {
         DecoderType t = (DecoderType)stream->getBe32();
-        switch (t) {
-        case DecoderType::Vpx:
-            AS_DEVICE_DPRINT("Loading VpxDecoder snapshot");
-            mVpxDecoder.reset(new MediaVpxDecoder);
-            mVpxDecoder->load(stream);
-            break;
-        case DecoderType::H264:
-            AS_DEVICE_DPRINT("Loading H264Decoder snapshot");
-            mH264Decoder.reset(MediaH264Decoder::create());
-            mH264Decoder->load(stream);
-            break;
-        default:
-            break;
-        }
+        // TODO: Add support for virtio-gpu-as-video-decode
+        // switch (t) {
+        // case DecoderType::Vpx:
+        //     AS_DEVICE_DPRINT("Loading VpxDecoder snapshot");
+        //     mVpxDecoder.reset(new MediaVpxDecoder);
+        //     mVpxDecoder->load(stream);
+        //     break;
+        // case DecoderType::H264:
+        //     AS_DEVICE_DPRINT("Loading H264Decoder snapshot");
+        //     mH264Decoder.reset(MediaH264Decoder::create());
+        //     mH264Decoder->load(stream);
+        //     break;
+        // default:
+        //     break;
+        // }
     }
     return true;
 }
@@ -173,18 +174,18 @@ void AddressSpaceHostMediaContext::handleMediaRequest(AddressSpaceDevicePingInfo
     switch (codecType) {
         case MediaCodecType::VP8Codec:
         case MediaCodecType::VP9Codec:
-            if (!mVpxDecoder) {
-                mVpxDecoder.reset(new MediaVpxDecoder);
-            }
+            // if (!mVpxDecoder) {
+            //     mVpxDecoder.reset(new MediaVpxDecoder);
+            // }
             mVpxDecoder->handlePing(
                     codecType, op,
                     (uint8_t*)(mControlOps->get_host_ptr(info->phys_addr)) +
                             offSetAddr);
             break;
         case MediaCodecType::H264Codec:
-            if (!mH264Decoder) {
-                mH264Decoder.reset(MediaH264Decoder::create());
-            }
+            // if (!mH264Decoder) {
+            //     mH264Decoder.reset(MediaH264Decoder::create());
+            // }
             mH264Decoder->handlePing(
                     codecType, op,
                     (uint8_t*)(mControlOps->get_host_ptr(info->phys_addr)) +
