@@ -409,8 +409,8 @@ void emuglConfig_setupEnv(const EmuglConfig* config) {
         std::string dir = sBackendList->getLibDirPath(config->backend);
         if (dir.size()) {
             D("Adding to the library search path: %s\n", dir.c_str());
-            fprintf(stderr, "%s: non-host backends not supported\n", __func__);
-            abort();
+            // fprintf(stderr, "%s: non-host backends not supported\n", __func__);
+            // abort();
             // android::base::addLibrarySearchDir(dir);
         }
     }

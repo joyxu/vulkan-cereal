@@ -182,6 +182,10 @@ int android_setOpenglesEmulation(void* renderLib, void* eglDispatch, void* glesv
     sRenderLib = (emugl::RenderLib*)renderLib;
     sEgl = (EGLDispatch*)eglDispatch;
     sGlesv2 = (GLESv2Dispatch*)glesv2Dispatch;
+    sEgl2egl = false;
+    if (android::base::getEnvironmentVariable("ANDROID_EGL_ON_EGL") == "1") {
+        sEgl2egl = true;
+    }
     return 0;
 }
 

@@ -27,7 +27,7 @@
 #include <stdlib.h>
 #endif
 
-#define GL_LOG(...)
+#define GL_LOG(fmt,...) fprintf(stderr, "%s:%d " fmt, __func__, __LINE__, ##__VA_ARGS__);
 
 using android::base::PathUtils;
 

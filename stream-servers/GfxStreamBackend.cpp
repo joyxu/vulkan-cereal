@@ -390,6 +390,8 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     feature_set_enabled_override(
             kFeature_VulkanNullOptionalStrings, true);
     feature_set_enabled_override(
+            kFeature_VulkanShaderFloat16Int8, true);
+    feature_set_enabled_override(
             kFeature_HostComposition, true);
     feature_set_enabled_override(
             kFeature_VulkanIgnoredHandles, true);

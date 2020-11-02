@@ -25,6 +25,8 @@
 
 namespace {
 
+static EGLBoolean sEgl2Egl = false;
+
 static EglGlobalInfo* sSingleton() {
     static EglGlobalInfo* i = new EglGlobalInfo;
     return i;
@@ -35,16 +37,9 @@ static bool sEgl2EglSyncSafeToUse = false;
 }  // namespace
 
 void EglGlobalInfo::setEgl2Egl(EGLBoolean enable) {
-    if (sSingleton()) {
-        if (enable != isEgl2Egl()) {
-            fprintf(stderr,
-                    "WARNING: "
-                    "attempting to change whether underlying engine is EGL "
-                    "after it has been set!\n");
-        }
-        return;
-    }
+    sEgl2Egl = enable;
     setGles2Gles(enable);
+    sSingleton();
 }
 
 bool EglGlobalInfo::isEgl2Egl() {
@@ -65,7 +60,7 @@ EglGlobalInfo* EglGlobalInfo::getInstance() {
 }
 
 EglGlobalInfo::EglGlobalInfo() {
-    if (isEgl2Egl()) {
+    if (sEgl2Egl) {
         m_engine = EglOS::getEgl2EglHostInstance();
     } else {
         m_engine = EglOS::Engine::getHostInstance();

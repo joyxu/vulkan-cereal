@@ -81,7 +81,21 @@ namespace android {
 namespace base {
 
 std::string getEnvironmentVariable(const std::string& key) { 
-    return {};
+#ifdef _WIN32
+    Win32UnicodeString varname_unicode(key);
+    const wchar_t* value = _wgetenv(varname_unicode.c_str());
+    if (!value) {
+        return std::string();
+    } else {
+        return Win32UnicodeString::convertToUtf8(value);
+    }
+#else
+    const char* value = getenv(key.c_str());
+    if (!value) {
+        value = "";
+    }
+    return std::string(value);
+#endif
 }
 
 void setEnvironmentVariable(const std::string& key, const std::string& value) {
