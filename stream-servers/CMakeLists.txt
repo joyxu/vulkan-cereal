@@ -96,4 +96,3 @@ target_link_libraries(
     gfxstream_backend
     gfxstream-base
     gtest_main)
-android_install_exe(gfxstream_backend_unittests)

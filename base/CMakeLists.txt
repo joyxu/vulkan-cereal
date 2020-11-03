@@ -30,6 +30,7 @@ set(gfxstream-base-windows-sources
     SharedMemory_win32.cpp
     Thread_win32.cpp
     Win32UnicodeString.cpp)
+
 if (APPLE)
     set(gfxstream-platform-sources
         ${gfxstream-base-posix-sources}
@@ -53,3 +54,30 @@ target_include_directories(
     gfxstream-base PUBLIC ${GFXSTREAM_REPO_ROOT})
 target_compile_options(
     gfxstream-base PRIVATE -fvisibility=default)
+
+if (APPLE)
+    set(gfxstream-base-platform-test-sources "")
+elseif (WIN32)
+    set(gfxstream-base-platform-test-sources Win32UnicodeString_unittest.cpp)
+else()
+    set(gfxstream-base-platform-test-sources "")
+endif()
+
+# Tests
+add_executable(
+    gfxstream-base_unittests
+    AlignedBuf_unittest.cpp
+    ArraySize_unittest.cpp
+    LayoutResolver_unittest.cpp
+    Optional_unittest.cpp
+    ring_buffer_unittest.cpp
+    StringFormat_unittest.cpp
+    SubAllocator_unittest.cpp
+    TypeTraits_unittest.cpp
+    ${gfxstream-base-platform-test-sources})
+
+target_link_libraries(
+    gfxstream-base_unittests
+    PRIVATE
+    gfxstream-base
+    gtest_main)
