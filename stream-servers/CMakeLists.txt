@@ -20,7 +20,7 @@ add_subdirectory(OpenGLESDispatch)
 add_subdirectory(renderControl_dec)
 
 # Stream server core
-set(gfxstream_backend-common-sources
+set(stream-server-core-sources
     ChannelStream.cpp
     ColorBuffer.cpp
     FbConfig.cpp
@@ -44,23 +44,23 @@ set(gfxstream_backend-common-sources
     RenderWindow.cpp
     RenderLibImpl.cpp
     RendererImpl.cpp
-    FrameBuffer.cpp
-    GfxStreamAgents.cpp
-    GfxStreamBackend.cpp
-    virtio-gpu-gfxstream-renderer.cpp)
+    FrameBuffer.cpp)
 if (APPLE)
-    set(gfxstream_backend-platform-sources NativeSubWindow_cocoa.m)
+    set(stream-server-core-platform-sources NativeSubWindow_cocoa.m)
 elseif (WIN32)
-    set(gfxstream_backend-platform-sources NativeSubWindow_win32.cpp)
+    set(stream-server-core-platform-sources NativeSubWindow_win32.cpp)
 else()
-    set(gfxstream_backend-platform-sources NativeSubWindow_x11.cpp)
+    set(stream-server-core-platform-sources NativeSubWindow_x11.cpp)
 endif()
 
 add_library(
     gfxstream_backend
     SHARED
-    ${gfxstream_backend-common-sources}
-    ${gfxstream_backend-platform-sources})
+    ${stream-server-core-sources}
+    ${stream-server-core-platform-sources}
+    GfxStreamAgents.cpp
+    GfxStreamBackend.cpp
+    virtio-gpu-gfxstream-renderer.cpp)
 target_link_libraries(
     gfxstream_backend
     PUBLIC
@@ -71,6 +71,7 @@ target_link_libraries(
     gles2_dec
     renderControl_dec
     gfxstream-vulkan-server
+    gfxstream-snapshot
     apigen-codec-common)
 target_include_directories(
     gfxstream_backend
@@ -96,3 +97,48 @@ target_link_libraries(
     gfxstream_backend
     gfxstream-base
     gtest_main)
+
+# Framebuffer unit tests
+add_library(
+    stream-server-testing-support
+    ${stream-server-core-sources}
+    ${stream-server-core-platform-sources}
+    tests/SampleApplication.cpp)
+target_include_directories(
+    stream-server-testing-support
+    PRIVATE
+    ${GFXSTREAM_REPO_ROOT}
+    PUBLIC
+    ${GFXSTREAM_REPO_ROOT}/base/testing
+    ${GFXSTREAM_REPO_ROOT}
+    ${GFXSTREAM_REPO_ROOT}/include
+    ${GFXSTREAM_REPO_ROOT}/stream-servers
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan)
+target_link_libraries(
+    stream-server-testing-support
+    PUBLIC
+    gfxstream-base
+    gfxstream-host-common
+    OpenGLESDispatch
+    gles1_dec
+    gles2_dec
+    renderControl_dec
+    gfxstream-vulkan-server
+    gfxstream-snapshot
+    apigen-codec-common
+    OSWindow)
+add_executable(
+    OpenglRender_unittests
+    tests/FrameBuffer_unittest.cpp
+    tests/GLSnapshotTesting.cpp
+    tests/OpenGLTestContext.cpp
+    tests/GLTestUtils.cpp
+    tests/ShaderUtils.cpp)
+target_link_libraries(
+    OpenglRender_unittests
+    PRIVATE
+    gfxstream-base-testing-support
+    stream-server-testing-support
+    gfxstream-host-common-testing-support
+    gtest)

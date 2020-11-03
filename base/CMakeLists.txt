@@ -12,6 +12,7 @@ set(gfxstream-base-common-sources
     GLObjectCounter.cpp
     LayoutResolver.cpp
     MemStream.cpp
+    StdioStream.cpp
     MemoryTracker.cpp
     MessageChannel.cpp
     PathUtils.cpp
@@ -64,6 +65,21 @@ else()
 endif()
 
 # Tests
+add_library(
+    gfxstream-base-testing-support
+    testing/file_io.cpp)
+target_include_directories(
+    gfxstream-base-testing-support
+    PRIVATE
+    ${GFXSTREAM_REPO_ROOT}
+    PUBLIC
+    ${GFXSTREAM_REPO_ROOT}/base/testing)
+target_link_libraries(
+    gfxstream-base-testing-support
+    PRIVATE
+    gfxstream-base
+    gtest
+    gmock)
 add_executable(
     gfxstream-base_unittests
     AlignedBuf_unittest.cpp
@@ -75,9 +91,9 @@ add_executable(
     SubAllocator_unittest.cpp
     TypeTraits_unittest.cpp
     ${gfxstream-base-platform-test-sources})
-
 target_link_libraries(
     gfxstream-base_unittests
     PRIVATE
     gfxstream-base
+    gfxstream-base-testing-support
     gtest_main)

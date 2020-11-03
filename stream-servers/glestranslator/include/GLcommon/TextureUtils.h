@@ -90,4 +90,11 @@ void forEachBptcFormat(std::function<void(GLint format)>);
 bool isEtc2OrAstcFormat(GLenum format);
 
 bool shouldPassthroughCompressedFormat(GLEScontext* ctx, GLenum internalformat);
+
+uint32_t texImageSize(GLenum internalformat,
+                      GLenum type,
+                      int unpackAlignment,
+                      GLsizei width,
+                      GLsizei height);
+
 #endif

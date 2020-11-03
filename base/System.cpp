@@ -1,3 +1,4 @@
+#include "base/EintrWrapper.h"
 #include "base/StringFormat.h"
 #include "base/System.h"
 
@@ -10,11 +11,39 @@
 #include "dirent.h"
 #else
 #include <sys/time.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/resource.h>
 #include <unistd.h>
 #endif
 
 #include <string.h>
+
+using FileSize = uint64_t;
+
+#ifdef _WIN32
+// Return |path| as a Unicode string, while discarding trailing separators.
+Win32UnicodeString win32Path(StringView path) {
+    Win32UnicodeString wpath(path);
+    // Get rid of trailing directory separators, Windows doesn't like them.
+    size_t size = wpath.size();
+    while (size > 0U &&
+           (wpath[size - 1U] == L'\\' || wpath[size - 1U] == L'/')) {
+        size--;
+    }
+    if (size < wpath.size()) {
+        wpath.resize(size);
+    }
+    return wpath;
+}
+
+using PathStat = struct _stat64;
+
+#else  // _WIN32
+
+using PathStat = struct stat;
+
+#endif  // _WIN32
 
 namespace {
 
@@ -115,6 +144,30 @@ void setEnvironmentVariable(const std::string& key, const std::string& value) {
 
 bool isVerboseLogging() {
     return false;
+}
+
+int fdStat(int fd, PathStat* st) {
+#ifdef _WIN32
+    return fstat64(fd, st);
+#else   // !_WIN32
+    return HANDLE_EINTR(fstat(fd, st));
+#endif  // !_WIN32
+}
+
+bool getFileSize(int fd, uint64_t* outFileSize) {
+    if (fd < 0) {
+        return false;
+    }
+    PathStat st;
+    int ret = fdStat(fd, &st);
+    if (ret < 0 || !S_ISREG(st.st_mode)) {
+        return false;
+    }
+    // This is off_t on POSIX and a 32/64 bit integral type on windows based on
+    // the host / compiler combination. We cast everything to 64 bit unsigned to
+    // play safe.
+    *outFileSize = static_cast<FileSize>(st.st_size);
+    return true;
 }
 
 void sleepMs(uint64_t n) {

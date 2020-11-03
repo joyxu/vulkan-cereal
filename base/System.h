@@ -17,7 +17,7 @@ uint64_t getUptimeMs();
 std::string getProgramDirectory();
 std::string getLauncherDirectory();
 
-uint64_t getFileSize(int fd, uint64_t* size);
+bool getFileSize(int fd, uint64_t* size);
 
 void sleepMs(uint64_t ms);
 void sleepUs(uint64_t us);

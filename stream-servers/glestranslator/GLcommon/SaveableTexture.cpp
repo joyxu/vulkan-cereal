@@ -372,6 +372,10 @@ struct TextureDataReader {
 
     bool shouldUseReadPixels(
         GLenum target, GLenum level, GLenum format, GLenum type) {
+
+        auto gl = GLEScontext::dispatcher();
+        if (!gl.glGetTexImage) return true;
+
         // TODO: if (isGles2Gles()) return true
 
         // TODO: Query extensions for support for these kinds of things

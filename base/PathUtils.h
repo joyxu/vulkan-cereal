@@ -108,11 +108,13 @@ public:
     }
 
     // Add a trailing separator if needed.
+    static std::string addTrailingDirSeparator(const std::string& path,
+                                               HostType hostType);
     static std::string addTrailingDirSeparator(const char* path,
                                                HostType hostType);
 
     // Add a trailing separator if needed.
-    static std::string addTrailingDirSeparator(const char* path) {
+    static std::string addTrailingDirSeparator(const std::string& path) {
         return addTrailingDirSeparator(path, HOST_TYPE);
     }
 
@@ -200,6 +202,8 @@ public:
     // for the root prefix, if any.
     static std::vector<std::string> decompose(std::string&& path,
                                               HostType hostType);
+    static std::vector<std::string> decompose(const std::string& path,
+                                              HostType hostType);
 
     template <class String>
     static std::vector<String> decompose(const String& path,
@@ -209,6 +213,10 @@ public:
     // See comments above for more details.
     static std::vector<std::string> decompose(std::string&& path) {
         return decompose(std::move(path), HOST_TYPE);
+    }
+
+    static std::vector<std::string> decompose(const std::string& path) {
+        return decompose(path, HOST_TYPE);
     }
 
     // Recompose a path from individual components into a file path string.

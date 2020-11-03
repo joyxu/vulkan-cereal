@@ -79,18 +79,18 @@ target_link_libraries(
 
 # Tests
 add_library(
-    gfxstream-host-testing-support
+    gfxstream-host-common-testing-support
     testing/HostAddressSpace.cpp
     testing/MockAndroidAgentFactory.cpp
     testing/MockAndroidEmulatorWindowAgent.cpp
     testing/MockAndroidMultiDisplayAgent.cpp
     testing/MockAndroidVmOperations.cpp)
 target_include_directories(
-    gfxstream-host-testing-support
+    gfxstream-host-common-testing-support
     PRIVATE
     ${GFXSTREAM_REPO_ROOT})
 target_link_libraries(
-    gfxstream-host-testing-support
+    gfxstream-host-common-testing-support
     PRIVATE
     gtest
     gmock)
@@ -107,5 +107,5 @@ target_link_libraries(
     PRIVATE
     gfxstream-base
     gfxstream-host-common
-    gfxstream-host-testing-support
+    gfxstream-host-common-testing-support
     gtest_main)

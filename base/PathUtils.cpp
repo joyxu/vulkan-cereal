@@ -223,6 +223,11 @@ std::vector<std::string> PathUtils::decompose(std::string&& path,
     return decompose<std::string>(path, hostType);
 }
 
+std::vector<std::string> PathUtils::decompose(const std::string& path,
+                                              HostType hostType) {
+    return decompose<std::string>(path, hostType);
+}
+
 template <class String>
 std::string PathUtils::recompose(const std::vector<String>& components,
                                  HostType hostType) {
@@ -355,6 +360,15 @@ std::string pj(const std::vector<std::string>& paths) {
     }
 
     return res;
+}
+
+std::string PathUtils::addTrailingDirSeparator(const std::string& path,
+                                               HostType hostType) {
+    std::string result = path;
+    if (result.size() > 0 && !isDirSeparator(result[result.size() - 1U])) {
+        result += getDirSeparator(hostType);
+    }
+    return result;
 }
 
 }  // namespace base

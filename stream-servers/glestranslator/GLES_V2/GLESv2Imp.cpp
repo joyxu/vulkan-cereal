@@ -3598,7 +3598,110 @@ GL_APICALL void  GL_APIENTRY glGetTexImage(GLenum target, GLint level, GLenum fo
         isCoreProfileEmulatedFormat(format)) {
         format = getCoreProfileEmulatedFormat(format);
     }
-    ctx->dispatcher().glGetTexImage(target,level,format,type,pixels);
+
+    uint8_t* data = (uint8_t*)pixels;
+
+    if (ctx->dispatcher().glGetTexImage) {
+        ctx->dispatcher().glGetTexImage(target,level,format,type,data);
+    } else {
+
+        // Best effort via readPixels, assume gles 3.0 capabilities underneath
+        GLint prevViewport[4];
+        GLint prevFbo;
+        GLint packAlignment;
+
+        auto gl = ctx->dispatcher();
+
+        gl.glGetIntegerv(GL_VIEWPORT, prevViewport);
+        gl.glGetIntegerv(GL_PACK_ALIGNMENT, &packAlignment);
+        gl.glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prevFbo);
+
+        GLint width;
+        GLint height;
+        GLint depth;
+        gl.glGetTexLevelParameteriv(target, level, GL_TEXTURE_WIDTH, &width);
+        gl.glGetTexLevelParameteriv(target, level, GL_TEXTURE_HEIGHT, &height);
+        gl.glGetTexLevelParameteriv(target, level, GL_TEXTURE_DEPTH, &depth);
+
+        GLuint fbo;
+        gl.glGenFramebuffers(1, &fbo);
+        gl.glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+
+        GLenum attachment = GL_COLOR_ATTACHMENT0;
+
+        switch (format) {
+            case GL_DEPTH_COMPONENT:
+                attachment = GL_DEPTH_ATTACHMENT;
+                break;
+            case GL_DEPTH_STENCIL:
+                attachment = GL_DEPTH_STENCIL_ATTACHMENT;
+                break;
+        }
+
+        unsigned int tex = ctx->getBindedTexture(target);
+        GLuint globalName = ctx->shareGroup()->getGlobalName(
+                NamedObjectType::TEXTURE, tex);
+
+        // Do stuff
+        switch (target) {
+            case GL_TEXTURE_2D:
+            case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+            case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+            case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+            case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+            case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+            case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+                gl.glFramebufferTexture2D(
+                        GL_READ_FRAMEBUFFER, attachment, target,
+                        globalName, level);
+                gl.glReadPixels(0, 0, width, height,
+                        format, type,
+                        data);
+                gl.glFramebufferTexture2D(
+                        GL_READ_FRAMEBUFFER, attachment, target,
+                        0, level);
+                break;
+            case GL_TEXTURE_3D: {
+                unsigned int layerImgSize = texImageSize(
+                        format, type, packAlignment, width, height);
+                for (unsigned int d = 0; d < depth; d++) {
+                    gl.glFramebufferTexture3DOES(
+                            GL_READ_FRAMEBUFFER, attachment, target,
+                            globalName, level, d);
+                    gl.glReadPixels(0, 0, width,
+                            height, format,
+                            type, data +
+                            layerImgSize * d);
+                    gl.glFramebufferTexture3DOES(
+                            GL_READ_FRAMEBUFFER, attachment, target,
+                            0, level, d);
+                }
+                break;
+            }
+            case GL_TEXTURE_2D_ARRAY: {
+                unsigned int layerImgSize = texImageSize(
+                        format, type, packAlignment, width, height);
+                for (unsigned int d = 0; d < depth; d++) {
+                    gl.glFramebufferTextureLayer(
+                            GL_READ_FRAMEBUFFER, attachment,
+                            globalName, level, d);
+                    gl.glReadPixels(0, 0, width,
+                            height, format,
+                            type, data +
+                            layerImgSize * d);
+                    gl.glFramebufferTextureLayer(
+                            GL_READ_FRAMEBUFFER, attachment,
+                            0, level, d);
+                }
+                break;
+            }
+        }
+
+        gl.glBindFramebuffer(GL_READ_FRAMEBUFFER, prevFbo);
+        gl.glDeleteFramebuffers(1, &fbo);
+        gl.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        gl.glGetError();
+    }
 }
 
 GL_APICALL void  GL_APIENTRY glTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid* pixels){

@@ -22,7 +22,7 @@
 
 #include "ErrorLog.h"
 
-#define GL_LOG(...)
+#define GL_LOG(fmt,...)
 
 #ifdef __linux__
 #include <GL/glx.h>
@@ -73,7 +73,7 @@ static const std::unordered_map<std::string, std::string> sAliasExtra = {
                 func_name = (__typeof__(func_name))(address); \
             } else { \
                 GL_LOG("%s not found", #func_name); \
-                func_name = (__typeof__(func_name))(dummy_##func_name); \
+                func_name = nullptr; \
             } \
         } \
     } while (0);
