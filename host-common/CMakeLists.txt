@@ -72,3 +72,40 @@ target_include_directories(
     ${GFXSTREAM_REPO_ROOT}
     ${GFXSTREAM_REPO_ROOT}/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers)
+target_link_libraries(
+    gfxstream-host-common
+    PRIVATE
+    gfxstream-base)
+
+# Tests
+add_library(
+    gfxstream-host-testing-support
+    testing/HostAddressSpace.cpp
+    testing/MockAndroidAgentFactory.cpp
+    testing/MockAndroidEmulatorWindowAgent.cpp
+    testing/MockAndroidMultiDisplayAgent.cpp
+    testing/MockAndroidVmOperations.cpp)
+target_include_directories(
+    gfxstream-host-testing-support
+    PRIVATE
+    ${GFXSTREAM_REPO_ROOT})
+target_link_libraries(
+    gfxstream-host-testing-support
+    PRIVATE
+    gtest
+    gmock)
+
+add_executable(
+    gfxstream-host-common_unittests
+    address_space_graphics_unittests.cpp
+    address_space_host_memory_allocator_unittests.cpp
+    address_space_shared_slots_host_memory_allocator_unittests.cpp
+    HostAddressSpace_unittest.cpp
+    HostmemIdMapping_unittest.cpp)
+target_link_libraries(
+    gfxstream-host-common_unittests
+    PRIVATE
+    gfxstream-base
+    gfxstream-host-common
+    gfxstream-host-testing-support
+    gtest_main)

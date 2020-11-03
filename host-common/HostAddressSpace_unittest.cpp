@@ -14,7 +14,7 @@
 #include "host-common/HostAddressSpace.h"
 
 #include "base/AlignedBuf.h"
-#include "android/console.h"
+#include "host-common/AndroidAgentFactory.h"
 #include "host-common/address_space_device.h"
 #include "host-common/address_space_device.hpp"
 

@@ -12,7 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "host-common/HostAddressSpace.h"
+#include "HostAddressSpace.h"
 
 #include "base/SubAllocator.h"
 #include "base/Lock.h"
@@ -20,6 +20,9 @@
 #include "host-common/address_space_device.hpp"
 
 #include <unordered_map>
+#include <vector>
+
+#include <inttypes.h>
 
 #define HASD_DEBUG 0
 
