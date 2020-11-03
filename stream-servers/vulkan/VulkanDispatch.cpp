@@ -45,6 +45,7 @@ static std::string icdJsonNameToProgramAndLauncherPaths(
 
 static void initIcdPaths(bool forTesting) {
     auto androidIcd = android::base::getEnvironmentVariable("ANDROID_EMU_VK_ICD");
+    android::base::setEnvironmentVariable("ANDROID_EMU_SANDBOX", "1");
     if (android::base::getEnvironmentVariable("ANDROID_EMU_SANDBOX") == "1") {
         // Rely on user to set VK_ICD_FILENAMES
         return;
@@ -145,6 +146,7 @@ public:
     void initialize(bool forTesting);
 
     void* dlopen() {
+        android::base::setEnvironmentVariable("ANDROID_EMU_SANDBOX", "1");
         bool sandbox = android::base::getEnvironmentVariable("ANDROID_EMU_SANDBOX") == "1";
 
         if (!mVulkanLoader) {
@@ -208,7 +210,9 @@ static void* sVulkanDispatchDlSym(void* lib, const char* sym) {
 void VulkanDispatchImpl::initialize(bool forTesting) {
     AutoLock lock(mLock);
 
-    if (mInitialized) return;
+    if (mInitialized) {
+        return;
+    }
 
     mForTesting = forTesting;
     initIcdPaths(mForTesting);

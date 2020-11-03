@@ -1787,6 +1787,11 @@ void GLEScontext::initCapsLocked(const GLubyte * extensionString)
     s_glSupport.glslVersion = Version((const  char*)(glslVersion));
     const GLubyte* glVersion = s_glDispatch.glGetString(GL_VERSION);
 
+    // fprintf(stderr, "%s: vendor renderer version [%s] [%s] [%s]\n", __func__,
+    //         s_glDispatch.glGetString(GL_VENDOR),
+    //         s_glDispatch.glGetString(GL_RENDERER),
+    //         s_glDispatch.glGetString(GL_VERSION));
+
     if (strstr(cstring,"GL_EXT_bgra ")!=NULL ||
         (isGles2Gles() && strstr(cstring, "GL_EXT_texture_format_BGRA8888")) ||
         (!isGles2Gles() && !(Version((const char*)glVersion) < Version("1.2"))))

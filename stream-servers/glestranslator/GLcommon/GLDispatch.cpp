@@ -22,6 +22,7 @@
 
 #include "ErrorLog.h"
 
+// #define GL_LOG(fmt,...) fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
 #define GL_LOG(fmt,...)
 
 #ifdef __linux__
@@ -83,6 +84,8 @@ static const std::unordered_map<std::string, std::string> sAliasExtra = {
             void* address = (void *)getGLFuncAddress(#func_name, glLib); \
             if (address) { \
                 func_name = (__typeof__(func_name))(address); \
+            } else { \
+                func_name = (__typeof__(func_name))((void*)eglGPA(#func_name)); \
             } \
         } \
     } while (0);
@@ -130,7 +133,7 @@ GLESVersion GLDispatch::getGLESVersion() const {
     return m_version;
 }
 
-void GLDispatch::dispatchFuncs(GLESVersion version, GlLibrary* glLib) {
+void GLDispatch::dispatchFuncs(GLESVersion version, GlLibrary* glLib, EGLGetProcAddressFunc eglGPA) {
     android::base::AutoLock mutex(s_lock);
     if(m_isLoaded)
         return;
@@ -156,6 +159,7 @@ void GLDispatch::dispatchFuncs(GLESVersion version, GlLibrary* glLib) {
         LIST_GLES3_ONLY_FUNCTIONS(LOAD_GLEXT_FUNC)
         LIST_GLES3_EXTENSIONS_FUNCTIONS(LOAD_GLEXT_FUNC)
     }
+
     if (version >= GLES_3_1) {
         LIST_GLES31_ONLY_FUNCTIONS(LOAD_GLEXT_FUNC)
     }

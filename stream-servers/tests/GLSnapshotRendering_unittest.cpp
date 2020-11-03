@@ -15,8 +15,8 @@
 #include "GLSnapshotTestDispatch.h"
 #include "GLSnapshotTesting.h"
 #include "Standalone.h"
-#include "samples/HelloTriangle.h"
-#include "android/console.h"
+#include "HelloTriangle.h"
+#include "host-common/AndroidAgentFactory.h"
 
 #include <gtest/gtest.h>
 
@@ -61,7 +61,7 @@ template <typename T>
 class SnapshotGlRenderingSampleTest : public ::testing::Test {
 protected:
     virtual void SetUp() override {
-        setupStandaloneLibrarySearchPaths();
+        // setupStandaloneLibrarySearchPaths();
         emugl::set_emugl_window_operations(*getConsoleAgents()->emu);
         //const EGLDispatch* egl = LazyLoadedEGLDispatch::get();
 

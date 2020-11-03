@@ -40,6 +40,7 @@ intptr_t GLBackgroundLoader::main() {
         // In unit tests, we might have torn down EGL. Check for stale
         // context and surface, and recreate them if that happened.
         if (!m_eglIface.bindAuxiliaryContext(s_context, s_surface)) {
+            printf("GLBackgroundLoader::%s auxiliary context gone, create a new one\n", __func__);
             m_eglIface.createAndBindAuxiliaryContext(&s_context, &s_surface);
         }
     }

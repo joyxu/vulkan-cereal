@@ -98,12 +98,22 @@ target_link_libraries(
     gfxstream-base
     gtest_main)
 
-# Framebuffer unit tests
+# More functional tests#########################################################
+
+# Common testing support library################################################
+# This includes the server core and testing sources
 add_library(
     stream-server-testing-support
     ${stream-server-core-sources}
     ${stream-server-core-platform-sources}
-    tests/SampleApplication.cpp)
+    tests/SampleApplication.cpp
+    tests/GLSnapshotTesting.cpp
+    tests/OpenGLTestContext.cpp
+    tests/GLTestUtils.cpp
+    tests/ShaderUtils.cpp
+    tests/GLSnapshotTestDispatch.cpp
+    tests/GLSnapshotTestStateUtils.cpp
+    tests/HelloTriangleImp.cpp)
 target_include_directories(
     stream-server-testing-support
     PRIVATE
@@ -127,18 +137,58 @@ target_link_libraries(
     gfxstream-vulkan-server
     gfxstream-snapshot
     apigen-codec-common
-    OSWindow)
+    OSWindow
+    gtest)
+
+# Basic opengl rendering tests##################################################
 add_executable(
     OpenglRender_unittests
     tests/FrameBuffer_unittest.cpp
-    tests/GLSnapshotTesting.cpp
-    tests/OpenGLTestContext.cpp
-    tests/GLTestUtils.cpp
-    tests/ShaderUtils.cpp)
+    tests/DefaultFramebufferBlit_unittest.cpp
+    tests/TextureDraw_unittest.cpp
+    tests/StalePtrRegistry_unittest.cpp)
 target_link_libraries(
     OpenglRender_unittests
     PRIVATE
-    gfxstream-base-testing-support
     stream-server-testing-support
-    gfxstream-host-common-testing-support
-    gtest)
+    gfxstream-base-testing-support
+    gfxstream-host-common-testing-support)
+
+# Snapshot tests################################################################
+add_executable(
+    OpenglRender_snapshot_unittests
+    tests/GLSnapshotBuffers_unittest.cpp
+    tests/GLSnapshotFramebufferControl_unittest.cpp
+    tests/GLSnapshotFramebuffers_unittest.cpp
+    tests/GLSnapshotMultisampling_unittest.cpp
+    tests/GLSnapshotPixelOperations_unittest.cpp
+    tests/GLSnapshotPixels_unittest.cpp
+    tests/GLSnapshotPrograms_unittest.cpp
+    tests/GLSnapshotRasterization_unittest.cpp
+    tests/GLSnapshotRenderbuffers_unittest.cpp
+    tests/GLSnapshotRendering_unittest.cpp
+    tests/GLSnapshotShaders_unittest.cpp
+    tests/GLSnapshotTestDispatch.cpp
+    tests/GLSnapshotTestStateUtils.cpp
+    tests/GLSnapshotTesting.cpp
+    tests/GLSnapshotTextures_unittest.cpp
+    tests/GLSnapshotTransformation_unittest.cpp
+    tests/GLSnapshotVertexAttributes_unittest.cpp
+    tests/GLSnapshot_unittest.cpp)
+target_link_libraries(
+    OpenglRender_snapshot_unittests
+    PRIVATE
+    stream-server-testing-support
+    gfxstream-base-testing-support
+    gfxstream-host-common-testing-support)
+
+# Vulkan tests##################################################################
+add_executable(
+    Vulkan_unittests
+    tests/Vulkan_unittest.cpp)
+target_link_libraries(
+    Vulkan_unittests
+    PRIVATE
+    stream-server-testing-support
+    gfxstream-base-testing-support
+    gfxstream-host-common-testing-support)

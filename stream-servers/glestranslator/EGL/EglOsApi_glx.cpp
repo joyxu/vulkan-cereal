@@ -702,6 +702,10 @@ public:
         return sGlxLibrary();
     }
 
+    virtual void* eglGetProcAddress(const char*) {
+        return 0;
+    }
+
     virtual EglOS::Surface* createWindowSurface(EglOS::PixelFormat* pf,
                                                 EGLNativeWindowType wnd) {
         return new GlxSurface(wnd, 0, GlxSurface::WINDOW);

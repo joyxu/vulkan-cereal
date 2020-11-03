@@ -73,7 +73,7 @@ void GLEScmContext::init() {
 }
 
 void GLEScmContext::initGlobal(EGLiface* eglIface) {
-    s_glDispatch.dispatchFuncs(s_maxGlesVersion, eglIface->eglGetGlLibrary());
+    s_glDispatch.dispatchFuncs(s_maxGlesVersion, eglIface->eglGetGlLibrary(), eglIface->getProcAddress);
     GLEScontext::initGlobal(eglIface);
     buildStrings(true /* is gles1 */,
                  (const char*)dispatcher().glGetString(GL_VENDOR),

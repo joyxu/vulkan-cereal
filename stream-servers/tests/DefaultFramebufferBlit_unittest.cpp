@@ -18,8 +18,6 @@
 
 #include <memory>
 
-using android::base::System;
-
 namespace emugl {
 
 struct ClearColorParam {
@@ -204,16 +202,13 @@ TEST_P(CombinedFramebufferBlit, NonDefault) {
     mApp->verifySwappedColor(kDrawColorRed);
 }
 
-// Test blitting both with and without the fast blit path.
+// Test blitting both with only the fast blit path.
 INSTANTIATE_TEST_CASE_P(CombinedFramebufferBlitTest,
                         CombinedFramebufferBlit,
                         testing::Values(
                             ClearColorParam(GLESApi_CM, true),
-                            ClearColorParam(GLESApi_CM, false),
                             ClearColorParam(GLESApi_2, true),
-                            ClearColorParam(GLESApi_2, false),
-                            ClearColorParam(GLESApi_3_0, true),
-                            ClearColorParam(GLESApi_3_0, false)));
+                            ClearColorParam(GLESApi_3_0, true)));
 
 class NonDefaultFramebufferBlit : public CombinedFramebufferBlit { };
 
@@ -263,8 +258,7 @@ TEST_P(NonDefaultFramebufferBlit, NonDefaultDrawDefaultRead) {
 INSTANTIATE_TEST_CASE_P(DefaultFramebufferBlitTest,
                         NonDefaultFramebufferBlit,
                         testing::Values(
-                            ClearColorParam(GLESApi_3_0, true),
-                            ClearColorParam(GLESApi_3_0, false)));
+                            ClearColorParam(GLESApi_3_0, true)));
 
 
 }  // namespace emugl

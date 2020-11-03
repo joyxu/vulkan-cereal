@@ -60,7 +60,7 @@ void GLESv2Context::setMaxGlesVersion(GLESVersion version) {
 }
 
 void GLESv2Context::initGlobal(EGLiface* iface) {
-    s_glDispatch.dispatchFuncs(s_maxGlesVersion, iface->eglGetGlLibrary());
+    s_glDispatch.dispatchFuncs(s_maxGlesVersion, iface->eglGetGlLibrary(), iface->getProcAddress);
     GLEScontext::initGlobal(iface);
 }
 

@@ -204,6 +204,9 @@ public:
     // Return to engine-specific implementation of GlLibrary.
     virtual GlLibrary* getGlLibrary() = 0;
 
+    // Return to engine-specific implementation of eglGetProcAddress.
+    virtual void* eglGetProcAddress(const char*) = 0;
+
     // Create a new window surface. |wnd| is a host-specific window handle
     // (e.g. a Windows HWND). A software renderer would always return NULL
     // here.

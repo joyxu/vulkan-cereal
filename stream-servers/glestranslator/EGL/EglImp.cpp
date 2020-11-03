@@ -60,6 +60,7 @@ namespace egl {
 ImagePtr getEGLImage(unsigned int imageId);
 GLEScontext* getGLESContext();
 GlLibrary* getGlLibrary();
+void* getProcAddressFromEGL(const char*);
 static bool createAndBindAuxiliaryContext(
     EGLContext* context_out, EGLSurface* surface_out);
 static bool unbindAndDestroyAuxiliaryContext(
@@ -93,6 +94,7 @@ static const EGLiface s_eglIface = {
     .unbindAndDestroyAuxiliaryContext = translator::egl::unbindAndDestroyAuxiliaryContext,
     .bindAuxiliaryContext = translator::egl::bindAuxiliaryContext,
     .unbindAuxiliaryContext = translator::egl::unbindAuxiliaryContext,
+    .getProcAddress = translator::egl::getProcAddressFromEGL,
 };
 
 static void initGLESx(GLESVersion version) {
@@ -251,6 +253,10 @@ GLEScontext* getGLESContext()
 
 GlLibrary* getGlLibrary() {
     return EglGlobalInfo::getInstance()->getOsEngine()->getGlLibrary();
+}
+
+void* getProcAddressFromEGL(const char* func) {
+    return EglGlobalInfo::getInstance()->getOsEngine()->eglGetProcAddress(func);
 }
 
 EGLAPI EGLDisplay EGLAPIENTRY eglGetDisplay(EGLNativeDisplayType display_id) {

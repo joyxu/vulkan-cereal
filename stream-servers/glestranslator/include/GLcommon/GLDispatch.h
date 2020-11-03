@@ -26,6 +26,8 @@
 #include "OpenGLESDispatch/gles_functions.h"
 #include "GLutils.h"
 
+#include <functional>
+
 #define GLAPIENTRY GL_APIENTRY
 typedef void (*FUNCPTR_NO_ARGS_RET_VOID)();
 typedef int (*FUNCPTR_NO_ARGS_RET_INT)();
@@ -40,13 +42,15 @@ class GlLibrary;
 #define GLES_DECLARE_METHOD(return_type, function_name, signature, args) \
     static GL_APICALL return_type (GL_APIENTRY *function_name) signature;
 
+using EGLGetProcAddressFunc = std::function<void*(const char* name)>;
+
 class GLDispatch {
 public:
     // Constructor.
     GLDispatch();
 
     bool isInitialized() const;
-    void dispatchFuncs(GLESVersion version, GlLibrary* glLib);
+    void dispatchFuncs(GLESVersion version, GlLibrary* glLib, EGLGetProcAddressFunc eglGPA);
     GLESVersion getGLESVersion() const;
 
     LIST_GLES_FUNCTIONS(GLES_DECLARE_METHOD, GLES_DECLARE_METHOD)

@@ -1295,6 +1295,10 @@ public:
         return &mGlLib;
     }
 
+    virtual void* eglGetProcAddress(const char*) {
+        return 0;
+    }
+
     virtual EglOS::Surface* createWindowSurface(EglOS::PixelFormat* cfg,
                                                 EGLNativeWindowType wnd) {
         (void)cfg;

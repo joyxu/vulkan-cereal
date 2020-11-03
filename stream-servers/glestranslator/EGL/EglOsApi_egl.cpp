@@ -65,7 +65,7 @@ static const char* kGLES2LibName = "libGLESv2.dylib";
 
 // List of EGL functions of interest to probe with GetProcAddress()
 #define LIST_EGL_FUNCTIONS(X)                                                  \
-    X(EGLBoolean, eglGetProcAddress,                                           \
+    X(void*, eglGetProcAddress,                                           \
       (const char* procname))                                                  \
     X(const char*, eglQueryString,                                             \
       (EGLDisplay dpy, EGLint id))                                             \
@@ -263,6 +263,9 @@ public:
                                      const PixelFormat* pixelFormat,
                                      unsigned int* width,
                                      unsigned int* height);
+    void* eglGetProcAddress(const char* func) {
+        return mDispatcher.eglGetProcAddress(func);
+    }
 
 private:
     bool mVerbose = false;
@@ -482,11 +485,15 @@ bool EglOsEglDisplay::releasePbuffer(Surface* pb) {
         return false;
     EglOsEglSurface* surface = (EglOsEglSurface*)pb;
 
-    if (!surface->getHndl()) return true;
+    if (!surface->getHndl()) {
+        delete surface;
+        return true;
+    }
 
     bool ret = mDispatcher.eglDestroySurface(mDisplay, surface->getHndl());
     CHECK_EGL_ERR
     D("%s done\n", __FUNCTION__);
+    delete surface;
     return ret;
 }
 
@@ -593,6 +600,9 @@ public:
     GlLibrary* getGlLibrary() {
         D("%s\n", __FUNCTION__);
         return &mGlLib;
+    }
+    void* eglGetProcAddress(const char* func) {
+        return sHostDisplay()->eglGetProcAddress(func);
     }
     virtual EglOS::Surface* createWindowSurface(PixelFormat* pf,
                                                 EGLNativeWindowType wnd) {

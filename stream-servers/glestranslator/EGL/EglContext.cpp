@@ -151,7 +151,6 @@ EglContext::~EglContext()
     } else {
         m_dpy->nativeType()->makeCurrent(nullptr, nullptr, nullptr);
     }
-
 }
 
 void EglContext::setSurfaces(SurfacePtr read,SurfacePtr draw)

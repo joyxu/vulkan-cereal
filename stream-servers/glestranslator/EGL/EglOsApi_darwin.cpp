@@ -395,6 +395,10 @@ public:
         return &mGlLib;
     }
 
+    virtual void* eglGetProcAddress(const char*) {
+        return 0;
+    }
+
     virtual EglOS::Surface* createWindowSurface(EglOS::PixelFormat* cfg,
                                                 EGLNativeWindowType wnd) {
         return new MacSurface(wnd, MacSurface::WINDOW);

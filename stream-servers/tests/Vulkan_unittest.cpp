@@ -17,14 +17,14 @@
 #include "FrameBuffer.h"
 #include "VkCommonOperations.h"
 #include "VulkanDispatch.h"
-#include "emugl/common/feature_control.h"
+#include "host-common/feature_control.h"
 
-#include "android/base/ArraySize.h"
-#include "android/base/GLObjectCounter.h"
-#include "android/base/files/PathUtils.h"
-#include "android/base/system/System.h"
-#include "android/base/testing/TestSystem.h"
-#include "android/emulation/control/AndroidAgentFactory.h"
+#include "base/ArraySize.h"
+#include "base/GLObjectCounter.h"
+#include "base/PathUtils.h"
+#include "base/System.h"
+#include "base/testing/TestSystem.h"
+#include "host-common/AndroidAgentFactory.h"
 
 #include "Standalone.h"
 
@@ -46,29 +46,6 @@ using android::base::TestSystem;
 
 namespace emugl {
 
-static std::string libDir() {
-    return
-        pj(TestSystem::getProgramDirectoryFromPlatform(),
-#ifdef _WIN32
-           // Windows uses mock Vulkan ICD.
-           "testlib64"
-#else
-           "lib64", "vulkan"
-#endif
-        );
-}
-
-static std::string testIcdFilename() {
-    return pj(libDir(),
-#ifdef _WIN32
-        // Windows uses mock Vulkan ICD.
-        "VkICD_mock_icd.json"
-#else
-        "vk_swiftshader_icd.json"
-#endif
-    );
-}
-
 #ifdef _WIN32
 #define SKIP_TEST_IF_WIN32() GTEST_SKIP()
 #else
@@ -77,8 +54,7 @@ static std::string testIcdFilename() {
 
 static void* dlOpenFuncForTesting() {
 #ifdef _WIN32
-    const Win32UnicodeString name(
-        pj(libDir(), "vulkan-1.dll"));
+    const Win32UnicodeString name("vulkan-1.dll");
     return LoadLibraryW(name.c_str());
 #else
 
@@ -91,8 +67,12 @@ static void* dlOpenFuncForTesting() {
     std::string libName =
         std::string("libvulkan") + suffix;
 
-    auto name = pj(libDir(), libName);
-    return dlopen(name.c_str(), RTLD_NOW);
+    auto res = dlopen(libName.c_str(), RTLD_NOW);
+    if (!res) {
+        libName = std::string("libvulkan") + suffix + ".1";
+    }
+    res = dlopen(libName.c_str(), RTLD_NOW);
+    return res;
 #endif
 }
 
@@ -437,10 +417,6 @@ static void teardownVulkanTest(const VulkanDispatch* vk,
 class VulkanTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        TestSystem::setEnvironmentVariable(
-            "VK_ICD_FILENAMES",
-            testIcdFilename());
-
         goldfish_vk::init_vulkan_dispatch_from_system_loader(
                 dlOpenFuncForTesting,
                 dlSymFuncForTesting,
@@ -453,8 +429,6 @@ protected:
 
     void TearDown() override {
         teardownVulkanTest(&mVk, mDevice, mInstance);
-        TestSystem::setEnvironmentVariable(
-            "VK_ICD_FILENAMES", "");
     }
 
     VulkanDispatch mVk;
@@ -485,14 +459,13 @@ protected:
         // the rendering tests on Windows for now.
         SKIP_TEST_IF_WIN32();
 
+        feature_set_enabled_override(kFeature_GLESDynamicVersion, true);
+        feature_set_enabled_override(kFeature_PlayStoreImage, false);
+        feature_set_enabled_override(kFeature_Vulkan, true);
+        feature_set_enabled_override(kFeature_VulkanIgnoredHandles, true);
+
         VulkanTest::SetUp();
 
-        emugl::set_emugl_feature_is_enabled(
-                [](android::featurecontrol::Feature feature) {
-                    return feature == android::featurecontrol::Vulkan;
-                });
-
-        setupStandaloneLibrarySearchPaths();
         emugl::setGLObjectCounter(android::base::GLObjectCounter::get());
         emugl::set_emugl_window_operations(*getConsoleAgents()->emu);
         emugl::set_emugl_multi_display_operations(*getConsoleAgents()->multi_display);
@@ -500,16 +473,19 @@ protected:
         ASSERT_NE(nullptr, egl);
         ASSERT_NE(nullptr, LazyLoadedGLESv2Dispatch::get());
 
-        mRenderThreadInfo = std::make_unique<RenderThreadInfo>();
-
-        bool useHostGpu = shouldUseHostGpu();
+        bool useHostGpu = false;
         EXPECT_TRUE(FrameBuffer::initialize(mWidth, mHeight, false,
                                             !useHostGpu /* egl2egl */));
         mFb = FrameBuffer::getFB();
         ASSERT_NE(nullptr, mFb);
+        mRenderThreadInfo = std::make_unique<RenderThreadInfo>();
     }
 
-    void TearDown() override { VulkanTest::TearDown(); }
+    void TearDown() override {
+        VulkanTest::TearDown();
+        if (mFb) { delete mFb; mFb = nullptr; }
+        if (mRenderThreadInfo) mRenderThreadInfo.reset();
+    }
 
     FrameBuffer* mFb = nullptr;
     std::unique_ptr<RenderThreadInfo> mRenderThreadInfo;

@@ -449,6 +449,7 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
     if (sVkEmulation) return sVkEmulation;
 
     if (!emugl::vkDispatchValid(vk)) {
+        fprintf(stderr, "%s: dispatch is invalid!\n", __func__);
         return nullptr;
     }
 

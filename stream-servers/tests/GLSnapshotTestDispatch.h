@@ -14,9 +14,9 @@
 
 #pragma once
 
-#include "emugl/common/OpenGLDispatchLoader.h"
+#include "OpenGLESDispatch/OpenGLDispatchLoader.h"
 
-#include "android/base/testing/TestSystem.h"
+#include "base/testing/TestSystem.h"
 
 namespace emugl {
 

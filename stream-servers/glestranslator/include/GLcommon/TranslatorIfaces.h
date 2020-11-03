@@ -28,6 +28,7 @@
 
 #include <memory>
 #include <unordered_map>
+#include <functional>
 
 extern "C" {
 
@@ -135,6 +136,9 @@ struct EGLiface {
     bool (*bindAuxiliaryContext)(EGLContext context, EGLSurface surface);
     // Makes EGL_NO_SURFACE and EGL_NO_CONTEXT current, unbinding whatever is the current context.
     bool (*unbindAuxiliaryContext)();
+
+    // When we need to get function pointers via eglGetProcAddress.
+    std::function<void*(const char*)> getProcAddress;
 };
 
 typedef GLESiface* (*__translator_getGLESIfaceFunc)(const EGLiface*);

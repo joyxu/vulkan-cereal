@@ -3,37 +3,33 @@
 #include "FrameBuffer.h"
 #include "GLSnapshotTesting.h"
 #include "GLTestUtils.h"
-#include "OpenglCodecCommon/glUtils.h"
+#include "apigen-codec-common/glUtils.h"
 #include "RenderThreadInfo.h"
 
-#include "android/base/files/PathUtils.h"
-#include "android/base/files/StdioStream.h"
-#include "android/base/memory/LazyInstance.h"
-#include "android/base/system/System.h"
-#include "android/base/testing/TestSystem.h"
-#include "android/snapshot/TextureLoader.h"
-#include "android/snapshot/TextureSaver.h"
+#include "base/PathUtils.h"
+#include "base/StdioStream.h"
+#include "base/System.h"
+#include "base/testing/TestSystem.h"
+#include "snapshot/TextureLoader.h"
+#include "snapshot/TextureSaver.h"
 
 namespace emugl {
 
-using android::base::LazyInstance;
 using android::base::StdioStream;
 using android::snapshot::TextureLoader;
 using android::snapshot::TextureSaver;
 
-static LazyInstance<SnapshotTestDispatch> sSnapshotTestDispatch =
-        LAZY_INSTANCE_INIT;
+static SnapshotTestDispatch* sSnapshotTestDispatch() {
+    static SnapshotTestDispatch* s = new SnapshotTestDispatch;
+    return s;
+}
 
 // static
 const GLESv2Dispatch* getSnapshotTestDispatch() {
-    return sSnapshotTestDispatch.ptr();
+    return sSnapshotTestDispatch();
 }
 
-SnapshotTestDispatch::SnapshotTestDispatch()
-    : mTestSystem(PATH_SEP "progdir",
-                  android::base::System::kProgramBitness,
-                  PATH_SEP "homedir",
-                  PATH_SEP "appdir") {
+SnapshotTestDispatch::SnapshotTestDispatch() {
     mTestSystem.getTempRoot()->makeSubDir("SampleSnapshots");
     mSnapshotPath = mTestSystem.getTempRoot()->makeSubPath("SampleSnapshots");
 
@@ -58,10 +54,10 @@ void SnapshotTestDispatch::saveSnapshot() {
     }
 
     std::string timeStamp =
-            std::to_string(android::base::System::get()->getUnixTime()) + "-" +
+            std::to_string(android::base::getUnixTimeUs()) + "-" +
             std::to_string(mLoadCount);
-    mSnapshotFile = mSnapshotPath + PATH_SEP "snapshot_" + timeStamp + ".snap";
-    mTextureFile = mSnapshotPath + PATH_SEP "textures_" + timeStamp + ".stex";
+    mSnapshotFile = android::base::pj({mSnapshotPath, std::string("snapshot_") + timeStamp + ".snap"});
+    mTextureFile = android::base::pj({mSnapshotPath, std::string("textures_") + timeStamp + ".stex"});
     std::unique_ptr<StdioStream> m_stream(new StdioStream(
             android_fopen(mSnapshotFile.c_str(), "wb"), StdioStream::kOwner));
     auto a_stream = static_cast<android::base::Stream*>(m_stream.get());
