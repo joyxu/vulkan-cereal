@@ -32,11 +32,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef NDEBUG
 #define DEBUG_CB_FBO 0
-#else
-#define DEBUG_CB_FBO 1
-#endif
 
 namespace {
 
