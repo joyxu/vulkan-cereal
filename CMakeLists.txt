@@ -2,6 +2,8 @@ project(gfx-streaming-kit)
 cmake_minimum_required(VERSION 3.11)
 find_package(Threads)
 include(ExternalProject)
+enable_testing()
+
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -58,7 +60,10 @@ add_subdirectory(fake-android-guest)
 
 # Target: Host front+back drivers for app isolation#############################
 
-# Unit tests####################################################################
-
-# Functional tests##############################################################
-
+# Tests#################3#######################################################
+add_test(NAME gfxstream-base_unittests COMMAND gfxstream-base_unittests)
+add_test(NAME gfxstream-host-common_unittests COMMAND gfxstream-host-common_unittests)
+add_test(NAME gfxstream_backend_unittests COMMAND gfxstream_backend_unittests)
+add_test(NAME OpenglRender_unittests COMMAND OpenglRender_unittests)
+add_test(NAME OpenglRender_snapshot_unittests COMMAND OpenglRender_snapshot_unittests)
+add_test(NAME Vulkan_unittests COMMAND Vulkan_unittests)

@@ -1021,6 +1021,10 @@ void teardownGlobalVkEmulation() {
 
     sVkEmulation->ivk->vkDestroyDevice(sVkEmulation->device, nullptr);
     sVkEmulation->gvk->vkDestroyInstance(sVkEmulation->instance, nullptr);
+
+    sVkEmulation->live = false;
+    delete sVkEmulation;
+    sVkEmulation = nullptr;
 }
 
 // Precondition: sVkEmulation has valid device support info

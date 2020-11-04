@@ -776,6 +776,8 @@ FrameBuffer::~FrameBuffer() {
 
     m_postWorker.reset();
     m_readbackWorker.reset();
+
+    goldfish_vk::teardownGlobalVkEmulation();
 }
 
 WorkerProcessingResult
