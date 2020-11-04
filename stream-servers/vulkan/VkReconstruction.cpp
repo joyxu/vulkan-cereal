@@ -224,7 +224,7 @@ protected:
         return nullptr;
     }
     virtual void onSave(android::base::Stream* stream) { }
-    virtual unsigned char* onLoad(android::base::Stream* stream) { }
+    virtual unsigned char* onLoad(android::base::Stream* stream) { return nullptr; }
 };
 
 void VkReconstruction::load(android::base::Stream* stream) {

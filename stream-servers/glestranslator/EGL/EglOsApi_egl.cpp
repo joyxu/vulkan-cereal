@@ -20,6 +20,9 @@
 #include "base/SharedLibrary.h"
 #include "GLcommon/GLLibrary.h"
 #include "apigen-codec-common/ErrorLog.h"
+#ifdef __linux__
+#include "apigen-codec-common/X11Support.h"
+#endif
 
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
@@ -296,13 +299,13 @@ EglOsEglDisplay::EglOsEglDisplay() {
 
 #ifdef __linux__
     if (mHeadless) mGlxDisplay = nullptr;
-    else mGlxDisplay = XOpenDisplay(0);
+    else mGlxDisplay = getX11Api()->XOpenDisplay(0);
 #endif // __linux__
 };
 
 EglOsEglDisplay::~EglOsEglDisplay() {
 #ifdef __linux__
-    if (mGlxDisplay) XCloseDisplay(mGlxDisplay);
+    if (mGlxDisplay) getX11Api()->XCloseDisplay(mGlxDisplay);
 #endif // __linux__
 }
 
@@ -543,7 +546,7 @@ bool EglOsEglDisplay::isValidNativeWin(EGLNativeWindowType win) {
     Window root;
     int t;
     unsigned int u;
-    return XGetGeometry(mGlxDisplay, win, &root, &t, &t, &u, &u, &u, &u) != 0;
+    return getX11Api()->XGetGeometry(mGlxDisplay, win, &root, &t, &t, &u, &u, &u, &u) != 0;
 #else // __APPLE__
     unsigned int width, height;
     return nsGetWinDims(win, &width, &height);
@@ -567,7 +570,7 @@ bool EglOsEglDisplay::checkWindowPixelFormatMatch(EGLNativeWindowType win,
     unsigned int depth, border;
     int x, y;
     Window root;
-    return XGetGeometry(
+    return getX11Api()->XGetGeometry(
             mGlxDisplay, win, &root, &x, &y, width, height, &border, &depth);
 #else // __APPLE__
     bool ret = nsGetWinDims(win, width, height);

@@ -1,5 +1,8 @@
 #pragma once
 
+#include <inttypes.h>
+#include <stddef.h>
+
 #if defined(_WIN32)
 #        define ANGLE_EXPORT __declspec(dllexport)
 #elif defined(__GNUC__)

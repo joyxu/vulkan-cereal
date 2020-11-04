@@ -102,6 +102,7 @@ uint64_t AddressSpaceHostMemoryAllocatorContext::unallocate(AddressSpaceDevicePi
     } else {
         return -1;
     }
+    return 0;
 }
 
 AddressSpaceDeviceType AddressSpaceHostMemoryAllocatorContext::getDeviceType() const {
