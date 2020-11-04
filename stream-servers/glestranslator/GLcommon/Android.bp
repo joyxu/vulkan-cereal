@@ -1,0 +1,38 @@
+cc_library_static {
+    name: "gfxstream_translator_glcommon",
+    defaults: [ "gfxstream_defaults" ],
+    cflags: [
+        "-fvisibility=hidden",
+        "-Wno-inconsistent-missing-override",
+        "-Wno-unused-parameter",
+        "-Wno-unused-function",
+    ],
+    header_libs: [
+        "gfxstream_astc_codec_headers",
+    ],
+    static_libs: [
+        "gfxstream_base",
+        "gfxstream_astc_codec",
+    ],
+    srcs: [
+        "etc.cpp",
+        "FramebufferData.cpp",
+        "GLBackgroundLoader.cpp",
+        "GLDispatch.cpp",
+        "GLESbuffer.cpp",
+        "GLEScontext.cpp",
+        "GLESpointer.cpp",
+        "GLESvalidate.cpp",
+        "GLutils.cpp",
+        "NamedObject.cpp",
+        "ObjectData.cpp",
+        "ObjectNameSpace.cpp",
+        "PaletteTexture.cpp",
+        "RangeManip.cpp",
+        "SaveableTexture.cpp",
+        "ScopedGLState.cpp",
+        "ShareGroup.cpp",
+        "TextureData.cpp",
+        "TextureUtils.cpp",
+    ],
+}

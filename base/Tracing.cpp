@@ -42,6 +42,7 @@ void disableTracing() {
 
 bool shouldEnableTracing() {
     // return !(virtualdeviceperfetto::queryTraceConfig().tracingDisabled);
+    return false;
 }
 
 #ifdef __cplusplus

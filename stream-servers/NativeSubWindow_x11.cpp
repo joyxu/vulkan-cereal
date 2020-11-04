@@ -14,6 +14,7 @@
 * limitations under the License.
 */
 #include "NativeSubWindow.h"
+#include "apigen-codec-common/X11Support.h"
 
 #include <stdio.h>
 
@@ -41,32 +42,33 @@ EGLNativeWindowType createSubWindow(FBNativeWindowType p_window,
                                     SubWindowRepaintCallback repaint_callback,
                                     void* repaint_callback_param,
                                     int hideWindow) {
+    auto x11 = getX11Api();
    // The call to this function is protected by a lock
    // in FrameBuffer so it is safe to check and initialize s_display here
    if (!s_display) {
-       s_display = XOpenDisplay(NULL);
+       s_display = x11->XOpenDisplay(NULL);
    }
 
     XSetWindowAttributes wa;
     wa.event_mask = StructureNotifyMask;
     wa.override_redirect = True;
-    Window win = XCreateWindow(s_display,
-                               p_window,
-                               x,
-                               y,
-                               width,
-                               height,
-                               0,
-                               CopyFromParent,
-                               CopyFromParent,
-                               CopyFromParent,
-                               CWEventMask,
-                               &wa);
+    Window win = x11->XCreateWindow(s_display,
+            p_window,
+            x,
+            y,
+            width,
+            height,
+            0,
+            CopyFromParent,
+            CopyFromParent,
+            CopyFromParent,
+            CWEventMask,
+            &wa);
     if (!hideWindow) {
-        XMapWindow(s_display,win);
-        XSetWindowBackground(s_display, win, BlackPixel(s_display, 0));
+        x11->XMapWindow(s_display,win);
+        x11->XSetWindowBackground(s_display, win, BlackPixel(s_display, 0));
         XEvent e;
-        XIfEvent(s_display, &e, WaitForMapNotify, (char *)win);
+        x11->XIfEvent(s_display, &e, WaitForMapNotify, (char *)win);
     }
     return win;
 }
@@ -75,7 +77,8 @@ void destroySubWindow(EGLNativeWindowType win) {
     if (!s_display) {
         return;
     }
-    XDestroyWindow(s_display, win);
+
+    getX11Api()->XDestroyWindow(s_display, win);
 }
 
 int moveSubWindow(FBNativeWindowType p_parent_window,
@@ -90,10 +93,12 @@ int moveSubWindow(FBNativeWindowType p_parent_window,
         return false;
     }
 
+    auto x11 = getX11Api();
+
     // Make sure something has changed, otherwise XIfEvent will block and
     // freeze the emulator.
     XWindowAttributes attrs;
-    if (!XGetWindowAttributes(s_display, p_sub_window, &attrs)) {
+    if (!x11->XGetWindowAttributes(s_display, p_sub_window, &attrs)) {
         return false;
     }
     if (x == attrs.x && y == attrs.y &&
@@ -103,18 +108,18 @@ int moveSubWindow(FBNativeWindowType p_parent_window,
     }
 
     // This prevents flicker on resize.
-    XSetWindowBackgroundPixmap(s_display, p_sub_window, None);
+    x11->XSetWindowBackgroundPixmap(s_display, p_sub_window, None);
 
-    int ret = XMoveResizeWindow(
-                s_display,
-                p_sub_window,
-                x,
-                y,
-                width,
-                height);
+    int ret = x11->XMoveResizeWindow(
+            s_display,
+            p_sub_window,
+            x,
+            y,
+            width,
+            height);
 
     XEvent e;
-    XIfEvent(s_display, &e, WaitForConfigureNotify, (char *)p_sub_window);
+    x11->XIfEvent(s_display, &e, WaitForConfigureNotify, (char *)p_sub_window);
 
     return ret;
 }

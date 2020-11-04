@@ -22,6 +22,7 @@
 #include "GLcommon/GLLibrary.h"
 
 #include "apigen-codec-common/ErrorLog.h"
+#include "apigen-codec-common/X11Support.h"
 
 #include <string.h>
 #include <X11/Xlib.h>
@@ -63,14 +64,14 @@ android::base::Lock ErrorHandler::s_lock;
 
 ErrorHandler::ErrorHandler(EGLNativeDisplayType dpy) {
     android::base::AutoLock mutex(s_lock);
-    XSync(dpy,False);
+    getX11Api()->XSync(dpy,False);
     s_lastErrorCode = 0;
-    m_oldErrorHandler = XSetErrorHandler(errorHandlerProc);
+    m_oldErrorHandler = getX11Api()->XSetErrorHandler(errorHandlerProc);
 }
 
 ErrorHandler::~ErrorHandler() {
     android::base::AutoLock mutex(s_lock);
-    XSetErrorHandler(m_oldErrorHandler);
+    getX11Api()->XSetErrorHandler(m_oldErrorHandler);
     s_lastErrorCode = 0;
 }
 
@@ -195,7 +196,9 @@ void pixelFormatToConfig(EGLNativeDisplayType dpy,
 
     memset(&info, 0, sizeof(info));
 
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(dpy, frmt, GLX_TRANSPARENT_TYPE, &tmp));
+    auto glx = getGlxApi();
+
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(dpy, frmt, GLX_TRANSPARENT_TYPE, &tmp));
     if (tmp == GLX_TRANSPARENT_INDEX) {
         return; // not supporting transparent index
     } else if (tmp == GLX_NONE) {
@@ -206,11 +209,11 @@ void pixelFormatToConfig(EGLNativeDisplayType dpy,
     } else {
         info.transparent_type = EGL_TRANSPARENT_RGB;
 
-        EXIT_IF_FALSE(glXGetFBConfigAttrib(
+        EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
                 dpy, frmt, GLX_TRANSPARENT_RED_VALUE, &info.trans_red_val));
-        EXIT_IF_FALSE(glXGetFBConfigAttrib(
+        EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
                 dpy, frmt, GLX_TRANSPARENT_GREEN_VALUE, &info.trans_green_val));
-        EXIT_IF_FALSE(glXGetFBConfigAttrib(
+        EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
                 dpy, frmt, GLX_TRANSPARENT_BLUE_VALUE, &info.trans_blue_val));
     }
 
@@ -218,40 +221,40 @@ void pixelFormatToConfig(EGLNativeDisplayType dpy,
     // filter out single buffer configurations
     //
     int doubleBuffer = 0;
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
             dpy, frmt, GLX_DOUBLEBUFFER, &doubleBuffer));
     if (!doubleBuffer) {
         return;
     }
 
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
             dpy ,frmt, GLX_RED_SIZE, &info.red_size));
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
             dpy ,frmt, GLX_GREEN_SIZE, &info.green_size));
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
             dpy ,frmt, GLX_BLUE_SIZE, &info.blue_size));
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
             dpy ,frmt, GLX_ALPHA_SIZE, &info.alpha_size));
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
             dpy ,frmt, GLX_DEPTH_SIZE, &info.depth_size));
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
             dpy ,frmt, GLX_STENCIL_SIZE, &info.stencil_size));
 
     info.renderable_type = renderableType;
     int nativeRenderable = 0;
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
             dpy, frmt, GLX_X_RENDERABLE, &nativeRenderable));
     info.native_renderable = !!nativeRenderable;
 
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
             dpy, frmt, GLX_X_VISUAL_TYPE, &info.native_visual_type));
 
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
             dpy, frmt, GLX_VISUAL_ID, &info.native_visual_id));
 
     //supported surfaces types
     info.surface_type = 0;
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(dpy, frmt, GLX_DRAWABLE_TYPE, &tmp));
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(dpy, frmt, GLX_DRAWABLE_TYPE, &tmp));
     if (tmp & GLX_WINDOW_BIT && info.native_visual_id != 0) {
         info.surface_type |= EGL_WINDOW_BIT;
     } else {
@@ -263,7 +266,7 @@ void pixelFormatToConfig(EGLNativeDisplayType dpy,
     }
 
     info.caveat = 0;
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(dpy, frmt, GLX_CONFIG_CAVEAT, &tmp));
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(dpy, frmt, GLX_CONFIG_CAVEAT, &tmp));
     if (tmp == GLX_NONE) {
         info.caveat = EGL_NONE;
     } else if (tmp == GLX_SLOW_CONFIG) {
@@ -271,21 +274,21 @@ void pixelFormatToConfig(EGLNativeDisplayType dpy,
     } else if (tmp == GLX_NON_CONFORMANT_CONFIG) {
         info.caveat = EGL_NON_CONFORMANT_CONFIG;
     }
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
             dpy, frmt, GLX_MAX_PBUFFER_WIDTH, &info.max_pbuffer_width));
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
             dpy, frmt, GLX_MAX_PBUFFER_HEIGHT, &info.max_pbuffer_height));
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
             dpy, frmt, GLX_MAX_PBUFFER_HEIGHT, &info.max_pbuffer_size));
 
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
             dpy, frmt, GLX_LEVEL, &info.frame_buffer_level));
 
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(
             dpy, frmt, GLX_SAMPLES, &info.samples_per_pixel));
 
     // Filter out configs that do not support RGBA
-    EXIT_IF_FALSE(glXGetFBConfigAttrib(dpy, frmt, GLX_RENDER_TYPE, &tmp));
+    EXIT_IF_FALSE(glx->glXGetFBConfigAttrib(dpy, frmt, GLX_RENDER_TYPE, &tmp));
     if (!(tmp & GLX_RGBA_BIT)) {
         return;
     }
@@ -312,7 +315,7 @@ public:
 
     ~GlxContext() {
         PROFILE_SLOW("~GlxContext()");
-        glXDestroyContext(mDisplay, mContext);
+        getGlxApi()->glXDestroyContext(mDisplay, mContext);
     }
 
     static GLXContext contextFor(EglOS::Context* context) {
@@ -334,19 +337,19 @@ public:
 
         for (auto it : mLivePbufs)  {
             for (auto surf : it.second) {
-                glXDestroyPbuffer(mDisplay,
+                getGlxApi()->glXDestroyPbuffer(mDisplay,
                         GlxSurface::drawableFor(surf));
             }
         }
 
         for (auto it : mFreePbufs)  {
             for (auto surf : it.second) {
-                glXDestroyPbuffer(mDisplay,
+                getGlxApi()->glXDestroyPbuffer(mDisplay,
                         GlxSurface::drawableFor(surf));
             }
         }
 
-        XCloseDisplay(mDisplay);
+        getX11Api()->XCloseDisplay(mDisplay);
     }
 
     virtual EglOS::GlesVersion getMaxGlesVersion() {
@@ -362,7 +365,9 @@ public:
                               EglOS::AddConfigCallback* addConfigFunc,
                               void* addConfigOpaque) {
         int n;
-        GLXFBConfig* frmtList = glXGetFBConfigs(mDisplay, DefaultScreen(mDisplay), &n);
+        auto glx = getGlxApi();
+
+        GLXFBConfig* frmtList = glx->glXGetFBConfigs(mDisplay, DefaultScreen(mDisplay), &n);
         if (frmtList) {
             mFBConfigs.assign(frmtList, frmtList + n);
             for(int i = 0; i < n; i++) {
@@ -373,12 +378,12 @@ public:
                         addConfigFunc,
                         addConfigOpaque);
             }
-            XFree(frmtList);
+            getX11Api()->XFree(frmtList);
         }
 
         int glxMaj, glxMin;
         bool successQueryVersion =
-            glXQueryVersion(mDisplay,
+            glx->glXQueryVersion(mDisplay,
                             &glxMaj,
                             &glxMin);
 
@@ -407,7 +412,7 @@ public:
         int t;
         unsigned int u;
         ErrorHandler handler(mDisplay);
-        if (!XGetGeometry(mDisplay, win, &root, &t, &t, &u, &u, &u, &u)) {
+        if (!getX11Api()->XGetGeometry(mDisplay, win, &root, &t, &t, &u, &u, &u, &u)) {
             return false;
         }
         return handler.getLastError() == 0;
@@ -422,16 +427,17 @@ public:
         unsigned int depth, configDepth, border;
         int r, g, b, x, y;
         GLXFBConfig fbconfig = GlxPixelFormat::from(pixelFormat);
+        auto glx = getGlxApi();
 
-        IS_SUCCESS(glXGetFBConfigAttrib(
+        IS_SUCCESS(glx->glXGetFBConfigAttrib(
                 mDisplay, fbconfig, GLX_RED_SIZE, &r));
-        IS_SUCCESS(glXGetFBConfigAttrib(
+        IS_SUCCESS(glx->glXGetFBConfigAttrib(
                 mDisplay, fbconfig, GLX_GREEN_SIZE, &g));
-        IS_SUCCESS(glXGetFBConfigAttrib(
+        IS_SUCCESS(glx->glXGetFBConfigAttrib(
                 mDisplay, fbconfig, GLX_BLUE_SIZE, &b));
         configDepth = r + g + b;
         Window root;
-        if (!XGetGeometry(
+        if (!getX11Api()->XGetGeometry(
                 mDisplay, win, &root, &x, &y, width, height, &border, &depth)) {
             return false;
         }
@@ -449,6 +455,8 @@ public:
 
         ErrorHandler handler(mDisplay);
 
+        auto glx = getGlxApi();
+
         GLXContext ctx;
         if (useCoreProfile) {
             ctx = mCreateContextAttribs(
@@ -458,7 +466,7 @@ public:
                         True /* try direct (supposed to fall back to indirect) */,
                         mCoreProfileCtxAttribs);
         } else {
-            ctx = glXCreateNewContext(
+            ctx = glx->glXCreateNewContext(
                     mDisplay,
                     GlxPixelFormat::from(pixelFormat),
                     GLX_RGBA_TYPE,
@@ -475,7 +483,7 @@ public:
 
     virtual bool destroyContext(EglOS::Context* context) {
         PROFILE_SLOW("destroyContext");
-        glXDestroyContext(mDisplay, GlxContext::contextFor(context));
+        getGlxApi()->glXDestroyContext(mDisplay, GlxContext::contextFor(context));
         return true;
     }
 
@@ -566,12 +574,14 @@ public:
         PROFILE_SLOW("makeCurrent");
         ErrorHandler handler(mDisplay);
         bool retval = false;
+        auto glx = getGlxApi();
+
         if (!context && !read && !draw) {
             // unbind
-            retval = glXMakeContextCurrent(mDisplay, 0, 0, NULL);
+            retval = glx->glXMakeContextCurrent(mDisplay, 0, 0, NULL);
         }
         else if (context && read && draw) {
-            retval = glXMakeContextCurrent(
+            retval = glx->glXMakeContextCurrent(
                     mDisplay,
                     GlxSurface::drawableFor(draw),
                     GlxSurface::drawableFor(read),
@@ -596,7 +606,7 @@ public:
 
     virtual void swapBuffers(EglOS::Surface* srfc) {
         if (srfc) {
-            glXSwapBuffers(mDisplay, GlxSurface::drawableFor(srfc));
+            getGlxApi()->glXSwapBuffers(mDisplay, GlxSurface::drawableFor(srfc));
         }
     }
 
@@ -642,7 +652,7 @@ private:
                 mCoreProfileCtxAttribs = attribs;
                 getCoreProfileCtxAttribsVersion(
                     attribs, &mCoreMajorVersion, &mCoreMinorVersion);
-                glXDestroyContext(mDisplay, testContext);
+                getGlxApi()->glXDestroyContext(mDisplay, testContext);
                 return;
             }
         }
@@ -659,10 +669,10 @@ private:
         };
 
         GLXPbuffer pb;
-        pb = glXCreatePbuffer(
-                mDisplay,
-                config,
-                pbufferImplAttribs);
+        pb = getGlxApi()->glXCreatePbuffer(
+            mDisplay,
+            config,
+            pbufferImplAttribs);
 
         return new GlxSurface(pb, config, GlxSurface::PBUFFER);
     }
@@ -688,7 +698,7 @@ class GlxEngine : public EglOS::Engine {
 public:
     virtual EglOS::Display* getDefaultDisplay() {
         Display* disp =
-            XOpenDisplay(0 /* default display or $DISPLAY env var */);
+            getX11Api()->XOpenDisplay(0 /* default display or $DISPLAY env var */);
         if (!disp) {
             fprintf(stderr,
                     "GlxEngine%s: Failed to open display 0. DISPLAY: [%s]\n",

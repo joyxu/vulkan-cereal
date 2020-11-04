@@ -10,6 +10,7 @@
 #include "msvc-posix.h"
 #include "dirent.h"
 #else
+#include <time.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/types.h>

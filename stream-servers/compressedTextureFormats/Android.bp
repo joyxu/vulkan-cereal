@@ -1,0 +1,5 @@
+cc_library_static {
+    name: "gfxstream_compressedTextures",
+    defaults: [ "gfxstream_defaults" ],
+    srcs: [ "etc.cpp", ],
+}
