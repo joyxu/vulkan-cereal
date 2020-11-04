@@ -632,11 +632,14 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
             s_egl.eglQueryVulkanInteropSupportANDROID();
     }
 
+    fprintf(stderr, "%s: interop? %d\n", __func__, fb->m_vulkanInteropSupported);
     // TODO: 0-copy gl interop on swiftshader vk
     if (android::base::getEnvironmentVariable("ANDROID_EMU_VK_ICD") == "swiftshader") {
         fb->m_vulkanInteropSupported = false;
+        fprintf(stderr, "%s: vk icd swiftshader, disable interop\n", __func__);
     }
 
+    fprintf(stderr, "%s: glvk interop final: %d\n", __func__, fb->m_vulkanInteropSupported);
     goldfish_vk::setGlInteropSupported(fb->m_vulkanInteropSupported);
 
     //

@@ -423,7 +423,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
                      false,       /* blacklisted */
                      false,       /* has guest renderer */
                      WINSYS_GLESBACKEND_PREFERENCE_AUTO,
-                     false /* force host gpu vulkan */);
+                     true /* force host gpu vulkan */);
 
     emuglConfig_setupEnv(&config);
 

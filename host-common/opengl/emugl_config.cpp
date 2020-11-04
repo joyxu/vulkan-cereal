@@ -384,7 +384,7 @@ bool emuglConfig_init(EmuglConfig* config,
 
 void emuglConfig_setupEnv(const EmuglConfig* config) {
     if (config->use_host_vulkan) {
-        android::base::setEnvironmentVariable("ANDROID_EMU_VK_ICD", NULL);
+        android::base::setEnvironmentVariable("ANDROID_EMU_VK_ICD", "");
     } else if (sCurrentRenderer == SELECTED_RENDERER_SWIFTSHADER_INDIRECT) {
         // Use Swiftshader vk icd if using swiftshader_indirect
         android::base::setEnvironmentVariable("ANDROID_EMU_VK_ICD", "swiftshader");
