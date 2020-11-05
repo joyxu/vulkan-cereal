@@ -1,5 +1,5 @@
 cc_library_shared {
-    name: "gfxstream_backend",
+    name: "libgfxstream_backend",
     defaults: [ "gfxstream_defaults" ],
     cflags: [
         "-Wno-unused-parameter",
