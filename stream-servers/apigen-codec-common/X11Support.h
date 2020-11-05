@@ -3,6 +3,8 @@
 #include <X11/Xlib.h>
 #include <GL/glx.h>
 
+#include "base/export.h"
+
 // GLX
 #define LIST_GLX_FUNCS(f) \
     f(glXQueryVersion) \
@@ -135,5 +137,5 @@ struct GlxApi {
 LIST_GLX_FUNCS(DECLARE_API_STRUCT_MEMBER)
 };
 
-struct X11Api* getX11Api();
-struct GlxApi* getGlxApi();
+AEMU_EXPORT struct X11Api* getX11Api();
+AEMU_EXPORT struct GlxApi* getGlxApi();

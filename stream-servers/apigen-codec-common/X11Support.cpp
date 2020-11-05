@@ -70,12 +70,12 @@ class GlxFunctionGetter {
         GlxApi mApi;
 };
 
-struct X11Api* getX11Api() {
+AEMU_EXPORT struct X11Api* getX11Api() {
     static X11FunctionGetter* g = new X11FunctionGetter;
     return g->getApi();
 }
 
-struct GlxApi* getGlxApi() {
+AEMU_EXPORT struct GlxApi* getGlxApi() {
     static GlxFunctionGetter* g = new GlxFunctionGetter;
     return g->getApi();
 }
