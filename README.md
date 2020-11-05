@@ -38,6 +38,24 @@ Be in the Android build system. Then
 
 It then ends up in `out/host`
 
+# Output artifacts
+
+    libgfxstream_backend.(dll|so|dylib)
+
+# Tests
+
+## Linux Tests
+
+There are a bunch of test executables generated. They require `libEGL.so` and `libGLESv2.so` and `libvulkan.so` to be available, possibly from your GPU vendor or ANGLE, in the `$LD_LIBRARY_PATH`.
+
+## Windows Tests
+
+There are a bunch of test executables generated. They require `libEGL.dll` and `libGLESv2.dll` and `vulkan-1.dll` to be available, possibly from your GPU vendor or ANGLE, in the `%PATH%`.
+
+## Android Host Tests
+
+These are currently not built due to the dependency on system libEGL/libvulkan to run correctly.
+
 # Structure
 
 - `CMakeLists.txt`: specifies all host-side build targets. This includes all
@@ -58,7 +76,10 @@ It then ends up in `out/host`
   Contains utility code related to synchronization, threading, and suballocation.
 - `protocols/`: implementations of protocols for various graphics APIs. May contain
 code generators to make it easy to regen the protocol based on certain things.
-- `host-common/`: implementations of host-side support code that makes it easier to run the server in a variety of virtual device environments. Contains concrete implementations of auxiliary virtual devices such as Address Space Device and Goldfish Pipe.
-  APIs that consume protocol.
+- `host-common/`: implementations of host-side support code that makes it
+  easier to run the server in a variety of virtual device environments.
+  Contains concrete implementations of auxiliary virtual devices such as
+  Address Space Device and Goldfish Pipe.
 - `stream-servers/`: implementations of various backends for various graphics
-  APIs that consume protocol. gfxstream-virtio-gpu-renderer.cpp contains a virtio-gpu backend implementation.
+  APIs that consume protocol. `gfxstream-virtio-gpu-renderer.cpp` contains a
+  virtio-gpu backend implementation.
