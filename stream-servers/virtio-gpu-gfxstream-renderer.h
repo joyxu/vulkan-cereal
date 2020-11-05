@@ -16,16 +16,16 @@ struct virgl_renderer_virtio_interface*
 /* Needed for goldfish pipe */
 void virgl_write_fence(void *opaque, uint32_t fence);
 
-void virtio_goldfish_pipe_reset(void* hwpipe, void* hostpipe);
-
-#define VIRTIO_GOLDFISH_EXPORT_API
-#ifdef VIRTIO_GOLDFISH_EXPORT_API
-
 #ifdef _WIN32
 #define VG_EXPORT __declspec(dllexport)
 #else
 #define VG_EXPORT __attribute__((visibility("default")))
 #endif
+
+VG_EXPORT void virtio_goldfish_pipe_reset(void* hwpipe, void* hostpipe);
+
+#define VIRTIO_GOLDFISH_EXPORT_API
+#ifdef VIRTIO_GOLDFISH_EXPORT_API
 
 VG_EXPORT int pipe_virgl_renderer_init(void *cookie,
                                        int flags,

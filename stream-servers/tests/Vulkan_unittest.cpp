@@ -34,7 +34,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#include "android/base/system/Win32UnicodeString.h"
+#include "base/Win32UnicodeString.h"
 using android::base::Win32UnicodeString;
 #else
 #include <dlfcn.h>

@@ -6,8 +6,6 @@
 
 // Windows_system_utils.cpp: Implementation of OS-specific functions for Windows
 
-#include "system_utils.h"
-
 #include <stdarg.h>
 #include <windows.h>
 #include <array>

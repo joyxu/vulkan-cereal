@@ -22,17 +22,20 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <random>
+#include <sstream>
+#include <filesystem>
 #undef ERROR
 #include <errno.h>
 #include <stdio.h>
 #endif
 
-#include <dirent.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #ifndef _MSC_VER
+#include <dirent.h>
 #include <unistd.h>
 #endif
 
@@ -49,6 +52,43 @@ namespace base {
 //        ... do your test
 //      }   // destructor removes temp directory and all files under it.
 
+#ifdef _MSC_VER
+// From https://stackoverflow.com/questions/24365331/how-can-i-generate-uuid-in-c-without-using-boost-library
+namespace uuid {
+    static std::random_device              rd;
+    static std::mt19937                    gen(rd());
+    static std::uniform_int_distribution<> dis(0, 15);
+    static std::uniform_int_distribution<> dis2(8, 11);
+
+    static inline std::string generate_uuid_v4() {
+        std::stringstream ss;
+        int i;
+        ss << std::hex;
+        for (i = 0; i < 8; i++) {
+            ss << dis(gen);
+        }
+        ss << "-";
+        for (i = 0; i < 4; i++) {
+            ss << dis(gen);
+        }
+        ss << "-4";
+        for (i = 0; i < 3; i++) {
+            ss << dis(gen);
+        }
+        ss << "-";
+        ss << dis2(gen);
+        for (i = 0; i < 3; i++) {
+            ss << dis(gen);
+        }
+        ss << "-";
+        for (i = 0; i < 12; i++) {
+            ss << dis(gen);
+        };
+        return ss.str();
+    }
+}
+#endif
+
 class TestTempDir {
 public:
     // Create new instance. This also tries to create a new temporary
@@ -61,7 +101,7 @@ public:
         }
 
 #if defined(_MSC_VER) || defined(_WIN32)
-        temp_dir += Uuid::generate().toString();
+        temp_dir += uuid::generate_uuid_v4();
         if (android_mkdir(temp_dir.c_str(), 0755) != 0) {
             fprintf(stderr, "Unable to create %s, falling back to tmp dir",
                     temp_dir.c_str());
@@ -128,6 +168,9 @@ private:
     DISALLOW_COPY_AND_ASSIGN(TestTempDir);
 
     void DeleteRecursive(const std::string& path) {
+#ifdef _WIN32
+        std::filesystem::remove_all(path);
+#else
         // First remove any files in the dir
         DIR* dir = opendir(path.c_str());
         if (!dir) {
@@ -157,52 +200,22 @@ private:
         }
         closedir(dir);
         android_rmdir(path.c_str());
+#endif
     }
 
 #ifdef _WIN32
     std::string getTempPath() {
-        std::string result;
-        DWORD len = GetTempPath(0, NULL);
-        if (!len) {
-            fprintf(stderr, "%s: cant find temp path\n", __func__);
-            abort();
-            // LOG(FATAL) << "Can't find temporary path!";
-        }
-        result.resize(static_cast<size_t>(len));
-        GetTempPath(len, &result[0]);
-        // The length returned by GetTempPath() is sometimes too large.
-        result.resize(::strlen(result.c_str()));
-        for (size_t n = 0; n < result.size(); ++n) {
-            if (result[n] == '\\') {
-                result[n] = '/';
-            }
-        }
-        if (result.size() && result[result.size() - 1] != '/') {
-            result += '/';
-        }
-        return result;
+        return std::filesystem::temp_directory_path().string();
     }
 
     char* mkdtemp(char* path) {
-        char* sep = ::strrchr(path, '/');
-        if (sep) {
-            struct _stati64 st;
-            int ret;
-            *sep = '\0';  // temporarily zero-terminate the dirname.
-            ret = android_stat(path, reinterpret_cast<struct stat*>(&st));
-            *sep = '/';  // restore full path.
-            if (ret < 0) {
-                return NULL;
-            }
-            if (!S_ISDIR(st.st_mode)) {
-                errno = ENOTDIR;
-                return NULL;
-            }
-        }
+        char tmpnamBuf[2048];
+        if (!std::tmpnam(tmpnamBuf)) return nullptr;
+
+        char* path_end = tmpnamBuf + ::strlen(path);
 
         // Loop. On each iteration, replace the XXXXXX suffix with a random
         // number.
-        char* path_end = path + ::strlen(path);
         const size_t kSuffixLen = 6U;
         for (int tries = 128; tries > 0; tries--) {
             int random = rand() % 1000000;

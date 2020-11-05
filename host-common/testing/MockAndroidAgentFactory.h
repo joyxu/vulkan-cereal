@@ -13,6 +13,10 @@
 // limitations under the License.
 #pragma once
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include <stdio.h>
 
 #include "host-common/AndroidAgentFactory.h"

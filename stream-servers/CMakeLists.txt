@@ -173,9 +173,6 @@ add_executable(
     tests/GLSnapshotRenderbuffers_unittest.cpp
     tests/GLSnapshotRendering_unittest.cpp
     tests/GLSnapshotShaders_unittest.cpp
-    tests/GLSnapshotTestDispatch.cpp
-    tests/GLSnapshotTestStateUtils.cpp
-    tests/GLSnapshotTesting.cpp
     tests/GLSnapshotTextures_unittest.cpp
     tests/GLSnapshotTransformation_unittest.cpp
     tests/GLSnapshotVertexAttributes_unittest.cpp
