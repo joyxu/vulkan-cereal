@@ -7,8 +7,9 @@ and forward graphics API calls from one place to another:
 - From one process to another for IPC graphics
 - From one computer to another via network sockets
 
-# Build
+# Build: Linux
 
+Make sure the latest CMake is installed.
 Make sure you are using Clang as your `CC` and `CXX`. Then
 
     mkdir build
@@ -16,7 +17,26 @@ Make sure you are using Clang as your `CC` and `CXX`. Then
     cmake . ../
     make -j24
 
-TODO: guest build makefiles (Android.bp)
+# Build: Windows
+
+Make sure the latest CMake is installed.  Make sure Visual Studio 2019 is
+installed on your system along with all the Clang C++ toolchain components.
+Then
+
+    mkdir build
+    cd build
+    cmake . ../ -A x64 -T ClangCL
+
+A solution file should be generated. Then open the solution file in Visual
+studio and build the `gfxstream_backend` target.
+
+# Build: Android for host
+
+Be in the Android build system. Then
+
+    m libgfxstream_backend
+
+It then ends up in `out/host`
 
 # Structure
 
