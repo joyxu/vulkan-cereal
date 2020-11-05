@@ -24,5 +24,7 @@ void sleepUs(uint64_t us);
 
 CpuTime cpuTime();
 
+bool queryFileVersionInfo(const char* filename, int* major, int* minor, int* build1, int* build2);
+
 } // namespace base
 } // namespace android

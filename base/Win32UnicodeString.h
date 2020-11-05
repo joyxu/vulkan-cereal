@@ -47,6 +47,7 @@ public:
 
     // Initialize a new instance from an existing string instance |str|.
     explicit Win32UnicodeString(const char* str);
+    explicit Win32UnicodeString(const std::string& str);
 
     // Initialize by reserving enough room for a string of |size| UTF-16
     // codepoints.

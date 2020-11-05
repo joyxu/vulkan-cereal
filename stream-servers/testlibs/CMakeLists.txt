@@ -4,7 +4,7 @@ if (APPLE)
 elseif (WIN32)
     set(oswindow-platform-sources
         windows/WindowsTimer.cpp
-        windows/Windows_system-utils.cpp
+        windows/Windows_system_utils.cpp
         windows/win32/Win32Window.cpp)
 else()
     set(oswindow-platform-sources

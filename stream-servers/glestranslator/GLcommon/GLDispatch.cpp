@@ -118,7 +118,7 @@ LIST_GLES_FUNCTIONS(DEFINE_DUMMY_FUNCTION, DEFINE_DUMMY_EXTENSION_FUNCTION)
 android::base::Lock GLDispatch::s_lock;
 
 #define GL_DISPATCH_DEFINE_POINTER(return_type, function_name, signature, args) \
-    GL_APICALL return_type (GL_APIENTRY *GLDispatch::function_name) signature = NULL;
+    return_type (*GLDispatch::function_name) signature = NULL;
 
 LIST_GLES_FUNCTIONS(GL_DISPATCH_DEFINE_POINTER, GL_DISPATCH_DEFINE_POINTER)
 

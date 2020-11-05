@@ -4593,7 +4593,7 @@ private:
             int dispatchZ = _layerCount;
 
             if (isEtc2) {
-                Etc2PushConstant pushConstant = {compFormat, baseLayer};
+                Etc2PushConstant pushConstant = {(uint32_t)compFormat, baseLayer};
                 if (extent.depth > 1) {
                     // 3D texture
                     pushConstant.baseLayer = 0;
@@ -4641,7 +4641,7 @@ private:
                 }
                 AstcPushConstant pushConstant = {
                         {compressedBlockWidth, compressedBlockHeight},
-                        compFormat,
+                        (uint32_t)compFormat,
                         baseLayer,
                         srgb,
                         smallBlock,

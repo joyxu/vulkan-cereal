@@ -12,21 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "android/opengl/NativeGpuInfo.h"
+#include "NativeGpuInfo.h"
 
-#include "android/base/StringFormat.h"
-#include "android/base/StringView.h"
-#include "android/base/Uuid.h"
-#include "android/base/containers/SmallVector.h"
-#include "android/base/files/PathUtils.h"
-#include "android/base/memory/ScopedPtr.h"
-#include "android/base/misc/FileUtils.h"
-#include "android/base/misc/StringUtils.h"
-#include "android/base/system/System.h"
-#include "android/base/system/Win32UnicodeString.h"
-#include "android/crashreport/crash-handler.h"
-
-#include "android/utils/path.h"
+#include "base/StringFormat.h"
+#include "base/SmallVector.h"
+#include "base/StringFormat.h"
+#include "base/PathUtils.h"
+#include "base/System.h"
+#include "base/Win32UnicodeString.h"
 
 #include <windows.h>
 #include <d3d9.h>
@@ -37,15 +30,9 @@
 #include <string>
 #include <tuple>
 
-using android::base::makeCustomScopedPtr;
 using android::base::PathUtils;
-using android::base::RunOptions;
 using android::base::SmallFixedVector;
-using android::base::startsWith;
 using android::base::StringFormat;
-using android::base::StringView;
-using android::base::System;
-using android::base::Uuid;
 using android::base::Win32UnicodeString;
 
 static std::string& toLower(std::string& s) {
@@ -80,6 +67,11 @@ static void parse_windows_gpu_ids(const std::string& val,
     }
     result = val.substr(key_start + 4, key_end - key_start - 4);
     gpulist->currGpu().device_id = std::move(toLower(result));
+}
+
+static bool startsWith(const std::string& string, const std::string& prefix) {
+    return string.size() >= prefix.size() &&
+            memcmp(string.data(), prefix.data(), prefix.size()) == 0;
 }
 
 static void add_predefined_gpu_dlls(GpuInfo* gpu) {
@@ -126,8 +118,6 @@ static void load_gpu_registry_info(const wchar_t* keyName, GpuInfo* gpu) {
     if (::RegOpenKeyW(HKEY_LOCAL_MACHINE, keyName, &hkey) != ERROR_SUCCESS) {
         return;
     }
-
-    auto keyCloser = makeCustomScopedPtr(hkey, ::RegCloseKey);
 
     SmallFixedVector<wchar_t, 256> name;
     SmallFixedVector<BYTE, 1024> value;
@@ -188,34 +178,36 @@ static void load_gpu_registry_info(const wchar_t* keyName, GpuInfo* gpu) {
             }
         }
     }
+
+    ::RegCloseKey(hkey);
 }
 
 static const int kGPUInfoQueryTimeoutMs = 5000;
 
-static std::string load_gpu_info_wmic() {
-    auto guid = Uuid::generateFast().toString();
-    // WMIC doesn't allow one to have any unquoted '-' characters in file name,
-    // so let's get rid of them.
-    guid.erase(std::remove(guid.begin(), guid.end(), '-'), guid.end());
-    auto tempName = PathUtils::join(System::get()->getTempDir(),
-                                    StringFormat("gpuinfo_%s.txt", guid));
-
-    auto deleteTempFile = makeCustomScopedPtr(
-            &tempName,
-            [](const std::string* name) { path_delete_file(name->c_str()); });
-    if (!System::get()->runCommand(
-                {"wmic", StringFormat("/OUTPUT:%s", tempName), "path",
-                 "Win32_VideoController", "get", "/value"},
-                RunOptions::WaitForCompletion | RunOptions::TerminateOnTimeout,
-                kGPUInfoQueryTimeoutMs)) {
-        return {};
-    }
-    auto res = android::readFileIntoString(tempName);
-    return res ? Win32UnicodeString::convertToUtf8(
-                         (const wchar_t*)res->c_str(),
-                         res->size() / sizeof(wchar_t))
-               : std::string{};
-}
+// static std::string load_gpu_info_wmic() {
+//     auto guid = Uuid::generateFast().toString();
+//     // WMIC doesn't allow one to have any unquoted '-' characters in file name,
+//     // so let's get rid of them.
+//     guid.erase(std::remove(guid.begin(), guid.end(), '-'), guid.end());
+//     auto tempName = PathUtils::join(System::get()->getTempDir(),
+//                                     StringFormat("gpuinfo_%s.txt", guid));
+// 
+//     auto deleteTempFile = makeCustomScopedPtr(
+//             &tempName,
+//             [](const std::string* name) { path_delete_file(name->c_str()); });
+//     if (!System::get()->runCommand(
+//                 {"wmic", StringFormat("/OUTPUT:%s", tempName), "path",
+//                  "Win32_VideoController", "get", "/value"},
+//                 RunOptions::WaitForCompletion | RunOptions::TerminateOnTimeout,
+//                 kGPUInfoQueryTimeoutMs)) {
+//         return {};
+//     }
+//     auto res = android::readFileIntoString(tempName);
+//     return res ? Win32UnicodeString::convertToUtf8(
+//                          (const wchar_t*)res->c_str(),
+//                          res->size() / sizeof(wchar_t))
+//                : std::string{};
+// }
 
 void parse_gpu_info_list_windows(const std::string& contents,
                                  GpuInfoList* gpulist) {
@@ -299,10 +291,10 @@ static bool queryGpuInfoD3D(GpuInfoList* gpus) {
             gpu.make = vendoridBuf;
             gpu.device_id = deviceidBuf;
             gpu.model = &descriptionBuf[0];
-            crashhandler_append_message_format(
-                "gpu found. vendor id %04x device id 0x%04x\n",
-                (unsigned int)(id.VendorId),
-                (unsigned int)(id.DeviceId));
+            // crashhandler_append_message_format(
+            //     "gpu found. vendor id %04x device id 0x%04x\n",
+            //     (unsigned int)(id.VendorId),
+            //     (unsigned int)(id.DeviceId));
             return true;
         }
     }
@@ -313,8 +305,7 @@ static bool queryGpuInfoD3D(GpuInfoList* gpus) {
 void getGpuInfoListNative(GpuInfoList* gpus) {
     if (queryGpuInfoD3D(gpus)) return;
 
-    crashhandler_append_message_format(
-        "d3d gpu query failed.\n");
+    // crashhandler_append_message_format("d3d gpu query failed.\n");
 
     DISPLAY_DEVICEW device = { sizeof(device) };
 
@@ -330,7 +321,7 @@ void getGpuInfoListNative(GpuInfoList* gpus) {
 
         // Now try inspecting the registry directly; |device|.DeviceKey can be a
         // path to the GPU information key.
-        static constexpr StringView prefix = "\\Registry\\Machine\\";
+        static const std::string prefix = "\\Registry\\Machine\\";
         if (startsWith(Win32UnicodeString::convertToUtf8(device.DeviceKey),
                        prefix)) {
             load_gpu_registry_info(device.DeviceKey + prefix.size(), &gpu);
@@ -339,9 +330,10 @@ void getGpuInfoListNative(GpuInfoList* gpus) {
     }
 
     if (gpus->infos.empty()) {
+        // Everything failed; bail.
         // Everything failed - fall back to the good^Wbad old WMIC command.
-        auto gpuInfoWmic = load_gpu_info_wmic();
-        parse_gpu_info_list_windows(gpuInfoWmic, gpus);
+        // auto gpuInfoWmic = load_gpu_info_wmic();
+        // parse_gpu_info_list_windows(gpuInfoWmic, gpus);
     }
 }
 
@@ -350,32 +342,32 @@ void getGpuInfoListNative(GpuInfoList* gpus) {
 bool badAmdVulkanDriverVersion() {
     int major, minor, build_1, build_2;
 
-    crashhandler_append_message_format(
-        "checking for bad AMD Vulkan driver version...\n");
+    // crashhandler_append_message_format(
+    //     "checking for bad AMD Vulkan driver version...\n");
 
-    if (!System::queryFileVersionInfo("amdvlk64.dll", &major, &minor, &build_1, &build_2)) {
-        crashhandler_append_message_format(
-            "amdvlk64.dll not found. Checking for amdvlk32...\n");
-        if (!System::queryFileVersionInfo("amdvlk32.dll", &major, &minor, &build_1, &build_2)) {
-            crashhandler_append_message_format(
-                "amdvlk32.dll not found. No bad AMD Vulkan driver versions found.\n");
+    if (!android::base::queryFileVersionInfo("amdvlk64.dll", &major, &minor, &build_1, &build_2)) {
+        // crashhandler_append_message_format(
+        //     "amdvlk64.dll not found. Checking for amdvlk32...\n");
+        if (!android::base::queryFileVersionInfo("amdvlk32.dll", &major, &minor, &build_1, &build_2)) {
+            // crashhandler_append_message_format(
+            //     "amdvlk32.dll not found. No bad AMD Vulkan driver versions found.\n");
             // Information about amdvlk64 not availble; not blacklisted
             return false;
         }
     }
 
-    crashhandler_append_message_format(
-        "AMD driver info found. Version: %d.%d.%d.%d\n",
-        major, minor, build_1, build_2);
+    // crashhandler_append_message_format(
+    //     "AMD driver info found. Version: %d.%d.%d.%d\n",
+    //     major, minor, build_1, build_2);
 
     bool isBad = (major == 1 && minor == 0 && build_1 <= 54);
 
     if (isBad) {
-        crashhandler_append_message_format(
-            "Is bad AMD driver version; blacklisting.\n");
+        // crashhandler_append_message_format(
+        //     "Is bad AMD driver version; blacklisting.\n");
     } else {
-        crashhandler_append_message_format(
-            "Not known bad AMD driver version; passing.\n");
+        // crashhandler_append_message_format(
+        //     "Not known bad AMD driver version; passing.\n");
     }
 
     return isBad;
@@ -395,19 +387,19 @@ static WindowsDllVersion sBadVulkanDllVersions[] = {
 bool badVulkanDllVersion() {
     int major, minor, build_1, build_2;
 
-    crashhandler_append_message_format(
-        "checking for bad vulkan-1.dll version...\n");
+    // crashhandler_append_message_format(
+    //     "checking for bad vulkan-1.dll version...\n");
 
-    if (!System::queryFileVersionInfo("vulkan-1.dll", &major, &minor, &build_1, &build_2)) {
-        crashhandler_append_message_format(
-            "info on vulkan-1.dll cannot be found, continue.\n");
+    if (!android::base::queryFileVersionInfo("vulkan-1.dll", &major, &minor, &build_1, &build_2)) {
+        // crashhandler_append_message_format(
+        //     "info on vulkan-1.dll cannot be found, continue.\n");
         // Information about vulkan-1.dll not available; not blacklisted
         return false;
     }
 
-    crashhandler_append_message_format(
-        "vulkan-1.dll version: %d.%d.%d.%d\n",
-        major, minor, build_1, build_2);
+    // crashhandler_append_message_format(
+    //     "vulkan-1.dll version: %d.%d.%d.%d\n",
+    //     major, minor, build_1, build_2);
 
     // Ban all Windows Vulkan drivers < 1.1;
     // they sometimes advertise vkEnumerateInstanceVersion
@@ -419,11 +411,11 @@ bool badVulkanDllVersion() {
         major == 1 && minor == 0;
 
     if (isBad) {
-        crashhandler_append_message_format(
-            "Is bad vulkan-1.dll version; blacklisting.\n");
+        // crashhandler_append_message_format(
+        //     "Is bad vulkan-1.dll version; blacklisting.\n");
     } else {
-        crashhandler_append_message_format(
-            "Not known bad vulkan-1.dll version; continue.\n");
+        // crashhandler_append_message_format(
+        //     "Not known bad vulkan-1.dll version; continue.\n");
     }
 
     return isBad;

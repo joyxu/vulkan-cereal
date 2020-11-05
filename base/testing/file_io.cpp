@@ -31,7 +31,7 @@
 #include "base/PathUtils.h"
 using android::base::PathUtils;
 using android::base::Win32UnicodeString;
-using android::base::ScopedCPtr;
+// using android::base::ScopedCPtr;
 #endif
 
 // Provide different macros for different number of string arguments where each

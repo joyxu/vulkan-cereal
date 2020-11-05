@@ -35,6 +35,11 @@ Win32UnicodeString::Win32UnicodeString(const char* str)
     reset(str);
 }
 
+Win32UnicodeString::Win32UnicodeString(const std::string& str)
+    : mStr(nullptr), mSize(0u) {
+    reset(str.c_str());
+}
+
 Win32UnicodeString::Win32UnicodeString(size_t size) : mStr(nullptr), mSize(0u) {
     resize(size);
 }
@@ -110,7 +115,7 @@ void Win32UnicodeString::resize(size_t newSize) {
     } else {
         wchar_t* oldStr = mStr;
         mStr = new wchar_t[newSize + 1u];
-        size_t copySize = std::min(newSize, mSize);
+        size_t copySize = std::min<size_t>(newSize, mSize);
         ::memcpy(mStr, oldStr ? oldStr : L"", copySize * sizeof(wchar_t));
         mStr[copySize] = L'\0';
         mStr[newSize] = L'\0';

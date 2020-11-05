@@ -263,7 +263,7 @@ android_startOpenglesRenderer(int width, int height, bool guestPhoneApi, int gue
     android::emulation::registerOnLastRefCallback(
             sRenderLib->getOnLastColorBufferRef());
 
-    ConsumerInterface interface = {
+    ConsumerInterface iface = {
         // create
         [](struct asg_context context,
            ConsumerCallbacks callbacks) {
@@ -281,7 +281,7 @@ android_startOpenglesRenderer(int width, int height, bool guestPhoneApi, int gue
         // load
         [](void* consumer, android::base::Stream* stream) { },
     };
-    AddressSpaceGraphicsContext::setConsumer(interface);
+    AddressSpaceGraphicsContext::setConsumer(iface);
 
     if (!sRenderer) {
         D("Can't start OpenGLES renderer?");

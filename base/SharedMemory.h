@@ -15,7 +15,8 @@
 
 #ifdef _WIN32
 #ifdef _MSC_VER
-#include "msvc-posix.h"
+#include "base\msvc.h"
+#include <windows.h>
 #else
 #include <windows.h>
 #endif  // _MSC_VER

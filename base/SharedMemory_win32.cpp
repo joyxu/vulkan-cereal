@@ -11,26 +11,26 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "android/base/memory/SharedMemory.h"
+#include "base/SharedMemory.h"
 
 #include <cassert>
 #include <string>
 
-#include "android/base/files/PathUtils.h"
-#include "android/base/system/Win32UnicodeString.h"
+#include "base/PathUtils.h"
+#include "base/Win32UnicodeString.h"
 
 namespace android {
 namespace base {
 
-SharedMemory::SharedMemory(StringView name, size_t size) : mSize(size) {
-    constexpr StringView kFileUri = "file://";
+SharedMemory::SharedMemory(const std::string& name, size_t size) : mSize(size) {
+    const std::string kFileUri = "file://";
     if (name.find(kFileUri, 0) == 0) {
         mShareType = ShareType::FILE_BACKED;
         auto path = name.substr(kFileUri.size());
         mName = PathUtils::recompose(PathUtils::decompose(path));
     } else {
         mShareType = ShareType::SHARED_MEMORY;
-        mName = "SHM_" + name.str();
+        mName = "SHM_" + name;
     }
 }
 

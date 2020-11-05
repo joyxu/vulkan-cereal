@@ -15,16 +15,14 @@
 */
 #include "EglOsApi.h"
 
-#include "android/base/synchronization/Lock.h"
+#include "base/Lock.h"
+#include "base/SharedLibrary.h"
 
 #include "CoreProfileConfigs.h"
-#include "emugl/common/lazy_instance.h"
-#include "emugl/common/logging.h"
-#include "emugl/common/shared_library.h"
-#include "emugl/common/thread_store.h"
+#include "host-common/logging.h"
 #include "GLcommon/GLLibrary.h"
 
-#include "OpenglCodecCommon/ErrorLog.h"
+#include "apigen-codec-common/ErrorLog.h"
 
 #include <windows.h>
 #include <wingdi.h>
@@ -35,6 +33,7 @@
 
 #include <EGL/eglext.h>
 
+#include <memory>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -64,7 +63,7 @@
 
 namespace {
 
-using emugl::SharedLibrary;
+using android::base::SharedLibrary;
 typedef GlLibrary::GlFunctionPointer GlFunctionPointer;
 
 // Returns true if an extension is include in a given extension list.
@@ -221,7 +220,7 @@ struct WglBaseDispatch {
 
         LIST_WGL_FUNCTIONS(LOAD_WGL_POINTER)
         if (systemLib) {
-            HMODULE gdi32 = GetModuleHandle("gdi32.dll");
+            HMODULE gdi32 = GetModuleHandleA("gdi32.dll");
             LIST_GDI32_FUNCTIONS(LOAD_WGL_GDI32_POINTER)
         } else {
             LIST_GDI32_FUNCTIONS(LOAD_WGL_INNER_POINTER)
@@ -255,8 +254,8 @@ LRESULT CALLBACK dummyWndProc(HWND hwnd,
 // it can be used to create a device context and associated
 // OpenGL rendering context. Return NULL on failure.
 HWND createDummyWindow() {
-    WNDCLASSEX wcx;
-    wcx.cbSize = sizeof(wcx);                       // size of structure
+    WNDCLASSA wcx;
+    // wcx.cbSize = sizeof(wcx);                       // size of structure
     wcx.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW; // redraw if size changes
     wcx.lpfnWndProc = dummyWndProc;                 // points to window procedure
     wcx.cbClsExtra = 0;                             // no extra class memory
@@ -267,11 +266,10 @@ HWND createDummyWindow() {
     wcx.hbrBackground = NULL;                       // no background brush
     wcx.lpszMenuName =  NULL;                       // name of menu resource
     wcx.lpszClassName = "DummyWin";                 // name of window class
-    wcx.hIconSm = (HICON) NULL;                     // small class icon
 
-    RegisterClassEx(&wcx);
+    RegisterClassA(&wcx);
 
-    HWND hwnd = CreateWindowEx(WS_EX_CLIENTEDGE,
+    HWND hwnd = CreateWindowExA(WS_EX_CLIENTEDGE,
                                "DummyWin",
                                "Dummy",
                                WS_POPUP,
@@ -675,7 +673,7 @@ public:
     // ::SetPixelFormat() depending on GPU emulation configuration. See
     // technical notes above for details.
     explicit WinGlobals(const WglBaseDispatch* dispatch)
-            : mDispatch(dispatch), mTls(onThreadTermination) {}
+        : mDispatch(dispatch) {}
 
     // Return a thread-local device context that can be used to list
     // available pixel formats for the host window. The caller cannot use
@@ -777,25 +775,20 @@ private:
     // on thread exit. Return nullptr on failure.
     HDC getInternalDC(const WinPixelFormat* format) {
         int formatId = format ? format->configId() : 0;
-        auto map = reinterpret_cast<ConfigMap*>(mTls.get());
-        if (!map) {
-            map = new ConfigMap();
-            mTls.set(map);
-        }
+        static thread_local ConfigMap configMap;
 
-        auto it = map->find(formatId);
-        if (it != map->end()) {
+        auto it = configMap.find(formatId);
+        if (it != configMap.end()) {
             return it->second.dc();
         }
 
         ConfigDC newValue(format, mDispatch);
         HDC result = newValue.dc();
-        map->emplace(formatId, std::move(newValue));
+        configMap.emplace(formatId, std::move(newValue));
         return result;
     }
 
     const WglBaseDispatch* mDispatch = nullptr;
-    emugl::ThreadStore mTls;
     HDC mNontrivialDC = nullptr;
 };
 
@@ -1027,7 +1020,7 @@ public:
         return ret;
     }
 
-    virtual emugl::SmartPtr<EglOS::Context> createContext(
+    virtual std::shared_ptr<EglOS::Context> createContext(
             EGLint profileMask,
             const EglOS::PixelFormat* pixelFormat,
             EglOS::Context* sharedContext) {
@@ -1338,11 +1331,14 @@ WinEngine::WinEngine() :
     GL_LOG("%s: Dispatch initialized\n", __FUNCTION__);
 }
 
-emugl::LazyInstance<WinEngine> sHostEngine = LAZY_INSTANCE_INIT;
+static WinEngine* sHostEngine() {
+    static WinEngine* e = new WinEngine;
+    return e;
+}
 
 }  // namespace
 
 // static
 EglOS::Engine* EglOS::Engine::getHostInstance() {
-    return sHostEngine.ptr();
+    return sHostEngine();
 }

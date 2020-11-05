@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "android/base/system/Win32UnicodeString.h"
+#include "base/Win32UnicodeString.h"
 
 #include <gtest/gtest.h>
 

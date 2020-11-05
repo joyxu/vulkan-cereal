@@ -40,7 +40,7 @@ typedef void (*FUNCPTR_GET_SYNC_IV)(GLsync, GLenum pname, GLsizei bufsize, GLsiz
 class GlLibrary;
 
 #define GLES_DECLARE_METHOD(return_type, function_name, signature, args) \
-    static GL_APICALL return_type (GL_APIENTRY *function_name) signature;
+    static return_type (*function_name) signature;
 
 using EGLGetProcAddressFunc = std::function<void*(const char* name)>;
 

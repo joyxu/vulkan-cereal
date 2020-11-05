@@ -14,7 +14,7 @@
 #pragma once
 
 #ifdef _MSC_VER
-  #include "msvc-posix.h"
+  #include "base/msvc.h"
 #endif
 
 #include <stdio.h>

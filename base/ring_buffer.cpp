@@ -16,7 +16,7 @@
 #include <errno.h>
 #include <string.h>
 #ifdef _MSC_VER
-#include "msvc-posix.h"
+#include "base/msvc.h"
 #else
 #include <sys/time.h>
 #endif

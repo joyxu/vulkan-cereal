@@ -23,6 +23,9 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string>
+
+#include "base/msvc.h"
+
 #ifndef _MSC_VER
 #include <sys/time.h>
 #endif

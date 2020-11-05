@@ -18,10 +18,6 @@
 #include "base/SmallVector.h"
 #include "base/Stream.h"
 
-#ifdef _MSC_VER
-#include "msvc-posix.h"
-#endif
-
 namespace android {
 namespace base {
 

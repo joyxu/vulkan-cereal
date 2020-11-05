@@ -1,36 +1,31 @@
-// Copyright 2020 The Android Open Source Project
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 #pragma once
 
-#define MSVC_POSIX
-// windows.h must come before any of these files, or bad things will happen
+#ifndef __linux__
+// Make sure these are defined and don't change anything if used.
+enum {
+    SOCK_CLOEXEC = 0,
+#ifndef __APPLE__
+    O_CLOEXEC = 0
+#endif
+};
+#endif  // !__linux__
+
+#ifdef _MSC_VER
+
 #include <windows.h>
+#include <BaseTsd.h>
 
 #include <direct.h>
-#include <ehstorioctl.h>
 #include <fcntl.h>
 #include <io.h>
 #include <process.h>
 #include <stdint.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <winsock2.h>
-//#include <basetsd.h>
+#include <winsock.h>
 
-// From <unistd.h>
 typedef SSIZE_T ssize_t;
+
 typedef int mode_t;
 #ifdef _WIN64
 typedef int64_t pid_t;
@@ -42,6 +37,11 @@ typedef int pid_t;
 #define STDERR_FILENO _fileno(stderr)
 #define lseek(a, b, c) _lseek(a, b, c)
 #define lseek64 _lseeki64
+
+struct FileTime {
+  uint32_t dwLowDateTime;
+  uint32_t dwHighDateTime;
+};
 
 // Need <dirent.h>
 
@@ -95,7 +95,7 @@ typedef int64_t off64_t;
 #endif
 
 
-typedef  VOID (CALLBACK* SystemTime)(LPFILETIME);
+typedef  void (*SystemTime)(FileTime*);
 
 // From <sys/time.h>
 struct timezone {
@@ -124,3 +124,5 @@ extern int vasprintf(char** buf, const char* format, va_list args);
 extern int mkstemp(char* t);
 
 __END_DECLS
+
+#endif

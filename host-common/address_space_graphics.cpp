@@ -69,8 +69,8 @@ public:
         mInitialized = true;
     }
 
-    void setConsumer(ConsumerInterface interface) {
-        mConsumerInterface = interface;
+    void setConsumer(ConsumerInterface iface) {
+        mConsumerInterface = iface;
     }
 
     ConsumerInterface getConsumerInterface() {
@@ -392,8 +392,8 @@ void AddressSpaceGraphicsContext::clear() {
 
 // static
 void AddressSpaceGraphicsContext::setConsumer(
-    ConsumerInterface interface) {
-    sGlobals()->setConsumer(interface);
+    ConsumerInterface iface) {
+    sGlobals()->setConsumer(iface);
 }
 
 AddressSpaceGraphicsContext::AddressSpaceGraphicsContext(bool isVirtio) :

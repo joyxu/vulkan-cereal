@@ -99,8 +99,6 @@ public:
 
 private:
 
-    static LibraryMap s_libraryMap;
-
     static SharedLibrary* do_open(const char* libraryName,
                                char* error,
                                size_t errorSize);

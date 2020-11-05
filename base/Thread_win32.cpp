@@ -58,7 +58,6 @@ bool Thread::wait(intptr_t* exitStatus) {
     if (WaitForSingleObject(mThread, INFINITE) == WAIT_FAILED) {
         return false;
     }
-    DCHECK(mFinished);
 
     if (exitStatus) {
         *exitStatus = mExitStatus;

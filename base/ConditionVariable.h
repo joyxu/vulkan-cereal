@@ -16,6 +16,10 @@
 
 #include "base/Compiler.h"
 #include "base/Lock.h"
+#include "base/System.h"
+
+#include <algorithm>
+#include <inttypes.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -105,7 +109,7 @@ public:
     }
 
     bool timedWait(StaticLock *userLock, uint64_t waitUntilUs) {
-        const auto now = System::get()->getUnixTimeUs();
+        const auto now = android::base::getUnixTimeUs();
         const auto timeout =
                 std::max<uint64_t>(0, waitUntilUs  - now) / 1000;
         return ::SleepConditionVariableSRW(

@@ -30,11 +30,11 @@ target_compile_options(GLcommon PRIVATE -fvisibility=hidden)
 target_compile_options(GLcommon PUBLIC -Wno-inconsistent-missing-override)
 
 if (LINUX)
-    target_link_libraries(GLcommon linux-x86_64 PRIVATE "-ldl" "-Wl,-Bsymbolic")
+    target_link_libraries(GLcommon PRIVATE "-ldl" "-Wl,-Bsymbolic")
 endif()
 
 if (WIN32)
-    target_link_libraries(GLcommon windows PRIVATE "gdi32::gdi32" "-Wl,--add-stdcall-alias")
+    target_link_libraries(GLcommon PRIVATE "-Wl,--add-stdcall-alias")
 endif()
 
 # android_add_test(TARGET GLcommon_unittests SRC # cmake-format: sortable

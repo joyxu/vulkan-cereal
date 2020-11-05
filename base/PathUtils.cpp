@@ -320,6 +320,12 @@ Win32UnicodeString win32Path(const char* path) {
     return wpath;
 }
 
+/* access function */
+#define	F_OK		0	/* test for existence of file */
+#define	X_OK		0x01	/* test for execute or search permission */
+#define	W_OK		0x02	/* test for write permission */
+#define	R_OK		0x04	/* test for read permission */
+
 static int GetWin32Mode(int mode) {
     // Convert |mode| to win32 permission bits.
     int win32mode = 0x0;

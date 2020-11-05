@@ -17,9 +17,6 @@
 #include "base/Compiler.h"
 #include "base/Stream.h"
 
-#ifdef _MSC_VER
-#include "msvc-posix.h"
-#endif
 
 #include <stdio.h>
 

@@ -1927,7 +1927,7 @@ bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
             subplaneExtent.width,
             subplaneExtent.height,
             {
-                swapUV ? VK_IMAGE_ASPECT_PLANE_2_BIT : VK_IMAGE_ASPECT_PLANE_1_BIT,
+                (VkImageAspectFlags)(swapUV ? VK_IMAGE_ASPECT_PLANE_2_BIT : VK_IMAGE_ASPECT_PLANE_1_BIT),
                 0, 0, 1,
             },
             { 0, 0, 0 },
@@ -1941,7 +1941,7 @@ bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
                 subplaneExtent.width,
                 subplaneExtent.height,
                 {
-                    swapUV ? VK_IMAGE_ASPECT_PLANE_1_BIT : VK_IMAGE_ASPECT_PLANE_2_BIT,
+                   (VkImageAspectFlags)(swapUV ? VK_IMAGE_ASPECT_PLANE_1_BIT : VK_IMAGE_ASPECT_PLANE_2_BIT),
                     0, 0, 1,
                 },
                 { 0, 0, 0 },

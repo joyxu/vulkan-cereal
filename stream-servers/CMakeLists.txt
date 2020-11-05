@@ -73,6 +73,11 @@ target_link_libraries(
     gfxstream-vulkan-server
     gfxstream-snapshot
     apigen-codec-common)
+
+if (WIN32)
+    target_link_libraries(gfxstream_backend PRIVATE D3d9.lib)
+endif()
+
 target_include_directories(
     gfxstream_backend
     PUBLIC

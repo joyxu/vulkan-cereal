@@ -50,7 +50,6 @@ if (APPLE)
 endif()
 
 if (WIN32)
-    target_link_libraries(EGL_translator_static PUBLIC "gdi32::gdi32")
 elseif (APPLE)
     target_link_libraries(EGL_translator_static PUBLIC "-framework AppKit")
 else()

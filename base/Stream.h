@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include "msvc.h"
+
 #include <string>
 
 #include <inttypes.h>

@@ -1,14 +1,22 @@
 project(gfx-streaming-kit)
 cmake_minimum_required(VERSION 3.11)
+
+if (WIN32)
+    add_definitions("-DUNICODE -D_UNICODE -DNOMINMAX -DEMUGL_BUILD -DVK_USE_PLATFORM_WIN32_KHR -DBUILDING_EMUGL_COMMON_SHARED")
+endif()
+
 find_package(Threads)
 include(ExternalProject)
 enable_testing()
 
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+# set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/distribution)
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -O3")
+if (WIN32)
+else()
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -O3")
+endif()
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
@@ -44,7 +52,9 @@ add_subdirectory(protocols)
 
 # Fake Android guest#########################3##################################
 
-add_subdirectory(fake-android-guest)
+if (NOT WIN32)
+    add_subdirectory(fake-android-guest)
+endif()
 
 # Frontends#####################################################################
 

@@ -1,5 +1,4 @@
 if (WIN32)
-    add_subdirectory(msvc-posix-compat)
 endif()
 
 set(gfxstream-base-common-sources
@@ -28,6 +27,7 @@ set(gfxstream-base-posix-sources
     SharedMemory_posix.cpp
     Thread_pthread.cpp)
 set(gfxstream-base-windows-sources
+    msvc.cpp
     SharedMemory_win32.cpp
     Thread_win32.cpp
     Win32UnicodeString.cpp)

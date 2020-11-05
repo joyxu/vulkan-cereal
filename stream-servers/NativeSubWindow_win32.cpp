@@ -41,16 +41,16 @@ EGLNativeWindowType createSubWindow(FBNativeWindowType p_window,
                                     void* repaint_callback_param, int hideWindow){
     static const char className[] = "subWin";
 
-    WNDCLASS wc = {};
-    if (!GetClassInfo(GetModuleHandle(NULL), className, &wc)) {
+    WNDCLASSA wc = {};
+    if (!GetClassInfoA(GetModuleHandle(NULL), className, &wc)) {
         wc.style =  CS_OWNDC | CS_HREDRAW | CS_VREDRAW;// redraw if size changes
         wc.lpfnWndProc = &subWindowProc;               // points to window procedure
         wc.cbWndExtra = sizeof(void*) ;                // save extra window memory
         wc.lpszClassName = className;                  // name of window class
-        RegisterClass(&wc);
+        RegisterClassA(&wc);
     }
 
-    EGLNativeWindowType ret = CreateWindowEx(
+    EGLNativeWindowType ret = CreateWindowExA(
                         WS_EX_NOPARENTNOTIFY,  // do not bother our parent window
                         className,
                         "sub",
