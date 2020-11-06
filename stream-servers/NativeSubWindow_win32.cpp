@@ -32,7 +32,7 @@ static LRESULT CALLBACK subWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARA
             (SubWindowUserData*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
         delete user_data;
     }
-    return DefWindowProc(hwnd, uMsg, wParam, lParam);
+    return DefWindowProcA(hwnd, uMsg, wParam, lParam);
 }
 
 EGLNativeWindowType createSubWindow(FBNativeWindowType p_window,
