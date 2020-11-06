@@ -18,6 +18,7 @@
 
 #include "host-common/crash_reporter.h"
 
+#include <algorithm>
 #include <string>
 #include <assert.h>
 #include <string.h>

@@ -33,6 +33,7 @@
 
 #include <EGL/eglext.h>
 
+#include <algorithm>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
