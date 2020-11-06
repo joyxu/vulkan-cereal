@@ -54,27 +54,27 @@ bool shouldEnableTracing() {
 #endif
 
 __attribute__((always_inline)) void beginTrace(const char* name) {
-    if (CC_LIKELY(*tracingDisabledPtr)) return;
+    // if (CC_LIKELY(*tracingDisabledPtr)) return;
     // virtualdeviceperfetto::beginTrace(name);
 }
 
 __attribute__((always_inline)) void endTrace() {
-    if (CC_LIKELY(*tracingDisabledPtr)) return;
+    // if (CC_LIKELY(*tracingDisabledPtr)) return;
     // virtualdeviceperfetto::endTrace();
 }
 
 __attribute__((always_inline)) void traceCounter(const char* name, int64_t value) {
-    if (CC_LIKELY(*tracingDisabledPtr)) return;
+    // if (CC_LIKELY(*tracingDisabledPtr)) return;
     // virtualdeviceperfetto::traceCounter(name, value);
 }
 
 ScopedTrace::ScopedTrace(const char* name) {
-    if (CC_LIKELY(*tracingDisabledPtr)) return;
+    // if (CC_LIKELY(*tracingDisabledPtr)) return;
     // virtualdeviceperfetto::beginTrace(name);
 }
 
 ScopedTrace::~ScopedTrace() {
-    if (CC_LIKELY(*tracingDisabledPtr)) return;
+    // if (CC_LIKELY(*tracingDisabledPtr)) return;
     // virtualdeviceperfetto::endTrace();
 }
 
