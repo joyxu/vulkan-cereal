@@ -2149,7 +2149,7 @@ public:
         if (!physdevInfo) {
             // If this fails, we crash, as we assume that the memory properties
             // map should have the info.
-            fprintf(stderr, "%s: Could not get image memory requirement for VkPhysicalDevice\n");
+            // fprintf(stderr, "%s: Could not get image memory requirement for VkPhysicalDevice\n");
         }
 
         if ((physdevInfo->props.apiVersion >= VK_MAKE_VERSION(1, 1, 0)) &&
@@ -2454,8 +2454,8 @@ public:
 
         if (!feature_is_enabled(kFeature_GLDirectMem) &&
             !feature_is_enabled(kFeature_VirtioGpuNext)) {
-            fprintf(stderr, "%s: Tried to use direct mapping "
-                    "while GLDirectMem is not enabled!\n");
+            // fprintf(stderr, "%s: Tried to use direct mapping "
+                    // "while GLDirectMem is not enabled!\n");
         }
 
         auto info = android::base::find(mMapInfo, memory);
@@ -3857,16 +3857,16 @@ public:
                 VkResult result =
                         vk->vkCreateImage(device, &createInfo, nullptr, &image);
                 if (result != VK_SUCCESS) {
-                    fprintf(stderr, "%s: vkCreateImage failed. w h %u %u result 0x%x\n", __func__,
-                            width, createInfo.extent.height,
-                            result);
+                    // fprintf(stderr, "%s: vkCreateImage failed. w h %u %u result 0x%x\n", __func__,
+                            // width, createInfo.extent.height,
+                            // result);
                     continue;
                 }
                 vk->vkGetImageSubresourceLayout(device, image, &subresource, &subresourceLayout);
                 vk->vkDestroyImage(device, image, nullptr);
 
                 if (width > kMinWidth && subresourceLayout.offset != offset) {
-                    fprintf(stderr, "Image size %u x %u has a different offset (%u), offset of other images %u, returned pOffset might be invalid.\n", width, createInfo.extent.height, offset);
+                    // fprintf(stderr, "Image size %u x %u has a different offset (%u), offset of other images %u, returned pOffset might be invalid.\n", width, createInfo.extent.height, offset);
                 }
                 offset = subresourceLayout.offset;
 

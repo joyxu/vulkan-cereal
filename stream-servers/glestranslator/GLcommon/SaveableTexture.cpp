@@ -774,7 +774,7 @@ void SaveableTexture::onSave(
             emulatedBaseSwizzle = getSwizzleForEmulatedFormat(m_format);
         }
         std::unordered_map<GLenum, GLint> texParam;
-        auto saveParam = [this, &texParam, stream, &dispatcher,
+        auto saveParam = [this, &texParam, &dispatcher,
                 emulatedBaseSwizzle](
                 const GLenum* plist, size_t plistSize) {
             GLint param;
@@ -963,8 +963,7 @@ void SaveableTexture::restore() {
                     }
                 };
         auto restoreTex3D =
-                [this, numLevels, resultInternalFormat,
-                resultFormat, &dispatcher](
+                [this, numLevels, resultFormat, &dispatcher](
                         GLenum target,
                         std::unique_ptr<LevelImageData[]>& levelData) {
                     for (unsigned int level = 0; level < numLevels; level++) {

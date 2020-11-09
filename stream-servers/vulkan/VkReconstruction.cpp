@@ -433,7 +433,7 @@ std::vector<uint64_t> VkReconstruction::getOrderedUniqueModifyApis() const {
 
     // Now add all handle modifications to the trace, ordered by the .order field.
     mHandleModifications.forEachLiveComponent_const(
-        [this, &orderedModifies](bool live, uint64_t componentHandle, uint64_t entityHandle, const HandleModification& mod) {
+        [&orderedModifies](bool live, uint64_t componentHandle, uint64_t entityHandle, const HandleModification& mod) {
         orderedModifies.push_back(mod);
     });
 

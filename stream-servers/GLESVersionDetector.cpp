@@ -229,7 +229,7 @@ std::string filterExtensionsBasedOnMaxVersion(GLESDispatchMaxVersion ver,
 
     std::string filteredExtensions;
     filteredExtensions.reserve(4096);
-    auto add = [ver, &filteredExtensions](const std::string& hostExt) {
+    auto add = [&filteredExtensions](const std::string& hostExt) {
         if (!hostExt.empty() &&
             sWhitelistedExtensionsGLES2(hostExt)) {
             filteredExtensions += hostExt;

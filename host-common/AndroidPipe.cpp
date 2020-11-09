@@ -814,7 +814,7 @@ void* android_pipe_lookup_by_id(const int id) {
         void* hwPipe = (*cb.first)(id);
         if (hwPipe) {
             if (hwPipeFound) {
-                fprintf(stderr, "Pipe id (%d) is not unique, at least two "
+                fprintf(stderr, "%s: Pipe id (%d) is not unique, at least two "
                         "pipes are found: `%s` and `%s`\n",
                         __func__, id, tagFound, cb.second);
                 abort();

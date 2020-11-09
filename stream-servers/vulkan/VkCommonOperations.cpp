@@ -123,7 +123,7 @@ bool getStagingMemoryTypeIndex(
         VK_COMMON_ERROR(
             "Could not create test buffer "
             "for staging buffer query. VkResult: 0x%llx",
-            testBufferCreateRes);
+            (unsigned long long)testBufferCreateRes);
         return false;
     }
 
