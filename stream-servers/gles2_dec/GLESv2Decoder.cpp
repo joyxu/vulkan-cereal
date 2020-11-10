@@ -437,15 +437,15 @@ void GLESv2Decoder::s_glUnmapBufferDMA(void* self, GLenum target, GLintptr offse
 
 static std::pair<void*, GLsizeiptr> align_pointer_size(void* ptr, GLsizeiptr length)
 {
-    constexpr size_t PAGE_BITS = 12;
-    constexpr size_t PAGE_SIZE = 1u << PAGE_BITS;
-    constexpr size_t PAGE_OFFSET_MASK = PAGE_SIZE - 1;
+    constexpr size_t kPageBits = 12;
+    constexpr size_t kPageSize = 1u << kPageBits;
+    constexpr size_t kPageOffsetMask = kPageSize - 1;
 
     uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
-    uintptr_t page_offset = addr & PAGE_OFFSET_MASK;
+    uintptr_t page_offset = addr & kPageOffsetMask;
 
     return { reinterpret_cast<void*>(addr - page_offset),
-             ((length + page_offset + PAGE_SIZE - 1) >> PAGE_BITS) << PAGE_BITS
+             ((length + page_offset + kPageSize - 1) >> kPageBits) << kPageBits
            };
 }
 

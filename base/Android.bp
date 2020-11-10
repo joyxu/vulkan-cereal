@@ -23,7 +23,6 @@ cc_library_static {
         "SubAllocator.cpp",
         "System.cpp",
         "Tracing.cpp",
-        "SharedMemory_posix.cpp",
         "Thread_pthread.cpp",
     ],
     static_libs: [

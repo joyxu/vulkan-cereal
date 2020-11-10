@@ -14,6 +14,14 @@ cc_library_headers {
     ]
 }
 
+cc_library_headers {
+    name: "gfxstream_x11_headers",
+    host_supported: true,
+    export_include_dirs: [
+        "stream-servers/apigen-codec-common",
+    ]
+}
+
 cc_defaults {
     name: "gfxstream_defaults",
     cflags: ["-D_FILE_OFFSET_BITS=64",
@@ -33,11 +41,16 @@ cc_defaults {
             ],
     header_libs: [
         "gfxstream_headers",
+        "gfxstream_x11_headers",
     ],
     target: {
         host: {
             compile_multilib: "64",
         },
+        linux_bionic_arm64: {
+            enabled: true,
+            cflags: [ "-Dandroidbionic", ],
+        }
     },
     device_supported: false,
     host_supported: true,

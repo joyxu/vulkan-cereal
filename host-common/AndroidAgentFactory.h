@@ -43,6 +43,7 @@ namespace emulation {
 // the existing agents with the one your factory provides.
 class AndroidConsoleFactory {
 public:
+    virtual ~AndroidConsoleFactory() = default;
     ANDROID_CONSOLE_AGENTS_LIST(ANDROID_DEFINE_CONSOLE_GETTER)
 };
 

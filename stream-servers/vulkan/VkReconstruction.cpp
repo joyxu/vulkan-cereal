@@ -181,6 +181,7 @@ void VkReconstruction::save(android::base::Stream* stream) {
 class TrivialStream : public IOStream {
 public:
     TrivialStream() : IOStream(4) { }
+    virtual ~TrivialStream() = default;
 
     void* allocBuffer(size_t minSize) {
         size_t allocSize = (m_bufsize < minSize ? minSize : m_bufsize);
