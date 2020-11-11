@@ -6840,7 +6840,7 @@ void BoxedHandleUnwrapAndDeletePreserveBoxedMapping::allocPreserve(size_t count)
         allocPreserve(count); \
         for (size_t i = 0; i < count; ++i) { \
             (*mPreserveBufPtr)[i] = (uint64_t)(handles[i]); \
-            if (handles[i]) { handles[i] = VkDecoderGlobalState::get()->unbox_##type_name(handles[i]); } else { handles[i] = nullptr; } ; \
+            if (handles[i]) { handles[i] = VkDecoderGlobalState::get()->unbox_##type_name(handles[i]); } else { handles[i] = (type_name)nullptr; } ; \
         } \
     } \
     void BoxedHandleUnwrapAndDeletePreserveBoxedMapping::mapHandles_##type_name##_u64(const type_name* handles, uint64_t* handle_u64s, size_t count) { \
@@ -6854,7 +6854,7 @@ void BoxedHandleUnwrapAndDeletePreserveBoxedMapping::allocPreserve(size_t count)
         allocPreserve(count); \
         for (size_t i = 0; i < count; ++i) { \
             (*mPreserveBufPtr)[i] = (uint64_t)(handle_u64s[i]); \
-            if (handle_u64s[i]) { handles[i] = VkDecoderGlobalState::get()->unbox_##type_name((type_name)(uintptr_t)handle_u64s[i]); } else { handles[i] = nullptr; } \
+            if (handle_u64s[i]) { handles[i] = VkDecoderGlobalState::get()->unbox_##type_name((type_name)(uintptr_t)handle_u64s[i]); } else { handles[i] = (type_name)nullptr; } \
         } \
     } \
 
@@ -6863,7 +6863,7 @@ void BoxedHandleUnwrapAndDeletePreserveBoxedMapping::allocPreserve(size_t count)
         allocPreserve(count); \
         for (size_t i = 0; i < count; ++i) { \
             (*mPreserveBufPtr)[i] = (uint64_t)(handles[i]); \
-            if (handles[i]) { auto boxed = handles[i]; handles[i] = VkDecoderGlobalState::get()->unbox_non_dispatchable_##type_name(handles[i]); delete_boxed_non_dispatchable_##type_name(boxed); } else { handles[i] = nullptr; }; \
+            if (handles[i]) { auto boxed = handles[i]; handles[i] = VkDecoderGlobalState::get()->unbox_non_dispatchable_##type_name(handles[i]); delete_boxed_non_dispatchable_##type_name(boxed); } else { handles[i] = (type_name)nullptr; }; \
         } \
     } \
     void BoxedHandleUnwrapAndDeletePreserveBoxedMapping::mapHandles_##type_name##_u64(const type_name* handles, uint64_t* handle_u64s, size_t count) { \
@@ -6877,7 +6877,7 @@ void BoxedHandleUnwrapAndDeletePreserveBoxedMapping::allocPreserve(size_t count)
         allocPreserve(count); \
         for (size_t i = 0; i < count; ++i) { \
             (*mPreserveBufPtr)[i] = (uint64_t)(handle_u64s[i]); \
-            if (handle_u64s[i]) { auto boxed = (type_name)(uintptr_t)handle_u64s[i]; handles[i] = VkDecoderGlobalState::get()->unbox_non_dispatchable_##type_name((type_name)(uintptr_t)handle_u64s[i]); delete_boxed_non_dispatchable_##type_name(boxed); } else { handles[i] = nullptr; } \
+            if (handle_u64s[i]) { auto boxed = (type_name)(uintptr_t)handle_u64s[i]; handles[i] = VkDecoderGlobalState::get()->unbox_non_dispatchable_##type_name((type_name)(uintptr_t)handle_u64s[i]); delete_boxed_non_dispatchable_##type_name(boxed); } else { handles[i] = (type_name)nullptr; } \
         } \
     } \
 

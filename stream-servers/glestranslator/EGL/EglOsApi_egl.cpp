@@ -20,6 +20,11 @@
 #include "base/SharedLibrary.h"
 #include "GLcommon/GLLibrary.h"
 #include "apigen-codec-common/ErrorLog.h"
+
+#ifdef ANDROID
+#include <android/native_window.h>
+#endif
+
 #ifdef __linux__
 #include "apigen-codec-common/X11Support.h"
 #endif
@@ -297,14 +302,17 @@ EglOsEglDisplay::EglOsEglDisplay() {
 
     mHeadless = android::base::getEnvironmentVariable("ANDROID_EMU_HEADLESS") == "1";
 
-#ifdef __linux__
+#ifdef ANDROID
+    mGlxDisplay = nullptr;
+#elif defined(__linux__)
     if (mHeadless) mGlxDisplay = nullptr;
     else mGlxDisplay = getX11Api()->XOpenDisplay(0);
 #endif // __linux__
 };
 
 EglOsEglDisplay::~EglOsEglDisplay() {
-#ifdef __linux__
+#ifdef ANDROID
+#elif defined(__linux__)
     if (mGlxDisplay) getX11Api()->XCloseDisplay(mGlxDisplay);
 #endif // __linux__
 }
@@ -542,6 +550,8 @@ bool EglOsEglDisplay::isValidNativeWin(Surface* win) {
 bool EglOsEglDisplay::isValidNativeWin(EGLNativeWindowType win) {
 #ifdef _WIN32
     return IsWindow(win);
+#elif defined(ANDROID)
+    return true;
 #elif defined(__linux__)
     Window root;
     int t;
@@ -564,6 +574,10 @@ bool EglOsEglDisplay::checkWindowPixelFormatMatch(EGLNativeWindowType win,
     }
     *width = r.right - r.left;
     *height = r.bottom - r.top;
+    return true;
+#elif defined(ANDROID)
+    *width = ANativeWindow_getWidth((ANativeWindow*)win);
+    *height = ANativeWindow_getHeight((ANativeWindow*)win);
     return true;
 #elif defined(__linux__)
     //TODO: to check what does ATI & NVIDIA enforce on win pixelformat

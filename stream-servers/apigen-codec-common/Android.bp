@@ -8,6 +8,10 @@ cc_library_static {
         "ChecksumCalculator.cpp",
         "ChecksumCalculatorThreadInfo.cpp",
         "glUtils.cpp",
-        "X11Support.cpp"
     ],
+    target: {
+        host: {
+            srcs: [ "X11Support.cpp", ],
+        }
+    }
 }

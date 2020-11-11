@@ -25,8 +25,6 @@ cc_library_headers {
 cc_defaults {
     name: "gfxstream_defaults",
     cflags: ["-D_FILE_OFFSET_BITS=64",
-             "-U__ANDROID__",
-             "-UANDROID",
              "-Wno-unreachable-code-loop-increment",
              "-Wno-unused-parameter",
              "-Wno-unused-function",
@@ -46,12 +44,19 @@ cc_defaults {
     target: {
         host: {
             compile_multilib: "64",
+            cflags: [
+                "-U__ANDROID__",
+                "-UANDROID",
+            ]
+        },
+        android: {
+            compile_multilib: "64",
+            shared_libs: [ "libnativewindow", ],
         },
         linux_bionic_arm64: {
             enabled: true,
             cflags: [ "-Dandroidbionic", ],
         }
     },
-    device_supported: false,
     host_supported: true,
 }

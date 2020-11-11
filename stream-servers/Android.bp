@@ -54,8 +54,6 @@ cc_library_shared {
         "RendererImpl.cpp",
         "FrameBuffer.cpp",
 
-        "NativeSubWindow_x11.cpp",
-
         "GfxStreamAgents.cpp",
         "virtio-gpu-gfxstream-renderer.cpp",
         "GfxStreamBackend.cpp",
@@ -63,4 +61,12 @@ cc_library_shared {
     host_ldlibs: [
         "-lpthread",
     ],
+    target: {
+        host: {
+            srcs: ["NativeSubWindow_x11.cpp",],
+        },
+        android: {
+            srcs: ["NativeSubWindow_android.cpp",],
+        }
+    }
 }

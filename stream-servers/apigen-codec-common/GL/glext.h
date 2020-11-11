@@ -1,6 +1,8 @@
 #ifndef __glext_h_
 #define __glext_h_
 
+#include <KHR/khrplatform.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -6149,8 +6151,8 @@ typedef char GLchar;
 
 #ifndef GL_VERSION_1_5
 /* GL types for handling large vertex buffer objects */
-typedef ptrdiff_t GLintptr;
-typedef ptrdiff_t GLsizeiptr;
+typedef khronos_ssize_t GLintptr;
+typedef khronos_intptr_t GLsizeiptr;
 #endif
 
 #ifndef GL_ARB_vertex_buffer_object

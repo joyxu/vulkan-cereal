@@ -57,9 +57,11 @@ public:
     // value.
     EglDisplay* getDisplay(EGLNativeDisplayType dpy) const;
 
+#ifndef ANDROID
     // Return the EglDisplay instance corresponding to a given EGLDisplay |dpy|
     // value. NULL if none matches.
     EglDisplay* getDisplay(EGLDisplay dpy) const;
+#endif
 
     // Remove a given EGLDisplay identified by |dpy|.
     bool removeDisplay(EGLDisplay dpy);

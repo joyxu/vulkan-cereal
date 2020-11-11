@@ -794,15 +794,15 @@ GOLDFISH_VK_LIST_NON_DISPATCHABLE_HANDLE_TYPES(DEFINE_BOXED_NON_DISPATCHABLE_HAN
 
 #define BOXED_DISPATCHABLE_UNWRAP_IMPL(type_name) \
     MAKE_HANDLE_MAPPING_FOREACH(type_name, \
-        if (handles[i]) { handles[i] = m_state->unbox_##type_name(handles[i]); } else { handles[i] = nullptr; } ;, \
+        if (handles[i]) { handles[i] = m_state->unbox_##type_name(handles[i]); } else { handles[i] = (type_name)nullptr; } ;, \
         if (handles[i]) { handle_u64s[i] = (uint64_t)m_state->unbox_##type_name(handles[i]); } else { handle_u64s[i] = 0; }, \
-        if (handle_u64s[i]) { handles[i] = m_state->unbox_##type_name((type_name)(uintptr_t)handle_u64s[i]); } else { handles[i] = nullptr; })
+        if (handle_u64s[i]) { handles[i] = m_state->unbox_##type_name((type_name)(uintptr_t)handle_u64s[i]); } else { handles[i] = (type_name)nullptr; })
 
 #define BOXED_NON_DISPATCHABLE_UNWRAP_IMPL(type_name) \
     MAKE_HANDLE_MAPPING_FOREACH(type_name, \
-        if (handles[i]) { handles[i] = m_state->unbox_non_dispatchable_##type_name(handles[i]); } else { handles[i] = nullptr; } ;, \
+        if (handles[i]) { handles[i] = m_state->unbox_non_dispatchable_##type_name(handles[i]); } else { handles[i] = (type_name)nullptr; } ;, \
         if (handles[i]) { handle_u64s[i] = (uint64_t)m_state->unbox_non_dispatchable_##type_name(handles[i]); } else { handle_u64s[i] = 0; }, \
-        if (handle_u64s[i]) { handles[i] = m_state->unbox_non_dispatchable_##type_name((type_name)(uintptr_t)handle_u64s[i]); } else { handles[i] = nullptr; })
+        if (handle_u64s[i]) { handles[i] = m_state->unbox_non_dispatchable_##type_name((type_name)(uintptr_t)handle_u64s[i]); } else { handles[i] = (type_name)nullptr; })
 
 class BoxedHandleUnwrapMapping : public VulkanHandleMapping {
 public:
@@ -814,15 +814,15 @@ public:
 
 #define BOXED_DISPATCHABLE_WRAP_IMPL(type_name) \
     MAKE_HANDLE_MAPPING_FOREACH(type_name, \
-        if (handles[i]) { handles[i] = m_state->unboxed_to_boxed_##type_name(handles[i]); } else { handles[i] = nullptr; } ;, \
+        if (handles[i]) { handles[i] = m_state->unboxed_to_boxed_##type_name(handles[i]); } else { handles[i] = (type_name)nullptr; } ;, \
         if (handles[i]) { handle_u64s[i] = (uint64_t)m_state->unboxed_to_boxed_##type_name(handles[i]); } else { handle_u64s[i] = 0; }, \
-        if (handle_u64s[i]) { handles[i] = m_state->unboxed_to_boxed_##type_name((type_name)(uintptr_t)handle_u64s[i]); } else { handles[i] = nullptr; })
+        if (handle_u64s[i]) { handles[i] = m_state->unboxed_to_boxed_##type_name((type_name)(uintptr_t)handle_u64s[i]); } else { handles[i] = (type_name)nullptr; })
 
 #define BOXED_NON_DISPATCHABLE_WRAP_IMPL(type_name) \
     MAKE_HANDLE_MAPPING_FOREACH(type_name, \
-        if (handles[i]) { handles[i] = m_state->unboxed_to_boxed_non_dispatchable_##type_name(handles[i]); } else { handles[i] = nullptr; } ;, \
+        if (handles[i]) { handles[i] = m_state->unboxed_to_boxed_non_dispatchable_##type_name(handles[i]); } else { handles[i] = (type_name)nullptr; } ;, \
         if (handles[i]) { handle_u64s[i] = (uint64_t)m_state->unboxed_to_boxed_non_dispatchable_##type_name(handles[i]); } else { handle_u64s[i] = 0; }, \
-        if (handle_u64s[i]) { handles[i] = m_state->unboxed_to_boxed_non_dispatchable_##type_name((type_name)(uintptr_t)handle_u64s[i]); } else { handles[i] = nullptr; })
+        if (handle_u64s[i]) { handles[i] = m_state->unboxed_to_boxed_non_dispatchable_##type_name((type_name)(uintptr_t)handle_u64s[i]); } else { handles[i] = (type_name)nullptr; })
 
 class BoxedHandleWrapMapping : public VulkanHandleMapping {
 public:
@@ -861,9 +861,9 @@ public:
 
 #define BOXED_NON_DISPATCHABLE_UNWRAP_AND_DELETE_IMPL(type_name) \
     MAKE_HANDLE_MAPPING_FOREACH(type_name, \
-        if (handles[i]) { auto boxed = handles[i]; handles[i] = m_state->unbox_non_dispatchable_##type_name(handles[i]); delete_boxed_non_dispatchable_##type_name(boxed); } else { handles[i] = nullptr; } ;, \
+        if (handles[i]) { auto boxed = handles[i]; handles[i] = m_state->unbox_non_dispatchable_##type_name(handles[i]); delete_boxed_non_dispatchable_##type_name(boxed); } else { handles[i] = (type_name)nullptr; } ;, \
         if (handles[i]) { auto boxed = handles[i]; handle_u64s[i] = (uint64_t)m_state->unbox_non_dispatchable_##type_name(handles[i]); delete_boxed_non_dispatchable_##type_name(boxed); } else { handle_u64s[i] = 0; }, \
-        if (handle_u64s[i]) { auto boxed = (type_name)(uintptr_t)handle_u64s[i]; handles[i] = m_state->unbox_non_dispatchable_##type_name((type_name)(uintptr_t)handle_u64s[i]); delete_boxed_non_dispatchable_##type_name(boxed); } else { handles[i] = nullptr; })
+        if (handle_u64s[i]) { auto boxed = (type_name)(uintptr_t)handle_u64s[i]; handles[i] = m_state->unbox_non_dispatchable_##type_name((type_name)(uintptr_t)handle_u64s[i]); delete_boxed_non_dispatchable_##type_name(boxed); } else { handles[i] = (type_name)nullptr; })
 
 class BoxedHandleCreateMapping : public VulkanHandleMapping {
 public:
