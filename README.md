@@ -7,6 +7,36 @@ and forward graphics API calls from one place to another:
 - From one process to another for IPC graphics
 - From one computer to another via network sockets
 
-# Installation, build, and Hello World use case
+# Build
 
-TODO
+Run `./build-host.sh`, or:
+
+    mkdir build
+    cd build
+    cmake . ../ -DCMAKE_TOOLCHAIN_FILE=../toolchain/toolchain-linux-x86_64.cmake
+    # Or toolchain-darwin, or toolchain-windows_msvc depending on host platform
+    make -j24
+
+TODO: guest build makefiles (Android.bp)
+
+# Project layout and overall evolution plan
+
+For fast iteration, to start with, this project will reference code from the
+following projects:
+
+    device/generic/goldfish-opengl # master branch
+    platform/external/qemu/ # emu-master-dev branch
+
+Once the minimum set of code dependencies is determined, they will be extracted
+out to this project.  We'll also use those to get the initial version of the
+code working on both Cuttlefish and Goldfish.
+
+After this extraction and verification step, all the needed code for gfx
+streaming kit will be contained in this project, but the toolchain prebuilts
+for host side still need to be included as other projects. Therefore, we're
+looking at creating a new repo branch that encompasses this project and the
+toolchain prebuilts (or any other relevant projects). Thus it's a good chance
+to rename this project to something more appropriate like
+`device/generic/gfxstream`.
+
+Then, we add a new go/ab target that builds + runs any relevant tests.
