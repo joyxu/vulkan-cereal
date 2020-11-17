@@ -44,9 +44,19 @@ Then, we add a new go/ab target that builds + runs any relevant tests.
 # Structure
 
 - `CMakeLists.txt`: specifies all host-side build targets. This includes all
-  backends along with client/server setups that live only on the host.
-- `Android.bp`: specifies all guest-side build targets for Android
+  backends along with client/server setups that live only on the host. Some
+  - Backend implementations
+  - Implementations of the host side of various transports
+  - Frontends used for host-side testing with a mock implementation of guest
+    graphics stack (mainly Android)
+  - Frontends that result in actual Linux/macOS/Windows gles/vk libraries
+    (isolation / fault tolerance use case)
+- `Android.bp`: specifies all guest-side build targets for Android:
+  - Implementations of the guest side of various transports (above the kernel)
+  - Frontends
 - `BUILD.gn`: specifies all guest-side build targets for Fuchsia
+  - Implementations of the guest side of various transports (above the kernel)
+  - Frontends
 - `base/`: common libraries that are built for both the guest and host.
   Contains utility code related to synchronization, threading, and suballocation.
 - `protocols/`: implementations of protocols for various graphics APIs. May contain
@@ -59,3 +69,6 @@ code generators to make it easy to regen the protocol based on certain things.
 - `transports/`: libraries that live on both guest and host that implement
   various transports.  Does not care about what data is passed through, only
   how.
+- `testenvs/`: includes host-side mock implementations of guest graphics stacks,
+incl. Android
+- `tests/`: includes functional tests use a mock transport and test environment
