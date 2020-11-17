@@ -14,25 +14,9 @@
 import sys
 import xml.etree.ElementTree as etree
 
-xmlFileName = sys.argv[1]
-targetFileName = sys.argv[2]
+from cereal.common.vulkantypes import VulkanTypeInfo
 
-# Parse vk.xml, get information at the XML level.
-
-xmlTree = etree.parse(xmlFileName)
-xmlRoot = xmlTree.getroot()
-
-vulkanRegistryElements = [
-    "types/type",
-    "enums",
-    "commands/command",
-    "feature",
-    "extensions/extension",
-]
-
-vulkanRegistryDicts = {}
-
-def findToplevelRegistryElements(key):
+def findToplevelRegistryElements(xmlRoot, key):
     orderedKeys = []
     elementDict = {}
     for e in xmlRoot.findall(key):
@@ -48,15 +32,66 @@ def findToplevelRegistryElements(key):
         orderedKeys.append(subKey)
         elementDict[subKey] = e
     return (orderedKeys, elementDict)
-    
-vulkanRegistryDicts = \
-    dict(map( \
-        lambda k: (k, findToplevelRegistryElements(k)),
-            vulkanRegistryElements))
 
-# Transform the resulting info to info about Vulkan types
-# or APIs in general.
-# for k in vulkanRegistryElements:
-#     print k
-#     for e in vulkanRegistryDicts[k][0]:
-#         print e
+def initElementNameDict():
+    d = { "types" : [], "enums" : [], "commands" : [], }
+    return d
+
+def populateRequiredElementNames(commandXmlDict, featureOrExtensionXmlNode, dictionary):
+    for elts in featureOrExtensionXmlNode.findall("require"):
+        for t in elts.findall("type"):
+            dictionary["types"].append(t.get("name"))
+        for t in elts.findall("enum"):
+            dictionary["enums"].append(t.get("name"))
+        for t in elts.findall("command"):
+            dictionary["commands"].append(t.get("name"))
+            for t_dependent in commandXmlDict[t.get("name")].findall(".//type"):
+                dictionary["types"].append(t_dependent.text)
+
+def populateRequiredNamesFromRegistryDict(commandXmlDict, registryDict, registryKey):
+    res = {}
+    for k in registryDict[registryKey][0]:
+        res[k] = initElementNameDict()
+        populateRequiredElementNames( \
+            commandXmlDict,
+            registryDict[registryKey][1][k],
+            res[k])
+    return res
+
+def iterateCereal(registryDict, cereal):
+    visited = {
+        "types" : set(),
+        "enums" : set(),
+        "commands" : set(),
+    }
+
+if __name__ == "__main__":
+    xmlFileName = sys.argv[1]
+    targetFileName = sys.argv[2]
+
+    xmlTree = etree.parse(xmlFileName)
+    xmlRoot = xmlTree.getroot()
+
+    vulkanRegistryElements = [
+        "types/type",
+        "enums",
+        "commands/command",
+        "feature",
+        "extensions/extension",
+    ]
+
+    vulkanRegistryDicts = {}
+
+    vulkanRegistryDicts = \
+        dict(map( \
+            lambda k: (k, findToplevelRegistryElements(xmlRoot, k)),
+                vulkanRegistryElements))
+
+    commandXmlDict = vulkanRegistryDicts["commands/command"][1]
+
+    requiredNamesCore = \
+        populateRequiredNamesFromRegistryDict(commandXmlDict, vulkanRegistryDicts, "feature")
+    requiredNamesExtensions = \
+        populateRequiredNamesFromRegistryDict(commandXmlDict, vulkanRegistryDicts, "extensions/extension")
+
+
