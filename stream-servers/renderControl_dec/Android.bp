@@ -1,0 +1,11 @@
+cc_library_static {
+    name: "gfxstream_renderControl_dec",
+    defaults: [ "gfxstream_defaults" ],
+    static_libs: [
+        "gfxstream_apigen_codec_common",
+    ],
+    srcs: [
+        "renderControl_dec.cpp",
+        "renderControl_server_context.cpp",
+    ],
+}

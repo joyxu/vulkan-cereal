@@ -27,6 +27,7 @@
 #else
 
 #include <array>
+#include <stddef.h>
 
 namespace android {
 namespace base {

@@ -1,0 +1,48 @@
+cc_library_static {
+    name: "gfxstream_host_common",
+    defaults: [ "gfxstream_defaults" ],
+    static_libs: [
+        "gfxstream_base",
+    ],
+    srcs: [
+        "crash_reporter.cpp",
+        "vm_operations.cpp",
+        "feature_control.cpp",
+        "dma_device.cpp",
+        "sync_device.cpp",
+        "misc.cpp",
+        "window_operations.cpp",
+
+        "AndroidPipe.cpp",
+        "HostmemIdMapping.cpp",
+        "RefcountPipe.cpp",
+        "AndroidAgentFactory.cpp",
+
+        "GoldfishSyncCommandQueue.cpp",
+        "goldfish_sync.cpp",
+
+        "DmaMap.cpp",
+        "GoldfishDma.cpp",
+
+        "address_space_device_control_ops.cpp",
+        "address_space_device.cpp",
+        "address_space_host_memory_allocator.cpp",
+        "address_space_shared_slots_host_memory_allocator.cpp",
+        "address_space_graphics.cpp",
+        "address_space_host_media.cpp",
+
+        "avd/info.cpp",
+        "avd/hw-config.cpp",
+
+        "opengles.cpp",
+        "opengl/EmuglBackendList.cpp",
+        "opengl/emugl_config.cpp",
+        "opengl/GLProcessPipe.cpp",
+        "opengl/GpuFrameBridge.cpp",
+        "opengl/gpuinfo.cpp",
+        "opengl/logger.cpp",
+        "opengl/OpenglEsPipe.cpp",
+
+        "opengl/NativeGpuInfo_linux.cpp",
+    ],
+}
