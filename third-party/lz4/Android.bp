@@ -1,0 +1,11 @@
+cc_library_static {
+    name: "gfxstream_lz4",
+    defaults: ["gfxstream_defaults"],
+    srcs: [
+        "lz4.c",
+        "lz4frame.c",
+        "lz4hc.c",
+        "xxhash.c",
+    ],
+    export_include_dirs: [ "." ],
+}

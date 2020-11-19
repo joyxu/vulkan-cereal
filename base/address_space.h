@@ -13,15 +13,12 @@
 // limitations under the License.
 #pragma once
 
-#include "c_header.h"
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-ANDROID_BEGIN_HEADER
 
 #ifdef ADDRESS_SPACE_NAMESPACE
 namespace ADDRESS_SPACE_NAMESPACE {
@@ -390,5 +387,3 @@ static void address_space_allocator_run(
 #ifdef ADDRESS_SPACE_NAMESPACE
 }
 #endif
-
-ANDROID_END_HEADER

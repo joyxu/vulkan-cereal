@@ -1,0 +1,8 @@
+cc_library_static {
+    name: "gfxstream_angle_stub",
+    defaults: ["gfxstream_defaults"],
+    srcs: [
+        "gfxstreamAngleShaderTranslatorStub.cpp",
+    ],
+    export_include_dirs: [ "src/libShaderTranslator", ],
+}

@@ -20,8 +20,6 @@
 #include <sstream>
 #include <string>
 
-#include <stdio.h>
-
 namespace android {
 namespace base {
 
@@ -121,13 +119,14 @@ public:
         uint64_t addr = (uintptr_t)ptr;
         if (addr < startAddr ||
             addr > endAddr) {
-            fprintf(stderr, "SubAllocator::%s: error: (tag: %s): "
-                    "Out of range: 0x%llx "
-                    "Range: [0x%llx 0x%llx)\n",
-                    __func__, task,
-                    (unsigned long long)addr,
-                    (unsigned long long)startAddr,
-                    (unsigned long long)endAddr);
+            std::stringstream ss;
+            ss << "SubAllocator " << task << ": ";
+            ss << "Out of range: " << std::hex << addr << " ";
+            ss << "Range: " <<
+                std::hex << startAddr << " " <<
+                std::hex << endAddr;
+            std::string msg = ss.str();
+            fprintf(stderr, "%s: range check failed: [%s]\n", __func__, msg.c_str());
         }
     }
 
