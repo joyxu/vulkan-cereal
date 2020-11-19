@@ -1066,7 +1066,7 @@ public:
         return false;
     }
 
-    int transferReadIov(int resId, uint64_t offset, virgl_box* box) {
+    int transferReadIov(int resId, uint64_t offset, virgl_box* box, struct iovec* iov, int iovec_cnt) {
         AutoLock lock(mLock);
 
         VGPLOG("resid: %d offset: 0x%llx. box: %u %u %u %u", resId,
@@ -1109,7 +1109,23 @@ public:
 
         VGPLOG("Linear first word: %d", *(int*)(entry.linear));
 
-        auto syncRes = sync_iov(&entry, offset, box, LINEAR_TO_IOV);
+        int syncRes;
+
+        if (iovec_cnt) {
+            PipeResEntry e = {
+                entry.args,
+                iov,
+                (uint32_t)iovec_cnt,
+                entry.linear,
+                entry.linearSize,
+            };
+            syncRes =
+                sync_iov(&e, offset, box, LINEAR_TO_IOV);
+        } else {
+            syncRes =
+                sync_iov(&entry, offset, box, LINEAR_TO_IOV);
+        }
+
         mLastSubmitCmdCtxExists = true;
         mLastSubmitCmdCtx = entry.ctxId;
 
@@ -1118,7 +1134,7 @@ public:
         return syncRes;
     }
 
-    int transferWriteIov(int resId, uint64_t offset, virgl_box* box) {
+    int transferWriteIov(int resId, uint64_t offset, virgl_box* box, struct iovec* iov, int iovec_cnt) {
         AutoLock lock(mLock);
         VGPLOG("resid: %d offset: 0x%llx", resId,
                (unsigned long long)offset);
@@ -1126,7 +1142,20 @@ public:
         if (it == mResources.end()) return EINVAL;
 
         auto& entry = it->second;
-        auto syncRes = sync_iov(&entry, offset, box, IOV_TO_LINEAR);
+        int syncRes;
+
+        if (iovec_cnt) {
+            PipeResEntry e = {
+                entry.args,
+                iov,
+                (uint32_t)iovec_cnt,
+                entry.linear,
+                entry.linearSize,
+            };
+            syncRes = sync_iov(&e, offset, box, IOV_TO_LINEAR);
+        } else {
+            syncRes = sync_iov(&entry, offset, box, IOV_TO_LINEAR);
+        }
 
         if (handleTransferWriteGraphicsUsage(&entry, offset, box)) {
             // Do the pipe service op here, if there is an associated hostpipe.
@@ -1516,7 +1545,7 @@ VG_EXPORT int pipe_virgl_renderer_transfer_read_iov(
     struct virgl_box *box,
     uint64_t offset, struct iovec *iov,
     int iovec_cnt) {
-    return sRenderer()->transferReadIov(handle, offset, box);
+    return sRenderer()->transferReadIov(handle, offset, box, iov, iovec_cnt);
 }
 
 VG_EXPORT int pipe_virgl_renderer_transfer_write_iov(
@@ -1529,7 +1558,7 @@ VG_EXPORT int pipe_virgl_renderer_transfer_write_iov(
     uint64_t offset,
     struct iovec *iovec,
     unsigned int iovec_cnt) {
-    return sRenderer()->transferWriteIov(handle, offset, box);
+    return sRenderer()->transferWriteIov(handle, offset, box, iovec, iovec_cnt);
 }
 
 // Not implemented
