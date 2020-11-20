@@ -7,39 +7,54 @@ and forward graphics API calls from one place to another:
 - From one process to another for IPC graphics
 - From one computer to another via network sockets
 
-# Build
+# Build: Linux
 
-Run `./build-host.sh`, or:
+Make sure the latest CMake is installed.
+Make sure you are using Clang as your `CC` and `CXX`. Then
 
     mkdir build
     cd build
-    cmake . ../ -DCMAKE_TOOLCHAIN_FILE=../toolchain/toolchain-linux-x86_64.cmake
-    # Or toolchain-darwin, or toolchain-windows_msvc depending on host platform
+    cmake . ../
     make -j24
 
-TODO: guest build makefiles (Android.bp)
+# Build: Windows
 
-# Project layout and overall evolution plan
+Make sure the latest CMake is installed.  Make sure Visual Studio 2019 is
+installed on your system along with all the Clang C++ toolchain components.
+Then
 
-For fast iteration, to start with, this project will reference code from the
-following projects:
+    mkdir build
+    cd build
+    cmake . ../ -A x64 -T ClangCL
 
-    device/generic/goldfish-opengl # master branch
-    platform/external/qemu/ # emu-master-dev branch
+A solution file should be generated. Then open the solution file in Visual
+studio and build the `gfxstream_backend` target.
 
-Once the minimum set of code dependencies is determined, they will be extracted
-out to this project.  We'll also use those to get the initial version of the
-code working on both Cuttlefish and Goldfish.
+# Build: Android for host
 
-After this extraction and verification step, all the needed code for gfx
-streaming kit will be contained in this project, but the toolchain prebuilts
-for host side still need to be included as other projects. Therefore, we're
-looking at creating a new repo branch that encompasses this project and the
-toolchain prebuilts (or any other relevant projects). Thus it's a good chance
-to rename this project to something more appropriate like
-`device/generic/gfxstream`.
+Be in the Android build system. Then
 
-Then, we add a new go/ab target that builds + runs any relevant tests.
+    m libgfxstream_backend
+
+It then ends up in `out/host`
+
+# Output artifacts
+
+    libgfxstream_backend.(dll|so|dylib)
+
+# Tests
+
+## Linux Tests
+
+There are a bunch of test executables generated. They require `libEGL.so` and `libGLESv2.so` and `libvulkan.so` to be available, possibly from your GPU vendor or ANGLE, in the `$LD_LIBRARY_PATH`.
+
+## Windows Tests
+
+There are a bunch of test executables generated. They require `libEGL.dll` and `libGLESv2.dll` and `vulkan-1.dll` to be available, possibly from your GPU vendor or ANGLE, in the `%PATH%`.
+
+## Android Host Tests
+
+These are currently not built due to the dependency on system libEGL/libvulkan to run correctly.
 
 # Structure
 
@@ -61,14 +76,10 @@ Then, we add a new go/ab target that builds + runs any relevant tests.
   Contains utility code related to synchronization, threading, and suballocation.
 - `protocols/`: implementations of protocols for various graphics APIs. May contain
 code generators to make it easy to regen the protocol based on certain things.
-- `stream-clients/`: implementations of various frontends for various graphics
-  APIs that generate protocol.
+- `host-common/`: implementations of host-side support code that makes it
+  easier to run the server in a variety of virtual device environments.
+  Contains concrete implementations of auxiliary virtual devices such as
+  Address Space Device and Goldfish Pipe.
 - `stream-servers/`: implementations of various backends for various graphics
-  APIs that consume protocol.
-- `toolchain/`: includes various CMake toolchain files for the host-side build
-- `transports/`: libraries that live on both guest and host that implement
-  various transports.  Does not care about what data is passed through, only
-  how.
-- `testenvs/`: includes host-side mock implementations of guest graphics stacks,
-incl. Android
-- `tests/`: includes functional tests use a mock transport and test environment
+  APIs that consume protocol. `gfxstream-virtio-gpu-renderer.cpp` contains a
+  virtio-gpu backend implementation.

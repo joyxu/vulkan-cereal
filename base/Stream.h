@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "base/StringView.h"
+#include "msvc.h"
 
 #include <string>
 
@@ -76,11 +76,9 @@ public:
     // Read a single 32-bit float value from the stream.
     float getFloat();
 
-    // Write a string |str| into the stream. Ignore errors.
-    void putString(StringView str);
-
     // Write a 0-terminated C string |str| into the stream. Ignore error.
     void putString(const char* str);
+    void putString(const std::string& str);
 
     // Write a string |str| of |strlen| bytes into the stream.
     // Ignore errors.

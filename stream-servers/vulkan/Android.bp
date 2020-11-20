@@ -1,0 +1,33 @@
+cc_library_static {
+    name: "gfxstream_vulkan_server",
+    defaults: [ "gfxstream_defaults" ],
+    static_libs: [
+        "gfxstream_base",
+        "gfxstream_compressedTextures",
+        "gfxstream_apigen_codec_common",
+        "gfxstream_vulkan_cereal_host",
+    ],
+    cflags: [
+        "-fvisibility=hidden",
+        "-Wno-inconsistent-missing-override",
+        "-Wno-unused-value",
+        "-Wno-return-type",
+        "-Wno-return-type-c-linkage",
+        "-Wno-unused-parameter",
+        "-Wno-unused-variable",
+        "-Wno-unused-function",
+        "-Wno-uninitialized",
+        "-Wno-unreachable-code-loop-increment",
+    ],
+    srcs: [
+        "VkAndroidNativeBuffer.cpp",
+        "VkCommonOperations.cpp",
+        "VkDecoder.cpp",
+        "VkDecoderGlobalState.cpp",
+        "VkDecoderSnapshot.cpp",
+        "VkReconstruction.cpp",
+        "VulkanDispatch.cpp",
+        "VulkanHandleMapping.cpp",
+        "VulkanStream.cpp",
+    ],
+}
