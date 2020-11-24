@@ -667,6 +667,7 @@ static EGLint rcChooseConfig(EGLint *attribs,
         if (configs && configs_size > 0) {
             // Pick the first config
             *configs = 0;
+            if (attribs) *attribs = EGL_NONE;
         }
     }
 
