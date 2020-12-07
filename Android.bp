@@ -11,7 +11,11 @@ cc_library_headers {
         "stream-servers/vulkan",
         "stream-servers/glestranslator/include",
         "stream-servers/OpenGLESDispatch",
-    ]
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
 }
 
 cc_library_headers {
@@ -19,7 +23,11 @@ cc_library_headers {
     host_supported: true,
     export_include_dirs: [
         "stream-servers/apigen-codec-common",
-    ]
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
 }
 
 cc_defaults {
@@ -59,4 +67,9 @@ cc_defaults {
         }
     },
     host_supported: true,
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
 }
