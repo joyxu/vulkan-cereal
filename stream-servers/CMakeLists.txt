@@ -72,7 +72,8 @@ target_link_libraries(
     renderControl_dec
     gfxstream-vulkan-server
     gfxstream-snapshot
-    apigen-codec-common)
+    apigen-codec-common
+    perfetto-tracing-only)
 
 if (WIN32)
     target_link_libraries(gfxstream_backend PRIVATE D3d9.lib)
