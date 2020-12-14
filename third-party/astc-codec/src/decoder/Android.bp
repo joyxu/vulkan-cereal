@@ -1,0 +1,18 @@
+cc_library_static {
+    name: "gfxstream_astc_codec",
+    defaults: [ "gfxstream_defaults" ],
+    header_libs: [ "gfxstream_astc_codec_headers" ],
+    srcs: [
+        "footprint.cc",
+        "astc_file.cc",
+        "endpoint_codec.cc",
+        "integer_sequence_codec.cc",
+        "intermediate_astc_block.cc",
+        "logical_astc_block.cc",
+        "partition.cc",
+        "physical_astc_block.cc",
+        "quantization.cc",
+        "weight_infill.cc",
+        "codec.cc",
+    ],
+}

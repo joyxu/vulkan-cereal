@@ -13,12 +13,14 @@
 // limitations under the License.
 #include "VkReconstruction.h"
 
-#include "android/base/containers/EntityManager.h"
+#include "base/EntityManager.h"
 
 #include "VkDecoder.h"
 #include "IOStream.h"
 
 #include <unordered_map>
+
+#include <string.h>
 
 #define DEBUG_RECONSTRUCTION 0
 
@@ -179,6 +181,7 @@ void VkReconstruction::save(android::base::Stream* stream) {
 class TrivialStream : public IOStream {
 public:
     TrivialStream() : IOStream(4) { }
+    virtual ~TrivialStream() = default;
 
     void* allocBuffer(size_t minSize) {
         size_t allocSize = (m_bufsize < minSize ? minSize : m_bufsize);
@@ -222,7 +225,7 @@ protected:
         return nullptr;
     }
     virtual void onSave(android::base::Stream* stream) { }
-    virtual unsigned char* onLoad(android::base::Stream* stream) { }
+    virtual unsigned char* onLoad(android::base::Stream* stream) { return nullptr; }
 };
 
 void VkReconstruction::load(android::base::Stream* stream) {
@@ -275,7 +278,6 @@ void VkReconstruction::destroyApiInfo(VkReconstruction::ApiHandle h) {
     if (!item) return;
 
     item->traceBytes = 0;
-    item->apiCall.Clear();
     item->createdHandles.clear();
 
     mApiTrace.remove(h);
@@ -432,7 +434,7 @@ std::vector<uint64_t> VkReconstruction::getOrderedUniqueModifyApis() const {
 
     // Now add all handle modifications to the trace, ordered by the .order field.
     mHandleModifications.forEachLiveComponent_const(
-        [this, &orderedModifies](bool live, uint64_t componentHandle, uint64_t entityHandle, const HandleModification& mod) {
+        [&orderedModifies](bool live, uint64_t componentHandle, uint64_t entityHandle, const HandleModification& mod) {
         orderedModifies.push_back(mod);
     });
 

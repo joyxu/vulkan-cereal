@@ -15,17 +15,15 @@
 
 #include "IOStream.h"
 
-#include "android/base/Pool.h"
+#include "base/BumpPool.h"
 
-#include "emugl/common/feature_control.h"
+#include "host-common/feature_control.h"
 
 #include <vector>
 
 #include <inttypes.h>
 
 #define E(fmt,...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
-
-using emugl::emugl_feature_is_enabled;
 
 namespace goldfish_vk {
 
@@ -36,8 +34,14 @@ public:
 
         unsetHandleMapping();
 
-        if (emugl_feature_is_enabled(android::featurecontrol::VulkanNullOptionalStrings)) {
+        if (feature_is_enabled(kFeature_VulkanNullOptionalStrings)) {
             mFeatureBits |= VULKAN_STREAM_FEATURE_NULL_OPTIONAL_STRINGS_BIT;
+        }
+        if (feature_is_enabled(kFeature_VulkanIgnoredHandles)) {
+            mFeatureBits |= VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT;
+        }
+        if (feature_is_enabled(kFeature_VulkanShaderFloat16Int8)) {
+            mFeatureBits |= VULKAN_STREAM_FEATURE_SHADER_FLOAT16_INT8_BIT;
         }
     }
 
@@ -129,7 +133,7 @@ private:
         return size;
     }
 
-    android::base::Pool mPool { 8, 4096, 64 };
+    android::base::BumpPool mPool;
 
     size_t mWritePos = 0;
     std::vector<uint8_t> mWriteBuffer;

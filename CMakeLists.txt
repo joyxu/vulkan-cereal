@@ -1,33 +1,66 @@
 project(gfx-streaming-kit)
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.11)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/toolchain")
+if (WIN32)
+    add_definitions("-DUNICODE -D_UNICODE -DNOMINMAX -DEMUGL_BUILD -DVK_USE_PLATFORM_WIN32_KHR -DBUILDING_EMUGL_COMMON_SHARED")
+endif()
 
-include(toolchain)
+find_package(Threads)
+include(ExternalProject)
+enable_testing()
 
-_get_host_tag(TAG)
-toolchain_configure_tags(${TAG})
-add_executable(buildtest test.c)
+# set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/distribution)
+if (WIN32)
+else()
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -O3")
+endif()
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_C_STANDARD 11)
 
-# Common base library###########################################################
+# Uncomment for ASAN support
+# set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
+# set (CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
+
+# GoogleTest support: uses CMake ExternalProject to pull in external repo
+# without manual steps (during CMake build script generation phase)
+include(gtest.cmake)
+
+set(GFXSTREAM_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+
+include(android.cmake)
+
+# Third party dependencies
+add_subdirectory(third-party)
+
+# Common base libraries for host################################################
 
 add_subdirectory(base)
-
-# Protocols and associated code generators######################################
-
-# add_subdirectory(protocols)
-
-# Frontends#####################################################################
-
-# add_subdirectory(stream-clients)
+add_subdirectory(snapshot)
+add_subdirectory(host-common)
 
 # Backends######################################################################
 
 add_subdirectory(stream-servers)
 
-# Transport implementations#####################################################
+# Protocols and associated code generators######################################
 
-# add_subdirectory(transports)
+if (NOT WIN32)
+    add_subdirectory(protocols)
+endif()
+
+# Fake Android guest#########################3##################################
+
+if (NOT WIN32)
+    add_subdirectory(fake-android-guest)
+endif()
+
+# Frontends#####################################################################
+
+# add_subdirectory(stream-clients)
 
 # Test environments#############################################################
 
@@ -39,7 +72,10 @@ add_subdirectory(stream-servers)
 
 # Target: Host front+back drivers for app isolation#############################
 
-# Unit tests####################################################################
-
-# Functional tests##############################################################
-
+# Tests#################3#######################################################
+add_test(NAME gfxstream-base_unittests COMMAND gfxstream-base_unittests)
+add_test(NAME gfxstream-host-common_unittests COMMAND gfxstream-host-common_unittests)
+add_test(NAME gfxstream_backend_unittests COMMAND gfxstream_backend_unittests)
+add_test(NAME OpenglRender_unittests COMMAND OpenglRender_unittests)
+add_test(NAME OpenglRender_snapshot_unittests COMMAND OpenglRender_snapshot_unittests)
+add_test(NAME Vulkan_unittests COMMAND Vulkan_unittests)

@@ -1,0 +1,12 @@
+cc_library_static {
+    name: "gfxstream_snapshot",
+    defaults: [ "gfxstream_defaults" ],
+    srcs: [
+        "TextureLoader.cpp",
+        "TextureSaver.cpp",
+    ],
+    static_libs: [
+        "gfxstream_base",
+    ],
+    export_include_dirs: [ "." ],
+}

@@ -1,0 +1,13 @@
+cc_library_static {
+    name: "gfxstream_gles2_dec",
+    defaults: [ "gfxstream_defaults" ],
+    static_libs: [
+        "gfxstream_apigen_codec_common",
+        "gfxstream_glsnapshot",
+    ],
+    srcs: [
+        "gles2_dec.cpp",
+        "gles2_server_context.cpp",
+        "GLESv2Decoder.cpp",
+    ],
+}

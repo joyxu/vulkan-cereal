@@ -1,0 +1,19 @@
+cc_library_static {
+    name: "gfxstream_vulkan_cereal_host",
+    defaults: [ "gfxstream_defaults" ],
+    static_libs: [ "gfxstream_base" ],
+    srcs: [
+        "common/goldfish_vk_extension_structs.cpp",
+        "common/goldfish_vk_marshaling.cpp",
+        "common/goldfish_vk_testing.cpp",
+        "common/goldfish_vk_deepcopy.cpp",
+        "common/goldfish_vk_handlemap.cpp",
+        "common/goldfish_vk_dispatch.cpp",
+        "common/goldfish_vk_transform.cpp",
+    ],
+    cflags: [
+        "-DVK_ANDROID_native_buffer",
+        "-DVK_GOOGLE_address_space",
+    ],
+    export_include_dirs: [ "." ],
+}
