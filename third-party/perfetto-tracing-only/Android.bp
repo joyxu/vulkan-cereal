@@ -1,0 +1,11 @@
+cc_library_static {
+    name: "perfetto-tracing-only",
+    defaults: [ "gfxstream_defaults" ],
+    srcs: [ "perfetto-tracing-only.cpp" ],
+    whole_static_libs: [
+        "perfetto-libprotozero",
+    ],
+    export_include_dirs: [
+        ".",
+    ],
+}
