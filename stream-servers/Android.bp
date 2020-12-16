@@ -28,6 +28,9 @@ cc_library_shared {
         "gfxstream_lz4",
         "gfxstream_compressedTextures",
     ],
+    shared_libs: [
+        "liblog", // gfxstream_base uses this via perfetto-libperfettobase
+    ],
     srcs: [
         "ChannelStream.cpp",
         "ColorBuffer.cpp",
