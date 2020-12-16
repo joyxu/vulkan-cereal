@@ -16,7 +16,10 @@ cc_library_static {
         "src/base/waitable_event.cc",
         "src/base/watchdog_posix.cc",
     ],
-    whole_static_libs: [ "liblog" ],
+    // liblog isn't statically linked because this lib is part of the
+    // com.android.virt APEX where static linkage to a library having stable C
+    // interface (like liblog) is prohibited.
+    shared_libs: [ "liblog" ],
     export_include_dirs: [
         "include",
         "include/perfetto/base/build_configs/android_tree",
