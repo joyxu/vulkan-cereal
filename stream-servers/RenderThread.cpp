@@ -393,37 +393,7 @@ intptr_t RenderThread::main() {
         auto progressStart = currTimeUs(benchmarkEnabled);
         bool progress;
 
-#define MAX_THREADS 1
-            struct ThreadRunLimiter {
-                ThreadRunLimiter() {
-                    availableThreads.send(0);
-                }
-                android::base::MessageChannel<int, MAX_THREADS> availableThreads;
-                void acquire() {
-                    int token;
-                    availableThreads.receive(&token);
-                }
-                void release() {
-                    availableThreads.send(0);
-                }
-            };
-
-            struct ScopedThreadRunLimiter {
-                ScopedThreadRunLimiter(ThreadRunLimiter* t) : m_limiter(t) {
-                    m_limiter->acquire();
-                }
-                ~ScopedThreadRunLimiter() {
-                    m_limiter->release();
-                }
-                private:
-                ThreadRunLimiter* m_limiter;
-            };
-
-            static ThreadRunLimiter* l = new ThreadRunLimiter;
-
-            ScopedThreadRunLimiter scoped(l);
         do {
-
 
             progress = false;
 
