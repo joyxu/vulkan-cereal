@@ -396,6 +396,20 @@ intptr_t RenderThread::main() {
         do {
 
             progress = false;
+            size_t last;
+
+            //
+            // try to process some of the command buffer using the
+            // Vulkan decoder
+            //
+            {
+                last = tInfo.m_vkDec.decode(readBuf.buf(), readBuf.validData(),
+                                            ioStream);
+                if (last > 0) {
+                    readBuf.consume(last);
+                    progress = true;
+                }
+            }
 
             // try to process some of the command buffer using the GLESv1
             // decoder
@@ -414,7 +428,6 @@ intptr_t RenderThread::main() {
             {
                 FrameBuffer::getFB()->lockContextStructureRead();
             }
-            size_t last;
 
             {
                 last = tInfo.m_glDec.decode(
@@ -453,18 +466,6 @@ intptr_t RenderThread::main() {
                 }
             }
 
-            //
-            // try to process some of the command buffer using the
-            // Vulkan decoder
-            //
-            {
-                last = tInfo.m_vkDec.decode(readBuf.buf(), readBuf.validData(),
-                                            ioStream);
-                if (last > 0) {
-                    readBuf.consume(last);
-                    progress = true;
-                }
-            }
         } while (progress);
     }
 
