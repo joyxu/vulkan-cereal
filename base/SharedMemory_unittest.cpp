@@ -58,8 +58,8 @@ TEST(SharedMemory, ShareVisibileWithinSameProc) {
 //             ts.getTempRoot()->path(), "shāred.mem");
 //     const mode_t user_read_only = 0600;
 //     std::string message = "Hello World!";
-//     base::SharedMemory mWriter("file://" + unique_name, message.size());
-//     base::SharedMemory mReader("file://" + unique_name, message.size());
+//     base::SharedMemory mWriter("file:///" + unique_name, message.size());
+//     base::SharedMemory mReader("file:///" + unique_name, message.size());
 // 
 //     ASSERT_FALSE(mWriter.isOpen());
 //     ASSERT_FALSE(mReader.isOpen());
