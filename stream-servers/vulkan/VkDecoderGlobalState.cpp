@@ -3553,27 +3553,26 @@ public:
 
         auto commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
 
-        AutoLock lock(mLock);
-        auto& info = mCmdBufferInfo[commandBuffer];
+        OrderMaintenanceInfo* order = ordmaint_VkCommandBuffer(boxed_commandBuffer);
+        if (!order) return;
 
-        bool doWait = false;
+        AutoLock lock(order->lock);
 
         if (needHostSync) {
-            while ((sequenceNumber - info.sequenceNumber) != 1) {
+            while ((sequenceNumber - __atomic_load_n(&order->sequenceNumber, __ATOMIC_ACQUIRE) != 1)) {
                 auto waitUntilUs = nextDeadline();
-                mCvWaitSequenceNumber.timedWait(
-                    &mLock, waitUntilUs);
-                doWait = true;
+                order->cv.timedWait(
+                    &order->lock, waitUntilUs);
 
                 if (timeoutDeadline < android::base::getUnixTimeUs()) {
-                    fprintf(stderr, "%s: warning: command buffer sync timed out! curr %u info %u\n", __func__, sequenceNumber, info.sequenceNumber);
                     break;
                 }
             }
         }
 
-        info.sequenceNumber = sequenceNumber;
-        mCvWaitSequenceNumber.signal();
+        __atomic_store_n(&order->sequenceNumber, sequenceNumber, __ATOMIC_RELEASE);
+        order->cv.signal();
+        releaseOrderMaintInfo(order);
     }
 
     void hostSyncQueue(
@@ -3588,29 +3587,28 @@ public:
 
         auto timeoutDeadline = android::base::getUnixTimeUs() + 5000000; // 5 s
 
-        auto queue = unbox_VkQueue(boxed_queue);
+        auto commandBuffer = unbox_VkQueue(boxed_queue);
 
-        AutoLock lock(mLock);
-        auto& info = mQueueInfo[queue];
+        OrderMaintenanceInfo* order = ordmaint_VkQueue(boxed_queue);
+        if (!order) return;
 
-        bool doWait = false;
+        AutoLock lock(order->lock);
 
         if (needHostSync) {
-            while ((sequenceNumber - info.sequenceNumber) != 1) {
+            while ((sequenceNumber - __atomic_load_n(&order->sequenceNumber, __ATOMIC_ACQUIRE) != 1)) {
                 auto waitUntilUs = nextDeadline();
-                mCvWaitSequenceNumber.timedWait(
-                    &mLock, waitUntilUs);
-                doWait = true;
+                order->cv.timedWait(
+                    &order->lock, waitUntilUs);
 
                 if (timeoutDeadline < android::base::getUnixTimeUs()) {
-                    fprintf(stderr, "%s: warning: command buffer sync timed out! curr %u info %u\n", __func__, sequenceNumber, info.sequenceNumber);
                     break;
                 }
             }
         }
 
-        info.sequenceNumber = sequenceNumber;
-        mCvWaitSequenceNumber.signal();
+        __atomic_store_n(&order->sequenceNumber, sequenceNumber, __ATOMIC_RELEASE);
+        order->cv.signal();
+        releaseOrderMaintInfo(order);
     }
 
     VkResult on_vkCreateImageWithRequirementsGOOGLE(
@@ -3954,12 +3952,39 @@ public:
         DEFINE_EXTERNAL_MEMORY_PROPERTIES_TRANSFORM(VkExternalImageFormatProperties)
         DEFINE_EXTERNAL_MEMORY_PROPERTIES_TRANSFORM(VkExternalBufferProperties)
 
+        struct OrderMaintenanceInfo {
+            uint32_t sequenceNumber = 0;
+            Lock lock;
+            ConditionVariable cv;
+
+            uint32_t refcount = 1;
+
+            void incRef() {
+                __atomic_add_fetch(&refcount, 1, __ATOMIC_SEQ_CST);
+            }
+
+            bool decRef() {
+                return 0 == __atomic_sub_fetch(&refcount, 1, __ATOMIC_SEQ_CST);
+            }
+        };
+
+        static void acquireOrderMaintInfo(OrderMaintenanceInfo* ord) {
+            if (!ord) return;
+            ord->incRef();
+        }
+
+        static void releaseOrderMaintInfo(OrderMaintenanceInfo* ord) {
+            if (!ord) return;
+            if (ord->decRef()) delete ord;
+        }
+
         template <class T>
         class DispatchableHandleInfo {
             public:
                 T underlying;
                 VulkanDispatch* dispatch = nullptr;
                 bool ownDispatch = false;
+                OrderMaintenanceInfo* ordMaintInfo = nullptr;
         };
 
 #define DEFINE_BOXED_HANDLE_TYPE_TAG(type) \
@@ -3990,10 +4015,15 @@ public:
         item.underlying = (uint64_t)underlying; \
         item.dispatch = dispatch ? dispatch : new VulkanDispatch; \
         item.ownDispatch = ownDispatch; \
+        item.ordMaintInfo = new OrderMaintenanceInfo; \
         auto res = (type)newGlobalHandle(item, Tag_##type); \
         return res; \
     } \
     void delete_boxed_##type(type boxed) { \
+        auto elt = mGlobalHandleStore.getLocked( \
+                (uint64_t)(uintptr_t)boxed); \
+        if (!elt) return; \
+        releaseOrderMaintInfo(elt->ordMaintInfo); \
         mGlobalHandleStore.remove((uint64_t)boxed); \
     } \
     type unbox_##type(type boxed) { \
@@ -4001,6 +4031,14 @@ public:
                 (uint64_t)(uintptr_t)boxed); \
         if (!elt) return VK_NULL_HANDLE; \
         return (type)elt->underlying; \
+    } \
+    OrderMaintenanceInfo* ordmaint_##type(type boxed) { \
+        auto elt = mGlobalHandleStore.getLocked( \
+                (uint64_t)(uintptr_t)boxed); \
+        if (!elt) return 0; \
+        auto info = elt->ordMaintInfo; \
+        if (!info) return 0; \
+        acquireOrderMaintInfo(info); return info; \
     } \
     type unboxed_to_boxed_##type(type unboxed) { \
         return (type)mGlobalHandleStore.getBoxedFromUnboxedLocked( \
@@ -5390,7 +5428,6 @@ private:
     PFN_vkUseIOSurfaceMVK m_useIOSurfaceFunc = nullptr;
 
     Lock mLock;
-    ConditionVariable mCvWaitSequenceNumber;
 
     // We always map the whole size on host.
     // This makes it much easier to implement
