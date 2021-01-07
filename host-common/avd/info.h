@@ -451,3 +451,5 @@ void avdInfo_replaceMultiDisplayInConfigIni(AvdInfo* i, int index,
                                             int w, int h,
                                             int dpi, int flag );
 
+/* Maximum number of supported multi display entries in an avd. */
+int avdInfo_maxMultiDisplayEntries();
