@@ -16,6 +16,7 @@
 #include <GLcommon/GLESbuffer.h>
 #include <GLcommon/GLEScontext.h>
 #include <string.h>
+#include <limits.h>
 
 bool  GLESbuffer::setBuffer(GLuint size,GLuint usage,const GLvoid* data) {
     m_size = size;
