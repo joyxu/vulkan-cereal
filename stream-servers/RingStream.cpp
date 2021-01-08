@@ -131,6 +131,12 @@ const unsigned char* RingStream::readRaw(void* buf, size_t* inout_len) {
             break;
         }
 
+        // if (mInSnapshotOperation) {
+        //     fprintf(stderr, "%s: %p in snapshot operation, exit\n", __func__, mRenderThreadPtr);
+        //     // In a snapshot operation, exit
+        //     return nullptr;
+        // }
+
         if (mShouldExit) {
             return nullptr;
         }
@@ -179,6 +185,11 @@ const unsigned char* RingStream::readRaw(void* buf, size_t* inout_len) {
             if (mShouldExit) {
                 return nullptr;
             }
+
+            if (mShouldExitForSnapshot && mInSnapshotOperation) {
+                return nullptr;
+            }
+
             int unavailReadResult = mCallbacks.onUnavailableRead();
 
             if (-1 == unavailReadResult) {
@@ -187,7 +198,12 @@ const unsigned char* RingStream::readRaw(void* buf, size_t* inout_len) {
 
             // pause pre snapshot
             if (-2 == unavailReadResult) {
-                mShouldExit = true;
+                mShouldExitForSnapshot = true;
+            }
+
+            // resume post snapshot
+            if (-3 == unavailReadResult) {
+                mShouldExitForSnapshot = false;
             }
 
             continue;
