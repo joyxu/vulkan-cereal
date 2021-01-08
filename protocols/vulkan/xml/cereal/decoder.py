@@ -444,6 +444,8 @@ custom_decodes = {
     "vkGetPhysicalDeviceExternalSemaphoreProperties" : emit_global_state_wrapped_decoding,
     "vkGetPhysicalDeviceExternalSemaphorePropertiesKHR" : emit_global_state_wrapped_decoding,
 
+    "vkEnumerateDeviceExtensionProperties" : emit_global_state_wrapped_decoding,
+
     "vkCreateBuffer" : emit_global_state_wrapped_decoding,
     "vkDestroyBuffer" : emit_global_state_wrapped_decoding,
 
