@@ -224,7 +224,7 @@ static const char* kHostSideTracing = "ANDROID_EMU_host_side_tracing";
 // rcMakeCurrent
 // rcCompose
 // rcDestroySyncKHR
-static const char* kAsyncFrameCommands = "ANDROID_EMU_async_frame_cmds";
+static const char* kAsyncFrameCommands = "ANDROID_EMU_async_frame_commands";
 
 static void rcTriggerWait(uint64_t glsync_ptr,
                           uint64_t thread_ptr,
