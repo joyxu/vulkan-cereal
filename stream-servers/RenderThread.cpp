@@ -393,39 +393,23 @@ intptr_t RenderThread::main() {
         auto progressStart = currTimeUs(benchmarkEnabled);
         bool progress;
 
-#define MAX_THREADS 1
-            struct ThreadRunLimiter {
-                ThreadRunLimiter() {
-                    availableThreads.send(0);
-                }
-                android::base::MessageChannel<int, MAX_THREADS> availableThreads;
-                void acquire() {
-                    int token;
-                    availableThreads.receive(&token);
-                }
-                void release() {
-                    availableThreads.send(0);
-                }
-            };
-
-            struct ScopedThreadRunLimiter {
-                ScopedThreadRunLimiter(ThreadRunLimiter* t) : m_limiter(t) {
-                    m_limiter->acquire();
-                }
-                ~ScopedThreadRunLimiter() {
-                    m_limiter->release();
-                }
-                private:
-                ThreadRunLimiter* m_limiter;
-            };
-
-            static ThreadRunLimiter* l = new ThreadRunLimiter;
-
-            ScopedThreadRunLimiter scoped(l);
         do {
 
-
             progress = false;
+            size_t last;
+
+            //
+            // try to process some of the command buffer using the
+            // Vulkan decoder
+            //
+            {
+                last = tInfo.m_vkDec.decode(readBuf.buf(), readBuf.validData(),
+                                            ioStream);
+                if (last > 0) {
+                    readBuf.consume(last);
+                    progress = true;
+                }
+            }
 
             // try to process some of the command buffer using the GLESv1
             // decoder
@@ -444,7 +428,6 @@ intptr_t RenderThread::main() {
             {
                 FrameBuffer::getFB()->lockContextStructureRead();
             }
-            size_t last;
 
             {
                 last = tInfo.m_glDec.decode(
@@ -483,18 +466,6 @@ intptr_t RenderThread::main() {
                 }
             }
 
-            //
-            // try to process some of the command buffer using the
-            // Vulkan decoder
-            //
-            {
-                last = tInfo.m_vkDec.decode(readBuf.buf(), readBuf.validData(),
-                                            ioStream);
-                if (last > 0) {
-                    readBuf.consume(last);
-                    progress = true;
-                }
-            }
         } while (progress);
     }
 
