@@ -106,7 +106,6 @@ void PostWorker::postImpl(ColorBuffer* cb) {
             }
             ColorBuffer* multiDisplayCb = id == 0 ? cb : mFb->findColorBuffer(c).get();
             if (multiDisplayCb == nullptr) {
-                ERR("fail to find cb %d\n", c);
                 start_id = id;
                 continue;
             }
@@ -207,10 +206,19 @@ void PostWorker::composeImpl(ComposeDevice* p) {
         s_gles2.glGenFramebuffers(1, &m_composeFbo);
     }
     s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, m_composeFbo);
+
+    auto cbPtr = mFb->findColorBuffer(p->targetHandle);
+
+    if (!cbPtr) {
+        s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        s_gles2.glViewport(vport[0], vport[1], vport[2], vport[3]);
+        return;
+    }
+
     s_gles2.glFramebufferTexture2D(GL_FRAMEBUFFER,
                                    GL_COLOR_ATTACHMENT0_OES,
                                    GL_TEXTURE_2D,
-                                   mFb->findColorBuffer(p->targetHandle)->getTexture(),
+                                   cbPtr->getTexture(),
                                    0);
 
     DD("worker compose %d layers\n", p->numLayers);
@@ -228,7 +236,8 @@ void PostWorker::composeImpl(ComposeDevice* p) {
         composeLayer(l);
     }
 
-    mFb->findColorBuffer(p->targetHandle)->setSync();
+    cbPtr->setSync();
+
     s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, 0);
     s_gles2.glViewport(vport[0], vport[1], vport[2], vport[3]);
     mFb->getTextureDraw()->cleanupForDrawLayer();
@@ -248,10 +257,19 @@ void PostWorker::composev2Impl(ComposeDevice_v2* p) {
         s_gles2.glGenFramebuffers(1, &m_composeFbo);
     }
     s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, m_composeFbo);
+
+    auto cbPtr = mFb->findColorBuffer(p->targetHandle);
+
+    if (!cbPtr) {
+        s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        s_gles2.glViewport(vport[0], vport[1], vport[2], vport[3]);
+        return;
+    }
+
     s_gles2.glFramebufferTexture2D(GL_FRAMEBUFFER,
                                    GL_COLOR_ATTACHMENT0_OES,
                                    GL_TEXTURE_2D,
-                                   mFb->findColorBuffer(p->targetHandle)->getTexture(),
+                                   cbPtr->getTexture(),
                                    0);
 
     DD("worker compose %d layers\n", p->numLayers);
@@ -269,7 +287,7 @@ void PostWorker::composev2Impl(ComposeDevice_v2* p) {
         composeLayer(l);
     }
 
-    mFb->findColorBuffer(p->targetHandle)->setSync();
+    cbPtr->setSync();
     s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, 0);
     s_gles2.glViewport(vport[0], vport[1], vport[2], vport[3]);
     mFb->getTextureDraw()->cleanupForDrawLayer();
@@ -298,9 +316,9 @@ void PostWorker::unbind() {
 void PostWorker::composeLayer(ComposeLayer* l) {
     if (l->composeMode == HWC2_COMPOSITION_DEVICE) {
         ColorBufferPtr cb = mFb->findColorBuffer(l->cbHandle);
-        if (cb == nullptr) {
+        if (!cb) {
             // bad colorbuffer handle
-            ERR("%s: fail to find colorbuffer %d\n", __FUNCTION__, l->cbHandle);
+            // ERR("%s: fail to find colorbuffer %d\n", __FUNCTION__, l->cbHandle);
             return;
         }
         cb->postLayer(l, mFb->getWidth(), mFb->getHeight());
@@ -345,14 +363,9 @@ void PostWorker::post(ColorBuffer* cb) {
             p->m_toUiThread.receive(&uiThreadArgs);
             p->bind();
             p->postImpl(uiThreadArgs.postCb);
-            p->m_fromUiThread.send(0);
         },
         this,
         false /* no wait */);
-
-        int response;
-        m_fromUiThread.receive(&response);
-
     } else {
         postImpl(cb);
     }
@@ -373,24 +386,20 @@ void PostWorker::viewport(int width, int height) {
             p->m_toUiThread.receive(&uiThreadArgs);
             p->bind();
             p->viewportImpl(uiThreadArgs.width, uiThreadArgs.height);
-            p->m_fromUiThread.send(0);
         },
         this,
         false /* no wait */);
-
-        int response;
-        m_fromUiThread.receive(&response);
-
     } else {
         viewportImpl(width, height);
     }
 }
 
-void PostWorker::compose(ComposeDevice* p) {
+void PostWorker::compose(ComposeDevice* p, uint32_t bufferSize) {
     if (m_mainThreadPostingOnly) {
-        PostArgs args = {
-            .composeDevice = p,
-        };
+        PostArgs args;
+        std::vector<char> buffer(bufferSize, 0);
+        memcpy(buffer.data(), p, bufferSize);
+        args.composeBuffer = buffer;
 
         m_toUiThread.send(args);
 
@@ -399,24 +408,21 @@ void PostWorker::compose(ComposeDevice* p) {
             PostArgs uiThreadArgs;
             p->m_toUiThread.receive(&uiThreadArgs);
             p->bind();
-            p->composeImpl(uiThreadArgs.composeDevice);
-            p->m_fromUiThread.send(0);
+            p->composeImpl((ComposeDevice*)uiThreadArgs.composeBuffer.data());
         },
         this,
         false /* no wait */);
-
-        int response;
-        m_fromUiThread.receive(&response);
     } else {
         composeImpl(p);
     }
 }
 
-void PostWorker::compose(ComposeDevice_v2* p) {
+void PostWorker::compose(ComposeDevice_v2* p, uint32_t bufferSize) {
     if (m_mainThreadPostingOnly) {
-        PostArgs args = {
-            .composeDevice_v2 = p,
-        };
+        PostArgs args;
+        std::vector<char> buffer(bufferSize, 0);
+        memcpy(buffer.data(), p, bufferSize);
+        args.composeBuffer = buffer;
 
         m_toUiThread.send(args);
 
@@ -425,14 +431,10 @@ void PostWorker::compose(ComposeDevice_v2* p) {
             PostArgs uiThreadArgs;
             p->m_toUiThread.receive(&uiThreadArgs);
             p->bind();
-            p->composev2Impl(uiThreadArgs.composeDevice_v2);
-            p->m_fromUiThread.send(0);
+            p->composev2Impl((ComposeDevice_v2*)uiThreadArgs.composeBuffer.data());
         },
         this,
         false /* no wait */);
-
-        int response;
-        m_fromUiThread.receive(&response);
     } else {
         composev2Impl(p);
     }
@@ -452,13 +454,9 @@ void PostWorker::clear() {
             p->m_toUiThread.receive(&uiThreadArgs);
             p->bind();
             p->clearImpl();
-            p->m_fromUiThread.send(0);
         },
         this,
         false /* no wait */);
-
-        int response;
-        m_fromUiThread.receive(&response);
     } else {
         clearImpl();
     }
