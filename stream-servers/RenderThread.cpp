@@ -33,11 +33,16 @@
 #include "base/System.h"
 #include "base/Tracing.h"
 #include "base/StreamSerializing.h"
+#include "base/Lock.h"
 #include "base/MessageChannel.h"
 
 #define EMUGL_DEBUG_LEVEL 0
 #include "host-common/crash_reporter.h"
 #include "host-common/debug.h"
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 #include <assert.h>
 #include <string.h>
@@ -61,6 +66,17 @@ static bool getBenchmarkEnabledFromEnv() {
     return false;
 }
 
+static int getCpuCoreCount() {
+#ifdef _WIN32
+    SYSTEM_INFO si = {};
+    ::GetSystemInfo(&si);
+    return si.dwNumberOfProcessors < 1 ? 1 : si.dwNumberOfProcessors;
+#else
+    auto res = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    return res < 1 ? 1 : res;
+#endif
+}
+
 static uint64_t currTimeUs(bool enable) {
     if (enable) {
         return android::base::getHighResTimeUs();
@@ -72,10 +88,18 @@ static uint64_t currTimeUs(bool enable) {
 // Start with a smaller buffer to not waste memory on a low-used render threads.
 static constexpr int kStreamBufferSize = 128 * 1024;
 
+// Requires this many threads on the system available to run unlimited.
+static constexpr int kMinThreadsToRunUnlimited = 5;
+
+// A thread run limiter that limits render threads to run one slice at a time.
+static android::base::Lock sThreadRunLimiter;
+
 RenderThread::RenderThread(RenderChannelImpl* channel,
                            android::base::Stream* loadStream)
     : android::base::Thread(android::base::ThreadFlags::MaskSignals, 2 * 1024 * 1024),
-      mChannel(channel) {
+      mChannel(channel),
+      mRunInLimitedMode(getCpuCoreCount() < kMinThreadsToRunUnlimited)
+{
     if (loadStream) {
         const bool success = loadStream->getByte();
         if (success) {
@@ -395,6 +419,10 @@ intptr_t RenderThread::main() {
 
         do {
 
+            if (mRunInLimitedMode) {
+                sThreadRunLimiter.lock();
+            }
+
             progress = false;
             size_t last;
 
@@ -409,6 +437,10 @@ intptr_t RenderThread::main() {
                     readBuf.consume(last);
                     progress = true;
                 }
+            }
+
+            if (mRunInLimitedMode) {
+                sThreadRunLimiter.unlock();
             }
 
             // try to process some of the command buffer using the GLESv1

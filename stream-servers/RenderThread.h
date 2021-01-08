@@ -97,6 +97,8 @@ private:
     android::base::Lock mLock;
     android::base::ConditionVariable mCondVar;
     android::base::Optional<android::base::MemStream> mStream;
+
+    bool mRunInLimitedMode = false;
 };
 
 }  // namespace emugl
