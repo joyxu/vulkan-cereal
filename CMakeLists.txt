@@ -48,9 +48,7 @@ add_subdirectory(stream-servers)
 
 # Protocols and associated code generators######################################
 
-if (NOT WIN32)
-    add_subdirectory(protocols)
-endif()
+add_subdirectory(protocols)
 
 # Fake Android guest#########################3##################################
 

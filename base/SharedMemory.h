@@ -207,7 +207,7 @@ public:
     std::string name() const { return mName; }
     memory_type get() const { return mAddr; }
     memory_type operator*() const { return get(); }
-
+    ShareType type() const { return mShareType; }
     handle_type getFd() { return mFd; }
     bool isMapped() const { return mAddr != unmappedMemory(); }
 

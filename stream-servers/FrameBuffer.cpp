@@ -812,13 +812,14 @@ FrameBuffer::postWorkerFunc(const Post& post) {
             m_postWorker->viewport(post.viewport.width,
                                    post.viewport.height);
             break;
-        case PostCmd::Compose:
-            if (post.d->version <= 1) {
-                m_postWorker->compose(post.d);
+        case PostCmd::Compose: {
+            if (post.composeVersion <= 1) {
+                m_postWorker->compose((ComposeDevice*)post.composeBuffer.data(), post.composeBuffer.size());
             } else {
-                m_postWorker->compose((ComposeDevice_v2*)post.d);
+                m_postWorker->compose((ComposeDevice_v2*)post.composeBuffer.data(), post.composeBuffer.size());
             }
             break;
+        }
         case PostCmd::Clear:
             m_postWorker->clear();
             break;
@@ -841,19 +842,38 @@ FrameBuffer::postWorkerFunc(const Post& post) {
 }
 
 void FrameBuffer::sendPostWorkerCmd(FrameBuffer::Post post) {
+#ifdef __APPLE__
+    bool postOnlyOnMainThread = m_subWin && (emugl::getRenderer() == SELECTED_RENDERER_HOST);
+#else
+    bool postOnlyOnMainThread = false;
+#endif
+
     if (!m_postThread.isStarted()) {
+        if (postOnlyOnMainThread) {
+            EGLContext prevContext = s_egl.eglGetCurrentContext();
+            EGLSurface prevReadSurf = s_egl.eglGetCurrentSurface(EGL_READ);
+            EGLSurface prevDrawSurf = s_egl.eglGetCurrentSurface(EGL_DRAW);
+            m_prevContext = prevContext;
+            m_prevReadSurf = prevReadSurf;
+            m_prevDrawSurf = prevDrawSurf;
+        }
         m_postWorker.reset(new PostWorker([this]() {
             if (m_subWin) {
                 return bindSubwin_locked();
             } else {
                 return bindFakeWindow_locked();
             }
-        }));
+        },
+        postOnlyOnMainThread,
+        m_eglContext,
+        m_eglSurface));
         m_postThread.start();
     }
 
     m_postThread.enqueue(Post(post));
-    m_postThread.waitQueuedItems();
+    if (!postOnlyOnMainThread) {
+        m_postThread.waitQueuedItems();
+    }
 }
 
 void FrameBuffer::setPostCallback(
@@ -2654,8 +2674,10 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer) {
     switch (p->version) {
     case 1: {
         Post composeCmd;
+        composeCmd.composeVersion = 1;
+        composeCmd.composeBuffer.resize(bufferSize);
+        memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
         composeCmd.cmd = PostCmd::Compose;
-        composeCmd.d = p;
         sendPostWorkerCmd(composeCmd);
         post(p->targetHandle, false);
         return true;
@@ -2670,8 +2692,10 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer) {
             mutex.lock();
        }
        Post composeCmd;
+       composeCmd.composeVersion = 2;
+       composeCmd.composeBuffer.resize(bufferSize);
+       memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
        composeCmd.cmd = PostCmd::Compose;
-       composeCmd.d = p;
        sendPostWorkerCmd(composeCmd);
        if (p2->displayId == 0) {
            post(p2->targetHandle, false);
