@@ -32,6 +32,8 @@ static const int kWindowMessageTimeoutInfinite = -1;
 
 typedef struct EmulatorWindow EmulatorWindow;
 
+typedef void (*UiUpdateFunc)(void* data);
+
 typedef struct QAndroidEmulatorWindowAgent {
     // Get a pointer to the emulator window structure.
     EmulatorWindow* (*getEmulatorWindow)();
@@ -85,4 +87,5 @@ typedef struct QAndroidEmulatorWindowAgent {
     bool (*startExtendedWindow)(void);
     bool (*quitExtendedWindow)(void);
     bool (*setUiTheme)(int settingsTheme);
+    void (*runOnUiThread)(UiUpdateFunc f, void* data, bool wait);
 } QAndroidEmulatorWindowAgent;
