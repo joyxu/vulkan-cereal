@@ -69,6 +69,9 @@ typedef uint32_t (renderControl_APIENTRY *rcCreateBuffer2_server_proc_t) (uint64
 typedef int (renderControl_APIENTRY *rcMapGpaToBufferHandle2_server_proc_t) (uint32_t, uint64_t, uint64_t);
 typedef void (renderControl_APIENTRY *rcFlushWindowColorBufferAsyncWithFrameNumber_server_proc_t) (uint32_t, uint32_t);
 typedef void (renderControl_APIENTRY *rcSetTracingForPuid_server_proc_t) (uint64_t, uint32_t, uint64_t);
+typedef void (renderControl_APIENTRY *rcMakeCurrentAsync_server_proc_t) (uint32_t, uint32_t, uint32_t);
+typedef void (renderControl_APIENTRY *rcComposeAsync_server_proc_t) (uint32_t, void*);
+typedef void (renderControl_APIENTRY *rcDestroySyncKHRAsync_server_proc_t) (uint64_t);
 
 
 #endif
