@@ -831,14 +831,6 @@ void init_vulkan_dispatch_from_system_loader(
     out->vkEnumerateDeviceExtensionProperties = (PFN_vkEnumerateDeviceExtensionProperties)dlSymFunc(lib, "vkEnumerateDeviceExtensionProperties");
     out->vkEnumerateDeviceLayerProperties = (PFN_vkEnumerateDeviceLayerProperties)dlSymFunc(lib, "vkEnumerateDeviceLayerProperties");
 #endif
-#ifdef VK_MVK_moltenvk
-    out->vkGetMTLDeviceMVK = (PFN_vkGetMTLDeviceMVK)dlSymFunc(lib, "vkGetMTLDeviceMVK");
-    out->vkSetMTLTextureMVK = (PFN_vkSetMTLTextureMVK)dlSymFunc(lib, "vkSetMTLTextureMVK");
-    out->vkGetMTLTextureMVK = (PFN_vkGetMTLTextureMVK)dlSymFunc(lib, "vkGetMTLTextureMVK");
-    out->vkGetMTLBufferMVK = (PFN_vkGetMTLBufferMVK)dlSymFunc(lib, "vkGetMTLBufferMVK");
-    out->vkUseIOSurfaceMVK = (PFN_vkUseIOSurfaceMVK)dlSymFunc(lib, "vkUseIOSurfaceMVK");
-    out->vkGetIOSurfaceMVK = (PFN_vkGetIOSurfaceMVK)dlSymFunc(lib, "vkGetIOSurfaceMVK");
-#endif
 }
 
 void init_vulkan_dispatch_from_instance(
@@ -1340,6 +1332,14 @@ void init_vulkan_dispatch_from_instance(
 #endif
 #ifdef VK_GOOGLE_linear_image_layout
     out->vkGetLinearImageLayoutGOOGLE = (PFN_vkGetLinearImageLayoutGOOGLE)vk->vkGetInstanceProcAddr(instance, "vkGetLinearImageLayoutGOOGLE");
+#endif
+#ifdef VK_MVK_moltenvk
+    out->vkGetMTLDeviceMVK = (PFN_vkGetMTLDeviceMVK)vk->vkGetInstanceProcAddr(instance, "vkGetMTLDeviceMVK");
+    out->vkSetMTLTextureMVK = (PFN_vkSetMTLTextureMVK)vk->vkGetInstanceProcAddr(instance, "vkSetMTLTextureMVK");
+    out->vkGetMTLTextureMVK = (PFN_vkGetMTLTextureMVK)vk->vkGetInstanceProcAddr(instance, "vkGetMTLTextureMVK");
+    out->vkGetMTLBufferMVK = (PFN_vkGetMTLBufferMVK)vk->vkGetInstanceProcAddr(instance, "vkGetMTLBufferMVK");
+    out->vkUseIOSurfaceMVK = (PFN_vkUseIOSurfaceMVK)vk->vkGetInstanceProcAddr(instance, "vkUseIOSurfaceMVK");
+    out->vkGetIOSurfaceMVK = (PFN_vkGetIOSurfaceMVK)vk->vkGetInstanceProcAddr(instance, "vkGetIOSurfaceMVK");
 #endif
 }
 
