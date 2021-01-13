@@ -1147,6 +1147,46 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			android::base::endTrace();
 			break;
 		}
+		case OP_rcMakeCurrentAsync: {
+			android::base::beginTrace("rcMakeCurrentAsync decode");
+			uint32_t var_context = Unpack<uint32_t,uint32_t>(ptr + 8);
+			uint32_t var_drawSurf = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
+			uint32_t var_readSurf = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+					"renderControl_decoder_context_t::decode, OP_rcMakeCurrentAsync: GL checksumCalculator failure\n");
+			}
+			this->rcMakeCurrentAsync(var_context, var_drawSurf, var_readSurf);
+			SET_LASTCALL("rcMakeCurrentAsync");
+			android::base::endTrace();
+			break;
+		}
+		case OP_rcComposeAsync: {
+			android::base::beginTrace("rcComposeAsync decode");
+			uint32_t var_bufferSize = Unpack<uint32_t,uint32_t>(ptr + 8);
+			uint32_t size_buffer __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
+			InputBuffer inptr_buffer(ptr + 8 + 4 + 4, size_buffer);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_buffer, ptr + 8 + 4 + 4 + size_buffer, checksumSize, 
+					"renderControl_decoder_context_t::decode, OP_rcComposeAsync: GL checksumCalculator failure\n");
+			}
+			this->rcComposeAsync(var_bufferSize, (void*)(inptr_buffer.get()));
+			SET_LASTCALL("rcComposeAsync");
+			android::base::endTrace();
+			break;
+		}
+		case OP_rcDestroySyncKHRAsync: {
+			android::base::beginTrace("rcDestroySyncKHRAsync decode");
+			uint64_t var_sync = Unpack<uint64_t,uint64_t>(ptr + 8);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 8, ptr + 8 + 8, checksumSize, 
+					"renderControl_decoder_context_t::decode, OP_rcDestroySyncKHRAsync: GL checksumCalculator failure\n");
+			}
+			this->rcDestroySyncKHRAsync(var_sync);
+			SET_LASTCALL("rcDestroySyncKHRAsync");
+			android::base::endTrace();
+			break;
+		}
 		default:
 			return ptr - (unsigned char*)buf;
 		} //switch
