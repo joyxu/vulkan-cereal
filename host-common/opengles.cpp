@@ -28,6 +28,7 @@
 #include "host-common/FeatureControl.h"
 #include "host-common/globals.h"
 #include "host-common/opengl/emugl_config.h"
+#include "host-common/opengl/GLProcessPipe.h"
 #include "host-common/opengl/logger.h"
 #include "host-common/opengl/gpuinfo.h"
 
@@ -266,20 +267,50 @@ android_startOpenglesRenderer(int width, int height, bool guestPhoneApi, int gue
     ConsumerInterface iface = {
         // create
         [](struct asg_context context,
+           android::base::Stream* loadStream,
            ConsumerCallbacks callbacks) {
            return sRenderer->addressSpaceGraphicsConsumerCreate(
-               context, callbacks);
+               context, loadStream, callbacks);
         },
         // destroy
         [](void* consumer) {
-           return sRenderer->addressSpaceGraphicsConsumerDestroy(
-               consumer);
+           sRenderer->addressSpaceGraphicsConsumerDestroy(consumer);
         },
-        // TODO
+        // pre save
+        [](void* consumer) {
+           sRenderer->addressSpaceGraphicsConsumerPreSave(consumer);
+        },
+        // global presave
+        []() {
+           sRenderer->pauseAllPreSave();
+        },
         // save
-        [](void* consumer, android::base::Stream* stream) { },
-        // load
-        [](void* consumer, android::base::Stream* stream) { },
+        [](void* consumer, android::base::Stream* stream) {
+           sRenderer->addressSpaceGraphicsConsumerSave(consumer, stream);
+        },
+        // global postsave
+        []() {
+           sRenderer->resumeAll();
+        },
+        // postSave
+        [](void* consumer) {
+           sRenderer->addressSpaceGraphicsConsumerPostSave(consumer);
+        },
+        // postLoad
+        [](void* consumer) {
+           sRenderer->addressSpaceGraphicsConsumerRegisterPostLoadRenderThread(consumer);
+        },
+        // global preload
+        []() {
+            // This wants to address that when using asg, pipe wants to clean
+            // up all render threads and wait for gl objects, but framebuffer
+            // notices that there is a render thread info that is still not
+            // cleaned up because these render threads come from asg.
+            android::opengl::forEachProcessPipeIdRunAndErase([](uint64_t id) {
+                android_cleanupProcGLObjects(id);
+            });
+            android_waitForOpenglesProcessCleanup();
+        },
     };
     AddressSpaceGraphicsContext::setConsumer(iface);
 

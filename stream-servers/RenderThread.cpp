@@ -33,11 +33,16 @@
 #include "base/System.h"
 #include "base/Tracing.h"
 #include "base/StreamSerializing.h"
+#include "base/Lock.h"
 #include "base/MessageChannel.h"
 
 #define EMUGL_DEBUG_LEVEL 0
 #include "host-common/crash_reporter.h"
 #include "host-common/debug.h"
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 #include <assert.h>
 #include <string.h>
@@ -61,6 +66,17 @@ static bool getBenchmarkEnabledFromEnv() {
     return false;
 }
 
+static int getCpuCoreCount() {
+#ifdef _WIN32
+    SYSTEM_INFO si = {};
+    ::GetSystemInfo(&si);
+    return si.dwNumberOfProcessors < 1 ? 1 : si.dwNumberOfProcessors;
+#else
+    auto res = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    return res < 1 ? 1 : res;
+#endif
+}
+
 static uint64_t currTimeUs(bool enable) {
     if (enable) {
         return android::base::getHighResTimeUs();
@@ -72,10 +88,18 @@ static uint64_t currTimeUs(bool enable) {
 // Start with a smaller buffer to not waste memory on a low-used render threads.
 static constexpr int kStreamBufferSize = 128 * 1024;
 
+// Requires this many threads on the system available to run unlimited.
+static constexpr int kMinThreadsToRunUnlimited = 5;
+
+// A thread run limiter that limits render threads to run one slice at a time.
+static android::base::Lock sThreadRunLimiter;
+
 RenderThread::RenderThread(RenderChannelImpl* channel,
                            android::base::Stream* loadStream)
     : android::base::Thread(android::base::ThreadFlags::MaskSignals, 2 * 1024 * 1024),
-      mChannel(channel) {
+      mChannel(channel),
+      mRunInLimitedMode(getCpuCoreCount() < kMinThreadsToRunUnlimited)
+{
     if (loadStream) {
         const bool success = loadStream->getByte();
         if (success) {
@@ -90,8 +114,8 @@ RenderThread::RenderThread(RenderChannelImpl* channel,
 
 RenderThread::RenderThread(
         struct asg_context context,
-        android::emulation::asg::ConsumerCallbacks callbacks,
-        android::base::Stream* loadStream)
+        android::base::Stream* loadStream,
+        android::emulation::asg::ConsumerCallbacks callbacks)
     : android::base::Thread(android::base::ThreadFlags::MaskSignals, 2 * 1024 * 1024),
       mRingStream(
           new RingStream(context, callbacks, kStreamBufferSize)) {
@@ -115,8 +139,14 @@ void RenderThread::pausePreSnapshot() {
     assert(mState == SnapshotState::Empty);
     mStream.emplace();
     mState = SnapshotState::StartSaving;
-    if (mChannel) mChannel->pausePreSnapshot();
-    mCondVar.broadcastAndUnlock(&lock);
+    if (mRingStream) {
+        mRingStream->pausePreSnapshot();
+        // mCondVar.broadcastAndUnlock(&lock);
+    }
+    if (mChannel) {
+        mChannel->pausePreSnapshot();
+        mCondVar.broadcastAndUnlock(&lock);
+    }
 }
 
 void RenderThread::resume() {
@@ -126,10 +156,12 @@ void RenderThread::resume() {
     if (mState == SnapshotState::Empty) {
         return;
     }
+    if (mRingStream) mRingStream->resume();
     waitForSnapshotCompletion(&lock);
     mStream.clear();
     mState = SnapshotState::Empty;
     if (mChannel) mChannel->resume();
+    if (mRingStream) mRingStream->resume();
     mCondVar.broadcastAndUnlock(&lock);
 }
 
@@ -346,6 +378,10 @@ intptr_t RenderThread::main() {
                     break;
                 }
             } else if (needRestoreFromSnapshot) {
+                // If we're using RingStream that might load before FrameBuffer
+                // restores the contexts from the handles, so check again here.
+
+                tInfo.postLoadRefreshCurrentContextSurfacePtrs();
                 // We just loaded from a snapshot, need to initialize / bind
                 // the contexts.
                 needRestoreFromSnapshot = false;
@@ -395,6 +431,10 @@ intptr_t RenderThread::main() {
 
         do {
 
+            if (mRunInLimitedMode) {
+                sThreadRunLimiter.lock();
+            }
+
             progress = false;
             size_t last;
 
@@ -409,6 +449,10 @@ intptr_t RenderThread::main() {
                     readBuf.consume(last);
                     progress = true;
                 }
+            }
+
+            if (mRunInLimitedMode) {
+                sThreadRunLimiter.unlock();
             }
 
             // try to process some of the command buffer using the GLESv1
