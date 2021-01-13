@@ -22,6 +22,7 @@
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "OpenGLESDispatch/GLESv2Dispatch.h"
 #include "host-common/misc.h"
+#include <string.h>
 
 #define POST_DEBUG 0
 #if POST_DEBUG >= 1
