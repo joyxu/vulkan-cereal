@@ -18,6 +18,7 @@
 
 #include "base/System.h"
 #include "base/SharedLibrary.h"
+#include "host-common/misc.h"
 #include "GLcommon/GLLibrary.h"
 #include "apigen-codec-common/ErrorLog.h"
 
@@ -30,8 +31,10 @@
 #endif
 
 #include <EGL/egl.h>
+#include <EGL/eglext.h>
 #include <GLES2/gl2.h>
 #include <memory>
+#include <vector>
 
 #define DEBUG 0
 #if DEBUG
@@ -433,14 +436,22 @@ EglOsEglDisplay::createContext(EGLint profileMask,
     D("%s\n", __FUNCTION__);
     const EglOsEglPixelFormat* format = (const EglOsEglPixelFormat*)pixelFormat;
     D("with config %p\n", format->mConfigId);
+
     // Always GLES3
-    EGLint attrib_list[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
+    std::vector<EGLint> attributes = { EGL_CONTEXT_CLIENT_VERSION, 3 };
+    auto exts = mDispatcher.eglQueryString(mDisplay, EGL_EXTENSIONS);
+    if (exts != nullptr && emugl::hasExtension(exts, "EGL_KHR_create_context_no_error")) {
+        attributes.push_back(EGL_CONTEXT_OPENGL_NO_ERROR_KHR);
+        attributes.push_back(EGL_TRUE);
+    }
+    attributes.push_back(EGL_NONE);
+
     // TODO: support GLES3.1
     EglOsEglContext* nativeSharedCtx = (EglOsEglContext*)sharedContext;
     EGLContext newNativeCtx = mDispatcher.eglCreateContext(
             mDisplay, format->mConfigId,
             nativeSharedCtx ? nativeSharedCtx->context() : nullptr,
-            attrib_list);
+            attributes.data());
     CHECK_EGL_ERR
     std::shared_ptr<Context> res =
         std::make_shared<EglOsEglContext>(
