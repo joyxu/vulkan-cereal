@@ -88,4 +88,5 @@ typedef struct QAndroidEmulatorWindowAgent {
     bool (*quitExtendedWindow)(void);
     bool (*setUiTheme)(int settingsTheme);
     void (*runOnUiThread)(UiUpdateFunc f, void* data, bool wait);
+    bool (*isRunningInUiThread)(void);
 } QAndroidEmulatorWindowAgent;

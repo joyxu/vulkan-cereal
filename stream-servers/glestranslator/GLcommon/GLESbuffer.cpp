@@ -16,6 +16,7 @@
 #include <GLcommon/GLESbuffer.h>
 #include <GLcommon/GLEScontext.h>
 #include <string.h>
+#include <limits.h>
 
 bool  GLESbuffer::setBuffer(GLuint size,GLuint usage,const GLvoid* data) {
     m_size = size;
@@ -36,7 +37,8 @@ bool  GLESbuffer::setBuffer(GLuint size,GLuint usage,const GLvoid* data) {
     return false;
 }
 
-bool  GLESbuffer::setSubBuffer(GLint offset,GLuint size,const GLvoid* data) {
+bool  GLESbuffer::setSubBuffer(GLuint offset, GLuint size, const GLvoid* data) {
+    if (UINT_MAX - offset < size) return false;
     if(offset + size > m_size) return false;
     memcpy(m_data+offset,data,size);
     m_conversionManager.addRange(Range(offset,size));
