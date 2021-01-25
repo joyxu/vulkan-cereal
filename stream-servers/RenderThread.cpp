@@ -437,10 +437,6 @@ intptr_t RenderThread::main() {
                 seqnoPtr = FrameBuffer::getFB()->getProcessSequenceNumberPtr(tInfo.m_puid);
             }
 
-            if (mRunInLimitedMode) {
-                sThreadRunLimiter.lock();
-            }
-
             progress = false;
             size_t last;
 
@@ -448,6 +444,8 @@ intptr_t RenderThread::main() {
             // try to process some of the command buffer using the
             // Vulkan decoder
             //
+            // Note: It's risky to limit Vulkan decoding to one thread,
+            // so we do it outside the limiter
             {
                 last = tInfo.m_vkDec.decode(readBuf.buf(), readBuf.validData(),
                                             ioStream);
@@ -458,7 +456,7 @@ intptr_t RenderThread::main() {
             }
 
             if (mRunInLimitedMode) {
-                sThreadRunLimiter.unlock();
+                sThreadRunLimiter.lock();
             }
 
             // try to process some of the command buffer using the GLESv1
@@ -514,6 +512,10 @@ intptr_t RenderThread::main() {
                     readBuf.consume(last);
                     progress = true;
                 }
+            }
+
+            if (mRunInLimitedMode) {
+                sThreadRunLimiter.unlock();
             }
 
         } while (progress);
