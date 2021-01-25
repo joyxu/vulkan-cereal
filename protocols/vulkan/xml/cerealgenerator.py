@@ -277,7 +277,7 @@ class IOStream;
 
         functableImplInclude = """
 #include "VkEncoder.h"
-#include "HostConnection.h"
+#include "../OpenglSystemCommon/HostConnection.h"
 #include "ResourceTracker.h"
 
 #include "goldfish_vk_private_defs.h"
@@ -505,7 +505,7 @@ class BumpPool;
                                    extraHeader=commonCerealIncludesGuest + transformIncludeGuest,
                                    extraImpl=commonCerealImplIncludesGuest + transformImplIncludeGuest)
 
-        self.addGuestHalModule("func_table", extraImpl=functableImplInclude)
+        self.addGuestEncoderModule("func_table", extraImpl=functableImplInclude)
 
         self.addModule("common", "goldfish_vk_extension_structs",
                        extraHeader=extensionStructsInclude)
