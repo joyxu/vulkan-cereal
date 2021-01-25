@@ -448,7 +448,7 @@ intptr_t RenderThread::main() {
             // so we do it outside the limiter
             {
                 last = tInfo.m_vkDec.decode(readBuf.buf(), readBuf.validData(),
-                                            ioStream);
+                                            ioStream, seqnoPtr);
                 if (last > 0) {
                     readBuf.consume(last);
                     progress = true;
