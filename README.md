@@ -17,6 +17,10 @@ Make sure you are using Clang as your `CC` and `CXX`. Then
     cmake . ../
     make -j24
 
+Unit tests:
+
+    make test
+
 # Build: Windows
 
 Make sure the latest CMake is installed.  Make sure Visual Studio 2019 is
@@ -38,9 +42,23 @@ Be in the Android build system. Then
 
 It then ends up in `out/host`
 
+This also builds for Android on-device.
+
 # Output artifacts
 
     libgfxstream_backend.(dll|so|dylib)
+
+# Regenerating Vulkan code
+
+    scripts/generate-vulkan-sources.sh
+
+If you're in an AOSP checkout, this will also modify contents of the guest Vulkan encoder in `../goldfish-opengl`.
+
+# Regenerating GLES/RenderControl code
+
+First, build `build/gfxstream-generic-apigen`. Then run
+
+    scripts/generate-apigen-source.sh
 
 # Tests
 

@@ -870,9 +870,31 @@ void FrameBuffer::sendPostWorkerCmd(FrameBuffer::Post post) {
         m_postThread.start();
     }
 
-    m_postThread.enqueue(Post(post));
-    if (!postOnlyOnMainThread) {
-        m_postThread.waitQueuedItems();
+    // If we want to run only in the main thread and we are actually running
+    // in the main thread already, don't use the PostWorker thread. Ideally,
+    // PostWorker should handle this and dispatch directly, but we'll need to
+    // transfer ownership of the thread to PostWorker.
+    // TODO(lfy): do that refactor
+    // For now, this fixes a screenshot issue on macOS.
+    if (postOnlyOnMainThread && (PostCmd::Screenshot == post.cmd) &&
+        emugl::get_emugl_window_operations().isRunningInUiThread()) {
+        post.cb->readPixelsScaled(
+            post.screenshot.screenwidth,
+            post.screenshot.screenheight,
+            post.screenshot.format,
+            post.screenshot.type,
+            post.screenshot.rotation,
+            post.screenshot.pixels);
+    }
+    else {
+        m_postThread.enqueue(Post(post));
+        if (!postOnlyOnMainThread) {
+            m_postThread.waitQueuedItems();
+        }
+        else if (postOnlyOnMainThread && (PostCmd::Screenshot == post.cmd) &&
+            !emugl::get_emugl_window_operations().isRunningInUiThread()) {
+            m_postThread.waitQueuedItems();
+        }
     }
 }
 
@@ -1664,6 +1686,14 @@ void FrameBuffer::cleanupProcGLObjects(uint64_t puid) {
                 callbacks.push_back(it.second);
             }
             m_procOwnedCleanupCallbacks.erase(procIte);
+        }
+    }
+
+    {
+        auto procIte = m_procOwnedSequenceNumbers.find(puid);
+        if (procIte != m_procOwnedSequenceNumbers.end()) {
+            delete procIte->second;
+            m_procOwnedSequenceNumbers.erase(procIte);
         }
     }
 
@@ -2628,7 +2658,7 @@ void FrameBuffer::getScreenshot(unsigned int nChannels, unsigned int* width,
     if (desiredRotation == SKIN_ROTATION_90 || desiredRotation == SKIN_ROTATION_270) {
         std::swap(*width, *height);
     }
-    pixels.resize(4 * (*width) * (*height));
+    pixels.resize(nChannels * (*width) * (*height));
 
     GLenum format = nChannels == 3 ? GL_RGB : GL_RGBA;
 
@@ -2862,6 +2892,14 @@ bool FrameBuffer::onLoad(Stream* stream,
                 }
             }
 
+            while (m_procOwnedSequenceNumbers.size()) {
+                auto it = m_procOwnedSequenceNumbers.begin();
+                while (it != m_procOwnedSequenceNumbers.end()) {
+                    delete it->second;
+                    it = m_procOwnedSequenceNumbers.erase(it);
+                }
+            }
+
             performDelayedColorBufferCloseLocked(true);
 
             lock.unlock();
@@ -3017,6 +3055,29 @@ void FrameBuffer::unregisterProcessCleanupCallback(void* key) {
     }
     callbackMap.erase(key);
 }
+
+void FrameBuffer::registerProcessSequenceNumberForPuid(uint64_t puid) {
+    AutoLock mutex(m_lock);
+
+    auto procIte = m_procOwnedSequenceNumbers.find(puid);
+    if (procIte != m_procOwnedSequenceNumbers.end()) {
+        return;
+    }
+    uint32_t* seqnoPtr = new uint32_t;
+    *seqnoPtr = 0;
+    m_procOwnedSequenceNumbers[puid] = seqnoPtr;
+}
+
+uint32_t* FrameBuffer::getProcessSequenceNumberPtr(uint64_t puid) {
+    AutoLock mutex(m_lock);
+
+    auto procIte = m_procOwnedSequenceNumbers.find(puid);
+    if (procIte != m_procOwnedSequenceNumbers.end()) {
+        return procIte->second;
+    }
+    return nullptr;
+}
+
 int FrameBuffer::createDisplay(uint32_t *displayId) {
     return emugl::get_emugl_multi_display_operations().createDisplay(displayId);
 }

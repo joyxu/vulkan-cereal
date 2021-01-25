@@ -405,15 +405,17 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
             kFeature_VirtioGpuNativeSync, !syncFdDisabledByFlag);
     feature_set_enabled_override(
             kFeature_GuestUsesAngle, guestUsesAngle);
+    feature_set_enabled_override(
+            kFeature_VulkanQueueSubmitWithCommands, true);
 
     emugl::vkDispatch(false /* don't use test ICD */);
 
     auto androidHw = aemu_get_android_hw();
 
-    androidHw->hw_gltransport_asg_writeBufferSize = 2097152;
-    androidHw->hw_gltransport_asg_writeStepSize = 524288;
+    androidHw->hw_gltransport_asg_writeBufferSize = 1048576;
+    androidHw->hw_gltransport_asg_writeStepSize = 262144;
     androidHw->hw_gltransport_asg_dataRingSize = 524288;
-    androidHw->hw_gltransport_drawFlushInterval = 1000;
+    androidHw->hw_gltransport_drawFlushInterval = 10000;
 
     EmuglConfig config;
 

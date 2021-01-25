@@ -27,6 +27,7 @@
 
 #include "goldfish_vk_extension_structs.h"
 #include "goldfish_vk_private_defs.h"
+#include <string.h>
 
 
 namespace goldfish_vk {
@@ -13013,6 +13014,8 @@ void unmarshal_VkImportPhysicalAddressGOOGLE(
 #endif
 #ifdef VK_MVK_moltenvk
 #endif
+#ifdef VK_GOOGLE_queue_submit_with_commands
+#endif
 void marshal_extension_struct(
     VulkanStream* vkStream,
     const void* structExtension)
@@ -15910,6 +15913,12 @@ const char* api_opcode_to_string(
         case OP_vkGetIOSurfaceMVK:
         {
             return "OP_vkGetIOSurfaceMVK";
+        }
+#endif
+#ifdef VK_GOOGLE_queue_submit_with_commands
+        case OP_vkQueueFlushCommandsGOOGLE:
+        {
+            return "OP_vkQueueFlushCommandsGOOGLE";
         }
 #endif
         default:
