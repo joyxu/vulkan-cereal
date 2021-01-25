@@ -456,8 +456,9 @@ class BumpPool;
 #include "{self.baseLibDirPrefix}/BumpPool.h"
 #include "{self.baseLibDirPrefix}/System.h"
 #include "{self.baseLibDirPrefix}/Tracing.h"
-
 #include "stream-servers/IOStream.h"
+#include "host-common/feature_control.h"
+#include "host-common/logging.h"
 
 #include "VkDecoderGlobalState.h"
 #include "VkDecoderSnapshot.h"
