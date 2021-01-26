@@ -226,6 +226,9 @@ static const char* kHostSideTracing = "ANDROID_EMU_host_side_tracing";
 // rcDestroySyncKHR
 static const char* kAsyncFrameCommands = "ANDROID_EMU_async_frame_commands";
 
+// Queue submit with commands
+static const char* kVulkanQueueSubmitWithCommands = "ANDROID_EMU_vulkan_queue_submit_with_commands";
+
 static void rcTriggerWait(uint64_t glsync_ptr,
                           uint64_t thread_ptr,
                           uint64_t timeline);
@@ -348,6 +351,11 @@ const char* maxVersionToFeatureString(GLESDispatchMaxVersion version) {
     }
 }
 
+static bool shouldEnableQueueSubmitWithCommands() {
+    return shouldEnableVulkan() &&
+        feature_is_enabled(kFeature_VulkanQueueSubmitWithCommands);
+}
+
 // OpenGL ES 3.x support involves changing the GL_VERSION string, which is
 // assumed to be formatted in the following way:
 // "OpenGL ES-CM 1.m <vendor-info>" or
@@ -458,6 +466,7 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         shouldEnableVulkan();
     bool vulkanShaderFloat16Int8Enabled = shouldEnableVulkanShaderFloat16Int8();
     bool vulkanAsyncQueueSubmitEnabled = shouldEnableAsyncQueueSubmit();
+    bool vulkanQueueSubmitWithCommands = shouldEnableQueueSubmitWithCommands();
 
     if (isChecksumEnabled && name == GL_EXTENSIONS) {
         glStr += ChecksumCalculatorThreadInfo::getMaxVersionString();
@@ -563,6 +572,11 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
 
     if (vulkanAsyncQueueSubmitEnabled && name == GL_EXTENSIONS) {
         glStr += kVulkanAsyncQueueSubmit;
+        glStr += " ";
+    }
+
+    if (vulkanQueueSubmitWithCommands && name == GL_EXTENSIONS) {
+        glStr += kVulkanQueueSubmitWithCommands;
         glStr += " ";
     }
 
@@ -1188,6 +1202,8 @@ static int rcDestroySyncKHR(uint64_t handle) {
 static void rcSetPuid(uint64_t puid) {
     RenderThreadInfo *tInfo = RenderThreadInfo::get();
     tInfo->m_puid = puid;
+    FrameBuffer *fb = FrameBuffer::getFB();
+    fb->registerProcessSequenceNumberForPuid(puid);
 }
 
 static int rcCompose(uint32_t bufferSize, void* buffer) {
