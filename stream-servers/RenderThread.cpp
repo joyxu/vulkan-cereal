@@ -349,6 +349,8 @@ intptr_t RenderThread::main() {
         // delete[] fname;
     }
 
+    uint32_t* seqnoPtr = nullptr;
+
     while (1) {
         // Let's make sure we read enough data for at least some processing.
         int packetSize;
@@ -431,8 +433,8 @@ intptr_t RenderThread::main() {
 
         do {
 
-            if (mRunInLimitedMode) {
-                sThreadRunLimiter.lock();
+            if (!seqnoPtr && tInfo.m_puid) {
+                seqnoPtr = FrameBuffer::getFB()->getProcessSequenceNumberPtr(tInfo.m_puid);
             }
 
             progress = false;
@@ -442,9 +444,11 @@ intptr_t RenderThread::main() {
             // try to process some of the command buffer using the
             // Vulkan decoder
             //
+            // Note: It's risky to limit Vulkan decoding to one thread,
+            // so we do it outside the limiter
             {
                 last = tInfo.m_vkDec.decode(readBuf.buf(), readBuf.validData(),
-                                            ioStream);
+                                            ioStream, seqnoPtr);
                 if (last > 0) {
                     readBuf.consume(last);
                     progress = true;
@@ -452,7 +456,7 @@ intptr_t RenderThread::main() {
             }
 
             if (mRunInLimitedMode) {
-                sThreadRunLimiter.unlock();
+                sThreadRunLimiter.lock();
             }
 
             // try to process some of the command buffer using the GLESv1
@@ -508,6 +512,10 @@ intptr_t RenderThread::main() {
                     readBuf.consume(last);
                     progress = true;
                 }
+            }
+
+            if (mRunInLimitedMode) {
+                sThreadRunLimiter.unlock();
             }
 
         } while (progress);
