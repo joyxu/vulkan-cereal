@@ -405,6 +405,8 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
             kFeature_VirtioGpuNativeSync, !syncFdDisabledByFlag);
     feature_set_enabled_override(
             kFeature_GuestUsesAngle, guestUsesAngle);
+    feature_set_enabled_override(
+            kFeature_VulkanQueueSubmitWithCommands, true);
 
     emugl::vkDispatch(false /* don't use test ICD */);
 
