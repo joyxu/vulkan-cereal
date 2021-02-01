@@ -50,7 +50,7 @@ add_library(
     ${gfxstream-platform-sources})
 
 target_link_libraries(
-    gfxstream-base PRIVATE lz4)
+    gfxstream-base PRIVATE lz4 perfetto-tracing-only)
 target_include_directories(
     gfxstream-base PUBLIC ${GFXSTREAM_REPO_ROOT})
 target_compile_options(

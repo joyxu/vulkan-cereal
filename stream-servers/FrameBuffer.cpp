@@ -812,13 +812,14 @@ FrameBuffer::postWorkerFunc(const Post& post) {
             m_postWorker->viewport(post.viewport.width,
                                    post.viewport.height);
             break;
-        case PostCmd::Compose:
-            if (post.d->version <= 1) {
-                m_postWorker->compose(post.d);
+        case PostCmd::Compose: {
+            if (post.composeVersion <= 1) {
+                m_postWorker->compose((ComposeDevice*)post.composeBuffer.data(), post.composeBuffer.size());
             } else {
-                m_postWorker->compose((ComposeDevice_v2*)post.d);
+                m_postWorker->compose((ComposeDevice_v2*)post.composeBuffer.data(), post.composeBuffer.size());
             }
             break;
+        }
         case PostCmd::Clear:
             m_postWorker->clear();
             break;
@@ -841,19 +842,60 @@ FrameBuffer::postWorkerFunc(const Post& post) {
 }
 
 void FrameBuffer::sendPostWorkerCmd(FrameBuffer::Post post) {
+#ifdef __APPLE__
+    bool postOnlyOnMainThread = m_subWin && (emugl::getRenderer() == SELECTED_RENDERER_HOST);
+#else
+    bool postOnlyOnMainThread = false;
+#endif
+
     if (!m_postThread.isStarted()) {
+        if (postOnlyOnMainThread) {
+            EGLContext prevContext = s_egl.eglGetCurrentContext();
+            EGLSurface prevReadSurf = s_egl.eglGetCurrentSurface(EGL_READ);
+            EGLSurface prevDrawSurf = s_egl.eglGetCurrentSurface(EGL_DRAW);
+            m_prevContext = prevContext;
+            m_prevReadSurf = prevReadSurf;
+            m_prevDrawSurf = prevDrawSurf;
+        }
         m_postWorker.reset(new PostWorker([this]() {
             if (m_subWin) {
                 return bindSubwin_locked();
             } else {
                 return bindFakeWindow_locked();
             }
-        }));
+        },
+        postOnlyOnMainThread,
+        m_eglContext,
+        m_eglSurface));
         m_postThread.start();
     }
 
-    m_postThread.enqueue(Post(post));
-    m_postThread.waitQueuedItems();
+    // If we want to run only in the main thread and we are actually running
+    // in the main thread already, don't use the PostWorker thread. Ideally,
+    // PostWorker should handle this and dispatch directly, but we'll need to
+    // transfer ownership of the thread to PostWorker.
+    // TODO(lfy): do that refactor
+    // For now, this fixes a screenshot issue on macOS.
+    if (postOnlyOnMainThread && (PostCmd::Screenshot == post.cmd) &&
+        emugl::get_emugl_window_operations().isRunningInUiThread()) {
+        post.cb->readPixelsScaled(
+            post.screenshot.screenwidth,
+            post.screenshot.screenheight,
+            post.screenshot.format,
+            post.screenshot.type,
+            post.screenshot.rotation,
+            post.screenshot.pixels);
+    }
+    else {
+        m_postThread.enqueue(Post(post));
+        if (!postOnlyOnMainThread) {
+            m_postThread.waitQueuedItems();
+        }
+        else if (postOnlyOnMainThread && (PostCmd::Screenshot == post.cmd) &&
+            !emugl::get_emugl_window_operations().isRunningInUiThread()) {
+            m_postThread.waitQueuedItems();
+        }
+    }
 }
 
 void FrameBuffer::setPostCallback(
@@ -1644,6 +1686,14 @@ void FrameBuffer::cleanupProcGLObjects(uint64_t puid) {
                 callbacks.push_back(it.second);
             }
             m_procOwnedCleanupCallbacks.erase(procIte);
+        }
+    }
+
+    {
+        auto procIte = m_procOwnedSequenceNumbers.find(puid);
+        if (procIte != m_procOwnedSequenceNumbers.end()) {
+            delete procIte->second;
+            m_procOwnedSequenceNumbers.erase(procIte);
         }
     }
 
@@ -2608,7 +2658,7 @@ void FrameBuffer::getScreenshot(unsigned int nChannels, unsigned int* width,
     if (desiredRotation == SKIN_ROTATION_90 || desiredRotation == SKIN_ROTATION_270) {
         std::swap(*width, *height);
     }
-    pixels.resize(4 * (*width) * (*height));
+    pixels.resize(nChannels * (*width) * (*height));
 
     GLenum format = nChannels == 3 ? GL_RGB : GL_RGBA;
 
@@ -2654,8 +2704,10 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer) {
     switch (p->version) {
     case 1: {
         Post composeCmd;
+        composeCmd.composeVersion = 1;
+        composeCmd.composeBuffer.resize(bufferSize);
+        memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
         composeCmd.cmd = PostCmd::Compose;
-        composeCmd.d = p;
         sendPostWorkerCmd(composeCmd);
         post(p->targetHandle, false);
         return true;
@@ -2670,8 +2722,10 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer) {
             mutex.lock();
        }
        Post composeCmd;
+       composeCmd.composeVersion = 2;
+       composeCmd.composeBuffer.resize(bufferSize);
+       memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
        composeCmd.cmd = PostCmd::Compose;
-       composeCmd.d = p;
        sendPostWorkerCmd(composeCmd);
        if (p2->displayId == 0) {
            post(p2->targetHandle, false);
@@ -2838,6 +2892,14 @@ bool FrameBuffer::onLoad(Stream* stream,
                 }
             }
 
+            while (m_procOwnedSequenceNumbers.size()) {
+                auto it = m_procOwnedSequenceNumbers.begin();
+                while (it != m_procOwnedSequenceNumbers.end()) {
+                    delete it->second;
+                    it = m_procOwnedSequenceNumbers.erase(it);
+                }
+            }
+
             performDelayedColorBufferCloseLocked(true);
 
             lock.unlock();
@@ -2993,6 +3055,29 @@ void FrameBuffer::unregisterProcessCleanupCallback(void* key) {
     }
     callbackMap.erase(key);
 }
+
+void FrameBuffer::registerProcessSequenceNumberForPuid(uint64_t puid) {
+    AutoLock mutex(m_lock);
+
+    auto procIte = m_procOwnedSequenceNumbers.find(puid);
+    if (procIte != m_procOwnedSequenceNumbers.end()) {
+        return;
+    }
+    uint32_t* seqnoPtr = new uint32_t;
+    *seqnoPtr = 0;
+    m_procOwnedSequenceNumbers[puid] = seqnoPtr;
+}
+
+uint32_t* FrameBuffer::getProcessSequenceNumberPtr(uint64_t puid) {
+    AutoLock mutex(m_lock);
+
+    auto procIte = m_procOwnedSequenceNumbers.find(puid);
+    if (procIte != m_procOwnedSequenceNumbers.end()) {
+        return procIte->second;
+    }
+    return nullptr;
+}
+
 int FrameBuffer::createDisplay(uint32_t *displayId) {
     return emugl::get_emugl_multi_display_operations().createDisplay(displayId);
 }

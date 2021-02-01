@@ -67,6 +67,9 @@ struct renderControl_server_context_t {
 	rcMapGpaToBufferHandle2_server_proc_t rcMapGpaToBufferHandle2;
 	rcFlushWindowColorBufferAsyncWithFrameNumber_server_proc_t rcFlushWindowColorBufferAsyncWithFrameNumber;
 	rcSetTracingForPuid_server_proc_t rcSetTracingForPuid;
+	rcMakeCurrentAsync_server_proc_t rcMakeCurrentAsync;
+	rcComposeAsync_server_proc_t rcComposeAsync;
+	rcDestroySyncKHRAsync_server_proc_t rcDestroySyncKHRAsync;
 	virtual ~renderControl_server_context_t() {}
 	int initDispatchByName( void *(*getProc)(const char *name, void *userData), void *userData);
 };

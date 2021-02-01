@@ -220,6 +220,15 @@ static const char* kVulkanAsyncQueueSubmit = "ANDROID_EMU_vulkan_async_queue_sub
 // Host side tracing
 static const char* kHostSideTracing = "ANDROID_EMU_host_side_tracing";
 
+// Some frame commands we can easily make async
+// rcMakeCurrent
+// rcCompose
+// rcDestroySyncKHR
+static const char* kAsyncFrameCommands = "ANDROID_EMU_async_frame_commands";
+
+// Queue submit with commands
+static const char* kVulkanQueueSubmitWithCommands = "ANDROID_EMU_vulkan_queue_submit_with_commands";
+
 static void rcTriggerWait(uint64_t glsync_ptr,
                           uint64_t thread_ptr,
                           uint64_t timeline);
@@ -342,6 +351,11 @@ const char* maxVersionToFeatureString(GLESDispatchMaxVersion version) {
     }
 }
 
+static bool shouldEnableQueueSubmitWithCommands() {
+    return shouldEnableVulkan() &&
+        feature_is_enabled(kFeature_VulkanQueueSubmitWithCommands);
+}
+
 // OpenGL ES 3.x support involves changing the GL_VERSION string, which is
 // assumed to be formatted in the following way:
 // "OpenGL ES-CM 1.m <vendor-info>" or
@@ -452,6 +466,7 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         shouldEnableVulkan();
     bool vulkanShaderFloat16Int8Enabled = shouldEnableVulkanShaderFloat16Int8();
     bool vulkanAsyncQueueSubmitEnabled = shouldEnableAsyncQueueSubmit();
+    bool vulkanQueueSubmitWithCommands = shouldEnableQueueSubmitWithCommands();
 
     if (isChecksumEnabled && name == GL_EXTENSIONS) {
         glStr += ChecksumCalculatorThreadInfo::getMaxVersionString();
@@ -560,6 +575,11 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         glStr += " ";
     }
 
+    if (vulkanQueueSubmitWithCommands && name == GL_EXTENSIONS) {
+        glStr += kVulkanQueueSubmitWithCommands;
+        glStr += " ";
+    }
+
     if (virtioGpuNativeSyncEnabled && name == GL_EXTENSIONS) {
         glStr += kVirtioGpuNativeSync;
         glStr += " ";
@@ -588,8 +608,16 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
             glStr += "GL_EXT_texture_compression_bptc ";
         }
 
+        if (feature_is_enabled(kFeature_S3tcTextureSupport)) {
+            glStr += "GL_EXT_texture_compression_s3tc ";
+       }
+
         // Host side tracing support.
         glStr += kHostSideTracing;
+        glStr += " ";
+
+        // Async makecurrent support.
+        glStr += kAsyncFrameCommands;
         glStr += " ";
 
         if (feature_is_enabled(kFeature_IgnoreHostOpenGLErrors)) {
@@ -1174,6 +1202,8 @@ static int rcDestroySyncKHR(uint64_t handle) {
 static void rcSetPuid(uint64_t puid) {
     RenderThreadInfo *tInfo = RenderThreadInfo::get();
     tInfo->m_puid = puid;
+    FrameBuffer *fb = FrameBuffer::getFB();
+    fb->registerProcessSequenceNumberForPuid(puid);
 }
 
 static int rcCompose(uint32_t bufferSize, void* buffer) {
@@ -1384,6 +1414,34 @@ static void rcSetTracingForPuid(uint64_t puid, uint32_t enable, uint64_t time) {
     }
 }
 
+static void rcMakeCurrentAsync(uint32_t context, uint32_t drawSurf, uint32_t readSurf) {
+    AEMU_SCOPED_THRESHOLD_TRACE_CALL();
+    FrameBuffer* fb = FrameBuffer::getFB();
+    if (!fb) { return; }
+
+    fb->bindContext(context, drawSurf, readSurf);
+}
+
+static void rcComposeAsync(uint32_t bufferSize, void* buffer) {
+    FrameBuffer* fb = FrameBuffer::getFB();
+    if (!fb) {
+        return;
+    }
+    fb->compose(bufferSize, buffer);
+}
+
+static void rcDestroySyncKHRAsyncy(uint64_t handle) {
+    FenceSync* fenceSync = FenceSync::getFromHandle(handle);
+    if (!fenceSync) return;
+    fenceSync->decRef();
+}
+
+static void rcDestroySyncKHRAsync(uint64_t handle) {
+    FenceSync* fenceSync = FenceSync::getFromHandle(handle);
+    if (!fenceSync) return;
+    fenceSync->decRef();
+}
+
 void initRenderControlContext(renderControl_decoder_context_t *dec)
 {
     dec->rcGetRendererVersion = rcGetRendererVersion;
@@ -1443,4 +1501,7 @@ void initRenderControlContext(renderControl_decoder_context_t *dec)
     dec->rcMapGpaToBufferHandle2 = rcMapGpaToBufferHandle2;
     dec->rcFlushWindowColorBufferAsyncWithFrameNumber = rcFlushWindowColorBufferAsyncWithFrameNumber;
     dec->rcSetTracingForPuid = rcSetTracingForPuid;
+    dec->rcMakeCurrentAsync = rcMakeCurrentAsync;
+    dec->rcComposeAsync = rcComposeAsync;
+    dec->rcDestroySyncKHRAsync = rcDestroySyncKHRAsync;
 }

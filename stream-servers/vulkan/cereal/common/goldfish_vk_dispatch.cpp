@@ -298,6 +298,10 @@ namespace goldfish_vk {
 #endif
 #ifdef VK_GOOGLE_linear_image_layout
 #endif
+#ifdef VK_MVK_moltenvk
+#endif
+#ifdef VK_GOOGLE_queue_submit_with_commands
+#endif
 
 void init_vulkan_dispatch_from_system_loader(
     DlOpenFunc dlOpenFunc,
@@ -800,6 +804,9 @@ void init_vulkan_dispatch_from_system_loader(
 #endif
 #ifdef VK_GOOGLE_linear_image_layout
     out->vkGetLinearImageLayoutGOOGLE = (PFN_vkGetLinearImageLayoutGOOGLE)dlSymFunc(lib, "vkGetLinearImageLayoutGOOGLE");
+#endif
+#ifdef VK_GOOGLE_queue_submit_with_commands
+    out->vkQueueFlushCommandsGOOGLE = (PFN_vkQueueFlushCommandsGOOGLE)dlSymFunc(lib, "vkQueueFlushCommandsGOOGLE");
 #endif
 #ifdef VK_VERSION_1_0
     out->vkDestroyInstance = (PFN_vkDestroyInstance)dlSymFunc(lib, "vkDestroyInstance");
@@ -1331,6 +1338,17 @@ void init_vulkan_dispatch_from_instance(
 #ifdef VK_GOOGLE_linear_image_layout
     out->vkGetLinearImageLayoutGOOGLE = (PFN_vkGetLinearImageLayoutGOOGLE)vk->vkGetInstanceProcAddr(instance, "vkGetLinearImageLayoutGOOGLE");
 #endif
+#ifdef VK_GOOGLE_queue_submit_with_commands
+    out->vkQueueFlushCommandsGOOGLE = (PFN_vkQueueFlushCommandsGOOGLE)vk->vkGetInstanceProcAddr(instance, "vkQueueFlushCommandsGOOGLE");
+#endif
+#ifdef VK_MVK_moltenvk
+    out->vkGetMTLDeviceMVK = (PFN_vkGetMTLDeviceMVK)vk->vkGetInstanceProcAddr(instance, "vkGetMTLDeviceMVK");
+    out->vkSetMTLTextureMVK = (PFN_vkSetMTLTextureMVK)vk->vkGetInstanceProcAddr(instance, "vkSetMTLTextureMVK");
+    out->vkGetMTLTextureMVK = (PFN_vkGetMTLTextureMVK)vk->vkGetInstanceProcAddr(instance, "vkGetMTLTextureMVK");
+    out->vkGetMTLBufferMVK = (PFN_vkGetMTLBufferMVK)vk->vkGetInstanceProcAddr(instance, "vkGetMTLBufferMVK");
+    out->vkUseIOSurfaceMVK = (PFN_vkUseIOSurfaceMVK)vk->vkGetInstanceProcAddr(instance, "vkUseIOSurfaceMVK");
+    out->vkGetIOSurfaceMVK = (PFN_vkGetIOSurfaceMVK)vk->vkGetInstanceProcAddr(instance, "vkGetIOSurfaceMVK");
+#endif
 }
 
 void init_vulkan_dispatch_from_device(
@@ -1832,6 +1850,9 @@ void init_vulkan_dispatch_from_device(
 #endif
 #ifdef VK_GOOGLE_linear_image_layout
     out->vkGetLinearImageLayoutGOOGLE = (PFN_vkGetLinearImageLayoutGOOGLE)vk->vkGetDeviceProcAddr(device, "vkGetLinearImageLayoutGOOGLE");
+#endif
+#ifdef VK_GOOGLE_queue_submit_with_commands
+    out->vkQueueFlushCommandsGOOGLE = (PFN_vkQueueFlushCommandsGOOGLE)vk->vkGetDeviceProcAddr(device, "vkQueueFlushCommandsGOOGLE");
 #endif
 }
 

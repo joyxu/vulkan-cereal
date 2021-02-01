@@ -14,6 +14,8 @@
 // limitations under the License.
 #include "base/Tracing.h"
 
+#include "perfetto-tracing-only.h"
+
 #include <string>
 #include <vector>
 
@@ -25,24 +27,23 @@ namespace base {
 const bool* tracingDisabledPtr = nullptr;
 
 void initializeTracing() {
-    // virtualdeviceperfetto::initialize(&tracingDisabledPtr);
+    virtualdeviceperfetto::initialize(&tracingDisabledPtr);
 }
 
 void enableTracing() {
-    // if (virtualdeviceperfetto::queryTraceConfig().tracingDisabled) {
-    //     virtualdeviceperfetto::enableTracing();
-    // }
+    if (virtualdeviceperfetto::queryTraceConfig().tracingDisabled) {
+        virtualdeviceperfetto::enableTracing();
+    }
 }
 
 void disableTracing() {
-    // if (!virtualdeviceperfetto::queryTraceConfig().tracingDisabled) {
-    //     virtualdeviceperfetto::disableTracing();
-    // }
+    if (!virtualdeviceperfetto::queryTraceConfig().tracingDisabled) {
+        virtualdeviceperfetto::disableTracing();
+    }
 }
 
 bool shouldEnableTracing() {
-    // return !(virtualdeviceperfetto::queryTraceConfig().tracingDisabled);
-    return false;
+    return !(virtualdeviceperfetto::queryTraceConfig().tracingDisabled);
 }
 
 #ifdef __cplusplus
@@ -54,32 +55,32 @@ bool shouldEnableTracing() {
 #endif
 
 __attribute__((always_inline)) void beginTrace(const char* name) {
-    // if (CC_LIKELY(*tracingDisabledPtr)) return;
-    // virtualdeviceperfetto::beginTrace(name);
+    if (CC_LIKELY(*tracingDisabledPtr)) return;
+    virtualdeviceperfetto::beginTrace(name);
 }
 
 __attribute__((always_inline)) void endTrace() {
-    // if (CC_LIKELY(*tracingDisabledPtr)) return;
-    // virtualdeviceperfetto::endTrace();
+    if (CC_LIKELY(*tracingDisabledPtr)) return;
+    virtualdeviceperfetto::endTrace();
 }
 
 __attribute__((always_inline)) void traceCounter(const char* name, int64_t value) {
-    // if (CC_LIKELY(*tracingDisabledPtr)) return;
-    // virtualdeviceperfetto::traceCounter(name, value);
+    if (CC_LIKELY(*tracingDisabledPtr)) return;
+    virtualdeviceperfetto::traceCounter(name, value);
 }
 
 ScopedTrace::ScopedTrace(const char* name) {
-    // if (CC_LIKELY(*tracingDisabledPtr)) return;
-    // virtualdeviceperfetto::beginTrace(name);
+    if (CC_LIKELY(*tracingDisabledPtr)) return;
+    virtualdeviceperfetto::beginTrace(name);
 }
 
 ScopedTrace::~ScopedTrace() {
-    // if (CC_LIKELY(*tracingDisabledPtr)) return;
-    // virtualdeviceperfetto::endTrace();
+    if (CC_LIKELY(*tracingDisabledPtr)) return;
+    virtualdeviceperfetto::endTrace();
 }
 
 void setGuestTime(uint64_t t) {
-    // virtualdeviceperfetto::setGuestTime(t);
+    virtualdeviceperfetto::setGuestTime(t);
 }
 
 } // namespace base

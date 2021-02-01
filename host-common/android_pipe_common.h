@@ -67,4 +67,5 @@ enum AndroidPipeFlags {
     ANDROID_PIPE_ADDRESS_SPACE_BIT = (1 << 1),
     ANDROID_PIPE_RESERVED0_BIT = (1 << 2),
     ANDROID_PIPE_RESERVED1_BIT = (1 << 3),
+    ANDROID_PIPE_VIRTIO_VSOCK_BIT = (1 << 4),
 };

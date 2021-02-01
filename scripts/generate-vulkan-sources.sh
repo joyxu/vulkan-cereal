@@ -14,14 +14,15 @@
 # limitations under the License.
 
 echo "To be run in the vulkan-cereal repo root directory."
+echo "Note: This needs to be in an AOSP checkout to generate guest encoder files."
 
 REPO_DIR=`pwd`
 VULKAN_REGISTRY_XML_DIR=$REPO_DIR/protocols/vulkan/xml
 VULKAN_SRC_DIR=$REPO_DIR/stream-servers/vulkan
 CEREAL_OUTPUT_DIR=$VULKAN_SRC_DIR/cereal
 
-export VK_CEREAL_GUEST_ENCODER_DIR=$REPO_DIR/stream-clients/vulkan_enc
-export VK_CEREAL_GUEST_HAL_DIR=$REPO_DIR/stream-clients/vulkan
+export VK_CEREAL_GUEST_ENCODER_DIR=$REPO_DIR/../goldfish-opengl/system/vulkan_enc
+export VK_CEREAL_GUEST_HAL_DIR=$REPO_DIR/../goldfish-opengl/system/vulkan
 export VK_CEREAL_HOST_DECODER_DIR=$REPO_DIR/stream-servers/vulkan
 export VK_CEREAL_HOST_PROTO_DIR=$REPO_DIR/stream-servers/vulkan/cereal/proto
 export VK_CEREAL_HOST_INCLUDE_DIR=$REPO_DIR/include

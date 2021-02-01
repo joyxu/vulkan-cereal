@@ -5,6 +5,7 @@ cc_library_static {
     srcs: [
         "common/goldfish_vk_extension_structs.cpp",
         "common/goldfish_vk_marshaling.cpp",
+        "common/goldfish_vk_reserved_marshaling.cpp",
         "common/goldfish_vk_testing.cpp",
         "common/goldfish_vk_deepcopy.cpp",
         "common/goldfish_vk_handlemap.cpp",
