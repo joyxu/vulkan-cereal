@@ -13,29 +13,27 @@
 // limitations under the License.
 #include "VkCommonOperations.h"
 
-#include "base/Optional.h"
-#include "base/Lookup.h"
-#include "base/StaticMap.h"
-#include "base/Lock.h"
-#include "base/System.h"
-
-#include "FrameBuffer.h"
-#include "VulkanDispatch.h"
-
-#include "common/goldfish_vk_dispatch.h"
-#include "host-common/vm_operations.h"
-
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <GLES3/gl3.h>
+#include <stdio.h>
+#include <string.h>
 #include <vulkan/vk_enum_string_helper.h>
 
 #include <iomanip>
 #include <ostream>
 #include <sstream>
+#include <unordered_set>
 
-#include <stdio.h>
-#include <string.h>
+#include "FrameBuffer.h"
+#include "VulkanDispatch.h"
+#include "base/Lock.h"
+#include "base/Lookup.h"
+#include "base/Optional.h"
+#include "base/StaticMap.h"
+#include "base/System.h"
+#include "common/goldfish_vk_dispatch.h"
+#include "host-common/vm_operations.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -490,20 +488,29 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
         0, nullptr,
     };
 
+    std::unordered_set<const char*> enabledExtensions;
+
     if (externalMemoryCapabilitiesSupported) {
-        instCi.enabledExtensionCount =
-            externalMemoryInstanceExtNames.size();
-        instCi.ppEnabledExtensionNames =
-            externalMemoryInstanceExtNames.data();
+        for (auto extension : externalMemoryInstanceExtNames) {
+            enabledExtensions.emplace(extension);
+        }
     }
 
     if (moltenVKSupported) {
         // We don't need both moltenVK and external memory. Disable
         // external memory if moltenVK is supported.
         externalMemoryCapabilitiesSupported = false;
-        instCi.enabledExtensionCount = 0u;
-        instCi.ppEnabledExtensionNames = nullptr;
+        enabledExtensions.clear();
     }
+
+    for (auto extension : SwapChainStateVk::getRequiredInstanceExtensions()) {
+        enabledExtensions.emplace(extension);
+    }
+    std::vector<const char*> enabledExtensions_(enabledExtensions.begin(),
+                                                enabledExtensions.end());
+    instCi.enabledExtensionCount =
+        static_cast<uint32_t>(enabledExtensions_.size());
+    instCi.ppEnabledExtensionNames = enabledExtensions_.data();
 
     VkApplicationInfo appInfo = {
         VK_STRUCTURE_TYPE_APPLICATION_INFO, 0,
@@ -777,23 +784,42 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
         1, &priority,
     };
 
-    uint32_t selectedDeviceExtensionCount = 0;
-    const char* const* selectedDeviceExtensionNames = nullptr;
-
-    if (sVkEmulation->deviceInfo.supportsExternalMemory) {
-        selectedDeviceExtensionCount = externalMemoryDeviceExtNames.size();
-        selectedDeviceExtensionNames = externalMemoryDeviceExtNames.data();
+    VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndexingFeatures = {};
+    descIndexingFeatures.sType =
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
+    VkPhysicalDeviceFeatures2 features = {};
+    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features.pNext = &descIndexingFeatures;
+    if (!CompositorVk::enablePhysicalDeviceFeatures(features)) {
+        VK_COMMON_ERROR(
+            "Fail to enable physical device features for CompositorVk.\n");
     }
 
-    VkDeviceCreateInfo dCi = {
-        VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, 0, 0,
-        // TODO: add compute queue as well if appropriate
-        1, &dqCi,
-        0, nullptr, // no layers
-        selectedDeviceExtensionCount,
-        selectedDeviceExtensionNames, // no layers
-        nullptr, // no features
-    };
+    std::unordered_set<const char*> selectedDeviceExtensionNames_;
+
+    if (sVkEmulation->deviceInfo.supportsExternalMemory) {
+        for (auto extension : externalMemoryDeviceExtNames) {
+            selectedDeviceExtensionNames_.emplace(extension);
+        }
+    }
+    for (auto extension : CompositorVk::getRequiredDeviceExtensions()) {
+        selectedDeviceExtensionNames_.emplace(extension);
+    }
+    for (auto extension : SwapChainStateVk::getRequiredDeviceExtensions()) {
+        selectedDeviceExtensionNames_.emplace(extension);
+    }
+    std::vector<const char*> selectedDeviceExtensionNames(
+        selectedDeviceExtensionNames_.begin(),
+        selectedDeviceExtensionNames_.end());
+
+    VkDeviceCreateInfo dCi = {};
+    dCi.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    dCi.pNext = &features;
+    dCi.queueCreateInfoCount = 1;
+    dCi.pQueueCreateInfos = &dqCi;
+    dCi.enabledExtensionCount =
+        static_cast<uint32_t>(selectedDeviceExtensionNames.size());
+    dCi.ppEnabledExtensionNames = selectedDeviceExtensionNames.data();
 
     ivk->vkCreateDevice(sVkEmulation->physdev, &dCi, nullptr,
                         &sVkEmulation->device);
@@ -1571,15 +1597,11 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
     }
 
     if (sVkEmulation->deviceInfo.supportsExternalMemory &&
-        sVkEmulation->deviceInfo.glInteropSupported &&
-        glCompatible &&
+        sVkEmulation->deviceInfo.glInteropSupported && glCompatible &&
         FrameBuffer::getFB()->importMemoryToColorBuffer(
-            dupExternalMemory(res.memory.exportedHandle),
-            res.memory.size,
-            false /* dedicated */,
-            res.tiling == VK_IMAGE_TILING_LINEAR,
-            vulkanOnly,
-            colorBufferHandle)) {
+            dupExternalMemory(res.memory.exportedHandle), res.memory.size,
+            false /* dedicated */, res.tiling == VK_IMAGE_TILING_LINEAR,
+            vulkanOnly, colorBufferHandle, res.image, res.format)) {
         res.glExported = true;
     }
 
