@@ -258,14 +258,20 @@ enum RendererFlags {
     GFXSTREAM_RENDERER_FLAGS_USE_GLX_BIT = 1 << 2,
     GFXSTREAM_RENDERER_FLAGS_USE_SURFACELESS_BIT = 1 << 3,
     GFXSTREAM_RENDERER_FLAGS_USE_GLES_BIT = 1 << 4,
-    GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT = 1 << 5, // for disabling vk
-    GFXSTREAM_RENDERER_FLAGS_IGNORE_HOST_GL_ERRORS_BIT = 1 << 6, // control IgnoreHostOpenGLErrors flag
-    GFXSTREAM_RENDERER_FLAGS_NATIVE_TEXTURE_DECOMPRESSION_BIT = 1 << 7, // Attempt GPU texture decompression
-    GFXSTREAM_RENDERER_FLAGS_ENABLE_BPTC_TEXTURES_BIT = 1 << 8, // enable BPTC texture support if available
-    GFXSTREAM_RENDERER_FLAGS_ENABLE_GLES31_BIT = 1 << 9, // disables the PlayStoreImage flag
-    GFXSTREAM_RENDERER_FLAGS_ENABLE_S3TC_TEXTURES_BIT = 1 << 10, // enable S3TC texture support if available
-    GFXSTREAM_RENDERER_FLAGS_NO_SYNCFD_BIT = 1 << 20, // for disabling syncfd
+    GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT = 1 << 5,  // for disabling vk
+    GFXSTREAM_RENDERER_FLAGS_IGNORE_HOST_GL_ERRORS_BIT =
+        1 << 6,  // control IgnoreHostOpenGLErrors flag
+    GFXSTREAM_RENDERER_FLAGS_NATIVE_TEXTURE_DECOMPRESSION_BIT =
+        1 << 7,  // Attempt GPU texture decompression
+    GFXSTREAM_RENDERER_FLAGS_ENABLE_BPTC_TEXTURES_BIT =
+        1 << 8,  // enable BPTC texture support if available
+    GFXSTREAM_RENDERER_FLAGS_ENABLE_GLES31_BIT =
+        1 << 9,  // disables the PlayStoreImage flag
+    GFXSTREAM_RENDERER_FLAGS_ENABLE_S3TC_TEXTURES_BIT =
+        1 << 10,  // enable S3TC texture support if available
+    GFXSTREAM_RENDERER_FLAGS_NO_SYNCFD_BIT = 1 << 20,  // for disabling syncfd
     GFXSTREAM_RENDERER_FLAGS_GUEST_USES_ANGLE = 1 << 21,
+    GFXSTREAM_RENDERER_FLAGS_VULKAN_NATIVE_SWAPCHAIN_BIT = 1 << 22,
 };
 
 // Sets backend flags for different kinds of initialization.
@@ -340,6 +346,8 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
             renderer_flags & GFXSTREAM_RENDERER_FLAGS_USE_SURFACELESS_BIT;
     bool enableGlEs31Flag = renderer_flags & GFXSTREAM_RENDERER_FLAGS_ENABLE_GLES31_BIT;
     bool guestUsesAngle = renderer_flags & GFXSTREAM_RENDERER_FLAGS_GUEST_USES_ANGLE;
+    bool useVulkanNativeSwapchain =
+        renderer_flags & GFXSTREAM_RENDERER_FLAGS_VULKAN_NATIVE_SWAPCHAIN_BIT;
 
     GFXS_LOG("Vulkan enabled? %d", enableVk);
     GFXS_LOG("egl2egl enabled? %d", enable_egl2egl);
@@ -351,6 +359,8 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     GFXS_LOG("surfaceless? %d", surfaceless);
     GFXS_LOG("OpenGL ES 3.1 enabled? %d", enableGlEs31Flag);
     GFXS_LOG("guest using ANGLE? %d", guestUsesAngle);
+    GFXS_LOG("use Vulkan native swapchain on the host? %d",
+             useVulkanNativeSwapchain);
 
     // Need to manually set the GLES backend paths in gfxstream environment
     // because the library search paths are not automatically set to include
@@ -407,6 +417,16 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
             kFeature_GuestUsesAngle, guestUsesAngle);
     feature_set_enabled_override(
             kFeature_VulkanQueueSubmitWithCommands, true);
+    feature_set_enabled_override(kFeature_VulkanNativeSwapchain,
+                                 useVulkanNativeSwapchain);
+
+    if (useVulkanNativeSwapchain && !enableVk) {
+        fprintf(stderr,
+                "%s: can't enable vulkan native swapchain, Vulkan is disabled, "
+                "fatal\n",
+                __func__);
+        abort();
+    }
 
     emugl::vkDispatch(false /* don't use test ICD */);
 

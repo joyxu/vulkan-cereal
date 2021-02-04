@@ -337,7 +337,7 @@ void FrameBuffer::finalize() {
 }
 
 bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
-                             bool egl2egl, bool useVulkan) {
+                             bool egl2egl) {
     GL_LOG("FrameBuffer::initialize");
     if (s_theFrameBuffer != NULL) {
         return true;
@@ -372,7 +372,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
             android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_USE_CREATE_RESOURCES_WITH_REQUIREMENTS").empty();
         goldfish_vk::setUseDeferredCommands(emu, useDeferredCommands);
         goldfish_vk::setUseCreateResourcesWithRequirements(emu, useCreateResourcesWithRequirements);
-        if (useVulkan) {
+        if (feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
             fb->m_displayVk = std::make_unique<DisplayVk>(
                 *dispatch, emu->physdev, emu->queueFamilyIndex,
                 emu->queueFamilyIndex, emu->device, emu->queue, emu->queue);
