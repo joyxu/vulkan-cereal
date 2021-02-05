@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from copy import copy
 
 from .common.codegen import CodeGen, VulkanAPIWrapper
@@ -27,22 +26,25 @@ from .wrapperdefs import UNMARSHAL_INPUT_VAR_NAME
 from .wrapperdefs import PARAMETERS_MARSHALING
 from .wrapperdefs import PARAMETERS_MARSHALING_GUEST
 from .wrapperdefs import STRUCT_EXTENSION_PARAM, STRUCT_EXTENSION_PARAM_FOR_WRITE, EXTENSION_SIZE_API_NAME, EXTENSION_SIZE_WITH_STREAM_FEATURES_API_NAME
-from .wrapperdefs import API_PREFIX_MARSHAL
-from .wrapperdefs import API_PREFIX_UNMARSHAL
+from .wrapperdefs import API_PREFIX_RESERVEDMARSHAL
+from .wrapperdefs import API_PREFIX_RESERVEDUNMARSHAL
 
-class VulkanMarshalingCodegen(VulkanTypeIterator):
-
+class VulkanReservedMarshalingCodegen(VulkanTypeIterator):
     def __init__(self,
                  cgen,
                  streamVarName,
                  inputVarName,
+                 ptrVarName,
                  marshalPrefix,
+                 handlemapPrefix,
                  direction = "write",
                  forApiOutput = False,
                  dynAlloc = False,
                  mapHandles = True,
                  handleMapOverwrites = False,
-                 doFiltering = True):
+                 doFiltering = True,
+                 stackVar=None,
+                 stackArrSize=None):
         self.cgen = cgen
         self.direction = direction
         self.processSimple = "write" if self.direction == "write" else "read"
@@ -52,7 +54,9 @@ class VulkanMarshalingCodegen(VulkanTypeIterator):
 
         self.streamVarName = streamVarName
         self.inputVarName = inputVarName
+        self.ptrVar = ptrVarName
         self.marshalPrefix = marshalPrefix
+        self.handlemapPrefix = handlemapPrefix
 
         self.exprAccessor = lambda t: self.cgen.generalAccess(t, parentVarName = self.inputVarName, asPtr = True)
         self.exprValueAccessor = lambda t: self.cgen.generalAccess(t, parentVarName = self.inputVarName, asPtr = False)
@@ -64,6 +68,9 @@ class VulkanMarshalingCodegen(VulkanTypeIterator):
         self.mapHandles = mapHandles
         self.handleMapOverwrites = handleMapOverwrites
         self.doFiltering = doFiltering
+
+        self.stackVar = stackVar
+        self.stackArrSize = stackArrSize
 
     def getTypeForStreaming(self, vulkanType):
         res = copy(vulkanType)
@@ -83,23 +90,56 @@ class VulkanMarshalingCodegen(VulkanTypeIterator):
         return "(%s)" % (
             self.cgen.makeCTypeDecl(vulkanType, useParamName=False))
 
+    def genPtrIncr(self, sizeExpr):
+        self.cgen.stmt("*%s += %s" % (self.ptrVar, sizeExpr))
+
+    def genMemcpyAndIncr(self, varname, cast, toStreamExpr, sizeExpr, toBe = False, actualSize = 4):
+        if self.direction == "write":
+            self.cgen.stmt("memcpy(*%s, %s%s, %s)" % (varname, cast, toStreamExpr, sizeExpr))
+        else:
+            self.cgen.stmt("memcpy(%s%s, *%s, %s)" % (cast, toStreamExpr, varname, sizeExpr))
+
+        if toBe:
+            streamPrefix = "to"
+            if "read" == self.direction:
+                streamPrefix = "from"
+
+            streamMethod = streamPrefix
+
+            if 1 == actualSize:
+                streamMethod += "Byte"
+            elif 2 == actualSize:
+                streamMethod += "Be16"
+            elif 4 == actualSize:
+                streamMethod += "Be32"
+            elif 8 == actualSize:
+                streamMethod += "Be64"
+            else:
+                pass
+
+            if self.direction == "write":
+                self.cgen.stmt("android::base::Stream::%s((uint8_t*)*%s)" % (streamMethod, varname))
+            else:
+                self.cgen.stmt("android::base::Stream::%s((uint8_t*)%s)" % (streamMethod, toStreamExpr))
+
+        self.genPtrIncr(sizeExpr)
+
     def genStreamCall(self, vulkanType, toStreamExpr, sizeExpr):
-        varname = self.streamVarName
-        func = self.processSimple
+        varname = self.ptrVar
         cast = self.makeCastExpr(self.getTypeForStreaming(vulkanType))
-
-        self.cgen.stmt(
-            "%s->%s(%s%s, %s)" % (varname, func, cast, toStreamExpr, sizeExpr))
-
+        self.genMemcpyAndIncr(varname, cast, toStreamExpr, sizeExpr)
+    
     def genPrimitiveStreamCall(self, vulkanType, access):
-        varname = self.streamVarName
-
-        self.cgen.streamPrimitive(
+        varname = self.ptrVar
+        self.cgen.memcpyPrimitive(
             self.typeInfo,
-            varname,
+            "(*" + varname + ")",
             access,
             vulkanType,
             direction=self.direction)
+        self.genPtrIncr(str(self.cgen.countPrimitive(
+            self.typeInfo,
+            vulkanType)))
 
     def genHandleMappingCall(self, vulkanType, access, lenAccess):
 
@@ -112,10 +152,7 @@ class VulkanMarshalingCodegen(VulkanTypeIterator):
         handle64Var = self.cgen.var()
         if lenAccess != "1":
             self.cgen.beginIf(lenAccess)
-            self.cgen.stmt("uint64_t* %s" % handle64Var)
-            self.cgen.stmt(
-                "%s->alloc((void**)&%s, %s * 8)" % \
-                (self.streamVarName, handle64Var, lenAccess))
+            self.cgen.stmt("uint8_t* %s_ptr = (uint8_t*)(*%s)" % (handle64Var, self.ptrVar))
             handle64VarAccess = handle64Var
             handle64VarType = \
                 makeVulkanTypeSimple(False, "uint64_t", 1, paramName=handle64Var)
@@ -125,31 +162,50 @@ class VulkanMarshalingCodegen(VulkanTypeIterator):
             handle64VarType = \
                 makeVulkanTypeSimple(False, "uint64_t", 0, paramName=handle64Var)
 
+        if "" == self.handlemapPrefix:
+            mapFunc = ("(%s)" % vulkanType.typeName)
+            mapFunc64 = ("(%s)" % "uint64_t")
+        else:
+            mapFunc = self.handlemapPrefix + vulkanType.typeName
+            mapFunc64 = mapFunc
+
         if self.direction == "write":
             if self.handleMapOverwrites:
                 self.cgen.stmt(
-                    "static_assert(8 == sizeof(%s), \"handle map overwrite requires %s to be 8 bytes long\")" % \
+                    "static_assert(8 == sizeof(%s), \"handle map overwrite requres %s to be 8 bytes long\")" % \
                             (vulkanType.typeName, vulkanType.typeName))
-                self.cgen.stmt(
-                    "%s->handleMapping()->mapHandles_%s((%s*)%s, %s)" %
-                    (self.streamVarName, vulkanType.typeName, vulkanType.typeName,
-                    access, lenAccess))
-                self.genStreamCall(vulkanType, access, "8 * %s" % lenAccess)
+                if "1" == lenAccess:
+                    self.cgen.stmt("*%s = (%s)%s(*%s)" % (access, vulkanType.typeName, mapFunc, access))
+                    self.genStreamCall(vulkanType, access, "8 * %s" % lenAccess)
+                else:
+                    self.cgen.beginFor("uint32_t k = 0", "k < %s" % lenAccess, "++k")
+                    self.cgen.stmt("%s[k] = (%s)%s(%s[k])" % (access, vulkanType.typeName, mapFunc, access))
+                    self.cgen.endFor()
+                    self.genPtrIncr("8 * %s" % lenAccess)
             else:
-                self.cgen.stmt(
-                    "%s->handleMapping()->mapHandles_%s_u64(%s, %s, %s)" %
-                    (self.streamVarName, vulkanType.typeName,
-                    access,
-                    handle64VarAccess, lenAccess))
-                self.genStreamCall(handle64VarType, handle64VarAccess, handle64Bytes)
+                if "1" == lenAccess:
+                    self.cgen.stmt("*%s = %s((*%s))" % (handle64VarAccess, mapFunc64, access))
+                    self.genStreamCall(handle64VarType, handle64VarAccess, handle64Bytes)
+                else:
+                    self.cgen.beginFor("uint32_t k = 0", "k < %s" % lenAccess, "++k")
+                    self.cgen.stmt("uint64_t tmpval = %s(%s[k])" % (mapFunc64, access))
+                    self.cgen.stmt("memcpy(%s_ptr + k * 8, &tmpval, sizeof(uint64_t))" % (handle64Var))
+                    self.cgen.endFor()
+                    self.genPtrIncr("8 * %s" % lenAccess)
         else:
-            self.genStreamCall(handle64VarType, handle64VarAccess, handle64Bytes)
-            self.cgen.stmt(
-                "%s->handleMapping()->mapHandles_u64_%s(%s, %s%s, %s)" %
-                (self.streamVarName, vulkanType.typeName,
-                handle64VarAccess,
-                self.makeCastExpr(vulkanType.getForNonConstAccess()), access,
-                lenAccess))
+            if "1" == lenAccess:
+                self.genStreamCall(handle64VarType, handle64VarAccess, handle64Bytes)
+                self.cgen.stmt("*%s%s = (%s)%s((%s)(*%s))" % (
+                    self.makeCastExpr(vulkanType.getForNonConstAccess()), access,
+                    vulkanType.typeName,mapFunc, vulkanType.typeName, handle64VarAccess))
+            else:
+                self.genPtrIncr("8 * %s" % lenAccess)
+                self.cgen.beginFor("uint32_t k = 0", "k < %s" % lenAccess, "++k")
+                self.cgen.stmt("uint64_t tmpval; memcpy(&tmpval, %s_ptr + k * 8, sizeof(uint64_t))" % handle64Var)
+                self.cgen.stmt("*((%s%s) + k) = (%s)%s((%s)tmpval)" % (
+                    self.makeCastExpr(vulkanType.getForNonConstAccess()), access,
+                    vulkanType.typeName, mapFunc, vulkanType.typeName))
+                self.cgen.endFor()
 
         if lenAccess != "1":
             self.cgen.endIf()
@@ -164,11 +220,32 @@ class VulkanMarshalingCodegen(VulkanTypeIterator):
                 bytesExpr = "%s * %s" % (lenAccess, sizeof)
             else:
                 bytesExpr = sizeof
+                lenAccess = "1"
 
-            self.cgen.stmt( \
-                "%s->alloc((void**)&%s, %s)" %
-                    (self.streamVarName,
-                     access, bytesExpr))
+            if self.stackVar:
+                if self.stackArrSize != lenAccess:
+                    self.cgen.beginIf("%s <= %s" % (lenAccess, self.stackArrSize))
+
+                self.cgen.stmt( \
+                        "%s = %s%s" % (access, self.makeCastExpr(vulkanType.getForNonConstAccess()), self.stackVar))
+
+                if self.stackArrSize != lenAccess:
+                    self.cgen.endIf()
+                    self.cgen.beginElse()
+
+                if self.stackArrSize != lenAccess:
+                    self.cgen.stmt( \
+                            "%s->alloc((void**)&%s, %s)" %
+                            (self.streamVarName,
+                                access, bytesExpr))
+
+                if self.stackArrSize != lenAccess:
+                    self.cgen.endIf()
+            else:
+                self.cgen.stmt( \
+                        "%s->alloc((void**)&%s, %s)" %
+                        (self.streamVarName,
+                            access, bytesExpr))
 
     def getOptionalStringFeatureExpr(self, vulkanType):
         if vulkanType.optionalStr is not None:
@@ -225,7 +302,6 @@ class VulkanMarshalingCodegen(VulkanTypeIterator):
             self.cgen.stmt(
                 "fprintf(stderr, \"fatal: %s inconsistent between guest and host\\n\")" % (access))
             self.cgen.endIf()
-
 
     def onCheckWithNullOptionalStringFeature(self, vulkanType):
         self.cgen.beginIf("%s->getFeatureBits() & VULKAN_STREAM_FEATURE_NULL_OPTIONAL_STRINGS_BIT" % self.streamVarName)
@@ -415,7 +491,7 @@ class VulkanMarshalingCodegen(VulkanTypeIterator):
         accessWithCast = "%s(%s)" % (self.makeCastExpr(
             self.getTypeForStreaming(vulkanType)), access)
 
-        callParams = [self.streamVarName, accessWithCast]
+        callParams = [self.streamVarName, accessWithCast, self.ptrVar]
 
         for (bindName, localName) in vulkanType.binds.items():
             callParams.append(self.getEnvAccessExpr(localName))
@@ -432,35 +508,48 @@ class VulkanMarshalingCodegen(VulkanTypeIterator):
             self.endFilterGuard(vulkanType)
 
     def onString(self, vulkanType):
-
         access = self.exprAccessor(vulkanType)
 
         if self.direction == "write":
-            self.cgen.stmt("%s->putString(%s)" % (self.streamVarName, access))
+            self.cgen.beginBlock()
+            self.cgen.stmt("uint32_t l = %s ? strlen(%s): 0" % (access, access))
+            self.genMemcpyAndIncr(self.ptrVar, "(uint32_t*)" ,"&l", "sizeof(uint32_t)", toBe = True, actualSize = 4)
+            self.genMemcpyAndIncr(self.ptrVar, "(char*)", access, "l")
+            self.cgen.endBlock()
         else:
             castExpr = \
                 self.makeCastExpr( \
                     self.getTypeForStreaming( \
                         vulkanType.getForAddressAccess()))
-
             self.cgen.stmt( \
-                "%s->loadStringInPlace(%s&%s)" % (self.streamVarName, castExpr, access))
+                "%s->loadStringInPlaceWithStreamPtr(%s&%s, %s)" % (self.streamVarName, castExpr, access, self.ptrVar))
 
     def onStringArray(self, vulkanType):
-
         access = self.exprAccessor(vulkanType)
         lenAccess = self.lenAccessor(vulkanType)
 
         if self.direction == "write":
-            self.cgen.stmt("saveStringArray(%s, %s, %s)" % (self.streamVarName,
-                                                            access, lenAccess))
+            self.cgen.beginBlock()
+
+            self.cgen.stmt("uint32_t c = %s" % (lenAccess))
+            self.genMemcpyAndIncr(self.ptrVar, "(uint32_t*)" ,"&c", "sizeof(uint32_t)", toBe = True, actualSize = 4)
+
+            self.cgen.beginFor("uint32_t i = 0", "i < c", "++i")
+            self.cgen.stmt("uint32_t l = %s ? strlen(%s[i]): 0" % (access, access))
+            self.genMemcpyAndIncr(self.ptrVar, "(uint32_t*)" ,"&l", "sizeof(uint32_t)", toBe = True, actualSize = 4)
+            self.cgen.beginIf("l")
+            self.genMemcpyAndIncr(self.ptrVar, "(char*)", "(%s[i])" % access, "l")
+            self.cgen.endIf()
+            self.cgen.endFor()
+
+            self.cgen.endBlock()
         else:
             castExpr = \
                 self.makeCastExpr( \
                     self.getTypeForStreaming( \
                         vulkanType.getForAddressAccess()))
 
-            self.cgen.stmt("%s->loadStringArrayInPlace(%s&%s)" % (self.streamVarName, castExpr, access))
+            self.cgen.stmt("%s->loadStringArrayInPlaceWithStreamPtr(%s&%s, %s)" % (self.streamVarName, castExpr, access, self.ptrVar))
 
     def onStaticArr(self, vulkanType):
         access = self.exprValueAccessor(vulkanType)
@@ -478,9 +567,10 @@ class VulkanMarshalingCodegen(VulkanTypeIterator):
             castedAccessExpr = access
 
         if self.direction == "read" and self.dynAlloc:
-            self.cgen.stmt("size_t %s" % sizeVar)
-            self.cgen.stmt("%s = %s->getBe32()" % \
-                (sizeVar, self.streamVarName))
+            self.cgen.stmt("uint32_t %s" % sizeVar)
+
+            self.genMemcpyAndIncr(self.ptrVar, "(uint32_t*)", "&" + sizeVar, "sizeof(uint32_t)", toBe = True, actualSize = 4)
+
             self.cgen.stmt("%s = nullptr" % access)
             self.cgen.beginIf(sizeVar)
             self.cgen.stmt( \
@@ -495,13 +585,12 @@ class VulkanMarshalingCodegen(VulkanTypeIterator):
             self.cgen.stmt("*(VkStructureType*)%s = extType" % access)
 
             self.cgen.funcCall(None, self.marshalPrefix + "extension_struct",
-                [self.streamVarName, castedAccessExpr])
+                [self.streamVarName, castedAccessExpr, self.ptrVar])
             self.cgen.endIf()
         else:
 
             self.cgen.funcCall(None, self.marshalPrefix + "extension_struct",
-                [self.streamVarName, castedAccessExpr])
-
+                [self.streamVarName, castedAccessExpr, self.ptrVar])
 
     def onPointer(self, vulkanType):
         access = self.exprAccessor(vulkanType)
@@ -570,8 +659,7 @@ class VulkanMarshalingCodegen(VulkanTypeIterator):
 
         self.cgen.endIf()
 
-
-class VulkanMarshaling(VulkanWrapperGenerator):
+class VulkanReservedMarshaling(VulkanWrapperGenerator):
 
     def __init__(self, module, typeInfo, variant="host"):
         VulkanWrapperGenerator.__init__(self, module, typeInfo)
@@ -584,6 +672,9 @@ class VulkanMarshaling(VulkanWrapperGenerator):
         self.currentFeature = None
         self.apiOpcodes = {}
         self.dynAlloc = self.variant != "guest"
+        self.ptrVarName = "ptr"
+        self.ptrVarType = makeVulkanTypeSimple(False, "uint8_t", 2, self.ptrVarName)
+        self.ptrVarTypeUnmarshal = makeVulkanTypeSimple(False, "uint8_t", 2, self.ptrVarName)
 
         if self.variant == "guest":
             self.marshalingParams = PARAMETERS_MARSHALING_GUEST
@@ -591,19 +682,23 @@ class VulkanMarshaling(VulkanWrapperGenerator):
             self.marshalingParams = PARAMETERS_MARSHALING
 
         self.writeCodegen = \
-            VulkanMarshalingCodegen(
+            VulkanReservedMarshalingCodegen(
                 None,
                 VULKAN_STREAM_VAR_NAME,
                 MARSHAL_INPUT_VAR_NAME,
-                API_PREFIX_MARSHAL,
+                self.ptrVarName,
+                API_PREFIX_RESERVEDMARSHAL,
+                "get_host_u64_" if "guest" == self.variant else "",
                 direction = "write")
 
         self.readCodegen = \
-            VulkanMarshalingCodegen(
+            VulkanReservedMarshalingCodegen(
                 None,
                 VULKAN_STREAM_VAR_NAME,
                 UNMARSHAL_INPUT_VAR_NAME,
-                API_PREFIX_UNMARSHAL,
+                self.ptrVarName,
+                API_PREFIX_RESERVEDUNMARSHAL,
+                "unbox_" if "host" == self.variant else "",
                 direction = "read",
                 dynAlloc=self.dynAlloc)
 
@@ -613,19 +708,18 @@ class VulkanMarshaling(VulkanWrapperGenerator):
         # that is not going to interfere with renderControl
         # opcodes
         self.currentOpcode = 20000
-        self.endOpcode = 30000
 
         self.extensionMarshalPrototype = \
-            VulkanAPI(API_PREFIX_MARSHAL + "extension_struct",
+            VulkanAPI(API_PREFIX_RESERVEDMARSHAL + "extension_struct",
                       STREAM_RET_TYPE,
                       self.marshalingParams +
-                      [STRUCT_EXTENSION_PARAM])
+                      [STRUCT_EXTENSION_PARAM, self.ptrVarType])
 
         self.extensionUnmarshalPrototype = \
-            VulkanAPI(API_PREFIX_UNMARSHAL + "extension_struct",
+            VulkanAPI(API_PREFIX_RESERVEDUNMARSHAL + "extension_struct",
                       STREAM_RET_TYPE,
                       self.marshalingParams +
-                      [STRUCT_EXTENSION_PARAM_FOR_WRITE])
+                      [STRUCT_EXTENSION_PARAM_FOR_WRITE, self.ptrVarTypeUnmarshal])
 
     def onBegin(self,):
         VulkanWrapperGenerator.onBegin(self)
@@ -649,7 +743,8 @@ class VulkanMarshaling(VulkanWrapperGenerator):
             structInfo = self.typeInfo.structs[name]
 
             marshalParams = self.marshalingParams + \
-                [makeVulkanTypeSimple(True, name, 1, MARSHAL_INPUT_VAR_NAME)]
+                [makeVulkanTypeSimple(True, name, 1, MARSHAL_INPUT_VAR_NAME),
+                        self.ptrVarType]
 
             freeParams = []
             letParams = []
@@ -662,18 +757,19 @@ class VulkanMarshaling(VulkanWrapperGenerator):
                         letParams.append(makeVulkanTypeSimple(True, bindingInfo["type"], 0, envname))
 
             marshalPrototype = \
-                VulkanAPI(API_PREFIX_MARSHAL + name,
+                VulkanAPI(API_PREFIX_RESERVEDMARSHAL + name,
                           STREAM_RET_TYPE,
                           marshalParams + freeParams)
 
             marshalPrototypeNoFilter = \
-                VulkanAPI(API_PREFIX_MARSHAL + name,
+                VulkanAPI(API_PREFIX_RESERVEDMARSHAL + name,
                           STREAM_RET_TYPE,
                           marshalParams)
 
             def structMarshalingDef(cgen):
                 self.writeCodegen.cgen = cgen
                 self.writeCodegen.currentStructInfo = structInfo
+                self.writeCodegen.cgen.stmt("(void)%s" % VULKAN_STREAM_VAR_NAME)
 
                 if category == "struct":
                     # marshal 'let' parameters first
@@ -689,6 +785,8 @@ class VulkanMarshaling(VulkanWrapperGenerator):
                 self.writeCodegen.cgen = cgen
                 self.writeCodegen.currentStructInfo = structInfo
                 self.writeCodegen.doFiltering = False
+                self.writeCodegen.cgen.stmt("(void)%s" % VULKAN_STREAM_VAR_NAME)
+
                 if category == "struct":
                     # marshal 'let' parameters first
                     for letp in letParams:
@@ -700,28 +798,29 @@ class VulkanMarshaling(VulkanWrapperGenerator):
                     iterateVulkanType(self.typeInfo, structInfo.members[0], self.writeCodegen)
                 self.writeCodegen.doFiltering = True
 
-            self.module.appendHeader(
-                self.cgenHeader.makeFuncDecl(marshalPrototype))
-            self.module.appendImpl(
-                self.cgenImpl.makeFuncImpl(
-                    marshalPrototype, structMarshalingDef))
-
-            if freeParams != []:
+            if self.variant != "host":
                 self.module.appendHeader(
-                    self.cgenHeader.makeFuncDecl(marshalPrototypeNoFilter))
+                    self.cgenHeader.makeFuncDecl(marshalPrototype))
                 self.module.appendImpl(
                     self.cgenImpl.makeFuncImpl(
-                        marshalPrototypeNoFilter, structMarshalingDefNoFilter))
+                        marshalPrototype, structMarshalingDef))
+
+                if freeParams != []:
+                    self.module.appendHeader(
+                        self.cgenHeader.makeFuncDecl(marshalPrototypeNoFilter))
+                    self.module.appendImpl(
+                        self.cgenImpl.makeFuncImpl(
+                            marshalPrototypeNoFilter, structMarshalingDefNoFilter))
 
             unmarshalPrototype = \
-                VulkanAPI(API_PREFIX_UNMARSHAL + name,
+                VulkanAPI(API_PREFIX_RESERVEDUNMARSHAL + name,
                           STREAM_RET_TYPE,
-                          self.marshalingParams + [makeVulkanTypeSimple(False, name, 1, UNMARSHAL_INPUT_VAR_NAME)] + freeParams)
+                          self.marshalingParams + [makeVulkanTypeSimple(False, name, 1, UNMARSHAL_INPUT_VAR_NAME), self.ptrVarTypeUnmarshal] + freeParams)
 
             unmarshalPrototypeNoFilter = \
-                VulkanAPI(API_PREFIX_UNMARSHAL + name,
+                VulkanAPI(API_PREFIX_RESERVEDUNMARSHAL + name,
                           STREAM_RET_TYPE,
-                          self.marshalingParams + [makeVulkanTypeSimple(False, name, 1, UNMARSHAL_INPUT_VAR_NAME)])
+                          self.marshalingParams + [makeVulkanTypeSimple(False, name, 1, UNMARSHAL_INPUT_VAR_NAME), self.ptrVarTypeUnmarshal])
 
             def structUnmarshalingDef(cgen):
                 self.readCodegen.cgen = cgen
@@ -750,36 +849,37 @@ class VulkanMarshaling(VulkanWrapperGenerator):
                     iterateVulkanType(self.typeInfo, structInfo.members[0], self.readCodegen)
                 self.readCodegen.doFiltering = True
 
-            self.module.appendHeader(
-                self.cgenHeader.makeFuncDecl(unmarshalPrototype))
-            self.module.appendImpl(
-                self.cgenImpl.makeFuncImpl(
-                    unmarshalPrototype, structUnmarshalingDef))
-
-            if freeParams != []:
+            if self.variant != "guest":
                 self.module.appendHeader(
-                    self.cgenHeader.makeFuncDecl(unmarshalPrototypeNoFilter))
+                    self.cgenHeader.makeFuncDecl(unmarshalPrototype))
                 self.module.appendImpl(
                     self.cgenImpl.makeFuncImpl(
-                        unmarshalPrototypeNoFilter, structUnmarshalingDefNoFilter))
+                        unmarshalPrototype, structUnmarshalingDef))
+
+                if freeParams != []:
+                    self.module.appendHeader(
+                        self.cgenHeader.makeFuncDecl(unmarshalPrototypeNoFilter))
+                    self.module.appendImpl(
+                        self.cgenImpl.makeFuncImpl(
+                            unmarshalPrototypeNoFilter, structUnmarshalingDefNoFilter))
 
     def onGenCmd(self, cmdinfo, name, alias):
         VulkanWrapperGenerator.onGenCmd(self, cmdinfo, name, alias)
-        self.module.appendHeader(
-            "#define OP_%s %d\n" % (name, self.currentOpcode))
-        self.apiOpcodes[name] = (self.currentOpcode, self.currentFeature)
-        self.currentOpcode += 1
+        # self.module.appendHeader(
+        #     "#define OP_%s %d\n" % (name, self.currentOpcode))
+        # self.apiOpcodes[name] = (self.currentOpcode, self.currentFeature)
+        # self.currentOpcode += 1
 
     def doExtensionStructMarshalingCodegen(self, cgen, retType, extParam, forEach, funcproto, direction):
         accessVar = "structAccess"
         sizeVar = "currExtSize"
         cgen.stmt("VkInstanceCreateInfo* %s = (VkInstanceCreateInfo*)(%s)" % (accessVar, extParam.paramName))
-        cgen.stmt("size_t %s = %s(%s->getFeatureBits(), %s)" % (sizeVar, EXTENSION_SIZE_WITH_STREAM_FEATURES_API_NAME, VULKAN_STREAM_VAR_NAME, extParam.paramName))
+        cgen.stmt("uint32_t %s = %s(%s->getFeatureBits(), %s)" % (sizeVar, EXTENSION_SIZE_WITH_STREAM_FEATURES_API_NAME, VULKAN_STREAM_VAR_NAME, extParam.paramName))
 
         cgen.beginIf("!%s && %s" % (sizeVar, extParam.paramName))
 
         cgen.line("// unknown struct extension; skip and call on its pNext field");
-        cgen.funcCall(None, funcproto.name, ["vkStream", "(void*)%s->pNext" % accessVar])
+        cgen.funcCall(None, funcproto.name, ["vkStream", "(void*)%s->pNext" % accessVar, self.ptrVarName])
         cgen.stmt("return")
 
         cgen.endIf()
@@ -788,9 +888,11 @@ class VulkanMarshaling(VulkanWrapperGenerator):
         cgen.line("// known or null extension struct")
 
         if direction == "write":
-            cgen.stmt("vkStream->putBe32(%s)" % sizeVar)
+            cgen.stmt("memcpy(*%s, &%s, sizeof(uint32_t));" % (self.ptrVarName, sizeVar))
+            cgen.stmt("android::base::Stream::toBe32((uint8_t*)*%s); *%s += sizeof(uint32_t)" % (self.ptrVarName, self.ptrVarName))
         elif not self.dynAlloc:
-            cgen.stmt("vkStream->getBe32()");
+            cgen.stmt("memcpy(&%s, *%s, sizeof(uint32_t));" % (sizeVar, self.ptrVarName))
+            cgen.stmt("android::base::Stream::fromBe32((uint8_t*)&%s); *%s += sizeof(uint32_t)" % (sizeVar, self.ptrVarName))
 
         cgen.beginIf("!%s" % (sizeVar))
         cgen.line("// exit if this was a null extension struct (size == 0 in this branch)")
@@ -801,11 +903,11 @@ class VulkanMarshaling(VulkanWrapperGenerator):
 
         # Now we can do stream stuff
         if direction == "write":
-            cgen.stmt("vkStream->write(%s, sizeof(VkStructureType))" % extParam.paramName)
+            cgen.stmt("memcpy(*%s, %s, sizeof(VkStructureType)); *%s += sizeof(VkStructureType)" % (self.ptrVarName, extParam.paramName, self.ptrVarName))
         elif not self.dynAlloc:
             cgen.stmt("uint64_t pNext_placeholder")
             placeholderAccess = "(&pNext_placeholder)"
-            cgen.stmt("vkStream->read((void*)(&pNext_placeholder), sizeof(VkStructureType))")
+            cgen.stmt("memcpy(%s, *%s, sizeof(VkStructureType)); *%s += sizeof(VkStructureType)" % (placeholderAccess, self.ptrVarName, self.ptrVarName))
             cgen.stmt("(void)pNext_placeholder")
 
         def fatalDefault(cgen):
@@ -824,78 +926,33 @@ class VulkanMarshaling(VulkanWrapperGenerator):
         VulkanWrapperGenerator.onEnd(self)
 
         def forEachExtensionMarshal(ext, castedAccess, cgen):
-            cgen.funcCall(None, API_PREFIX_MARSHAL + ext.name,
-                          [VULKAN_STREAM_VAR_NAME, castedAccess])
+            cgen.funcCall(None, API_PREFIX_RESERVEDMARSHAL + ext.name,
+                          [VULKAN_STREAM_VAR_NAME, castedAccess, self.ptrVarName])
 
         def forEachExtensionUnmarshal(ext, castedAccess, cgen):
-            cgen.funcCall(None, API_PREFIX_UNMARSHAL + ext.name,
-                          [VULKAN_STREAM_VAR_NAME, castedAccess])
+            cgen.funcCall(None, API_PREFIX_RESERVEDUNMARSHAL + ext.name,
+                          [VULKAN_STREAM_VAR_NAME, castedAccess, self.ptrVarName])
 
-        self.module.appendImpl(
-            self.cgenImpl.makeFuncImpl(
-                self.extensionMarshalPrototype,
-                lambda cgen: self.doExtensionStructMarshalingCodegen(
-                    cgen,
-                    STREAM_RET_TYPE,
-                    STRUCT_EXTENSION_PARAM,
-                    forEachExtensionMarshal,
+        if self.variant != "host":
+            self.module.appendImpl(
+                self.cgenImpl.makeFuncImpl(
                     self.extensionMarshalPrototype,
-                    "write")))
+                    lambda cgen: self.doExtensionStructMarshalingCodegen(
+                        cgen,
+                        STREAM_RET_TYPE,
+                        STRUCT_EXTENSION_PARAM,
+                        forEachExtensionMarshal,
+                        self.extensionMarshalPrototype,
+                        "write")))
 
-        self.module.appendImpl(
-            self.cgenImpl.makeFuncImpl(
-                self.extensionUnmarshalPrototype,
-                lambda cgen: self.doExtensionStructMarshalingCodegen(
-                    cgen,
-                    STREAM_RET_TYPE,
-                    STRUCT_EXTENSION_PARAM_FOR_WRITE,
-                    forEachExtensionUnmarshal,
+        if self.variant != "guest":
+            self.module.appendImpl(
+                self.cgenImpl.makeFuncImpl(
                     self.extensionUnmarshalPrototype,
-                    "read")))
-
-        opcode2stringPrototype = \
-            VulkanAPI("api_opcode_to_string",
-                          makeVulkanTypeSimple(True, "char", 1, "none"),
-                          [ makeVulkanTypeSimple(True, "uint32_t", 0, "opcode") ])
-
-        self.module.appendHeader(
-            self.cgenHeader.makeFuncDecl(opcode2stringPrototype))
-
-        def emitOpcode2StringImpl(apiOpcodes, cgen):
-            cgen.line("switch(opcode)")
-            cgen.beginBlock()
-
-            currFeature = None
-
-            for (name, (opcodeNum, feature)) in sorted(apiOpcodes.items(), key = lambda x : x[1][0]):
-                if not currFeature:
-                    cgen.leftline("#ifdef %s" % feature)
-                    currFeature = feature
-
-                if currFeature and feature != currFeature:
-                    cgen.leftline("#endif")
-                    cgen.leftline("#ifdef %s" % feature)
-                    currFeature = feature
-
-                cgen.line("case OP_%s:" % name)
-                cgen.beginBlock()
-                cgen.stmt("return \"OP_%s\"" % name)
-                cgen.endBlock()
-
-            if currFeature:
-                cgen.leftline("#endif")
-
-            cgen.line("default:")
-            cgen.beginBlock()
-            cgen.stmt("return \"OP_UNKNOWN_API_CALL\"")
-            cgen.endBlock()
-
-            cgen.endBlock()
-
-        self.module.appendImpl(
-            self.cgenImpl.makeFuncImpl(
-                opcode2stringPrototype,
-                lambda cgen: emitOpcode2StringImpl(self.apiOpcodes, cgen)))
-
-        self.module.appendHeader(
-            "#define OP_vkLast %d\n" % (self.endOpcode))
+                    lambda cgen: self.doExtensionStructMarshalingCodegen(
+                        cgen,
+                        STREAM_RET_TYPE,
+                        STRUCT_EXTENSION_PARAM_FOR_WRITE,
+                        forEachExtensionUnmarshal,
+                        self.extensionUnmarshalPrototype,
+                        "read")))

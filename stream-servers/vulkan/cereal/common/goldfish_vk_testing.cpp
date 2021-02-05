@@ -27,6 +27,7 @@
 
 #include "goldfish_vk_extension_structs.h"
 #include "goldfish_vk_private_defs.h"
+#include <string.h>
 
 
 namespace goldfish_vk {
@@ -6330,6 +6331,10 @@ void checkEqual_VkImportPhysicalAddressGOOGLE(
 #ifdef VK_GOOGLE_async_queue_submit
 #endif
 #ifdef VK_GOOGLE_linear_image_layout
+#endif
+#ifdef VK_MVK_moltenvk
+#endif
+#ifdef VK_GOOGLE_queue_submit_with_commands
 #endif
 void checkEqual_extension_struct(
     const void* structExtension,

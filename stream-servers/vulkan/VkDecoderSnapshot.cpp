@@ -1351,7 +1351,7 @@ void vkAllocateCommandBuffers(
     android::base::AutoLock lock(mLock);
     // pCommandBuffers create
     mReconstruction.addHandles((const uint64_t*)pCommandBuffers, pAllocateInfo->commandBufferCount);
-    mReconstruction.addHandleDependency((const uint64_t*)pCommandBuffers, pAllocateInfo->commandBufferCount, (uint64_t)(uintptr_t)VkDecoderGlobalState::get()->unboxed_to_boxed_non_dispatchable_VkCommandPool(pAllocateInfo->commandPool));
+    mReconstruction.addHandleDependency((const uint64_t*)pCommandBuffers, pAllocateInfo->commandBufferCount, (uint64_t)(uintptr_t)unboxed_to_boxed_non_dispatchable_VkCommandPool(pAllocateInfo->commandPool));
     if (!pCommandBuffers) return;
     auto apiHandle = mReconstruction.createApiInfo();
     auto apiInfo = mReconstruction.getApiInfo(apiHandle);
@@ -4297,7 +4297,7 @@ void vkMapMemoryIntoAddressSpaceGOOGLE(
     mReconstruction.setApiTrace(apiInfo, OP_vkMapMemoryIntoAddressSpaceGOOGLE, snapshotTraceBegin, snapshotTraceBytes);
     for (uint32_t i = 0; i < 1; ++i)
     {
-        VkDeviceMemory boxed = VkDecoderGlobalState::get()->unboxed_to_boxed_non_dispatchable_VkDeviceMemory((&memory)[i]);
+        VkDeviceMemory boxed = unboxed_to_boxed_non_dispatchable_VkDeviceMemory((&memory)[i]);
         mReconstruction.forEachHandleAddModifyApi((const uint64_t*)(&boxed), 1, apiHandle);
     }
 }
@@ -4515,6 +4515,77 @@ void vkGetLinearImageLayoutGOOGLE(
     VkFormat format,
     VkDeviceSize* pOffset,
     VkDeviceSize* pRowPitchAlignment)
+{
+    // TODO: Implement
+}
+#endif
+#ifdef VK_MVK_moltenvk
+void vkGetMTLDeviceMVK(
+    const uint8_t* snapshotTraceBegin,
+    size_t snapshotTraceBytes,
+    android::base::BumpPool* pool,
+    VkPhysicalDevice physicalDevice,
+    void** pMTLDevice)
+{
+    // TODO: Implement
+}
+void vkSetMTLTextureMVK(
+    const uint8_t* snapshotTraceBegin,
+    size_t snapshotTraceBytes,
+    android::base::BumpPool* pool,
+    VkResult input_result,
+    VkImage image,
+    void* mtlTexture)
+{
+    // TODO: Implement
+}
+void vkGetMTLTextureMVK(
+    const uint8_t* snapshotTraceBegin,
+    size_t snapshotTraceBytes,
+    android::base::BumpPool* pool,
+    VkImage image,
+    void** pMTLTexture)
+{
+    // TODO: Implement
+}
+void vkGetMTLBufferMVK(
+    const uint8_t* snapshotTraceBegin,
+    size_t snapshotTraceBytes,
+    android::base::BumpPool* pool,
+    VkBuffer buffer,
+    void** pMTLBuffer)
+{
+    // TODO: Implement
+}
+void vkUseIOSurfaceMVK(
+    const uint8_t* snapshotTraceBegin,
+    size_t snapshotTraceBytes,
+    android::base::BumpPool* pool,
+    VkResult input_result,
+    VkImage image,
+    void* ioSurface)
+{
+    // TODO: Implement
+}
+void vkGetIOSurfaceMVK(
+    const uint8_t* snapshotTraceBegin,
+    size_t snapshotTraceBytes,
+    android::base::BumpPool* pool,
+    VkImage image,
+    void** pIOSurface)
+{
+    // TODO: Implement
+}
+#endif
+#ifdef VK_GOOGLE_queue_submit_with_commands
+void vkQueueFlushCommandsGOOGLE(
+    const uint8_t* snapshotTraceBegin,
+    size_t snapshotTraceBytes,
+    android::base::BumpPool* pool,
+    VkQueue queue,
+    VkCommandBuffer commandBuffer,
+    VkDeviceSize dataSize,
+    const void* pData)
 {
     // TODO: Implement
 }
@@ -8905,6 +8976,87 @@ void VkDecoderSnapshot::vkGetLinearImageLayoutGOOGLE(
     VkDeviceSize* pRowPitchAlignment)
 {
     mImpl->vkGetLinearImageLayoutGOOGLE(snapshotTraceBegin, snapshotTraceBytes, pool, device, format, pOffset, pRowPitchAlignment);
+}
+#endif
+#ifdef VK_MVK_moltenvk
+void VkDecoderSnapshot::vkGetMTLDeviceMVK(
+    const uint8_t* snapshotTraceBegin,
+    size_t snapshotTraceBytes,
+    android::base::BumpPool* pool,
+    VkPhysicalDevice physicalDevice,
+    void** pMTLDevice)
+{
+    mImpl->vkGetMTLDeviceMVK(snapshotTraceBegin, snapshotTraceBytes, pool, physicalDevice, pMTLDevice);
+}
+#endif
+#ifdef VK_MVK_moltenvk
+void VkDecoderSnapshot::vkSetMTLTextureMVK(
+    const uint8_t* snapshotTraceBegin,
+    size_t snapshotTraceBytes,
+    android::base::BumpPool* pool,
+    VkResult input_result,
+    VkImage image,
+    void* mtlTexture)
+{
+    mImpl->vkSetMTLTextureMVK(snapshotTraceBegin, snapshotTraceBytes, pool, input_result, image, mtlTexture);
+}
+#endif
+#ifdef VK_MVK_moltenvk
+void VkDecoderSnapshot::vkGetMTLTextureMVK(
+    const uint8_t* snapshotTraceBegin,
+    size_t snapshotTraceBytes,
+    android::base::BumpPool* pool,
+    VkImage image,
+    void** pMTLTexture)
+{
+    mImpl->vkGetMTLTextureMVK(snapshotTraceBegin, snapshotTraceBytes, pool, image, pMTLTexture);
+}
+#endif
+#ifdef VK_MVK_moltenvk
+void VkDecoderSnapshot::vkGetMTLBufferMVK(
+    const uint8_t* snapshotTraceBegin,
+    size_t snapshotTraceBytes,
+    android::base::BumpPool* pool,
+    VkBuffer buffer,
+    void** pMTLBuffer)
+{
+    mImpl->vkGetMTLBufferMVK(snapshotTraceBegin, snapshotTraceBytes, pool, buffer, pMTLBuffer);
+}
+#endif
+#ifdef VK_MVK_moltenvk
+void VkDecoderSnapshot::vkUseIOSurfaceMVK(
+    const uint8_t* snapshotTraceBegin,
+    size_t snapshotTraceBytes,
+    android::base::BumpPool* pool,
+    VkResult input_result,
+    VkImage image,
+    void* ioSurface)
+{
+    mImpl->vkUseIOSurfaceMVK(snapshotTraceBegin, snapshotTraceBytes, pool, input_result, image, ioSurface);
+}
+#endif
+#ifdef VK_MVK_moltenvk
+void VkDecoderSnapshot::vkGetIOSurfaceMVK(
+    const uint8_t* snapshotTraceBegin,
+    size_t snapshotTraceBytes,
+    android::base::BumpPool* pool,
+    VkImage image,
+    void** pIOSurface)
+{
+    mImpl->vkGetIOSurfaceMVK(snapshotTraceBegin, snapshotTraceBytes, pool, image, pIOSurface);
+}
+#endif
+#ifdef VK_GOOGLE_queue_submit_with_commands
+void VkDecoderSnapshot::vkQueueFlushCommandsGOOGLE(
+    const uint8_t* snapshotTraceBegin,
+    size_t snapshotTraceBytes,
+    android::base::BumpPool* pool,
+    VkQueue queue,
+    VkCommandBuffer commandBuffer,
+    VkDeviceSize dataSize,
+    const void* pData)
+{
+    mImpl->vkQueueFlushCommandsGOOGLE(snapshotTraceBegin, snapshotTraceBytes, pool, queue, commandBuffer, dataSize, pData);
 }
 #endif
 

@@ -30,4 +30,7 @@ cc_library_static {
         "VulkanHandleMapping.cpp",
         "VulkanStream.cpp",
     ],
+    // http://b/178667698 - clang-tidy crashes with
+    // https://android-review.googlesource.com/c/device/generic/vulkan-cereal/+/1560695/
+    tidy: false,
 }

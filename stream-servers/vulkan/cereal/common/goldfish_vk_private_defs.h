@@ -204,10 +204,15 @@ typedef struct VkMemoryGetZirconHandleInfoFUCHSIA {
 #define VK_MVK_MOLTENVK_SPEC_VERSION            3
 #define VK_MVK_MOLTENVK_EXTENSION_NAME          "VK_MVK_moltenvk"
 
-typedef struct __IOSurface *IOSurfaceRef;
+typedef void* MTLTextureRef;
+typedef void* MTLBufferRef;
 
-typedef VkResult (VKAPI_PTR *PFN_vkUseIOSurfaceMVK)(VkImage image, IOSurfaceRef ioSurface);
-typedef void (VKAPI_PTR *PFN_vkGetIOSurfaceMVK)(VkImage image, IOSurfaceRef* pIOSurface);
+typedef void (VKAPI_PTR *PFN_vkGetMTLDeviceMVK)(VkPhysicalDevice physicalDevice, void** pMTLDevice);
+typedef VkResult (VKAPI_PTR *PFN_vkSetMTLTextureMVK)(VkImage image, MTLTextureRef mtlTexture);
+typedef void (VKAPI_PTR *PFN_vkGetMTLTextureMVK)(VkImage image, MTLTextureRef* pMTLTexture);
+typedef void (VKAPI_PTR *PFN_vkGetMTLBufferMVK)(VkBuffer buffer, void** pMTLBuffer);
+typedef VkResult (VKAPI_PTR *PFN_vkUseIOSurfaceMVK)(VkImage image, void* ioSurface);
+typedef void (VKAPI_PTR *PFN_vkGetIOSurfaceMVK)(VkImage image, void**  pIOSurface);
 
 #endif  // VK_MVK_moltenvk
 
@@ -253,6 +258,9 @@ typedef void (VKAPI_PTR *PFN_vkQueueBindSparseAsyncGOOGLE)(
 #define VK_GOOGLE_linear_image_layout 1
 
 typedef VkResult (VKAPI_PTR *PFN_vkGetLinearImageLayoutGOOGLE)(VkDevice device, VkFormat format, VkDeviceSize* pOffset, VkDeviceSize* pRowPitchAlignment);
+
+#define VK_GOOGLE_queue_submit_with_commands 1
+typedef void (VKAPI_PTR *PFN_vkQueueFlushCommandsGOOGLE)(VkQueue queue, VkDeviceSize dataSize, const void* pData);
 
 #ifdef __cplusplus
 } // extern "C"
