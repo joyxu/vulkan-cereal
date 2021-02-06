@@ -21,6 +21,17 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
+if (APPLE)
+    add_compile_definitions(VK_USE_PLATFORM_MACOS_MVK)
+elseif(UNIX)
+    # TODO(kaiyili, b/179477624): Add Linux specific Vulkan platform macro definitions
+elseif(WIN32)
+    add_compile_definitions(VK_USE_PLATFORM_WIN32_KHR)
+endif()
+
+add_compile_definitions(GLM_FORCE_RADIANS)
+add_compile_definitions(GLM_FORCE_DEFAULT_ALIGNED_GENTYPES)
+
 # Uncomment for ASAN support
 # set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
 # set (CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
