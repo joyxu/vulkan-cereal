@@ -61,21 +61,21 @@ class ColorBufferHelper : public ColorBuffer::Helper {
    public:
     ColorBufferHelper(FrameBuffer* fb) : mFb(fb), mDisplayVk(nullptr) {}
 
-    virtual bool setupContext() {
+    virtual bool setupContext() override {
         mIsBound = mFb->bind_locked();
         return mIsBound;
     }
 
-    virtual void teardownContext() {
+    virtual void teardownContext() override {
         mFb->unbind_locked();
         mIsBound = false;
     }
 
-    virtual TextureDraw* getTextureDraw() const {
+    virtual TextureDraw* getTextureDraw() const override {
         return mFb->getTextureDraw();
     }
 
-    virtual bool isBound() const { return mIsBound; }
+    virtual bool isBound() const override { return mIsBound; }
 
     virtual void releaseDisplayImport(HandleType id) override {
         if (mDisplayVk) {
@@ -93,26 +93,26 @@ class ColorBufferHelper : public ColorBuffer::Helper {
 
 }  // namespace
 
-static std::string getTimeStampString() {
-    const time_t timestamp = android::base::getUnixTimeUs();
-    const struct tm *timeinfo = localtime(&timestamp);
-    // Target format: 07-31 4:44:33
-    char b[64];
-    snprintf(
-        b,
-        sizeof(b) - 1,
-        "%02u-%02u %02u:%02u:%02u",
-        timeinfo->tm_mon + 1,
-        timeinfo->tm_mday,
-        timeinfo->tm_hour,
-        timeinfo->tm_min,
-        timeinfo->tm_sec);
-    return std::string(b);
-}
+// static std::string getTimeStampString() {
+//     const time_t timestamp = android::base::getUnixTimeUs();
+//     const struct tm *timeinfo = localtime(&timestamp);
+//     // Target format: 07-31 4:44:33
+//     char b[64];
+//     snprintf(
+//         b,
+//         sizeof(b) - 1,
+//         "%02u-%02u %02u:%02u:%02u",
+//         timeinfo->tm_mon + 1,
+//         timeinfo->tm_mday,
+//         timeinfo->tm_hour,
+//         timeinfo->tm_min,
+//         timeinfo->tm_sec);
+//     return std::string(b);
+// }
 
-static unsigned int getUptimeMs() {
-    return android::base::getUptimeMs();
-}
+// static unsigned int getUptimeMs() {
+//     return android::base::getUptimeMs();
+// }
 
 static void dumpPerfStats() {
     // auto usage = System::get()->getMemUsage();
@@ -759,13 +759,13 @@ FrameBuffer::FrameBuffer(int p_width, int p_height, bool useSubWindow)
               !android::base::getEnvironmentVariable("SHOW_PERF_STATS").empty()),
       m_perfThread(new PerfStatThread(&m_perfStats)),
       m_colorBufferHelper(new ColorBufferHelper(this)),
+      m_readbackThread([this](FrameBuffer::Readback&& readback) {
+          return sendReadbackWorkerCmd(readback);
+      }),
       m_refCountPipeEnabled(feature_is_enabled(
               kFeature_RefCountPipe)),
       m_noDelayCloseColorBufferEnabled(feature_is_enabled(
               kFeature_NoDelayCloseColorBuffer)),
-      m_readbackThread([this](FrameBuffer::Readback&& readback) {
-          return sendReadbackWorkerCmd(readback);
-      }),
       m_postThread([this](FrameBuffer::Post&& post) {
           return postWorkerFunc(post);
       }) {

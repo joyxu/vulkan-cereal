@@ -605,8 +605,7 @@ void CompositorVk::setUpEmptyComposition(VkFormat format) {
         recordImageLayoutTransformCommands(
             cmdBuff, m_emptyCompositionVkImage, VK_IMAGE_LAYOUT_UNDEFINED,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        VkClearColorValue clearColor = {0.0, 0.0, 0.0, 1.0};
-        VkBufferImageCopy region = {};
+        VkClearColorValue clearColor = {.float32 = {0.0, 0.0, 0.0, 1.0}};
         VkImageSubresourceRange range = {};
         range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         range.baseMipLevel = 0;

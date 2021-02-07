@@ -62,7 +62,6 @@ namespace {
 
 constexpr size_t kPageBits = 12;
 constexpr size_t kPageSize = 1u << kPageBits;
-constexpr size_t kPageOffsetMask = kPageSize - 1;
 
 }  // namespace
 
@@ -2004,8 +2003,6 @@ bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
 VK_EXT_MEMORY_HANDLE getColorBufferExtMemoryHandle(uint32_t colorBuffer) {
     if (!sVkEmulation || !sVkEmulation->live) return VK_EXT_MEMORY_HANDLE_INVALID;
 
-    auto vk = sVkEmulation->dvk;
-
     AutoLock lock(sVkEmulationLock);
 
     auto infoPtr = android::base::find(sVkEmulation->colorBuffers, colorBuffer);
@@ -2020,8 +2017,6 @@ VK_EXT_MEMORY_HANDLE getColorBufferExtMemoryHandle(uint32_t colorBuffer) {
 
 bool setColorBufferVulkanMode(uint32_t colorBuffer, uint32_t vulkanMode) {
     if (!sVkEmulation || !sVkEmulation->live) return VK_EXT_MEMORY_HANDLE_INVALID;
-
-    auto vk = sVkEmulation->dvk;
 
     AutoLock lock(sVkEmulationLock);
 
@@ -2059,8 +2054,6 @@ int32_t mapGpaToBufferHandle(uint32_t bufferHandle,
                              uint64_t size) {
     if (!sVkEmulation || !sVkEmulation->live)
         return VK_ERROR_DEVICE_LOST;
-
-    auto vk = sVkEmulation->dvk;
 
     AutoLock lock(sVkEmulationLock);
 
@@ -2303,7 +2296,6 @@ VK_EXT_MEMORY_HANDLE getBufferExtMemoryHandle(uint32_t bufferHandle) {
     if (!sVkEmulation || !sVkEmulation->live)
         return VK_EXT_MEMORY_HANDLE_INVALID;
 
-    auto vk = sVkEmulation->dvk;
     AutoLock lock(sVkEmulationLock);
 
     auto infoPtr = android::base::find(sVkEmulation->buffers, bufferHandle);

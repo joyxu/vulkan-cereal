@@ -34,7 +34,6 @@ class DisplayVk {
 
     const goldfish_vk::VulkanDispatch &m_vk;
     VkPhysicalDevice m_vkPhysicalDevice;
-    VkFormatFeatureFlags m_swapChainImageFeatures;
     uint32_t m_swapChainQueueFamilyIndex;
     uint32_t m_compositorQueueFamilyIndex;
     VkDevice m_vkDevice;

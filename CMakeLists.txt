@@ -32,6 +32,13 @@ endif()
 add_compile_definitions(GLM_FORCE_RADIANS)
 add_compile_definitions(GLM_FORCE_DEFAULT_ALIGNED_GENTYPES)
 
+if (MSVC)
+    # ask msvc not to warn not secure C ISO functions
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+    # ask msvc not to warn non C ISO POSIX functions
+    add_compile_definitions(_CRT_NONSTDC_NO_DEPRECATE)
+endif()
+
 # Uncomment for ASAN support
 # set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
 # set (CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")

@@ -26,7 +26,7 @@
 
 class FrameBuffer;
 class OSWindow;
-class RenderThreadInfo;
+struct RenderThreadInfo;
 
 namespace emugl {
 

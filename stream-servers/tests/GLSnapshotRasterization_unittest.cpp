@@ -46,9 +46,9 @@ TEST_P(SnapshotGlLineWidthTest, SetLineWidth) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotRasterization,
-                        SnapshotGlLineWidthTest,
-                        ::testing::ValuesIn(kGLES2TestLineWidths));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotRasterization,
+                         SnapshotGlLineWidthTest,
+                         ::testing::ValuesIn(kGLES2TestLineWidths));
 
 class SnapshotGlCullFaceTest : public SnapshotSetValueTest<GLenum>,
                                public ::testing::WithParamInterface<GLenum> {
@@ -63,9 +63,9 @@ TEST_P(SnapshotGlCullFaceTest, SetCullFaceMode) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotRasterization,
-                        SnapshotGlCullFaceTest,
-                        ::testing::ValuesIn(kGLES2CullFaceModes));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotRasterization,
+                         SnapshotGlCullFaceTest,
+                         ::testing::ValuesIn(kGLES2CullFaceModes));
 
 class SnapshotGlFrontFaceTest : public SnapshotSetValueTest<GLenum>,
                                 public ::testing::WithParamInterface<GLenum> {
@@ -80,9 +80,9 @@ TEST_P(SnapshotGlFrontFaceTest, SetFrontFaceMode) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotRasterization,
-                        SnapshotGlFrontFaceTest,
-                        ::testing::ValuesIn(kGLES2FrontFaceModes));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotRasterization,
+                         SnapshotGlFrontFaceTest,
+                         ::testing::ValuesIn(kGLES2FrontFaceModes));
 
 class SnapshotGlPolygonOffsetTest
     : public SnapshotSetValueTest<GLfloat*>,
@@ -105,8 +105,8 @@ TEST_P(SnapshotGlPolygonOffsetTest, SetPolygonOffset) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotRasterization,
-                        SnapshotGlPolygonOffsetTest,
-                        ::testing::Values(kGLES2TestPolygonOffset));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotRasterization,
+                         SnapshotGlPolygonOffsetTest,
+                         ::testing::Values(kGLES2TestPolygonOffset));
 
 }  // namespace emugl

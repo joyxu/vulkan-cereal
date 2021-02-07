@@ -62,8 +62,6 @@ extern "C" {
 using android::AndroidPipe;
 using android::base::pj;
 
-static bool sInitialized = false;
-
 #ifdef _WIN32
 #define VG_EXPORT __declspec(dllexport)
 #else

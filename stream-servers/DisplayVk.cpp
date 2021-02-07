@@ -6,8 +6,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/matrix_transform_2d.hpp>
 
-static void repaintCallback(void *) {}
-
 DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk,
                      VkPhysicalDevice vkPhysicalDevice,
                      uint32_t swapChainQueueFamilyIndex,
@@ -17,9 +15,9 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk,
       m_vkPhysicalDevice(vkPhysicalDevice),
       m_swapChainQueueFamilyIndex(swapChainQueueFamilyIndex),
       m_compositorQueueFamilyIndex(compositorQueueFamilyIndex),
-      m_swapChainVkQueue(swapChainVkqueue),
       m_vkDevice(vkDevice),
       m_compositorVkQueue(compositorVkQueue),
+      m_swapChainVkQueue(swapChainVkqueue),
       m_vkCommandPool(VK_NULL_HANDLE),
       m_swapChainStateVk(nullptr),
       m_compositorVk(nullptr),
