@@ -419,7 +419,7 @@ void deepcopy_VkDeviceCreateInfo(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pQueueCreateInfos = nullptr;
         if (from->pQueueCreateInfos)
@@ -564,7 +564,7 @@ void deepcopy_VkSparseBufferMemoryBindInfo(
 {
     (void)pool;
     *to = *from;
-    if ((from) != nullptr)
+    if (from)
     {
         to->pBinds = nullptr;
         if (from->pBinds)
@@ -586,7 +586,7 @@ void deepcopy_VkSparseImageOpaqueMemoryBindInfo(
 {
     (void)pool;
     *to = *from;
-    if ((from) != nullptr)
+    if (from)
     {
         to->pBinds = nullptr;
         if (from->pBinds)
@@ -629,7 +629,7 @@ void deepcopy_VkSparseImageMemoryBindInfo(
 {
     (void)pool;
     *to = *from;
-    if ((from) != nullptr)
+    if (from)
     {
         to->pBinds = nullptr;
         if (from->pBinds)
@@ -663,7 +663,7 @@ void deepcopy_VkBindSparseInfo(
     {
         to->pWaitSemaphores = (VkSemaphore*)pool->dupArray(from->pWaitSemaphores, from->waitSemaphoreCount * sizeof(const VkSemaphore));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pBufferBinds = nullptr;
         if (from->pBufferBinds)
@@ -676,7 +676,7 @@ void deepcopy_VkBindSparseInfo(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pImageOpaqueBinds = nullptr;
         if (from->pImageOpaqueBinds)
@@ -689,7 +689,7 @@ void deepcopy_VkBindSparseInfo(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pImageBinds = nullptr;
         if (from->pImageBinds)
@@ -946,7 +946,7 @@ void deepcopy_VkSpecializationInfo(
 {
     (void)pool;
     *to = *from;
-    if ((from) != nullptr)
+    if (from)
     {
         to->pMapEntries = nullptr;
         if (from->pMapEntries)
@@ -1042,7 +1042,7 @@ void deepcopy_VkPipelineVertexInputStateCreateInfo(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pVertexBindingDescriptions = nullptr;
         if (from->pVertexBindingDescriptions)
@@ -1055,7 +1055,7 @@ void deepcopy_VkPipelineVertexInputStateCreateInfo(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pVertexAttributeDescriptions = nullptr;
         if (from->pVertexAttributeDescriptions)
@@ -1125,7 +1125,7 @@ void deepcopy_VkPipelineViewportStateCreateInfo(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pViewports = nullptr;
         if (from->pViewports)
@@ -1138,7 +1138,7 @@ void deepcopy_VkPipelineViewportStateCreateInfo(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pScissors = nullptr;
         if (from->pScissors)
@@ -1240,7 +1240,7 @@ void deepcopy_VkPipelineColorBlendStateCreateInfo(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pAttachments = nullptr;
         if (from->pAttachments)
@@ -1291,7 +1291,7 @@ void deepcopy_VkGraphicsPipelineCreateInfo(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pStages = nullptr;
         if (from->pStages)
@@ -1388,7 +1388,7 @@ void deepcopy_VkPipelineLayoutCreateInfo(
     {
         to->pSetLayouts = (VkDescriptorSetLayout*)pool->dupArray(from->pSetLayouts, from->setLayoutCount * sizeof(const VkDescriptorSetLayout));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pPushConstantRanges = nullptr;
         if (from->pPushConstantRanges)
@@ -1476,7 +1476,7 @@ void deepcopy_VkDescriptorPoolCreateInfo(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pPoolSizes = nullptr;
         if (from->pPoolSizes)
@@ -1540,7 +1540,7 @@ void deepcopy_VkDescriptorSetLayoutCreateInfo(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pBindings = nullptr;
         if (from->pBindings)
@@ -1569,7 +1569,7 @@ void deepcopy_VkWriteDescriptorSet(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pImageInfo = nullptr;
         if (from->pImageInfo)
@@ -1582,7 +1582,7 @@ void deepcopy_VkWriteDescriptorSet(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pBufferInfo = nullptr;
         if (from->pBufferInfo)
@@ -1648,7 +1648,7 @@ void deepcopy_VkSubpassDescription(
 {
     (void)pool;
     *to = *from;
-    if ((from) != nullptr)
+    if (from)
     {
         to->pInputAttachments = nullptr;
         if (from->pInputAttachments)
@@ -1661,7 +1661,7 @@ void deepcopy_VkSubpassDescription(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pColorAttachments = nullptr;
         if (from->pColorAttachments)
@@ -1674,7 +1674,7 @@ void deepcopy_VkSubpassDescription(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pResolveAttachments = nullptr;
         if (from->pResolveAttachments)
@@ -1723,7 +1723,7 @@ void deepcopy_VkRenderPassCreateInfo(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pAttachments = nullptr;
         if (from->pAttachments)
@@ -1736,7 +1736,7 @@ void deepcopy_VkRenderPassCreateInfo(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pSubpasses = nullptr;
         if (from->pSubpasses)
@@ -1749,7 +1749,7 @@ void deepcopy_VkRenderPassCreateInfo(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pDependencies = nullptr;
         if (from->pDependencies)
@@ -1978,7 +1978,7 @@ void deepcopy_VkRenderPassBeginInfo(
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
     deepcopy_VkRect2D(pool, &from->renderArea, (VkRect2D*)(&to->renderArea));
-    if ((from) != nullptr)
+    if (from)
     {
         to->pClearValues = nullptr;
         if (from->pClearValues)
@@ -2121,7 +2121,7 @@ void deepcopy_VkDeviceGroupRenderPassBeginInfo(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pDeviceRenderAreas = nullptr;
         if (from->pDeviceRenderAreas)
@@ -2239,7 +2239,7 @@ void deepcopy_VkBindImageMemoryDeviceGroupInfo(
     {
         to->pDeviceIndices = (uint32_t*)pool->dupArray(from->pDeviceIndices, from->deviceIndexCount * sizeof(const uint32_t));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pSplitInstanceBindRegions = nullptr;
         if (from->pSplitInstanceBindRegions)
@@ -2564,7 +2564,7 @@ void deepcopy_VkRenderPassInputAttachmentAspectCreateInfo(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pAspectReferences = nullptr;
         if (from->pAspectReferences)
@@ -2874,7 +2874,7 @@ void deepcopy_VkDescriptorUpdateTemplateCreateInfo(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pDescriptorUpdateEntries = nullptr;
         if (from->pDescriptorUpdateEntries)
@@ -3323,7 +3323,7 @@ void deepcopy_VkSubpassDescription2(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pInputAttachments = nullptr;
         if (from->pInputAttachments)
@@ -3336,7 +3336,7 @@ void deepcopy_VkSubpassDescription2(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pColorAttachments = nullptr;
         if (from->pColorAttachments)
@@ -3349,7 +3349,7 @@ void deepcopy_VkSubpassDescription2(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pResolveAttachments = nullptr;
         if (from->pResolveAttachments)
@@ -3405,7 +3405,7 @@ void deepcopy_VkRenderPassCreateInfo2(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pAttachments = nullptr;
         if (from->pAttachments)
@@ -3418,7 +3418,7 @@ void deepcopy_VkRenderPassCreateInfo2(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pSubpasses = nullptr;
         if (from->pSubpasses)
@@ -3431,7 +3431,7 @@ void deepcopy_VkRenderPassCreateInfo2(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pDependencies = nullptr;
         if (from->pDependencies)
@@ -3825,7 +3825,7 @@ void deepcopy_VkFramebufferAttachmentsCreateInfo(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pAttachmentImageInfos = nullptr;
         if (from->pAttachmentImageInfos)
@@ -4914,7 +4914,7 @@ void deepcopy_VkPresentRegionKHR(
 {
     (void)pool;
     *to = *from;
-    if ((from) != nullptr)
+    if (from)
     {
         to->pRectangles = nullptr;
         if (from->pRectangles)
@@ -4943,7 +4943,7 @@ void deepcopy_VkPresentRegionsKHR(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pRegions = nullptr;
         if (from->pRegions)
@@ -5754,7 +5754,7 @@ void deepcopy_VkCopyBufferInfo2KHR(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pRegions = nullptr;
         if (from->pRegions)
@@ -5804,7 +5804,7 @@ void deepcopy_VkCopyImageInfo2KHR(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pRegions = nullptr;
         if (from->pRegions)
@@ -5852,7 +5852,7 @@ void deepcopy_VkCopyBufferToImageInfo2KHR(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pRegions = nullptr;
         if (from->pRegions)
@@ -5881,7 +5881,7 @@ void deepcopy_VkCopyImageToBufferInfo2KHR(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pRegions = nullptr;
         if (from->pRegions)
@@ -5936,7 +5936,7 @@ void deepcopy_VkBlitImageInfo2KHR(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pRegions = nullptr;
         if (from->pRegions)
@@ -5986,7 +5986,7 @@ void deepcopy_VkResolveImageInfo2KHR(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pRegions = nullptr;
         if (from->pRegions)
@@ -6670,7 +6670,7 @@ void deepcopy_VkPipelineViewportWScalingStateCreateInfoNV(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pViewportWScalings = nullptr;
         if (from->pViewportWScalings)
@@ -6819,7 +6819,7 @@ void deepcopy_VkPresentTimesInfoGOOGLE(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pTimes = nullptr;
         if (from->pTimes)
@@ -6883,7 +6883,7 @@ void deepcopy_VkPipelineViewportSwizzleStateCreateInfoNV(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pViewportSwizzles = nullptr;
         if (from->pViewportSwizzles)
@@ -6930,7 +6930,7 @@ void deepcopy_VkPipelineDiscardRectangleStateCreateInfoEXT(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pDiscardRectangles = nullptr;
         if (from->pDiscardRectangles)
@@ -7167,7 +7167,7 @@ void deepcopy_VkDebugUtilsMessengerCallbackDataEXT(
     {
         to->pMessage = pool->strDup(from->pMessage);
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pQueueLabels = nullptr;
         if (from->pQueueLabels)
@@ -7180,7 +7180,7 @@ void deepcopy_VkDebugUtilsMessengerCallbackDataEXT(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pCmdBufLabels = nullptr;
         if (from->pCmdBufLabels)
@@ -7193,7 +7193,7 @@ void deepcopy_VkDebugUtilsMessengerCallbackDataEXT(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pObjects = nullptr;
         if (from->pObjects)
@@ -7461,7 +7461,7 @@ void deepcopy_VkSampleLocationsInfoEXT(
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
     deepcopy_VkExtent2D(pool, &from->sampleLocationGridSize, (VkExtent2D*)(&to->sampleLocationGridSize));
-    if ((from) != nullptr)
+    if (from)
     {
         to->pSampleLocations = nullptr;
         if (from->pSampleLocations)
@@ -7510,7 +7510,7 @@ void deepcopy_VkRenderPassSampleLocationsBeginInfoEXT(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pAttachmentInitialSampleLocations = nullptr;
         if (from->pAttachmentInitialSampleLocations)
@@ -7523,7 +7523,7 @@ void deepcopy_VkRenderPassSampleLocationsBeginInfoEXT(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pPostSubpassSampleLocations = nullptr;
         if (from->pPostSubpassSampleLocations)
@@ -7744,7 +7744,7 @@ void deepcopy_VkDrmFormatModifierPropertiesListEXT(
         to->pNext = (void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pDrmFormatModifierProperties = nullptr;
         if (from->pDrmFormatModifierProperties)
@@ -7815,7 +7815,7 @@ void deepcopy_VkImageDrmFormatModifierExplicitCreateInfoEXT(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pPlaneLayouts = nullptr;
         if (from->pPlaneLayouts)
@@ -7919,7 +7919,7 @@ void deepcopy_VkPipelineViewportShadingRateImageStateCreateInfoNV(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pShadingRatePalettes = nullptr;
         if (from->pShadingRatePalettes)
@@ -7983,7 +7983,7 @@ void deepcopy_VkCoarseSampleOrderCustomNV(
 {
     (void)pool;
     *to = *from;
-    if ((from) != nullptr)
+    if (from)
     {
         to->pSampleLocations = nullptr;
         if (from->pSampleLocations)
@@ -8012,7 +8012,7 @@ void deepcopy_VkPipelineViewportCoarseSampleOrderStateCreateInfoNV(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pCustomSampleOrders = nullptr;
         if (from->pCustomSampleOrders)
@@ -8059,7 +8059,7 @@ void deepcopy_VkRayTracingPipelineCreateInfoNV(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pStages = nullptr;
         if (from->pStages)
@@ -8072,7 +8072,7 @@ void deepcopy_VkRayTracingPipelineCreateInfoNV(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pGroups = nullptr;
         if (from->pGroups)
@@ -8161,7 +8161,7 @@ void deepcopy_VkAccelerationStructureInfoNV(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pGeometries = nullptr;
         if (from->pGeometries)
@@ -8554,7 +8554,7 @@ void deepcopy_VkPipelineVertexInputDivisorStateCreateInfoEXT(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pVertexBindingDivisors = nullptr;
         if (from->pVertexBindingDivisors)
@@ -8634,7 +8634,7 @@ void deepcopy_VkPipelineCreationFeedbackCreateInfoEXT(
         to->pPipelineCreationFeedback = (VkPipelineCreationFeedbackEXT*)pool->alloc(sizeof(VkPipelineCreationFeedbackEXT));
         deepcopy_VkPipelineCreationFeedbackEXT(pool, from->pPipelineCreationFeedback, (VkPipelineCreationFeedbackEXT*)(to->pPipelineCreationFeedback));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pPipelineStageCreationFeedbacks = nullptr;
         if (from->pPipelineStageCreationFeedbacks)
@@ -8766,7 +8766,7 @@ void deepcopy_VkPipelineViewportExclusiveScissorStateCreateInfoNV(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pExclusiveScissors = nullptr;
         if (from->pExclusiveScissors)
@@ -9768,7 +9768,7 @@ void deepcopy_VkGraphicsShaderGroupCreateInfoNV(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pStages = nullptr;
         if (from->pStages)
@@ -9809,7 +9809,7 @@ void deepcopy_VkGraphicsPipelineShaderGroupsCreateInfoNV(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pGroups = nullptr;
         if (from->pGroups)
@@ -9914,7 +9914,7 @@ void deepcopy_VkIndirectCommandsLayoutCreateInfoNV(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pTokens = nullptr;
         if (from->pTokens)
@@ -9948,7 +9948,7 @@ void deepcopy_VkGeneratedCommandsInfoNV(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pStreams = nullptr;
         if (from->pStreams)
@@ -10598,7 +10598,7 @@ void deepcopy_VkAccelerationStructureBuildGeometryInfoKHR(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pGeometries = nullptr;
         if (from->pGeometries)
@@ -10839,7 +10839,7 @@ void deepcopy_VkRayTracingPipelineCreateInfoKHR(
         to->pNext = (const void*)pool->alloc(pNext_size);
         deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pStages = nullptr;
         if (from->pStages)
@@ -10852,7 +10852,7 @@ void deepcopy_VkRayTracingPipelineCreateInfoKHR(
             }
         }
     }
-    if ((from) != nullptr)
+    if (from)
     {
         to->pGroups = nullptr;
         if (from->pGroups)

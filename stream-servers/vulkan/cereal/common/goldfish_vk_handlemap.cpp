@@ -324,7 +324,7 @@ void handlemap_VkDeviceCreateInfo(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pQueueCreateInfos)
         {
@@ -429,7 +429,7 @@ void handlemap_VkSparseBufferMemoryBindInfo(
     (void)handlemap;
     (void)toMap;
     handlemap->mapHandles_VkBuffer((VkBuffer*)&toMap->buffer);
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pBinds)
         {
@@ -448,7 +448,7 @@ void handlemap_VkSparseImageOpaqueMemoryBindInfo(
     (void)handlemap;
     (void)toMap;
     handlemap->mapHandles_VkImage((VkImage*)&toMap->image);
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pBinds)
         {
@@ -487,7 +487,7 @@ void handlemap_VkSparseImageMemoryBindInfo(
     (void)handlemap;
     (void)toMap;
     handlemap->mapHandles_VkImage((VkImage*)&toMap->image);
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pBinds)
         {
@@ -513,7 +513,7 @@ void handlemap_VkBindSparseInfo(
     {
         handlemap->mapHandles_VkSemaphore((VkSemaphore*)toMap->pWaitSemaphores, toMap->waitSemaphoreCount);
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pBufferBinds)
         {
@@ -523,7 +523,7 @@ void handlemap_VkBindSparseInfo(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pImageOpaqueBinds)
         {
@@ -533,7 +533,7 @@ void handlemap_VkBindSparseInfo(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pImageBinds)
         {
@@ -722,7 +722,7 @@ void handlemap_VkSpecializationInfo(
 {
     (void)handlemap;
     (void)toMap;
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pMapEntries)
         {
@@ -792,7 +792,7 @@ void handlemap_VkPipelineVertexInputStateCreateInfo(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pVertexBindingDescriptions)
         {
@@ -802,7 +802,7 @@ void handlemap_VkPipelineVertexInputStateCreateInfo(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pVertexAttributeDescriptions)
         {
@@ -856,7 +856,7 @@ void handlemap_VkPipelineViewportStateCreateInfo(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pViewports)
         {
@@ -866,7 +866,7 @@ void handlemap_VkPipelineViewportStateCreateInfo(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pScissors)
         {
@@ -942,7 +942,7 @@ void handlemap_VkPipelineColorBlendStateCreateInfo(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pAttachments)
         {
@@ -976,7 +976,7 @@ void handlemap_VkGraphicsPipelineCreateInfo(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pStages)
         {
@@ -1049,7 +1049,7 @@ void handlemap_VkPipelineLayoutCreateInfo(
     {
         handlemap->mapHandles_VkDescriptorSetLayout((VkDescriptorSetLayout*)toMap->pSetLayouts, toMap->setLayoutCount);
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pPushConstantRanges)
         {
@@ -1124,7 +1124,7 @@ void handlemap_VkDescriptorPoolCreateInfo(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pPoolSizes)
         {
@@ -1175,7 +1175,7 @@ void handlemap_VkDescriptorSetLayoutCreateInfo(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pBindings)
         {
@@ -1198,7 +1198,7 @@ void handlemap_VkWriteDescriptorSet(
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
     handlemap->mapHandles_VkDescriptorSet((VkDescriptorSet*)&toMap->dstSet);
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pImageInfo)
         {
@@ -1208,7 +1208,7 @@ void handlemap_VkWriteDescriptorSet(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pBufferInfo)
         {
@@ -1263,7 +1263,7 @@ void handlemap_VkSubpassDescription(
 {
     (void)handlemap;
     (void)toMap;
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pInputAttachments)
         {
@@ -1273,7 +1273,7 @@ void handlemap_VkSubpassDescription(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pColorAttachments)
         {
@@ -1283,7 +1283,7 @@ void handlemap_VkSubpassDescription(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pResolveAttachments)
         {
@@ -1317,7 +1317,7 @@ void handlemap_VkRenderPassCreateInfo(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pAttachments)
         {
@@ -1327,7 +1327,7 @@ void handlemap_VkRenderPassCreateInfo(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pSubpasses)
         {
@@ -1337,7 +1337,7 @@ void handlemap_VkRenderPassCreateInfo(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pDependencies)
         {
@@ -1532,7 +1532,7 @@ void handlemap_VkRenderPassBeginInfo(
     handlemap->mapHandles_VkRenderPass((VkRenderPass*)&toMap->renderPass);
     handlemap->mapHandles_VkFramebuffer((VkFramebuffer*)&toMap->framebuffer);
     handlemap_VkRect2D(handlemap, (VkRect2D*)(&toMap->renderArea));
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pClearValues)
         {
@@ -1646,7 +1646,7 @@ void handlemap_VkDeviceGroupRenderPassBeginInfo(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pDeviceRenderAreas)
         {
@@ -1716,7 +1716,7 @@ void handlemap_VkBindImageMemoryDeviceGroupInfo(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pSplitInstanceBindRegions)
         {
@@ -1967,7 +1967,7 @@ void handlemap_VkRenderPassInputAttachmentAspectCreateInfo(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pAspectReferences)
         {
@@ -2191,7 +2191,7 @@ void handlemap_VkDescriptorUpdateTemplateCreateInfo(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pDescriptorUpdateEntries)
         {
@@ -2524,7 +2524,7 @@ void handlemap_VkSubpassDescription2(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pInputAttachments)
         {
@@ -2534,7 +2534,7 @@ void handlemap_VkSubpassDescription2(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pColorAttachments)
         {
@@ -2544,7 +2544,7 @@ void handlemap_VkSubpassDescription2(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pResolveAttachments)
         {
@@ -2582,7 +2582,7 @@ void handlemap_VkRenderPassCreateInfo2(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pAttachments)
         {
@@ -2592,7 +2592,7 @@ void handlemap_VkRenderPassCreateInfo2(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pSubpasses)
         {
@@ -2602,7 +2602,7 @@ void handlemap_VkRenderPassCreateInfo2(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pDependencies)
         {
@@ -2881,7 +2881,7 @@ void handlemap_VkFramebufferAttachmentsCreateInfo(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pAttachmentImageInfos)
         {
@@ -3675,7 +3675,7 @@ void handlemap_VkPresentRegionKHR(
 {
     (void)handlemap;
     (void)toMap;
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pRectangles)
         {
@@ -3697,7 +3697,7 @@ void handlemap_VkPresentRegionsKHR(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pRegions)
         {
@@ -4324,7 +4324,7 @@ void handlemap_VkCopyBufferInfo2KHR(
     }
     handlemap->mapHandles_VkBuffer((VkBuffer*)&toMap->srcBuffer);
     handlemap->mapHandles_VkBuffer((VkBuffer*)&toMap->dstBuffer);
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pRegions)
         {
@@ -4365,7 +4365,7 @@ void handlemap_VkCopyImageInfo2KHR(
     }
     handlemap->mapHandles_VkImage((VkImage*)&toMap->srcImage);
     handlemap->mapHandles_VkImage((VkImage*)&toMap->dstImage);
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pRegions)
         {
@@ -4404,7 +4404,7 @@ void handlemap_VkCopyBufferToImageInfo2KHR(
     }
     handlemap->mapHandles_VkBuffer((VkBuffer*)&toMap->srcBuffer);
     handlemap->mapHandles_VkImage((VkImage*)&toMap->dstImage);
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pRegions)
         {
@@ -4428,7 +4428,7 @@ void handlemap_VkCopyImageToBufferInfo2KHR(
     }
     handlemap->mapHandles_VkImage((VkImage*)&toMap->srcImage);
     handlemap->mapHandles_VkBuffer((VkBuffer*)&toMap->dstBuffer);
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pRegions)
         {
@@ -4474,7 +4474,7 @@ void handlemap_VkBlitImageInfo2KHR(
     }
     handlemap->mapHandles_VkImage((VkImage*)&toMap->srcImage);
     handlemap->mapHandles_VkImage((VkImage*)&toMap->dstImage);
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pRegions)
         {
@@ -4515,7 +4515,7 @@ void handlemap_VkResolveImageInfo2KHR(
     }
     handlemap->mapHandles_VkImage((VkImage*)&toMap->srcImage);
     handlemap->mapHandles_VkImage((VkImage*)&toMap->dstImage);
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pRegions)
         {
@@ -5014,7 +5014,7 @@ void handlemap_VkPipelineViewportWScalingStateCreateInfoNV(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pViewportWScalings)
         {
@@ -5133,7 +5133,7 @@ void handlemap_VkPresentTimesInfoGOOGLE(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pTimes)
         {
@@ -5185,7 +5185,7 @@ void handlemap_VkPipelineViewportSwizzleStateCreateInfoNV(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pViewportSwizzles)
         {
@@ -5221,7 +5221,7 @@ void handlemap_VkPipelineDiscardRectangleStateCreateInfoEXT(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pDiscardRectangles)
         {
@@ -5383,7 +5383,7 @@ void handlemap_VkDebugUtilsMessengerCallbackDataEXT(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pQueueLabels)
         {
@@ -5393,7 +5393,7 @@ void handlemap_VkDebugUtilsMessengerCallbackDataEXT(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pCmdBufLabels)
         {
@@ -5403,7 +5403,7 @@ void handlemap_VkDebugUtilsMessengerCallbackDataEXT(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pObjects)
         {
@@ -5596,7 +5596,7 @@ void handlemap_VkSampleLocationsInfoEXT(
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
     handlemap_VkExtent2D(handlemap, (VkExtent2D*)(&toMap->sampleLocationGridSize));
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pSampleLocations)
         {
@@ -5636,7 +5636,7 @@ void handlemap_VkRenderPassSampleLocationsBeginInfoEXT(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pAttachmentInitialSampleLocations)
         {
@@ -5646,7 +5646,7 @@ void handlemap_VkRenderPassSampleLocationsBeginInfoEXT(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pPostSubpassSampleLocations)
         {
@@ -5813,7 +5813,7 @@ void handlemap_VkDrmFormatModifierPropertiesListEXT(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pDrmFormatModifierProperties)
         {
@@ -5859,7 +5859,7 @@ void handlemap_VkImageDrmFormatModifierExplicitCreateInfoEXT(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pPlaneLayouts)
         {
@@ -5934,7 +5934,7 @@ void handlemap_VkPipelineViewportShadingRateImageStateCreateInfoNV(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pShadingRatePalettes)
         {
@@ -5985,7 +5985,7 @@ void handlemap_VkCoarseSampleOrderCustomNV(
 {
     (void)handlemap;
     (void)toMap;
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pSampleLocations)
         {
@@ -6007,7 +6007,7 @@ void handlemap_VkPipelineViewportCoarseSampleOrderStateCreateInfoNV(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pCustomSampleOrders)
         {
@@ -6043,7 +6043,7 @@ void handlemap_VkRayTracingPipelineCreateInfoNV(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pStages)
         {
@@ -6053,7 +6053,7 @@ void handlemap_VkRayTracingPipelineCreateInfoNV(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pGroups)
         {
@@ -6128,7 +6128,7 @@ void handlemap_VkAccelerationStructureInfoNV(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pGeometries)
         {
@@ -6429,7 +6429,7 @@ void handlemap_VkPipelineVertexInputDivisorStateCreateInfoEXT(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pVertexBindingDivisors)
         {
@@ -6491,7 +6491,7 @@ void handlemap_VkPipelineCreationFeedbackCreateInfoEXT(
     {
         handlemap_VkPipelineCreationFeedbackEXT(handlemap, (VkPipelineCreationFeedbackEXT*)(toMap->pPipelineCreationFeedback));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pPipelineStageCreationFeedbacks)
         {
@@ -6593,7 +6593,7 @@ void handlemap_VkPipelineViewportExclusiveScissorStateCreateInfoNV(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pExclusiveScissors)
         {
@@ -7338,7 +7338,7 @@ void handlemap_VkGraphicsShaderGroupCreateInfoNV(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pStages)
         {
@@ -7368,7 +7368,7 @@ void handlemap_VkGraphicsPipelineShaderGroupsCreateInfoNV(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pGroups)
         {
@@ -7448,7 +7448,7 @@ void handlemap_VkIndirectCommandsLayoutCreateInfoNV(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pTokens)
         {
@@ -7472,7 +7472,7 @@ void handlemap_VkGeneratedCommandsInfoNV(
     }
     handlemap->mapHandles_VkPipeline((VkPipeline*)&toMap->pipeline);
     handlemap->mapHandles_VkIndirectCommandsLayoutNV((VkIndirectCommandsLayoutNV*)&toMap->indirectCommandsLayout);
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pStreams)
         {
@@ -7964,7 +7964,7 @@ void handlemap_VkAccelerationStructureBuildGeometryInfoKHR(
     }
     handlemap->mapHandles_VkAccelerationStructureKHR((VkAccelerationStructureKHR*)&toMap->srcAccelerationStructure);
     handlemap->mapHandles_VkAccelerationStructureKHR((VkAccelerationStructureKHR*)&toMap->dstAccelerationStructure);
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pGeometries)
         {
@@ -8145,7 +8145,7 @@ void handlemap_VkRayTracingPipelineCreateInfoKHR(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pStages)
         {
@@ -8155,7 +8155,7 @@ void handlemap_VkRayTracingPipelineCreateInfoKHR(
             }
         }
     }
-    if ((toMap) != nullptr)
+    if (toMap)
     {
         if (toMap->pGroups)
         {
