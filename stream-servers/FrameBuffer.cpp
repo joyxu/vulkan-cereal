@@ -59,7 +59,7 @@ typedef ColorBuffer::RecursiveScopedHelperContext ScopedBind;
 // to a FrameBuffer instance.
 class ColorBufferHelper : public ColorBuffer::Helper {
    public:
-    ColorBufferHelper(FrameBuffer* fb) : mFb(fb), mDisplayVk(nullptr) {}
+    ColorBufferHelper(FrameBuffer* fb) : mFb(fb) {}
 
     virtual bool setupContext() override {
         mIsBound = mFb->bind_locked();
@@ -77,17 +77,8 @@ class ColorBufferHelper : public ColorBuffer::Helper {
 
     virtual bool isBound() const override { return mIsBound; }
 
-    virtual void releaseDisplayImport(HandleType id) override {
-        if (mDisplayVk) {
-            mDisplayVk->releaseImport(id);
-        }
-    }
-
-    void setDisplayVk(DisplayVk* displayVk) { mDisplayVk = displayVk; }
-
    private:
     FrameBuffer* mFb;
-    DisplayVk* mDisplayVk;
     bool mIsBound = false;
 };
 
@@ -377,8 +368,6 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
                 *dispatch, emu->physdev, emu->queueFamilyIndex,
                 emu->queueFamilyIndex, emu->device, emu->queue, emu->queue);
             fb->m_vkInstance = emu->instance;
-            static_cast<ColorBufferHelper*>(fb->m_colorBufferHelper)
-                ->setDisplayVk(fb->m_displayVk.get());
         }
     }
 
@@ -703,12 +692,14 @@ bool FrameBuffer::importMemoryToColorBuffer(
     }
 
     auto& cb = *c->second.cb;
+    std::shared_ptr<DisplayVk::DisplayBufferInfo> db = nullptr;
     if (m_displayVk != nullptr) {
-        m_displayVk->importVkImage(colorBufferHandle, image, format,
-                                   static_cast<uint32_t>(cb.getWidth()),
-                                   static_cast<uint32_t>(cb.getHeight()));
+        db = m_displayVk->createDisplayBuffer(
+            image, format, static_cast<uint32_t>(cb.getWidth()),
+            static_cast<uint32_t>(cb.getHeight()));
     }
-    return cb.importMemory(handle, size, dedicated, linearTiling, vulkanOnly);
+    return cb.importMemory(handle, size, dedicated, linearTiling, vulkanOnly,
+                           std::move(db));
 }
 
 void FrameBuffer::setColorBufferInUse(
@@ -1232,6 +1223,7 @@ void FrameBuffer::createColorBufferWithHandle(
         // emugl::emugl_crash_reporter(
         //     "FATAL: color buffer with handle %u already exists",
         //     handle);
+        ::abort();
     }
 
     createColorBufferWithHandleLocked(
@@ -1270,7 +1262,8 @@ HandleType FrameBuffer::createColorBufferWithHandleLocked(
         // Explicitly set refcount to 1 to avoid the colorbuffer being added to
         // m_colorBufferDelayedCloseList in FrameBuffer::onLoad().
         if (m_refCountPipeEnabled) {
-            m_colorbuffers[handle] = { std::move(cb), 1, false, 0 };
+            m_colorbuffers.try_emplace(
+                handle, ColorBufferRef{std::move(cb), 1, false, 0});
         } else {
             // Android master default api level is 1000
             int apiLevel = 1000;
@@ -1278,7 +1271,9 @@ HandleType FrameBuffer::createColorBufferWithHandleLocked(
             // pre-O and post-O use different color buffer memory management
             // logic
             if (apiLevel > 0 && apiLevel < 26) {
-                m_colorbuffers[handle] = {std::move(cb), 1, false, 0};
+                m_colorbuffers.try_emplace(
+                    handle,
+                    ColorBufferRef{std::move(cb), 1, false, 0});
 
                 RenderThreadInfo* tInfo = RenderThreadInfo::get();
                 uint64_t puid = tInfo->m_puid;
@@ -1287,7 +1282,9 @@ HandleType FrameBuffer::createColorBufferWithHandleLocked(
                 }
 
             } else {
-                m_colorbuffers[handle] = {std::move(cb), 0, false, 0};
+                m_colorbuffers.try_emplace(
+                    handle,
+                    ColorBufferRef{std::move(cb), 0, false, 0});
             }
         }
     } else {
@@ -2246,7 +2243,11 @@ RenderContextPtr FrameBuffer::getContext_locked(HandleType p_context) {
 }
 
 ColorBufferPtr FrameBuffer::getColorBuffer_locked(HandleType p_colorBuffer) {
-    return android::base::findOrDefault(m_colorbuffers, p_colorBuffer).cb;
+    auto i = m_colorbuffers.find(p_colorBuffer);
+    if (i == m_colorbuffers.end()) {
+        return nullptr;
+    }
+    return i->second.cb;
 }
 
 WindowSurfacePtr FrameBuffer::getWindowSurface_locked(HandleType p_windowsurface) {
@@ -2466,14 +2467,14 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
     bool ret = false;
     ColorBufferMap::iterator c;
 
-    // TODO(kaiyili, b/179481815): make DisplayVk::post asynchronous.
-    if (m_displayVk != nullptr) {
-        m_displayVk->post(p_colorbuffer);
+    c = m_colorbuffers.find(p_colorbuffer);
+    if (c == m_colorbuffers.end()) {
         goto EXIT;
     }
 
-    c = m_colorbuffers.find(p_colorbuffer);
-    if (c == m_colorbuffers.end()) {
+    // TODO(kaiyili, b/179481815): make DisplayVk::post asynchronous.
+    if (m_displayVk != nullptr) {
+        m_displayVk->post(c->second.cb->getDisplayBufferVk());
         goto EXIT;
     }
 
@@ -3015,7 +3016,8 @@ bool FrameBuffer::onLoad(Stream* stream,
         if (refCount == 0) {
             m_colorBufferDelayedCloseList.push_back({closedTs, handle});
         }
-        return { handle, { std::move(cb), refCount, opened, closedTs } };
+        return {handle, ColorBufferRef{std::move(cb), refCount, opened,
+                                       closedTs}};
     });
     m_lastPostedColorBuffer = static_cast<HandleType>(stream->getBe32());
     GL_LOG("Got lasted posted color buffer from snapshot");
