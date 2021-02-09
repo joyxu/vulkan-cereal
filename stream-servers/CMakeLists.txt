@@ -34,6 +34,7 @@ set(stream-server-core-sources
     RenderChannelImpl.cpp
     RenderThreadInfo.cpp
     RingStream.cpp
+    SwapChainStateVk.cpp
     SyncThread.cpp
     TextureDraw.cpp
     TextureResize.cpp
@@ -202,6 +203,15 @@ add_executable(
     tests/CompositorVk_unittest.cpp)
 target_link_libraries(
     CompositorVk_unittests
+    PRIVATE
+    stream-server-testing-support
+    gfxstream-host-common-testing-support)
+
+add_executable(
+    SwapChainStateVk_unittests
+    tests/SwapChainStateVk_unittest.cpp)
+target_link_libraries(
+    SwapChainStateVk_unittests
     PRIVATE
     stream-server-testing-support
     gfxstream-host-common-testing-support)
