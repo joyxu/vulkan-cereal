@@ -42,8 +42,6 @@ RenderContext* RenderContext::createImpl(EGLDisplay display,
                                      HandleType hndl,
                                      GLESApi version,
                                      android::base::Stream *stream) {
-    void* emulatedGLES1Context = NULL;
-
     GLESApi clientVersion = version;
     int majorVersion = clientVersion;
     int minorVersion = 0;
