@@ -262,10 +262,12 @@ std::unique_ptr<MemoryTracker::MallocStats> MemoryTracker::getUsage(
     return mImpl->getUsage(group);
 }
 
+#if defined(__linux__)
 static MemoryTracker* sMemoryTracker() {
     static MemoryTracker* m = new MemoryTracker;
     return m;
 }
+#endif
 
 // static
 MemoryTracker* MemoryTracker::get() {

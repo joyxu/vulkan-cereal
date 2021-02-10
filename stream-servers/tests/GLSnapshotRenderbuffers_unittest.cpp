@@ -192,8 +192,8 @@ TEST_P(SnapshotGlRenderbufferFormatTest, SetFormat) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotRenderbuffers,
-                        SnapshotGlRenderbufferFormatTest,
-                        ::testing::ValuesIn(kGLES2TestRenderbufferStates));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotRenderbuffers,
+                         SnapshotGlRenderbufferFormatTest,
+                         ::testing::ValuesIn(kGLES2TestRenderbufferStates));
 
 }  // namespace emugl

@@ -53,8 +53,10 @@ target_link_libraries(
     gfxstream-base PRIVATE lz4 perfetto-tracing-only)
 target_include_directories(
     gfxstream-base PUBLIC ${GFXSTREAM_REPO_ROOT})
-target_compile_options(
-    gfxstream-base PRIVATE -fvisibility=default)
+if (NOT MSVC)
+    target_compile_options(
+        gfxstream-base PRIVATE -fvisibility=default)
+endif()
 
 if (APPLE)
     set(gfxstream-base-platform-test-sources "")

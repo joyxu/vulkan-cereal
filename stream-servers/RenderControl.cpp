@@ -1382,7 +1382,7 @@ static int32_t rcMapGpaToBufferHandle(uint32_t bufferHandle, uint64_t gpa) {
     int32_t result = goldfish_vk::mapGpaToBufferHandle(bufferHandle, gpa);
     if (result < 0) {
         fprintf(stderr,
-                "%s: error: failed to map gpa %lx to buffer handle 0x%x: %d\n",
+                "%s: error: failed to map gpa %" PRIx64 " to buffer handle 0x%x: %d\n",
                 __func__, gpa, bufferHandle, result);
     }
     return result;
@@ -1394,7 +1394,7 @@ static int32_t rcMapGpaToBufferHandle2(uint32_t bufferHandle,
     int32_t result = goldfish_vk::mapGpaToBufferHandle(bufferHandle, gpa, size);
     if (result < 0) {
         fprintf(stderr,
-                "%s: error: failed to map gpa %lx to buffer handle 0x%x: %d\n",
+                "%s: error: failed to map gpa %" PRIx64 " to buffer handle 0x%x: %d\n",
                 __func__, gpa, bufferHandle, result);
     }
     return result;
@@ -1428,12 +1428,6 @@ static void rcComposeAsync(uint32_t bufferSize, void* buffer) {
         return;
     }
     fb->compose(bufferSize, buffer);
-}
-
-static void rcDestroySyncKHRAsyncy(uint64_t handle) {
-    FenceSync* fenceSync = FenceSync::getFromHandle(handle);
-    if (!fenceSync) return;
-    fenceSync->decRef();
 }
 
 static void rcDestroySyncKHRAsync(uint64_t handle) {

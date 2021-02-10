@@ -22,12 +22,13 @@
 #include <GLES3/gl3.h>
 #include "base/Stream.h"
 // #include "android/skin/rect.h"
-#include "snapshot/LazySnapshotObj.h"
+#include <memory>
+
+#include "DisplayVk.h"
 #include "FrameworkFormats.h"
 #include "Hwc2.h"
 #include "RenderContext.h"
-
-#include <memory>
+#include "snapshot/LazySnapshotObj.h"
 
 class TextureDraw;
 class TextureResize;
@@ -250,16 +251,19 @@ public:
     void postLayer(ComposeLayer* l, int frameWidth, int frameHeight);
     GLuint getTexture();
 
+    const std::shared_ptr<DisplayVk::DisplayBufferInfo>& getDisplayBufferVk()
+        const {
+        return m_displayBufferVk;
+    };
+
     bool importMemory(
 #ifdef _WIN32
         void* handle,
 #else
         int handle,
 #endif
-        uint64_t size,
-        bool dedicated,
-        bool linearTiling,
-        bool vulkanOnly);
+        uint64_t size, bool dedicated, bool linearTiling, bool vulkanOnly,
+        std::shared_ptr<DisplayVk::DisplayBufferInfo> displayBufferVk);
     void setInUse(bool inUse);
     bool isInUse() const { return m_inUse; }
 
@@ -319,6 +323,9 @@ private:
     GLuint m_buf = 0;
     uint32_t m_displayId = 0;
     bool m_BRSwizzle = false;
+    // Won't share with others so that m_displayBufferVk lives shorter than this
+    // ColorBuffer.
+    std::shared_ptr<DisplayVk::DisplayBufferInfo> m_displayBufferVk;
 };
 
 typedef std::shared_ptr<ColorBuffer> ColorBufferPtr;

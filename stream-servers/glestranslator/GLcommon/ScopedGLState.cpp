@@ -95,7 +95,7 @@ void ScopedGLState::pushForCoreProfileTextureEmulation() {
 ScopedGLState::~ScopedGLState() {
     auto& gl = GLEScontext::dispatcher();
 
-    for (const auto it : mStateMap) {
+    for (const auto& it : mStateMap) {
         GLenum name = it.first;
         const StateVector& v = it.second;
         switch (name) {

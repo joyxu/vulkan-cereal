@@ -2804,11 +2804,6 @@ public:
         VkMemoryAllocateInfo localAllocInfo = vk_make_orphan_copy(*pAllocateInfo);
         vk_struct_chain_iterator structChainIter = vk_make_chain_iterator(&localAllocInfo);
 
-        VkExportMemoryAllocateInfo exportAllocInfo;
-        VkImportColorBufferGOOGLE importCbInfo;
-        VkImportPhysicalAddressGOOGLE importPhysAddrInfo;
-        VkMemoryDedicatedAllocateInfo dedicatedAllocInfo;
-
         // handle type should already be converted in unmarshaling
         const VkExportMemoryAllocateInfo* exportAllocInfoPtr =
             vk_find_struct<VkExportMemoryAllocateInfo>(pAllocateInfo);
@@ -3335,10 +3330,6 @@ public:
             android::base::BumpPool* pool,
             VkDevice boxed_device, VkDeviceMemory memory,
             uint64_t* pAddress, uint64_t* pSize, uint64_t* pHostmemId) {
-
-        auto device = unbox_VkDevice(boxed_device);
-        auto vk = dispatch_VkDevice(boxed_device);
-
         AutoLock lock(mLock);
 
         auto info = android::base::find(mMapInfo, memory);
@@ -3532,7 +3523,6 @@ public:
         {
             auto queueInfo = android::base::find(mQueueInfo, queue);
             if (queueInfo) {
-                VkDevice device = queueInfo->device;
                 sBoxedHandleManager.processDelayedRemovesGlobalStateLocked(
                         queueInfo->device);
             }
@@ -3632,7 +3622,6 @@ public:
             VkExternalSemaphoreProperties* pExternalSemaphoreProperties) {
 
         auto physicalDevice = unbox_VkPhysicalDevice(boxed_physicalDevice);
-        auto vk = dispatch_VkPhysicalDevice(boxed_physicalDevice);
 
         if (!physicalDevice) {
             return;
@@ -3800,8 +3789,6 @@ public:
 
         auto timeoutDeadline = android::base::getUnixTimeUs() + 5000000; // 5 s
 
-        auto commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
-
         OrderMaintenanceInfo* order = ordmaint_VkCommandBuffer(boxed_commandBuffer);
         if (!order) return;
 
@@ -3843,8 +3830,6 @@ public:
         };
 
         auto timeoutDeadline = android::base::getUnixTimeUs() + 5000000; // 5 s
-
-        auto commandBuffer = unbox_VkQueue(boxed_queue);
 
         OrderMaintenanceInfo* order = ordmaint_VkQueue(boxed_queue);
         if (!order) return;
@@ -5692,7 +5677,6 @@ private:
             VkDescriptorUpdateTemplateEntry entryForHost = entry;
 
             auto type = entry.descriptorType;
-            auto count = entry.descriptorCount;
 
             if (isDescriptorTypeImageInfo(type)) {
                 entryForHost.offset =

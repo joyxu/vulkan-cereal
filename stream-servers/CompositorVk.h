@@ -2,8 +2,6 @@
 #define COMPOSITOR_VK_H
 
 #include <array>
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include <glm/glm.hpp>
 #include <memory>
 #include <optional>
@@ -24,7 +22,9 @@ class Composition {
     // transform matrix in screen coordinates
     glm::mat3 m_transform;
 
-    Composition(VkImageView, VkSampler, uint32_t width, uint32_t height);
+    Composition() = delete;
+    explicit Composition(VkImageView, VkSampler, uint32_t width,
+                         uint32_t height);
 };
 
 struct CompositorVkBase
