@@ -71,16 +71,6 @@ static void address_space_assert(bool condition) {
 #endif
 }
 
-static void* address_space_malloc0(size_t size) {
-#ifdef ANDROID_EMU_ADDRESS_SPACE_MALLOC0_FUNC
-    return ANDROID_EMU_ADDRESS_SPACE_MALLOC0_FUNC(size);
-#else
-    void* res = malloc(size);
-    memset(res, 0, size);
-    return res;
-#endif
-}
-
 static void* address_space_realloc(void* ptr, size_t size) {
 #ifdef ANDROID_EMU_ADDRESS_SPACE_REALLOC_FUNC
     return ANDROID_EMU_ADDRESS_SPACE_REALLOC_FUNC(ptr, size);
@@ -466,18 +456,6 @@ static void address_space_allocator_init(
     allocator->size = 1;
     allocator->capacity = initial_capacity;
     allocator->total_bytes = size;
-}
-
-/* At this point there should be no used blocks and all available blocks must
- * have been merged into one block.
- */
-static void address_space_allocator_destroy(
-    struct address_space_allocator *allocator)
-{
-    address_space_assert(allocator->size == 1);
-    address_space_assert(allocator->capacity >= allocator->size);
-    address_space_assert(allocator->blocks[0].available);
-    address_space_free(allocator->blocks);
 }
 
 /* Destroy function if we don't care what was previoulsy allocated.

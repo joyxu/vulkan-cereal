@@ -24,7 +24,7 @@
 
 namespace goldfish_vk {
 
-class VulkanDispatch;
+struct VulkanDispatch;
 
 // Returns a consistent answer for which memory type index is best for staging
 // memory. This is not the simplest thing in the world because even if a memory

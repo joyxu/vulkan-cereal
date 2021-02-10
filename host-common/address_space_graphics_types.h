@@ -127,7 +127,7 @@ struct asg_context { // ptrs into RingStorage
 // Helper function that will be common between guest and host:
 // Given ring storage and a write buffer, returns asg_context that
 // is the correct view into it.
-static struct asg_context asg_context_create(
+inline struct asg_context asg_context_create(
     char* ring_storage,
     char* buffer,
     uint32_t buffer_size) {

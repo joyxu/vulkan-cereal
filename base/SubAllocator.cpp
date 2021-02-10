@@ -156,9 +156,6 @@ public:
     void* alloc(size_t wantedSize) {
         if (wantedSize == 0) return nullptr;
 
-        uint64_t wantedSize64 =
-            (uint64_t)wantedSize;
-
         size_t toPageSize =
             pageSize *
             ((wantedSize + pageSize - 1) / pageSize);
@@ -178,9 +175,6 @@ public:
     void* allocFixed(size_t wantedSize, uint64_t offset) {
 
         if (wantedSize == 0) return nullptr;
-
-        uint64_t wantedSize64 =
-            (uint64_t)wantedSize;
 
         size_t toPageSize =
             pageSize *

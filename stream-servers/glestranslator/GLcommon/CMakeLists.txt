@@ -26,15 +26,13 @@ target_include_directories(
     ${GFXSTREAM_REPO_ROOT}/stream-servers
     ${GFXSTREAM_REPO_ROOT}/stream-servers/glestranslator/include)
 target_link_libraries(GLcommon PUBLIC gfxstream-base astc-codec)
-target_compile_options(GLcommon PRIVATE -fvisibility=hidden)
+if (NOT MSVC)
+    target_compile_options(GLcommon PRIVATE -fvisibility=hidden)
+endif()
 target_compile_options(GLcommon PUBLIC -Wno-inconsistent-missing-override)
 
 if (LINUX)
     target_link_libraries(GLcommon PRIVATE "-ldl" "-Wl,-Bsymbolic")
-endif()
-
-if (WIN32)
-    target_link_libraries(GLcommon PRIVATE "-Wl,--add-stdcall-alias")
 endif()
 
 # android_add_test(TARGET GLcommon_unittests SRC # cmake-format: sortable

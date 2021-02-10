@@ -85,7 +85,7 @@ bool AddressSpaceHostMediaContext::load(base::Stream* stream) {
 
     int numActiveDecoders = stream->getBe32();
     for (int i = 0; i < numActiveDecoders; ++i) {
-        DecoderType t = (DecoderType)stream->getBe32();
+        stream->getBe32();
         // TODO: Add support for virtio-gpu-as-video-decode
         // switch (t) {
         // case DecoderType::Vpx:
