@@ -52,8 +52,6 @@ FLAG_EXPORT int AmdPowerXpressRequestHighPerformance = 0x00000001;
 
 #undef FLAG_EXPORT
 
-static const uint64_t kGPUInfoQueryTimeoutMs = 5000;
-static const uint64_t kQueryCheckIntervalMs = 66;
 
 void GpuInfo::addDll(std::string dll_str) {
     dlls.push_back(std::move(dll_str));

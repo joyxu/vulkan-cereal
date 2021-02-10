@@ -90,14 +90,12 @@ public:
         AddressSpaceDevicePingInfo* pingInfo = contextDesc.pingInfo;
 
         const uint64_t phys_addr = pingInfo->phys_addr;
-        const uint64_t size = pingInfo->size;
-        const uint64_t metadata = pingInfo->metadata;
 
         AS_DEVICE_DPRINT(
                 "handle %u data 0x%llx -> %p size %llu meta 0x%llx\n", handle,
                 (unsigned long long)phys_addr,
                 sVmOps->physicalMemoryGetAddr(phys_addr),
-                (unsigned long long)size, (unsigned long long)metadata);
+                (unsigned long long)pingInfo->size, (unsigned long long)pingInfo->metadata);
 
         AddressSpaceDeviceContext *device_context = contextDesc.device_context.get();
         if (device_context) {
@@ -117,14 +115,12 @@ public:
         auto& contextDesc = mContexts[handle];
 
         const uint64_t phys_addr = pingInfo->phys_addr;
-        const uint64_t size = pingInfo->size;
-        const uint64_t metadata = pingInfo->metadata;
 
         AS_DEVICE_DPRINT(
                 "handle %u data 0x%llx -> %p size %llu meta 0x%llx\n", handle,
                 (unsigned long long)phys_addr,
                 sVmOps->physicalMemoryGetAddr(phys_addr),
-                (unsigned long long)size, (unsigned long long)metadata);
+                (unsigned long long)pingInfo->size, (unsigned long long)pingInfo->metadata);
 
         AddressSpaceDeviceContext *device_context = contextDesc.device_context.get();
         if (device_context) {
@@ -433,8 +429,6 @@ static AddressSpaceDeviceState* sAddressSpaceDeviceState() {
     static AddressSpaceDeviceState* s = new AddressSpaceDeviceState;
     return s;
 }
-
-static uint32_t sCurrentHandleIndex = 0;
 
 static uint32_t sAddressSpaceDeviceGenHandle() {
     return sAddressSpaceDeviceState()->genHandle();

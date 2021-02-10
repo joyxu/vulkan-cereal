@@ -518,7 +518,6 @@ static uint32_t get_step_size(
     struct ring_buffer_view* v,
     uint32_t bytes) {
 
-    uint32_t step_shift = 0;
     uint32_t available = v ? (v->size >> 1) : (RING_BUFFER_SIZE >> 1);
     uint32_t res = available < bytes ? available : bytes;
 
