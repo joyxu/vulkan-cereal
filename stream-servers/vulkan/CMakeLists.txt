@@ -10,13 +10,17 @@ add_library(gfxstream-vulkan-server
             VulkanDispatch.cpp
             VulkanHandleMapping.cpp
             VulkanStream.cpp)
+set_source_files_properties(VkDecoder.cpp PROPERTIES COMPILE_FLAGS -Wno-unused-variable)
 target_link_libraries(gfxstream-vulkan-server PUBLIC OpenglRender_vulkan_cereal gfxstream-compressedTextures apigen-codec-common gfxstream-base)
 
 if (WIN32)
 target_compile_definitions(gfxstream-vulkan-server PRIVATE -DVK_USE_PLATFORM_WIN32_KHR)
 endif()
 
-target_compile_options(gfxstream-vulkan-server PRIVATE -fvisibility=hidden -Wno-unused-value -Wno-return-type -Wno-return-type-c-linkage)
+if (NOT MSVC)
+    target_compile_options(gfxstream-vulkan-server PRIVATE -fvisibility=hidden)
+endif()
+target_compile_options(gfxstream-vulkan-server PRIVATE -Wno-unused-value -Wno-return-type -Wno-return-type-c-linkage)
 
 target_include_directories(gfxstream-vulkan-server
                            PUBLIC

@@ -23,7 +23,7 @@
 
 namespace goldfish_vk {
 
-class VulkanDispatch;
+struct VulkanDispatch;
 
 // This class provides methods to create and query information about Android
 // native buffers in the context of creating Android swapchain images that have

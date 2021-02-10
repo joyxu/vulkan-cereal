@@ -101,8 +101,6 @@ private:
     int mHeight = 0;
     FrameworkFormat mFormat;
     // colorbuffer w/h/format, could be different
-    int mCbWidth = 0;
-    int mCbHeight = 0;
     FrameworkFormat mCbFormat;
     // We need the following GL objects:
     GLuint mProgram = 0;

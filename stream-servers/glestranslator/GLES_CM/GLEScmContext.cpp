@@ -107,7 +107,7 @@ GLEScmContext::GLEScmContext(int maj, int min,
                 [](android::base::Stream* stream) {
                     MatrixStack matrices;
                     android::base::loadBuffer(stream, &matrices);
-                    return std::move(matrices);
+                    return matrices;
                 });
         android::base::loadBuffer(stream, &mTexUnitEnvs,
                 [](android::base::Stream* stream) {
@@ -119,7 +119,7 @@ GLEScmContext::GLEScmContext(int maj, int min,
                                 stream->read(&val, sizeof(GLValTyped));
                                 return std::make_pair(idx, val);
                             });
-                    return std::move(texEnv);
+                    return texEnv;
                 });
         android::base::loadBuffer(stream, &mTexGens,
                 [](android::base::Stream* stream) {
@@ -131,7 +131,7 @@ GLEScmContext::GLEScmContext(int maj, int min,
                                 stream->read(&val, sizeof(GLValTyped));
                                 return std::make_pair(idx, val);
                             });
-                    return std::move(texEnv);
+                    return texEnv;
                 });
         m_clientActiveTexture = stream->getBe32();
         if (m_initialized) {

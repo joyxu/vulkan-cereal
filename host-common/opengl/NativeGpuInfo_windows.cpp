@@ -182,8 +182,7 @@ static void load_gpu_registry_info(const wchar_t* keyName, GpuInfo* gpu) {
     ::RegCloseKey(hkey);
 }
 
-static const int kGPUInfoQueryTimeoutMs = 5000;
-
+// static const int kGPUInfoQueryTimeoutMs = 5000;
 // static std::string load_gpu_info_wmic() {
 //     auto guid = Uuid::generateFast().toString();
 //     // WMIC doesn't allow one to have any unquoted '-' characters in file name,
@@ -374,15 +373,6 @@ bool badAmdVulkanDriverVersion() {
 }
 
 using WindowsDllVersion = std::tuple<int, int, int, int>;
-
-static WindowsDllVersion sBadVulkanDllVersions[] = {
-    std::make_tuple(0, 0, 0, 0),
-    std::make_tuple(1, 0, 26, 0),
-    std::make_tuple(1, 0, 33, 0),
-    std::make_tuple(1, 0, 42, 0),
-    std::make_tuple(1, 0, 42, 1),
-    std::make_tuple(1, 0, 51, 0),
-};
 
 bool badVulkanDllVersion() {
     int major, minor, build_1, build_2;
