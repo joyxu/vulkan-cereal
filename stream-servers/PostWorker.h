@@ -99,7 +99,6 @@ private:
         std::vector<char> composeBuffer;
     };
 
-    RenderThreadInfo* mTLS;
     FrameBuffer* mFb;
 
     std::function<bool(void)> mBindSubwin;
@@ -113,7 +112,6 @@ private:
     UiThreadRunner m_runOnUiThread = 0;
     android::base::MessageChannel<PostArgs, 1> m_toUiThread;
     EGLContext mContext = EGL_NO_CONTEXT;
-    EGLSurface mSurface = EGL_NO_SURFACE;
 
     DISALLOW_COPY_AND_ASSIGN(PostWorker);
 };

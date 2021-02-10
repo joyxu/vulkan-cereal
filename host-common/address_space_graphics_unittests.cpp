@@ -711,7 +711,6 @@ TEST_F(AddressSpaceGraphicsTest, RoundTrip) {
     setRoundTrip(true, 1, 1);
     char element = (char)(ASG_TEST_WRITE_PATTERN);
     char reply;
-    char expectedReply = (char)(ASG_TEST_READ_PATTERN);
 
     auto buf = client.allocBuffer(1);
     *buf = element;
@@ -760,7 +759,6 @@ TEST_F(AddressSpaceGraphicsTest, Abort) {
     setRoundTrip(true, 1, 1048576);
 
     char send = ASG_TEST_WRITE_PATTERN;
-    char recv = ASG_TEST_READ_PATTERN;
     auto buf = client.allocBuffer(1);
     *buf = send;
     client.flush();

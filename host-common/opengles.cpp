@@ -73,7 +73,7 @@ int  android_gles_fast_pipes = 1;
 
 // Define the Render API function pointers.
 #define FUNCTION_(ret, name, sig, params) \
-        static ret (*name) sig = NULL;
+        inline ret (*name) sig = NULL;
 LIST_RENDER_API_FUNCTIONS(FUNCTION_)
 #undef FUNCTION_
 

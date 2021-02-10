@@ -206,7 +206,7 @@ const uint32_t kGlUnsignedShort565 = 0x8363;
 
 constexpr uint32_t kFwkFormatGlCompat = 0;
 constexpr uint32_t kFwkFormatYV12 = 1;
-constexpr uint32_t kFwkFormatYUV420888 = 2;
+// constexpr uint32_t kFwkFormatYUV420888 = 2;
 constexpr uint32_t kFwkFormatNV12 = 3;
 
 static inline bool virgl_format_is_yuv(uint32_t format) {
@@ -225,29 +225,6 @@ static inline bool virgl_format_is_yuv(uint32_t format) {
         default:
             VGP_FATAL("Unknown virgl format: 0x%x", format);
     }
-}
-
-static inline uint32_t virgl_format_to_bpp(uint32_t format) {
-    uint32_t bpp = 4U;
-
-    switch (format) {
-        case VIRGL_FORMAT_R8_UNORM:
-            bpp = 1U;
-            break;
-        case VIRGL_FORMAT_R8G8_UNORM:
-        case VIRGL_FORMAT_B5G6R5_UNORM:
-            bpp = 2U;
-            break;
-        case VIRGL_FORMAT_B8G8R8A8_UNORM:
-        case VIRGL_FORMAT_B8G8R8X8_UNORM:
-        case VIRGL_FORMAT_R8G8B8A8_UNORM:
-        case VIRGL_FORMAT_R8G8B8X8_UNORM:
-        default:
-            bpp = 4U;
-            break;
-    }
-
-    return bpp;
 }
 
 static inline uint32_t virgl_format_to_gl(uint32_t virgl_format) {
@@ -420,7 +397,6 @@ static int sync_iov(PipeResEntry* res, uint64_t offset, const virgl_box* box, Io
 
     uint32_t iovIndex = 0;
     size_t iovOffset = 0;
-    bool first = true;
     size_t written = 0;
     char* linear = static_cast<char*>(res->linear);
 
@@ -1470,7 +1446,6 @@ private:
     Lock mLock;
 
     void* mCookie = nullptr;
-    int mFlags = 0;
     virgl_renderer_callbacks mVirglRendererCallbacks;
     AndroidVirtioGpuOps* mVirtioGpuOps = nullptr;
     ReadPixelsFunc mReadPixelsFunc = nullptr;

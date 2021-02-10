@@ -48,8 +48,8 @@ TEST_P(SnapshotGlSampleCoverageTest, SetSampleCoverage) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotMultisampling,
-                        SnapshotGlSampleCoverageTest,
-                        ::testing::ValuesIn(kGLES2TestSampleCoverages));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotMultisampling,
+                         SnapshotGlSampleCoverageTest,
+                         ::testing::ValuesIn(kGLES2TestSampleCoverages));
 
 }  // namespace emugl

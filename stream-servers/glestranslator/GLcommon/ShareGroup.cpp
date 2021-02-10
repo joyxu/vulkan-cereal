@@ -355,8 +355,7 @@ unsigned int ShareGroup::ensureObjectOnBind(NamedObjectType p_type, ObjectLocalN
     // No such object, generate one and bind it
     bool genLocal = false;
     auto gi = GenNameInfo(p_type);
-    ObjectLocalName localName =
-            ns->genName( gi, p_localName, genLocal);
+    ns->genName( gi, p_localName, genLocal);
 
     switch (p_type) {
         case NamedObjectType::VERTEXBUFFER: {

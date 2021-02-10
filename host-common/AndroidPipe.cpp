@@ -95,7 +95,7 @@ static void writeOptionalString(BaseStream* stream, const char* str) {
 // (i.e. equals to false), this means the original |str| parameter was null.
 static OptionalString readOptionalString(BaseStream* stream) {
     if (stream->getByte()) {
-        return OptionalString(std::move(stream->getString()));
+        return OptionalString(stream->getString());
     }
     return OptionalString();
 }
