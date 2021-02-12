@@ -34,8 +34,6 @@
 
 #endif
 
-static inline uint64_t ptrToU64(void* ptr) { return (uint64_t)(uintptr_t)ptr; }
-
 VkReconstruction::VkReconstruction() = default;
 
 std::vector<uint64_t> typeTagSortedHandles(const std::vector<uint64_t>& handles) {

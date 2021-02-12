@@ -65,8 +65,8 @@ protected:
         emugl::set_emugl_window_operations(*getConsoleAgents()->emu);
         //const EGLDispatch* egl = LazyLoadedEGLDispatch::get();
 
-        const GLESv2Dispatch* gl = LazyLoadedGLESv2Dispatch::get();
-        const GLESv2Dispatch* testGl = getSnapshotTestDispatch();
+        LazyLoadedGLESv2Dispatch::get();
+        getSnapshotTestDispatch();
 
         mApp.reset(new T());
     }
@@ -83,7 +83,7 @@ protected:
 // To test with additional SampleApplications, extend them to override drawLoop
 // and getGlDispatch, then add the type to TestSampleApps.
 using TestSampleApps = ::testing::Types<SnapshotTestTriangle>;
-TYPED_TEST_CASE(SnapshotGlRenderingSampleTest, TestSampleApps);
+TYPED_TEST_SUITE(SnapshotGlRenderingSampleTest, TestSampleApps);
 
 TYPED_TEST(SnapshotGlRenderingSampleTest, SnapshotDrawOnce) {
     this->mApp->drawOnce();

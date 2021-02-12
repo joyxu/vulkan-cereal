@@ -93,8 +93,6 @@ static return_type gles1_dummy_##func_name signature { \
 
 #endif
 
-LIST_GLES1_FUNCTIONS(DEFINE_DUMMY_FUNCTION, DEFINE_DUMMY_EXTENSION_FUNCTION);
-
 //
 // This function is called only once during initialiation before
 // any thread has been created - hence it should NOT be thread safe.

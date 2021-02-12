@@ -25,3 +25,5 @@ EMUGL_COMMON_API void emugl_crash_reporter(const char* message);
 
 // TODO: Put back the varargs impl and stuff
 #define crashhandler_die(...)
+
+#undef EMUGL_COMMON_API

@@ -471,7 +471,7 @@ TEST(ring_buffer, DISABLED_ProducerDrivenSync) {
 
     consumer.start();
 
-    FunctorThread producer([&r, &elements, &result]() {
+    FunctorThread producer([&r, &elements]() {
         size_t written = 0;
         while (written < totalTestLength) {
             if (!ring_buffer_producer_acquire(&r)) {
@@ -522,12 +522,9 @@ TEST(ring_buffer, SpeedTest) {
     ring_buffer_view v;
     ring_buffer_view_init(&r, &v, buf.data(), buf.size());
 
-    size_t bytesSent = 0;
     size_t totalCycles = 5;
 
     float mbPerSec = 0.0f;
-
-    struct timeval tv;
 
     for (size_t i = 0; i < totalCycles; ++i) {
 
