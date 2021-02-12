@@ -96,7 +96,7 @@ void VulkanStream::loadStringInPlaceWithStreamPtr(char** forOutput, uint8_t** st
     if (len == UINT32_MAX) {
         fprintf(stderr,
                 "%s: FATAL: VulkanStream can't allocate %u bytes\n",
-                UINT32_MAX, __func__);
+                __func__, UINT32_MAX);
         abort();
     }
 
@@ -195,7 +195,7 @@ android::base::BumpPool* VulkanStream::pool() {
 }
 
 VulkanMemReadingStream::VulkanMemReadingStream(uint8_t* start)
-    : mStart(start), VulkanStream(nullptr) {}
+    : VulkanStream(nullptr), mStart(start) {}
 
 VulkanMemReadingStream::~VulkanMemReadingStream() { }
 

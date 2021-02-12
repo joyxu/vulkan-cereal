@@ -43,7 +43,6 @@ private:
 
     static constexpr int kAlignment = 4096;
     static constexpr int kNumPages = 1 + 4096 * 2; // 32M + 4k
-    bool isMemoryAllocated = false;
     std::unique_ptr<MediaVpxDecoder> mVpxDecoder;
     std::unique_ptr<MediaH264Decoder> mH264Decoder;
     void* mHostBuffer = nullptr;

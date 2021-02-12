@@ -360,15 +360,13 @@ private:
 
     bool enclosingSharedRegionExists(
         const MemoryMap& memoryMap, uint64_t offset, uint64_t size) const {
-        for (const auto it : memoryMap) {
+        for (const auto& it : memoryMap) {
             if (it.first <= offset &&
                 it.first + it.second.size >= offset + size)
                 return true;
         }
         return false;
     }
-
-    bool mInitialized = false;
 
     static const uint64_t kPciStart = 0x0101010100000000;
 
