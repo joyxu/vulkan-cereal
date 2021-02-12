@@ -42,15 +42,14 @@ PostWorker::PostWorker(
         PostWorker::BindSubwinCallback&& cb,
         bool mainThreadPostingOnly,
         EGLContext eglContext,
-        EGLSurface eglSurface) :
+        EGLSurface) :
     mFb(FrameBuffer::getFB()),
     mBindSubwin(cb),
     m_mainThreadPostingOnly(mainThreadPostingOnly),
     m_runOnUiThread(m_mainThreadPostingOnly ?
         emugl::get_emugl_window_operations().runOnUiThread :
         sDefaultRunOnUiThread),
-    mContext(eglContext),
-    mSurface(eglSurface) {}
+    mContext(eglContext) {}
 
 void PostWorker::fillMultiDisplayPostStruct(ComposeLayer* l,
                                             hwc_rect_t displayArea,

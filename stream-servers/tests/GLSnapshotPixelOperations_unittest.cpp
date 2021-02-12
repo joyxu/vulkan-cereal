@@ -83,9 +83,9 @@ TEST_P(SnapshotGlScissorBoxTest, SetScissorBox) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotPixelOps,
-                        SnapshotGlScissorBoxTest,
-                        ::testing::Values(kGLES2TestScissorBox));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotPixelOps,
+                         SnapshotGlScissorBoxTest,
+                         ::testing::Values(kGLES2TestScissorBox));
 
 // Tests preservation of stencil test conditional state, set by glStencilFunc.
 class SnapshotGlStencilConditionsTest
@@ -142,13 +142,13 @@ TEST_P(SnapshotGlStencilMaskTest, SetStencilMask) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotPixelOps,
-                        SnapshotGlStencilFuncTest,
-                        ::testing::ValuesIn(kGLES2StencilFuncs));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotPixelOps,
+                         SnapshotGlStencilFuncTest,
+                         ::testing::ValuesIn(kGLES2StencilFuncs));
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotPixelOps,
-                        SnapshotGlStencilMaskTest,
-                        ::testing::ValuesIn(kGLES2TestStencilMasks));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotPixelOps,
+                         SnapshotGlStencilMaskTest,
+                         ::testing::ValuesIn(kGLES2TestStencilMasks));
 
 class SnapshotGlStencilConsequenceTest
     : public SnapshotSetValueTest<GlStencilOp> {
@@ -201,17 +201,17 @@ TEST_P(SnapshotGlStencilDepthPassTest, SetStencilOps) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotPixelOps,
-                        SnapshotGlStencilFailTest,
-                        ::testing::ValuesIn(kGLES2StencilOps));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotPixelOps,
+                         SnapshotGlStencilFailTest,
+                         ::testing::ValuesIn(kGLES2StencilOps));
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotPixelOps,
-                        SnapshotGlStencilDepthFailTest,
-                        ::testing::ValuesIn(kGLES2StencilOps));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotPixelOps,
+                         SnapshotGlStencilDepthFailTest,
+                         ::testing::ValuesIn(kGLES2StencilOps));
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotPixelOps,
-                        SnapshotGlStencilDepthPassTest,
-                        ::testing::ValuesIn(kGLES2StencilOps));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotPixelOps,
+                         SnapshotGlStencilDepthPassTest,
+                         ::testing::ValuesIn(kGLES2StencilOps));
 
 class SnapshotGlDepthFuncTest : public SnapshotSetValueTest<GLenum>,
                                 public ::testing::WithParamInterface<GLenum> {
@@ -226,9 +226,9 @@ TEST_P(SnapshotGlDepthFuncTest, SetDepthFunc) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotPixelOps,
-                        SnapshotGlDepthFuncTest,
-                        ::testing::ValuesIn(kGLES2StencilFuncs));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotPixelOps,
+                         SnapshotGlDepthFuncTest,
+                         ::testing::ValuesIn(kGLES2StencilFuncs));
 
 class SnapshotGlBlendEquationTest
     : public SnapshotSetValueTest<GLenum>,
@@ -245,9 +245,9 @@ TEST_P(SnapshotGlBlendEquationTest, SetBlendEquation) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotPixelOps,
-                        SnapshotGlBlendEquationTest,
-                        ::testing::ValuesIn(kGLES2BlendEquations));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotPixelOps,
+                         SnapshotGlBlendEquationTest,
+                         ::testing::ValuesIn(kGLES2BlendEquations));
 
 class SnapshotGlBlendFuncTest
     : public SnapshotSetValueTest<GlBlendFunc>,
@@ -276,8 +276,8 @@ TEST_P(SnapshotGlBlendFuncTest, SetBlendFunc) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotPixelOps,
-                        SnapshotGlBlendFuncTest,
-                        ::testing::ValuesIn(kGLES2TestBlendFuncs));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotPixelOps,
+                         SnapshotGlBlendFuncTest,
+                         ::testing::ValuesIn(kGLES2TestBlendFuncs));
 
 }  // namespace emugl

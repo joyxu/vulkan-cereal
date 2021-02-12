@@ -48,9 +48,9 @@ TEST_P(SnapshotGlViewportTest, SetViewport) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotTransformation,
-                        SnapshotGlViewportTest,
-                        ::testing::Values(kGLES2TestViewport));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotTransformation,
+                         SnapshotGlViewportTest,
+                         ::testing::Values(kGLES2TestViewport));
 
 class SnapshotGlDepthRangeTest
     : public SnapshotSetValueTest<std::vector<GLclampf>>,
@@ -70,8 +70,8 @@ TEST_P(SnapshotGlDepthRangeTest, SetDepthRange) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotTransformation,
-                        SnapshotGlDepthRangeTest,
-                        ::testing::Values(kGLES2TestDepthRange));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotTransformation,
+                         SnapshotGlDepthRangeTest,
+                         ::testing::Values(kGLES2TestDepthRange));
 
 }  // namespace emugl

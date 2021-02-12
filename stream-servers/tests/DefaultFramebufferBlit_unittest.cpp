@@ -203,7 +203,7 @@ TEST_P(CombinedFramebufferBlit, NonDefault) {
 }
 
 // Test blitting both with only the fast blit path.
-INSTANTIATE_TEST_CASE_P(CombinedFramebufferBlitTest,
+INSTANTIATE_TEST_SUITE_P(CombinedFramebufferBlitTest,
                         CombinedFramebufferBlit,
                         testing::Values(
                             ClearColorParam(GLESApi_CM, true),
@@ -255,7 +255,7 @@ TEST_P(NonDefaultFramebufferBlit, NonDefaultDrawDefaultRead) {
 }
 
 // Test blitting both with and without the fast blit path.
-INSTANTIATE_TEST_CASE_P(DefaultFramebufferBlitTest,
+INSTANTIATE_TEST_SUITE_P(DefaultFramebufferBlitTest,
                         NonDefaultFramebufferBlit,
                         testing::Values(
                             ClearColorParam(GLESApi_3_0, true)));

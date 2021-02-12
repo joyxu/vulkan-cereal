@@ -90,7 +90,6 @@ private:
 
     RenderChannelImpl* mChannel = nullptr;
     std::unique_ptr<RingStream> mRingStream;
-    TransportMode mTransportMode = TransportMode::Channel;
 
     SnapshotState mState = SnapshotState::Empty;
     std::atomic<bool> mFinished { false };

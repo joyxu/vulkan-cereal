@@ -130,8 +130,8 @@ static std::string getLoaderPath(const std::string& directory, bool forTesting) 
     }
 }
 
+#ifdef __APPLE_
 static std::string getMoltenVkPath(const std::string& directory, bool forTesting) {
-#ifdef __APPLE__
     auto path = android::base::getEnvironmentVariable("ANDROID_EMU_VK_LOADER_PATH");
     if (!path.empty()) {
         return path;
@@ -145,9 +145,9 @@ static std::string getMoltenVkPath(const std::string& directory, bool forTesting
         LOG(VERBOSE) << "Skipping loader and using ICD directly: " << path;
         return path;
     }
-#endif
     return "";
 }
+#endif
 
 class SharedLibraries {
 public:
@@ -213,11 +213,13 @@ public:
 
         if (mVulkanLibs.size() == 0) {
             if (sandbox) {
-                bool success = mVulkanLibs.addLibrary(VULKAN_LOADER_FILENAME);
 #ifdef __linux__
+                bool success = mVulkanLibs.addLibrary(VULKAN_LOADER_FILENAME);
                 if (!success) {
                     mVulkanLibs.addLibrary("libvulkan.so.1");
                 }
+#else
+                mVulkanLibs.addLibrary(VULKAN_LOADER_FILENAME);
 #endif // __linux__
             }
             else {

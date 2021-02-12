@@ -147,7 +147,6 @@ TEST(SubAllocator, Random) {
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
     };
 
-    const size_t numPageSizes = arraySize(pageSizesToTest);
     const size_t numSizes = arraySize(sizesToTest);
     const size_t numCounts = arraySize(allocCounts);
 

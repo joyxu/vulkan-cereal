@@ -20,7 +20,7 @@
 
 #include <vector>
 
-class BufferBinding;
+struct BufferBinding;
 
 class TransformFeedbackData : public ObjectData {
 public:

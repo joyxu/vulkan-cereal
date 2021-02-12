@@ -34,6 +34,8 @@ cc_library_shared {
     srcs: [
         "ChannelStream.cpp",
         "ColorBuffer.cpp",
+        "CompositorVk.cpp",
+        "DisplayVk.cpp",
         "FbConfig.cpp",
         "FenceSync.cpp",
         "GLESVersionDetector.cpp",
@@ -44,6 +46,7 @@ cc_library_shared {
         "RenderChannelImpl.cpp",
         "RenderThreadInfo.cpp",
         "RingStream.cpp",
+        "SwapChainStateVk.cpp",
         "SyncThread.cpp",
         "TextureDraw.cpp",
         "TextureResize.cpp",
