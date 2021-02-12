@@ -12,8 +12,10 @@ add_library(
     ChecksumCalculatorThreadInfo.cpp
     glUtils.cpp
     ${apigen-codec-common-platform-sources})
-target_compile_options(
-    apigen-codec-common PRIVATE -fvisibility=hidden)
+if (NOT MSVC)
+    target_compile_options(
+        apigen-codec-common PRIVATE -fvisibility=hidden)
+endif()
 target_link_libraries(
     apigen-codec-common
     PUBLIC

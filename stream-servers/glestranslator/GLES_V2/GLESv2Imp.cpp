@@ -2350,7 +2350,7 @@ GL_APICALL void  GL_APIENTRY glGetIntegerv(GLenum pname, GLint* params){
     {
         if (destroyCtx)
             deleteGLESContext(ctx);
-            return;
+        return;
     }
 
     // For non-int64 glGetIntegerv, the following params have precision issues,
