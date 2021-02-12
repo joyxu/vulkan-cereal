@@ -218,7 +218,7 @@ void OpenGLLogger::stopFineLogLocked() {
 // C interface
 
 void android_init_opengl_logger() {
-    OpenGLLogger* gl_log = OpenGLLogger::get();
+    OpenGLLogger::get();
 }
 
 void android_opengl_logger_set_flags(AndroidOpenglLoggerFlags flags) {

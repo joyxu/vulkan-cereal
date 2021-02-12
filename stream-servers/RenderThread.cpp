@@ -77,14 +77,6 @@ static int getCpuCoreCount() {
 #endif
 }
 
-static uint64_t currTimeUs(bool enable) {
-    if (enable) {
-        return android::base::getHighResTimeUs();
-    } else {
-        return 0;
-    }
-}
-
 // Start with a smaller buffer to not waste memory on a low-used render threads.
 static constexpr int kStreamBufferSize = 128 * 1024;
 
@@ -428,7 +420,6 @@ intptr_t RenderThread::main() {
             fflush(dumpFP);
         }
 
-        auto progressStart = currTimeUs(benchmarkEnabled);
         bool progress;
 
         do {

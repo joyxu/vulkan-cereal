@@ -26,13 +26,6 @@
 
 namespace emugl {
 
-static bool getBenchmarkEnabledFromEnv() {
-    auto threadEnabled =
-        android::base::getEnvironmentVariable("ANDROID_EMUGL_RENDERTHREAD_STATS");
-    if (threadEnabled == "1") return true;
-    return false;
-}
-
 RingStream::RingStream(
     struct asg_context context,
     android::emulation::asg::ConsumerCallbacks callbacks,
@@ -104,8 +97,6 @@ const unsigned char* RingStream::readRaw(void* buf, size_t* inout_len) {
     size_t count = 0U;
     auto dst = static_cast<char*>(buf);
 
-    size_t guestTx = 0;
-    size_t hostTx = 0;
     uint32_t ringAvailable = 0;
     uint32_t ringLargeXferAvailable = 0;
 
