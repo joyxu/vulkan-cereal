@@ -191,6 +191,10 @@ static inline uint32_t align_up(uint32_t n, uint32_t a) {
     return ((n + a - 1) / a) * a;
 }
 
+static inline uint32_t align_up_power_of_2(uint32_t n, uint32_t a) {
+    return (n + (a - 1)) & ~(a - 1);
+}
+
 #define VIRGL_FORMAT_NV12 166
 #define VIRGL_FORMAT_YV12 163
 
@@ -334,10 +338,28 @@ static inline size_t virgl_format_to_total_xfer_len(
     uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
     if (virgl_format_is_yuv(format)) {
         uint32_t align = (format == VIRGL_FORMAT_YV12) ?  1 : 16;
-        uint32_t yStride = (totalWidth + (align - 1)) & ~(align-1);
-        uint32_t uvStride = (yStride / 2 + (align - 1)) & ~(align-1);
+
+        uint32_t yWidth = totalWidth;
+        uint32_t yHeight = totalHeight;
+        uint32_t yStride = align_up_power_of_2(yWidth, align);
+        uint32_t ySize = yStride * yHeight;
+
+        uint32_t uvWidth;
+        uint32_t uvPlaneCount;
+        if (format == VIRGL_FORMAT_NV12) {
+            uvWidth = totalWidth;
+            uvPlaneCount = 1;
+        } else if (format == VIRGL_FORMAT_YV12) {
+            uvWidth = totalWidth / 2;
+            uvPlaneCount = 2;
+        } else {
+            VGP_FATAL("Unknown yuv virgl format: 0x%x", format);
+        }
         uint32_t uvHeight = totalHeight / 2;
-        uint32_t dataSize = yStride * totalHeight + 2 * (uvHeight * uvStride);
+        uint32_t uvStride = align_up_power_of_2(uvWidth, align);
+        uint32_t uvSize = uvStride * uvHeight * uvPlaneCount;
+
+        uint32_t dataSize = ySize + uvSize;
         return dataSize;
     } else {
         uint32_t bpp = 4;
