@@ -1,3 +1,22 @@
+package {
+    default_applicable_licenses: [
+        "device_generic_vulkan-cereal_third-party_perfetto_license",
+    ],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "device_generic_vulkan-cereal_third-party_perfetto_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 cc_library_static {
     name: "perfetto-libperfettobase",
     defaults: [ "gfxstream_defaults" ],
