@@ -1111,6 +1111,21 @@ static void rcCreateSyncKHR(EGLenum type,
     // guaranteed, and we need to make sure
     // rcTriggerWait is registered.
     emugl_sync_register_trigger_wait(rcTriggerWait);
+
+    RenderThreadInfo *tInfo = RenderThreadInfo::get();
+
+    if (!tInfo->currContext) {
+        auto fb = FrameBuffer::getFB();
+        uint32_t create_sync_cxt, create_sync_surf;
+        fb->createTrivialContext(0, // There is no context to share.
+                                 &create_sync_cxt,
+                                 &create_sync_surf);
+        fb->bindContext(create_sync_cxt,
+                        create_sync_surf,
+                        create_sync_surf);
+        // This context is then cleaned up when the render thread exits.
+    }
+
     FenceSync* fenceSync = new FenceSync(hasNativeFence,
                                          destroy_when_signaled);
 
