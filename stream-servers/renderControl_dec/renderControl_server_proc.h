@@ -72,6 +72,8 @@ typedef void (renderControl_APIENTRY *rcSetTracingForPuid_server_proc_t) (uint64
 typedef void (renderControl_APIENTRY *rcMakeCurrentAsync_server_proc_t) (uint32_t, uint32_t, uint32_t);
 typedef void (renderControl_APIENTRY *rcComposeAsync_server_proc_t) (uint32_t, void*);
 typedef void (renderControl_APIENTRY *rcDestroySyncKHRAsync_server_proc_t) (uint64_t);
+typedef GLint (renderControl_APIENTRY *rcComposeWithoutPost_server_proc_t) (uint32_t, void*);
+typedef void (renderControl_APIENTRY *rcComposeAsyncWithoutPost_server_proc_t) (uint32_t, void*);
 
 
 #endif

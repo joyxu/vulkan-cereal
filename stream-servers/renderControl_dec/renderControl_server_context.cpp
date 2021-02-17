@@ -70,6 +70,8 @@ int renderControl_server_context_t::initDispatchByName(void *(*getProc)(const ch
 	rcMakeCurrentAsync = (rcMakeCurrentAsync_server_proc_t) getProc("rcMakeCurrentAsync", userData);
 	rcComposeAsync = (rcComposeAsync_server_proc_t) getProc("rcComposeAsync", userData);
 	rcDestroySyncKHRAsync = (rcDestroySyncKHRAsync_server_proc_t) getProc("rcDestroySyncKHRAsync", userData);
+	rcComposeWithoutPost = (rcComposeWithoutPost_server_proc_t) getProc("rcComposeWithoutPost", userData);
+	rcComposeAsyncWithoutPost = (rcComposeAsyncWithoutPost_server_proc_t) getProc("rcComposeAsyncWithoutPost", userData);
 	return 0;
 }
 
