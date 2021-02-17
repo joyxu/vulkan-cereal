@@ -496,7 +496,8 @@ Surface* EglOsEglDisplay::createWindowSurface(PixelFormat* pf,
                                               EGLNativeWindowType win) {
     D("%s\n", __FUNCTION__);
     std::vector<EGLint> surface_attribs;
-    if (android::base::getEnvironmentVariable("ANDROID_EMUGL_ANGLE_DIRECT_COMPOSITION") == "1") {
+    auto exts = mDispatcher.eglQueryString(mDisplay, EGL_EXTENSIONS);
+    if (exts != nullptr && emugl::hasExtension(exts, "EGL_ANGLE_direct_composition")) {
         surface_attribs.push_back(EGL_DIRECT_COMPOSITION_ANGLE);
         surface_attribs.push_back(EGL_TRUE);
     }
