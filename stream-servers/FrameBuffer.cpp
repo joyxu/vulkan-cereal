@@ -2747,7 +2747,7 @@ bool FrameBuffer::decColorBufferRefCountLocked(HandleType p_colorbuffer) {
     return false;
 }
 
-bool FrameBuffer::compose(uint32_t bufferSize, void* buffer) {
+bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
     ComposeDevice* p = (ComposeDevice*)buffer;
     AutoLock mutex(m_lock);
 
@@ -2759,7 +2759,9 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer) {
         memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
         composeCmd.cmd = PostCmd::Compose;
         sendPostWorkerCmd(composeCmd);
-        post(p->targetHandle, false);
+        if(needPost) {
+            post(p->targetHandle, false);
+        }
         return true;
     }
 
@@ -2777,7 +2779,7 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer) {
        memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
        composeCmd.cmd = PostCmd::Compose;
        sendPostWorkerCmd(composeCmd);
-       if (p2->displayId == 0) {
+       if (p2->displayId == 0 && needPost) {
            post(p2->targetHandle, false);
        }
        return true;
