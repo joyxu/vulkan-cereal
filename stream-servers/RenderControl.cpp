@@ -229,6 +229,9 @@ static const char* kAsyncFrameCommands = "ANDROID_EMU_async_frame_commands";
 // Queue submit with commands
 static const char* kVulkanQueueSubmitWithCommands = "ANDROID_EMU_vulkan_queue_submit_with_commands";
 
+// Batched descriptor set update
+static constexpr android::base::StringView kVulkanBatchedDescriptorSetUpdate = "ANDROID_EMU_vulkan_batched_descriptor_set_update";
+
 static void rcTriggerWait(uint64_t glsync_ptr,
                           uint64_t thread_ptr,
                           uint64_t timeline);
@@ -356,6 +359,12 @@ static bool shouldEnableQueueSubmitWithCommands() {
         feature_is_enabled(kFeature_VulkanQueueSubmitWithCommands);
 }
 
+static bool shouldEnableBatchedDescriptorSetUpdate() {
+    return shouldEnableVulkan() &&
+        shouldEnableQueueSubmitWithCommands() &&
+        emugl_feature_is_enabled(android::featurecontrol::VulkanBatchedDescriptorSetUpdate);
+}
+
 // OpenGL ES 3.x support involves changing the GL_VERSION string, which is
 // assumed to be formatted in the following way:
 // "OpenGL ES-CM 1.m <vendor-info>" or
@@ -467,6 +476,7 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
     bool vulkanShaderFloat16Int8Enabled = shouldEnableVulkanShaderFloat16Int8();
     bool vulkanAsyncQueueSubmitEnabled = shouldEnableAsyncQueueSubmit();
     bool vulkanQueueSubmitWithCommands = shouldEnableQueueSubmitWithCommands();
+    bool vulkanBatchedDescriptorSetUpdate = shouldEnableBatchedDescriptorSetUpdate();
 
     if (isChecksumEnabled && name == GL_EXTENSIONS) {
         glStr += ChecksumCalculatorThreadInfo::getMaxVersionString();
@@ -577,6 +587,11 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
 
     if (vulkanQueueSubmitWithCommands && name == GL_EXTENSIONS) {
         glStr += kVulkanQueueSubmitWithCommands;
+        glStr += " ";
+    }
+
+    if (vulkanBatchedDescriptorSetUpdate && name == GL_EXTENSIONS) {
+        glStr += kVulkanBatchedDescriptorSetUpdate;
         glStr += " ";
     }
 
