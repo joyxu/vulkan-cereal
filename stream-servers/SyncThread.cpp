@@ -224,8 +224,8 @@ void SyncThread::doSyncWait(SyncThreadCmd* cmd) {
            wait_result);
 
     if (wait_result != EGL_CONDITION_SATISFIED_KHR) {
-        DPRINT("error: eglClientWaitSync abnormal exit 0x%x\n",
-               wait_result);
+        DPRINT("error: eglClientWaitSync abnormal exit 0x%x. sync handle 0x%llx\n",
+               wait_result, (unsigned long long)cmd->fenceSync);
     }
 
     DPRINT("issue timeline increment");
@@ -282,8 +282,8 @@ void SyncThread::doSyncBlockedWaitNoTimeline(SyncThreadCmd* cmd) {
            wait_result);
 
     if (wait_result != EGL_CONDITION_SATISFIED_KHR) {
-        fprintf(stderr, "error: eglClientWaitSync abnormal exit 0x%x\n",
-                wait_result);
+        fprintf(stderr, "error: eglClientWaitSync abnormal exit 0x%x %p\n",
+                wait_result, cmd->fenceSync);
     }
 }
 
