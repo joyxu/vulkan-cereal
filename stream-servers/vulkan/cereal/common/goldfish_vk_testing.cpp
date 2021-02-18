@@ -300,7 +300,7 @@ void checkEqual_VkInstanceCreateInfo(
     if (!((a->enabledLayerCount) == (b->enabledLayerCount))) { onFail("a->ppEnabledLayerNames (Error: Lengths not equal in string array)"); };
     if ((a->enabledLayerCount) == (b->enabledLayerCount) && (a->ppEnabledLayerNames) && (b->ppEnabledLayerNames))
     {
-        if ((a) != nullptr)
+        if (a)
         {
             for (uint32_t i = 0; i < (uint32_t)a->enabledLayerCount; ++i)
             {
@@ -314,7 +314,7 @@ void checkEqual_VkInstanceCreateInfo(
     if (!((a->enabledExtensionCount) == (b->enabledExtensionCount))) { onFail("a->ppEnabledExtensionNames (Error: Lengths not equal in string array)"); };
     if ((a->enabledExtensionCount) == (b->enabledExtensionCount) && (a->ppEnabledExtensionNames) && (b->ppEnabledExtensionNames))
     {
-        if ((a) != nullptr)
+        if (a)
         {
             for (uint32_t i = 0; i < (uint32_t)a->enabledExtensionCount; ++i)
             {
@@ -609,7 +609,7 @@ void checkEqual_VkDeviceCreateInfo(
         if (!((a->queueCreateInfoCount) == (b->queueCreateInfoCount))) { onFail("a->pQueueCreateInfos (Error: Lengths not equal)"); };
         if ((a->queueCreateInfoCount) == (b->queueCreateInfoCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->queueCreateInfoCount; ++i)
                 {
@@ -624,7 +624,7 @@ void checkEqual_VkDeviceCreateInfo(
     if (!((a->enabledLayerCount) == (b->enabledLayerCount))) { onFail("a->ppEnabledLayerNames (Error: Lengths not equal in string array)"); };
     if ((a->enabledLayerCount) == (b->enabledLayerCount) && (a->ppEnabledLayerNames) && (b->ppEnabledLayerNames))
     {
-        if ((a) != nullptr)
+        if (a)
         {
             for (uint32_t i = 0; i < (uint32_t)a->enabledLayerCount; ++i)
             {
@@ -638,7 +638,7 @@ void checkEqual_VkDeviceCreateInfo(
     if (!((a->enabledExtensionCount) == (b->enabledExtensionCount))) { onFail("a->ppEnabledExtensionNames (Error: Lengths not equal in string array)"); };
     if ((a->enabledExtensionCount) == (b->enabledExtensionCount) && (a->ppEnabledExtensionNames) && (b->ppEnabledExtensionNames))
     {
-        if ((a) != nullptr)
+        if (a)
         {
             for (uint32_t i = 0; i < (uint32_t)a->enabledExtensionCount; ++i)
             {
@@ -762,7 +762,7 @@ void checkEqual_VkSparseBufferMemoryBindInfo(
         if (!((a->bindCount) == (b->bindCount))) { onFail("a->pBinds (Error: Lengths not equal)"); };
         if ((a->bindCount) == (b->bindCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->bindCount; ++i)
                 {
@@ -785,7 +785,7 @@ void checkEqual_VkSparseImageOpaqueMemoryBindInfo(
         if (!((a->bindCount) == (b->bindCount))) { onFail("a->pBinds (Error: Lengths not equal)"); };
         if ((a->bindCount) == (b->bindCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->bindCount; ++i)
                 {
@@ -831,7 +831,7 @@ void checkEqual_VkSparseImageMemoryBindInfo(
         if (!((a->bindCount) == (b->bindCount))) { onFail("a->pBinds (Error: Lengths not equal)"); };
         if ((a->bindCount) == (b->bindCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->bindCount; ++i)
                 {
@@ -861,7 +861,7 @@ void checkEqual_VkBindSparseInfo(
         if (!((a->bufferBindCount) == (b->bufferBindCount))) { onFail("a->pBufferBinds (Error: Lengths not equal)"); };
         if ((a->bufferBindCount) == (b->bufferBindCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->bufferBindCount; ++i)
                 {
@@ -876,7 +876,7 @@ void checkEqual_VkBindSparseInfo(
         if (!((a->imageOpaqueBindCount) == (b->imageOpaqueBindCount))) { onFail("a->pImageOpaqueBinds (Error: Lengths not equal)"); };
         if ((a->imageOpaqueBindCount) == (b->imageOpaqueBindCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->imageOpaqueBindCount; ++i)
                 {
@@ -891,7 +891,7 @@ void checkEqual_VkBindSparseInfo(
         if (!((a->imageBindCount) == (b->imageBindCount))) { onFail("a->pImageBinds (Error: Lengths not equal)"); };
         if ((a->imageBindCount) == (b->imageBindCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->imageBindCount; ++i)
                 {
@@ -1144,7 +1144,7 @@ void checkEqual_VkSpecializationInfo(
         if (!((a->mapEntryCount) == (b->mapEntryCount))) { onFail("a->pMapEntries (Error: Lengths not equal)"); };
         if ((a->mapEntryCount) == (b->mapEntryCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->mapEntryCount; ++i)
                 {
@@ -1239,7 +1239,7 @@ void checkEqual_VkPipelineVertexInputStateCreateInfo(
         if (!((a->vertexBindingDescriptionCount) == (b->vertexBindingDescriptionCount))) { onFail("a->pVertexBindingDescriptions (Error: Lengths not equal)"); };
         if ((a->vertexBindingDescriptionCount) == (b->vertexBindingDescriptionCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->vertexBindingDescriptionCount; ++i)
                 {
@@ -1254,7 +1254,7 @@ void checkEqual_VkPipelineVertexInputStateCreateInfo(
         if (!((a->vertexAttributeDescriptionCount) == (b->vertexAttributeDescriptionCount))) { onFail("a->pVertexAttributeDescriptions (Error: Lengths not equal)"); };
         if ((a->vertexAttributeDescriptionCount) == (b->vertexAttributeDescriptionCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->vertexAttributeDescriptionCount; ++i)
                 {
@@ -1327,7 +1327,7 @@ void checkEqual_VkPipelineViewportStateCreateInfo(
             if (!((a->viewportCount) == (b->viewportCount))) { onFail("a->pViewports (Error: Lengths not equal)"); };
             if ((a->viewportCount) == (b->viewportCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->viewportCount; ++i)
                     {
@@ -1346,7 +1346,7 @@ void checkEqual_VkPipelineViewportStateCreateInfo(
             if (!((a->scissorCount) == (b->scissorCount))) { onFail("a->pScissors (Error: Lengths not equal)"); };
             if ((a->scissorCount) == (b->scissorCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->scissorCount; ++i)
                     {
@@ -1475,7 +1475,7 @@ void checkEqual_VkPipelineColorBlendStateCreateInfo(
         if (!((a->attachmentCount) == (b->attachmentCount))) { onFail("a->pAttachments (Error: Lengths not equal)"); };
         if ((a->attachmentCount) == (b->attachmentCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->attachmentCount; ++i)
                 {
@@ -1520,7 +1520,7 @@ void checkEqual_VkGraphicsPipelineCreateInfo(
         if (!((a->stageCount) == (b->stageCount))) { onFail("a->pStages (Error: Lengths not equal)"); };
         if ((a->stageCount) == (b->stageCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->stageCount; ++i)
                 {
@@ -1638,7 +1638,7 @@ void checkEqual_VkPipelineLayoutCreateInfo(
         if (!((a->pushConstantRangeCount) == (b->pushConstantRangeCount))) { onFail("a->pPushConstantRanges (Error: Lengths not equal)"); };
         if ((a->pushConstantRangeCount) == (b->pushConstantRangeCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->pushConstantRangeCount; ++i)
                 {
@@ -1743,7 +1743,7 @@ void checkEqual_VkDescriptorPoolCreateInfo(
         if (!((a->poolSizeCount) == (b->poolSizeCount))) { onFail("a->pPoolSizes (Error: Lengths not equal)"); };
         if ((a->poolSizeCount) == (b->poolSizeCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->poolSizeCount; ++i)
                 {
@@ -1804,7 +1804,7 @@ void checkEqual_VkDescriptorSetLayoutCreateInfo(
         if (!((a->bindingCount) == (b->bindingCount))) { onFail("a->pBindings (Error: Lengths not equal)"); };
         if ((a->bindingCount) == (b->bindingCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->bindingCount; ++i)
                 {
@@ -1838,7 +1838,7 @@ void checkEqual_VkWriteDescriptorSet(
             if (!((a->descriptorCount) == (b->descriptorCount))) { onFail("a->pImageInfo (Error: Lengths not equal)"); };
             if ((a->descriptorCount) == (b->descriptorCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->descriptorCount; ++i)
                     {
@@ -1856,7 +1856,7 @@ void checkEqual_VkWriteDescriptorSet(
             if (!((a->descriptorCount) == (b->descriptorCount))) { onFail("a->pBufferInfo (Error: Lengths not equal)"); };
             if ((a->descriptorCount) == (b->descriptorCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->descriptorCount; ++i)
                     {
@@ -1932,7 +1932,7 @@ void checkEqual_VkSubpassDescription(
         if (!((a->inputAttachmentCount) == (b->inputAttachmentCount))) { onFail("a->pInputAttachments (Error: Lengths not equal)"); };
         if ((a->inputAttachmentCount) == (b->inputAttachmentCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->inputAttachmentCount; ++i)
                 {
@@ -1947,7 +1947,7 @@ void checkEqual_VkSubpassDescription(
         if (!((a->colorAttachmentCount) == (b->colorAttachmentCount))) { onFail("a->pColorAttachments (Error: Lengths not equal)"); };
         if ((a->colorAttachmentCount) == (b->colorAttachmentCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->colorAttachmentCount; ++i)
                 {
@@ -1964,7 +1964,7 @@ void checkEqual_VkSubpassDescription(
             if (!((a->colorAttachmentCount) == (b->colorAttachmentCount))) { onFail("a->pResolveAttachments (Error: Lengths not equal)"); };
             if ((a->colorAttachmentCount) == (b->colorAttachmentCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->colorAttachmentCount; ++i)
                     {
@@ -2018,7 +2018,7 @@ void checkEqual_VkRenderPassCreateInfo(
         if (!((a->attachmentCount) == (b->attachmentCount))) { onFail("a->pAttachments (Error: Lengths not equal)"); };
         if ((a->attachmentCount) == (b->attachmentCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->attachmentCount; ++i)
                 {
@@ -2033,7 +2033,7 @@ void checkEqual_VkRenderPassCreateInfo(
         if (!((a->subpassCount) == (b->subpassCount))) { onFail("a->pSubpasses (Error: Lengths not equal)"); };
         if ((a->subpassCount) == (b->subpassCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->subpassCount; ++i)
                 {
@@ -2048,7 +2048,7 @@ void checkEqual_VkRenderPassCreateInfo(
         if (!((a->dependencyCount) == (b->dependencyCount))) { onFail("a->pDependencies (Error: Lengths not equal)"); };
         if ((a->dependencyCount) == (b->dependencyCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->dependencyCount; ++i)
                 {
@@ -2274,7 +2274,7 @@ void checkEqual_VkRenderPassBeginInfo(
             if (!((a->clearValueCount) == (b->clearValueCount))) { onFail("a->pClearValues (Error: Lengths not equal)"); };
             if ((a->clearValueCount) == (b->clearValueCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->clearValueCount; ++i)
                     {
@@ -2409,7 +2409,7 @@ void checkEqual_VkDeviceGroupRenderPassBeginInfo(
         if (!((a->deviceRenderAreaCount) == (b->deviceRenderAreaCount))) { onFail("a->pDeviceRenderAreas (Error: Lengths not equal)"); };
         if ((a->deviceRenderAreaCount) == (b->deviceRenderAreaCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->deviceRenderAreaCount; ++i)
                 {
@@ -2502,7 +2502,7 @@ void checkEqual_VkBindImageMemoryDeviceGroupInfo(
         if (!((a->splitInstanceBindRegionCount) == (b->splitInstanceBindRegionCount))) { onFail("a->pSplitInstanceBindRegions (Error: Lengths not equal)"); };
         if ((a->splitInstanceBindRegionCount) == (b->splitInstanceBindRegionCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->splitInstanceBindRegionCount; ++i)
                 {
@@ -2772,7 +2772,7 @@ void checkEqual_VkRenderPassInputAttachmentAspectCreateInfo(
         if (!((a->aspectReferenceCount) == (b->aspectReferenceCount))) { onFail("a->pAspectReferences (Error: Lengths not equal)"); };
         if ((a->aspectReferenceCount) == (b->aspectReferenceCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->aspectReferenceCount; ++i)
                 {
@@ -3042,7 +3042,7 @@ void checkEqual_VkDescriptorUpdateTemplateCreateInfo(
         if (!((a->descriptorUpdateEntryCount) == (b->descriptorUpdateEntryCount))) { onFail("a->pDescriptorUpdateEntries (Error: Lengths not equal)"); };
         if ((a->descriptorUpdateEntryCount) == (b->descriptorUpdateEntryCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->descriptorUpdateEntryCount; ++i)
                 {
@@ -3557,7 +3557,7 @@ void checkEqual_VkSubpassDescription2(
         if (!((a->inputAttachmentCount) == (b->inputAttachmentCount))) { onFail("a->pInputAttachments (Error: Lengths not equal)"); };
         if ((a->inputAttachmentCount) == (b->inputAttachmentCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->inputAttachmentCount; ++i)
                 {
@@ -3572,7 +3572,7 @@ void checkEqual_VkSubpassDescription2(
         if (!((a->colorAttachmentCount) == (b->colorAttachmentCount))) { onFail("a->pColorAttachments (Error: Lengths not equal)"); };
         if ((a->colorAttachmentCount) == (b->colorAttachmentCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->colorAttachmentCount; ++i)
                 {
@@ -3589,7 +3589,7 @@ void checkEqual_VkSubpassDescription2(
             if (!((a->colorAttachmentCount) == (b->colorAttachmentCount))) { onFail("a->pResolveAttachments (Error: Lengths not equal)"); };
             if ((a->colorAttachmentCount) == (b->colorAttachmentCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->colorAttachmentCount; ++i)
                     {
@@ -3649,7 +3649,7 @@ void checkEqual_VkRenderPassCreateInfo2(
         if (!((a->attachmentCount) == (b->attachmentCount))) { onFail("a->pAttachments (Error: Lengths not equal)"); };
         if ((a->attachmentCount) == (b->attachmentCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->attachmentCount; ++i)
                 {
@@ -3664,7 +3664,7 @@ void checkEqual_VkRenderPassCreateInfo2(
         if (!((a->subpassCount) == (b->subpassCount))) { onFail("a->pSubpasses (Error: Lengths not equal)"); };
         if ((a->subpassCount) == (b->subpassCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->subpassCount; ++i)
                 {
@@ -3679,7 +3679,7 @@ void checkEqual_VkRenderPassCreateInfo2(
         if (!((a->dependencyCount) == (b->dependencyCount))) { onFail("a->pDependencies (Error: Lengths not equal)"); };
         if ((a->dependencyCount) == (b->dependencyCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->dependencyCount; ++i)
                 {
@@ -4075,7 +4075,7 @@ void checkEqual_VkFramebufferAttachmentsCreateInfo(
         if (!((a->attachmentImageInfoCount) == (b->attachmentImageInfoCount))) { onFail("a->pAttachmentImageInfos (Error: Lengths not equal)"); };
         if ((a->attachmentImageInfoCount) == (b->attachmentImageInfoCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->attachmentImageInfoCount; ++i)
                 {
@@ -5048,7 +5048,7 @@ void checkEqual_VkPresentRegionKHR(
             if (!((a->rectangleCount) == (b->rectangleCount))) { onFail("a->pRectangles (Error: Lengths not equal)"); };
             if ((a->rectangleCount) == (b->rectangleCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->rectangleCount; ++i)
                     {
@@ -5079,7 +5079,7 @@ void checkEqual_VkPresentRegionsKHR(
             if (!((a->swapchainCount) == (b->swapchainCount))) { onFail("a->pRegions (Error: Lengths not equal)"); };
             if ((a->swapchainCount) == (b->swapchainCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->swapchainCount; ++i)
                     {
@@ -5811,7 +5811,7 @@ void checkEqual_VkCopyBufferInfo2KHR(
         if (!((a->regionCount) == (b->regionCount))) { onFail("a->pRegions (Error: Lengths not equal)"); };
         if ((a->regionCount) == (b->regionCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->regionCount; ++i)
                 {
@@ -5859,7 +5859,7 @@ void checkEqual_VkCopyImageInfo2KHR(
         if (!((a->regionCount) == (b->regionCount))) { onFail("a->pRegions (Error: Lengths not equal)"); };
         if ((a->regionCount) == (b->regionCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->regionCount; ++i)
                 {
@@ -5907,7 +5907,7 @@ void checkEqual_VkCopyBufferToImageInfo2KHR(
         if (!((a->regionCount) == (b->regionCount))) { onFail("a->pRegions (Error: Lengths not equal)"); };
         if ((a->regionCount) == (b->regionCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->regionCount; ++i)
                 {
@@ -5937,7 +5937,7 @@ void checkEqual_VkCopyImageToBufferInfo2KHR(
         if (!((a->regionCount) == (b->regionCount))) { onFail("a->pRegions (Error: Lengths not equal)"); };
         if ((a->regionCount) == (b->regionCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->regionCount; ++i)
                 {
@@ -5992,7 +5992,7 @@ void checkEqual_VkBlitImageInfo2KHR(
         if (!((a->regionCount) == (b->regionCount))) { onFail("a->pRegions (Error: Lengths not equal)"); };
         if ((a->regionCount) == (b->regionCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->regionCount; ++i)
                 {
@@ -6041,7 +6041,7 @@ void checkEqual_VkResolveImageInfo2KHR(
         if (!((a->regionCount) == (b->regionCount))) { onFail("a->pRegions (Error: Lengths not equal)"); };
         if ((a->regionCount) == (b->regionCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->regionCount; ++i)
                 {
@@ -6642,7 +6642,7 @@ void checkEqual_VkPipelineViewportWScalingStateCreateInfoNV(
             if (!((a->viewportCount) == (b->viewportCount))) { onFail("a->pViewportWScalings (Error: Lengths not equal)"); };
             if ((a->viewportCount) == (b->viewportCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->viewportCount; ++i)
                     {
@@ -6787,7 +6787,7 @@ void checkEqual_VkPresentTimesInfoGOOGLE(
             if (!((a->swapchainCount) == (b->swapchainCount))) { onFail("a->pTimes (Error: Lengths not equal)"); };
             if ((a->swapchainCount) == (b->swapchainCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->swapchainCount; ++i)
                     {
@@ -6853,7 +6853,7 @@ void checkEqual_VkPipelineViewportSwizzleStateCreateInfoNV(
             if (!((a->viewportCount) == (b->viewportCount))) { onFail("a->pViewportSwizzles (Error: Lengths not equal)"); };
             if ((a->viewportCount) == (b->viewportCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->viewportCount; ++i)
                     {
@@ -6901,7 +6901,7 @@ void checkEqual_VkPipelineDiscardRectangleStateCreateInfoEXT(
             if (!((a->discardRectangleCount) == (b->discardRectangleCount))) { onFail("a->pDiscardRectangles (Error: Lengths not equal)"); };
             if ((a->discardRectangleCount) == (b->discardRectangleCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->discardRectangleCount; ++i)
                     {
@@ -7129,7 +7129,7 @@ void checkEqual_VkDebugUtilsMessengerCallbackDataEXT(
             if (!((a->queueLabelCount) == (b->queueLabelCount))) { onFail("a->pQueueLabels (Error: Lengths not equal)"); };
             if ((a->queueLabelCount) == (b->queueLabelCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->queueLabelCount; ++i)
                     {
@@ -7148,7 +7148,7 @@ void checkEqual_VkDebugUtilsMessengerCallbackDataEXT(
             if (!((a->cmdBufLabelCount) == (b->cmdBufLabelCount))) { onFail("a->pCmdBufLabels (Error: Lengths not equal)"); };
             if ((a->cmdBufLabelCount) == (b->cmdBufLabelCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->cmdBufLabelCount; ++i)
                     {
@@ -7167,7 +7167,7 @@ void checkEqual_VkDebugUtilsMessengerCallbackDataEXT(
             if (!((a->objectCount) == (b->objectCount))) { onFail("a->pObjects (Error: Lengths not equal)"); };
             if ((a->objectCount) == (b->objectCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->objectCount; ++i)
                     {
@@ -7398,7 +7398,7 @@ void checkEqual_VkSampleLocationsInfoEXT(
         if (!((a->sampleLocationsCount) == (b->sampleLocationsCount))) { onFail("a->pSampleLocations (Error: Lengths not equal)"); };
         if ((a->sampleLocationsCount) == (b->sampleLocationsCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->sampleLocationsCount; ++i)
                 {
@@ -7443,7 +7443,7 @@ void checkEqual_VkRenderPassSampleLocationsBeginInfoEXT(
         if (!((a->attachmentInitialSampleLocationsCount) == (b->attachmentInitialSampleLocationsCount))) { onFail("a->pAttachmentInitialSampleLocations (Error: Lengths not equal)"); };
         if ((a->attachmentInitialSampleLocationsCount) == (b->attachmentInitialSampleLocationsCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->attachmentInitialSampleLocationsCount; ++i)
                 {
@@ -7458,7 +7458,7 @@ void checkEqual_VkRenderPassSampleLocationsBeginInfoEXT(
         if (!((a->postSubpassSampleLocationsCount) == (b->postSubpassSampleLocationsCount))) { onFail("a->pPostSubpassSampleLocations (Error: Lengths not equal)"); };
         if ((a->postSubpassSampleLocationsCount) == (b->postSubpassSampleLocationsCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->postSubpassSampleLocationsCount; ++i)
                 {
@@ -7666,7 +7666,7 @@ void checkEqual_VkDrmFormatModifierPropertiesListEXT(
             if (!((a->drmFormatModifierCount) == (b->drmFormatModifierCount))) { onFail("a->pDrmFormatModifierProperties (Error: Lengths not equal)"); };
             if ((a->drmFormatModifierCount) == (b->drmFormatModifierCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->drmFormatModifierCount; ++i)
                     {
@@ -7731,7 +7731,7 @@ void checkEqual_VkImageDrmFormatModifierExplicitCreateInfoEXT(
         if (!((a->drmFormatModifierPlaneCount) == (b->drmFormatModifierPlaneCount))) { onFail("a->pPlaneLayouts (Error: Lengths not equal)"); };
         if ((a->drmFormatModifierPlaneCount) == (b->drmFormatModifierPlaneCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->drmFormatModifierPlaneCount; ++i)
                 {
@@ -7820,7 +7820,7 @@ void checkEqual_VkPipelineViewportShadingRateImageStateCreateInfoNV(
             if (!((a->viewportCount) == (b->viewportCount))) { onFail("a->pShadingRatePalettes (Error: Lengths not equal)"); };
             if ((a->viewportCount) == (b->viewportCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->viewportCount; ++i)
                     {
@@ -7884,7 +7884,7 @@ void checkEqual_VkCoarseSampleOrderCustomNV(
         if (!((a->sampleLocationCount) == (b->sampleLocationCount))) { onFail("a->pSampleLocations (Error: Lengths not equal)"); };
         if ((a->sampleLocationCount) == (b->sampleLocationCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->sampleLocationCount; ++i)
                 {
@@ -7912,7 +7912,7 @@ void checkEqual_VkPipelineViewportCoarseSampleOrderStateCreateInfoNV(
         if (!((a->customSampleOrderCount) == (b->customSampleOrderCount))) { onFail("a->pCustomSampleOrders (Error: Lengths not equal)"); };
         if ((a->customSampleOrderCount) == (b->customSampleOrderCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->customSampleOrderCount; ++i)
                 {
@@ -7959,7 +7959,7 @@ void checkEqual_VkRayTracingPipelineCreateInfoNV(
         if (!((a->stageCount) == (b->stageCount))) { onFail("a->pStages (Error: Lengths not equal)"); };
         if ((a->stageCount) == (b->stageCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->stageCount; ++i)
                 {
@@ -7974,7 +7974,7 @@ void checkEqual_VkRayTracingPipelineCreateInfoNV(
         if (!((a->groupCount) == (b->groupCount))) { onFail("a->pGroups (Error: Lengths not equal)"); };
         if ((a->groupCount) == (b->groupCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->groupCount; ++i)
                 {
@@ -8071,7 +8071,7 @@ void checkEqual_VkAccelerationStructureInfoNV(
         if (!((a->geometryCount) == (b->geometryCount))) { onFail("a->pGeometries (Error: Lengths not equal)"); };
         if ((a->geometryCount) == (b->geometryCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->geometryCount; ++i)
                 {
@@ -8432,7 +8432,7 @@ void checkEqual_VkPipelineVertexInputDivisorStateCreateInfoEXT(
         if (!((a->vertexBindingDivisorCount) == (b->vertexBindingDivisorCount))) { onFail("a->pVertexBindingDivisors (Error: Lengths not equal)"); };
         if ((a->vertexBindingDivisorCount) == (b->vertexBindingDivisorCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->vertexBindingDivisorCount; ++i)
                 {
@@ -8503,7 +8503,7 @@ void checkEqual_VkPipelineCreationFeedbackCreateInfoEXT(
         if (!((a->pipelineStageCreationFeedbackCount) == (b->pipelineStageCreationFeedbackCount))) { onFail("a->pPipelineStageCreationFeedbacks (Error: Lengths not equal)"); };
         if ((a->pipelineStageCreationFeedbackCount) == (b->pipelineStageCreationFeedbackCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->pipelineStageCreationFeedbackCount; ++i)
                 {
@@ -8633,7 +8633,7 @@ void checkEqual_VkPipelineViewportExclusiveScissorStateCreateInfoNV(
             if (!((a->exclusiveScissorCount) == (b->exclusiveScissorCount))) { onFail("a->pExclusiveScissors (Error: Lengths not equal)"); };
             if ((a->exclusiveScissorCount) == (b->exclusiveScissorCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->exclusiveScissorCount; ++i)
                     {
@@ -9520,7 +9520,7 @@ void checkEqual_VkGraphicsShaderGroupCreateInfoNV(
         if (!((a->stageCount) == (b->stageCount))) { onFail("a->pStages (Error: Lengths not equal)"); };
         if ((a->stageCount) == (b->stageCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->stageCount; ++i)
                 {
@@ -9563,7 +9563,7 @@ void checkEqual_VkGraphicsPipelineShaderGroupsCreateInfoNV(
         if (!((a->groupCount) == (b->groupCount))) { onFail("a->pGroups (Error: Lengths not equal)"); };
         if ((a->groupCount) == (b->groupCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->groupCount; ++i)
                 {
@@ -9667,7 +9667,7 @@ void checkEqual_VkIndirectCommandsLayoutCreateInfoNV(
         if (!((a->tokenCount) == (b->tokenCount))) { onFail("a->pTokens (Error: Lengths not equal)"); };
         if ((a->tokenCount) == (b->tokenCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->tokenCount; ++i)
                 {
@@ -9700,7 +9700,7 @@ void checkEqual_VkGeneratedCommandsInfoNV(
         if (!((a->streamCount) == (b->streamCount))) { onFail("a->pStreams (Error: Lengths not equal)"); };
         if ((a->streamCount) == (b->streamCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->streamCount; ++i)
                 {
@@ -10281,7 +10281,7 @@ void checkEqual_VkAccelerationStructureBuildGeometryInfoKHR(
             if (!((a->geometryCount) == (b->geometryCount))) { onFail("a->pGeometries (Error: Lengths not equal)"); };
             if ((a->geometryCount) == (b->geometryCount))
             {
-                if ((a) != nullptr)
+                if (a)
                 {
                     for (uint32_t i = 0; i < (uint32_t)a->geometryCount; ++i)
                     {
@@ -10506,7 +10506,7 @@ void checkEqual_VkRayTracingPipelineCreateInfoKHR(
         if (!((a->stageCount) == (b->stageCount))) { onFail("a->pStages (Error: Lengths not equal)"); };
         if ((a->stageCount) == (b->stageCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->stageCount; ++i)
                 {
@@ -10521,7 +10521,7 @@ void checkEqual_VkRayTracingPipelineCreateInfoKHR(
         if (!((a->groupCount) == (b->groupCount))) { onFail("a->pGroups (Error: Lengths not equal)"); };
         if ((a->groupCount) == (b->groupCount))
         {
-            if ((a) != nullptr)
+            if (a)
             {
                 for (uint32_t i = 0; i < (uint32_t)a->groupCount; ++i)
                 {
