@@ -23545,7 +23545,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 break;
             }
 #endif
-#ifdef VK_GOOGLE_address_space
+#ifdef VK_GOOGLE_gfxstream
             case OP_vkMapMemoryIntoAddressSpaceGOOGLE:
             {
                 android::base::beginTrace("vkMapMemoryIntoAddressSpaceGOOGLE decode");
@@ -23600,8 +23600,6 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 android::base::endTrace();
                 break;
             }
-#endif
-#ifdef VK_GOOGLE_sized_descriptor_update_template
             case OP_vkUpdateDescriptorSetWithTemplateSizedGOOGLE:
             {
                 android::base::beginTrace("vkUpdateDescriptorSetWithTemplateSizedGOOGLE decode");
@@ -23740,8 +23738,6 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 android::base::endTrace();
                 break;
             }
-#endif
-#ifdef VK_GOOGLE_async_command_buffers
             case OP_vkBeginCommandBufferAsyncGOOGLE:
             {
                 android::base::beginTrace("vkBeginCommandBufferAsyncGOOGLE decode");
@@ -23866,8 +23862,6 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 android::base::endTrace();
                 break;
             }
-#endif
-#ifdef VK_GOOGLE_create_resources_with_requirements
             case OP_vkCreateImageWithRequirementsGOOGLE:
             {
                 android::base::beginTrace("vkCreateImageWithRequirementsGOOGLE decode");
@@ -24028,8 +24022,6 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 android::base::endTrace();
                 break;
             }
-#endif
-#ifdef VK_GOOGLE_address_space_info
             case OP_vkGetMemoryHostAddressInfoGOOGLE:
             {
                 android::base::beginTrace("vkGetMemoryHostAddressInfoGOOGLE decode");
@@ -24124,8 +24116,6 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 android::base::endTrace();
                 break;
             }
-#endif
-#ifdef VK_GOOGLE_free_memory_sync
             case OP_vkFreeMemorySyncGOOGLE:
             {
                 android::base::beginTrace("vkFreeMemorySyncGOOGLE decode");
@@ -24179,8 +24169,6 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 android::base::endTrace();
                 break;
             }
-#endif
-#ifdef VK_GOOGLE_async_queue_submit
             case OP_vkQueueHostSyncGOOGLE:
             {
                 android::base::beginTrace("vkQueueHostSyncGOOGLE decode");
@@ -24337,8 +24325,6 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 android::base::endTrace();
                 break;
             }
-#endif
-#ifdef VK_GOOGLE_linear_image_layout
             case OP_vkGetLinearImageLayoutGOOGLE:
             {
                 android::base::beginTrace("vkGetLinearImageLayoutGOOGLE decode");
@@ -24383,8 +24369,6 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 android::base::endTrace();
                 break;
             }
-#endif
-#ifdef VK_GOOGLE_queue_submit_with_commands
             case OP_vkQueueFlushCommandsGOOGLE:
             {
                 android::base::beginTrace("vkQueueFlushCommandsGOOGLE decode");
