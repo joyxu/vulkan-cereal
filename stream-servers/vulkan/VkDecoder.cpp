@@ -268,7 +268,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                     {
                         uint8_t* cgen_var_2_0_ptr = (uint8_t*)(*readStreamPtrPtr);
                         *readStreamPtrPtr += 8 * (*(pPhysicalDeviceCount));
-                        if ((pPhysicalDeviceCount) != nullptr)
+                        if (pPhysicalDeviceCount)
                         {
                             for (uint32_t k = 0; k < (*(pPhysicalDeviceCount)); ++k)
                             {
@@ -543,7 +543,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkQueueFamilyProperties(vkReadStream, (VkQueueFamilyProperties*)(pQueueFamilyProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pQueueFamilyPropertyCount) != nullptr)
+                if (pQueueFamilyPropertyCount)
                 {
                     if (pQueueFamilyProperties)
                     {
@@ -566,7 +566,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pQueueFamilyPropertyCount, sizeof(uint32_t));
                 }
-                if ((pQueueFamilyPropertyCount) != nullptr)
+                if (pQueueFamilyPropertyCount)
                 {
                     if (pQueueFamilyProperties)
                     {
@@ -581,7 +581,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pQueueFamilyProperties)
                 {
-                    if ((pQueueFamilyPropertyCount) != nullptr)
+                    if (pQueueFamilyPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pQueueFamilyPropertyCount)); ++i)
                         {
@@ -860,7 +860,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkExtensionProperties(vkReadStream, (VkExtensionProperties*)(pProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -884,7 +884,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPropertyCount, sizeof(uint32_t));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -899,7 +899,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_3);
                 if (pProperties)
                 {
-                    if ((pPropertyCount) != nullptr)
+                    if (pPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPropertyCount)); ++i)
                         {
@@ -973,7 +973,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkExtensionProperties(vkReadStream, (VkExtensionProperties*)(pProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -997,7 +997,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPropertyCount, sizeof(uint32_t));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -1012,7 +1012,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pProperties)
                 {
-                    if ((pPropertyCount) != nullptr)
+                    if (pPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPropertyCount)); ++i)
                         {
@@ -1064,7 +1064,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkLayerProperties(vkReadStream, (VkLayerProperties*)(pProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -1088,7 +1088,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPropertyCount, sizeof(uint32_t));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -1103,7 +1103,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_3);
                 if (pProperties)
                 {
-                    if ((pPropertyCount) != nullptr)
+                    if (pPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPropertyCount)); ++i)
                         {
@@ -1164,7 +1164,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkLayerProperties(vkReadStream, (VkLayerProperties*)(pProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -1188,7 +1188,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPropertyCount, sizeof(uint32_t));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -1203,7 +1203,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pProperties)
                 {
-                    if ((pPropertyCount) != nullptr)
+                    if (pPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPropertyCount)); ++i)
                         {
@@ -1989,7 +1989,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkSparseImageMemoryRequirements(vkReadStream, (VkSparseImageMemoryRequirements*)(pSparseMemoryRequirements + i), readStreamPtrPtr);
                     }
                 }
-                if ((pSparseMemoryRequirementCount) != nullptr)
+                if (pSparseMemoryRequirementCount)
                 {
                     if (pSparseMemoryRequirements)
                     {
@@ -2012,7 +2012,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pSparseMemoryRequirementCount, sizeof(uint32_t));
                 }
-                if ((pSparseMemoryRequirementCount) != nullptr)
+                if (pSparseMemoryRequirementCount)
                 {
                     if (pSparseMemoryRequirements)
                     {
@@ -2027,7 +2027,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_5);
                 if (pSparseMemoryRequirements)
                 {
-                    if ((pSparseMemoryRequirementCount) != nullptr)
+                    if (pSparseMemoryRequirementCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pSparseMemoryRequirementCount)); ++i)
                         {
@@ -2102,7 +2102,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkSparseImageFormatProperties(vkReadStream, (VkSparseImageFormatProperties*)(pProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -2125,7 +2125,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPropertyCount, sizeof(uint32_t));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -2140,7 +2140,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pProperties)
                 {
-                    if ((pPropertyCount) != nullptr)
+                    if (pPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPropertyCount)); ++i)
                         {
@@ -4791,13 +4791,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     m_state->snapshot()->vkFreeDescriptorSets(snapshotTraceBegin, snapshotTraceBytes, &m_pool, vkFreeDescriptorSets_VkResult_return, device, descriptorPool, descriptorSetCount, boxed_pDescriptorSets_preserve);
                 }
-                if (((descriptorSetCount)))
-                {
-                    for (uint32_t i = 0; i < ((descriptorSetCount)); ++i)
-                    {
-                        delete_VkDescriptorSet(boxed_pDescriptorSets_preserve[i]);
-                    }
-                }
+                // Skipping handle cleanup for vkFreeDescriptorSets
                 vkReadStream->clearPool();
                 if (queueSubmitWithCommandsEnabled) __atomic_fetch_add(seqnoPtr, 1, __ATOMIC_SEQ_CST);
                 android::base::endTrace();
@@ -7908,7 +7902,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkPhysicalDeviceGroupProperties(vkReadStream, (VkPhysicalDeviceGroupProperties*)(pPhysicalDeviceGroupProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pPhysicalDeviceGroupCount) != nullptr)
+                if (pPhysicalDeviceGroupCount)
                 {
                     if (pPhysicalDeviceGroupProperties)
                     {
@@ -7932,7 +7926,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPhysicalDeviceGroupCount, sizeof(uint32_t));
                 }
-                if ((pPhysicalDeviceGroupCount) != nullptr)
+                if (pPhysicalDeviceGroupCount)
                 {
                     if (pPhysicalDeviceGroupProperties)
                     {
@@ -7947,7 +7941,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pPhysicalDeviceGroupProperties)
                 {
-                    if ((pPhysicalDeviceGroupCount) != nullptr)
+                    if (pPhysicalDeviceGroupCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPhysicalDeviceGroupCount)); ++i)
                         {
@@ -8114,7 +8108,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     transform_tohost_VkImageSparseMemoryRequirementsInfo2(m_state, (VkImageSparseMemoryRequirementsInfo2*)(pInfo));
                 }
-                if ((pSparseMemoryRequirementCount) != nullptr)
+                if (pSparseMemoryRequirementCount)
                 {
                     if (pSparseMemoryRequirements)
                     {
@@ -8137,7 +8131,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pSparseMemoryRequirementCount, sizeof(uint32_t));
                 }
-                if ((pSparseMemoryRequirementCount) != nullptr)
+                if (pSparseMemoryRequirementCount)
                 {
                     if (pSparseMemoryRequirements)
                     {
@@ -8152,7 +8146,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pSparseMemoryRequirements)
                 {
-                    if ((pSparseMemoryRequirementCount) != nullptr)
+                    if (pSparseMemoryRequirementCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pSparseMemoryRequirementCount)); ++i)
                         {
@@ -8388,7 +8382,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkQueueFamilyProperties2(vkReadStream, (VkQueueFamilyProperties2*)(pQueueFamilyProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pQueueFamilyPropertyCount) != nullptr)
+                if (pQueueFamilyPropertyCount)
                 {
                     if (pQueueFamilyProperties)
                     {
@@ -8411,7 +8405,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pQueueFamilyPropertyCount, sizeof(uint32_t));
                 }
-                if ((pQueueFamilyPropertyCount) != nullptr)
+                if (pQueueFamilyPropertyCount)
                 {
                     if (pQueueFamilyProperties)
                     {
@@ -8426,7 +8420,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pQueueFamilyProperties)
                 {
-                    if ((pQueueFamilyPropertyCount) != nullptr)
+                    if (pQueueFamilyPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pQueueFamilyPropertyCount)); ++i)
                         {
@@ -8534,7 +8528,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     transform_tohost_VkPhysicalDeviceSparseImageFormatInfo2(m_state, (VkPhysicalDeviceSparseImageFormatInfo2*)(pFormatInfo));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -8557,7 +8551,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPropertyCount, sizeof(uint32_t));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -8572,7 +8566,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pProperties)
                 {
-                    if ((pPropertyCount) != nullptr)
+                    if (pPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPropertyCount)); ++i)
                         {
@@ -9950,7 +9944,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkSurfaceFormatKHR(vkReadStream, (VkSurfaceFormatKHR*)(pSurfaceFormats + i), readStreamPtrPtr);
                     }
                 }
-                if ((pSurfaceFormatCount) != nullptr)
+                if (pSurfaceFormatCount)
                 {
                     if (pSurfaceFormats)
                     {
@@ -9974,7 +9968,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pSurfaceFormatCount, sizeof(uint32_t));
                 }
-                if ((pSurfaceFormatCount) != nullptr)
+                if (pSurfaceFormatCount)
                 {
                     if (pSurfaceFormats)
                     {
@@ -9989,7 +9983,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_5);
                 if (pSurfaceFormats)
                 {
-                    if ((pSurfaceFormatCount) != nullptr)
+                    if (pSurfaceFormatCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pSurfaceFormatCount)); ++i)
                         {
@@ -10256,7 +10250,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                     {
                         uint8_t* cgen_var_3_0_ptr = (uint8_t*)(*readStreamPtrPtr);
                         *readStreamPtrPtr += 8 * (*(pSwapchainImageCount));
-                        if ((pSwapchainImageCount) != nullptr)
+                        if (pSwapchainImageCount)
                         {
                             for (uint32_t k = 0; k < (*(pSwapchainImageCount)); ++k)
                             {
@@ -10550,7 +10544,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkRect2D(vkReadStream, (VkRect2D*)(pRects + i), readStreamPtrPtr);
                     }
                 }
-                if ((pRectCount) != nullptr)
+                if (pRectCount)
                 {
                     if (pRects)
                     {
@@ -10574,7 +10568,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pRectCount, sizeof(uint32_t));
                 }
-                if ((pRectCount) != nullptr)
+                if (pRectCount)
                 {
                     if (pRects)
                     {
@@ -10589,7 +10583,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_5);
                 if (pRects)
                 {
-                    if ((pRectCount) != nullptr)
+                    if (pRectCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pRectCount)); ++i)
                         {
@@ -10698,7 +10692,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkDisplayPropertiesKHR(vkReadStream, (VkDisplayPropertiesKHR*)(pProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -10722,7 +10716,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPropertyCount, sizeof(uint32_t));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -10737,7 +10731,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pProperties)
                 {
-                    if ((pPropertyCount) != nullptr)
+                    if (pPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPropertyCount)); ++i)
                         {
@@ -10798,7 +10792,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkDisplayPlanePropertiesKHR(vkReadStream, (VkDisplayPlanePropertiesKHR*)(pProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -10822,7 +10816,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPropertyCount, sizeof(uint32_t));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -10837,7 +10831,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pProperties)
                 {
-                    if ((pPropertyCount) != nullptr)
+                    if (pPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPropertyCount)); ++i)
                         {
@@ -10900,7 +10894,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                     {
                         uint8_t* cgen_var_2_0_ptr = (uint8_t*)(*readStreamPtrPtr);
                         *readStreamPtrPtr += 8 * (*(pDisplayCount));
-                        if ((pDisplayCount) != nullptr)
+                        if (pDisplayCount)
                         {
                             for (uint32_t k = 0; k < (*(pDisplayCount)); ++k)
                             {
@@ -10995,7 +10989,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkDisplayModePropertiesKHR(vkReadStream, (VkDisplayModePropertiesKHR*)(pProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -11019,7 +11013,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPropertyCount, sizeof(uint32_t));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -11034,7 +11028,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_5);
                 if (pProperties)
                 {
-                    if ((pPropertyCount) != nullptr)
+                    if (pPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPropertyCount)); ++i)
                         {
@@ -12051,7 +12045,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkQueueFamilyProperties2(vkReadStream, (VkQueueFamilyProperties2*)(pQueueFamilyProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pQueueFamilyPropertyCount) != nullptr)
+                if (pQueueFamilyPropertyCount)
                 {
                     if (pQueueFamilyProperties)
                     {
@@ -12074,7 +12068,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pQueueFamilyPropertyCount, sizeof(uint32_t));
                 }
-                if ((pQueueFamilyPropertyCount) != nullptr)
+                if (pQueueFamilyPropertyCount)
                 {
                     if (pQueueFamilyProperties)
                     {
@@ -12089,7 +12083,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pQueueFamilyProperties)
                 {
-                    if ((pQueueFamilyPropertyCount) != nullptr)
+                    if (pQueueFamilyPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pQueueFamilyPropertyCount)); ++i)
                         {
@@ -12197,7 +12191,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     transform_tohost_VkPhysicalDeviceSparseImageFormatInfo2(m_state, (VkPhysicalDeviceSparseImageFormatInfo2*)(pFormatInfo));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -12220,7 +12214,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPropertyCount, sizeof(uint32_t));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -12235,7 +12229,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pProperties)
                 {
-                    if ((pPropertyCount) != nullptr)
+                    if (pPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPropertyCount)); ++i)
                         {
@@ -12468,7 +12462,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkPhysicalDeviceGroupProperties(vkReadStream, (VkPhysicalDeviceGroupProperties*)(pPhysicalDeviceGroupProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pPhysicalDeviceGroupCount) != nullptr)
+                if (pPhysicalDeviceGroupCount)
                 {
                     if (pPhysicalDeviceGroupProperties)
                     {
@@ -12492,7 +12486,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPhysicalDeviceGroupCount, sizeof(uint32_t));
                 }
-                if ((pPhysicalDeviceGroupCount) != nullptr)
+                if (pPhysicalDeviceGroupCount)
                 {
                     if (pPhysicalDeviceGroupProperties)
                     {
@@ -12507,7 +12501,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pPhysicalDeviceGroupProperties)
                 {
-                    if ((pPhysicalDeviceGroupCount) != nullptr)
+                    if (pPhysicalDeviceGroupCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPhysicalDeviceGroupCount)); ++i)
                         {
@@ -13818,7 +13812,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkPerformanceCounterDescriptionKHR(vkReadStream, (VkPerformanceCounterDescriptionKHR*)(pCounterDescriptions + i), readStreamPtrPtr);
                     }
                 }
-                if ((pCounterCount) != nullptr)
+                if (pCounterCount)
                 {
                     if (pCounters)
                     {
@@ -13828,7 +13822,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         }
                     }
                 }
-                if ((pCounterCount) != nullptr)
+                if (pCounterCount)
                 {
                     if (pCounterDescriptions)
                     {
@@ -13852,7 +13846,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pCounterCount, sizeof(uint32_t));
                 }
-                if ((pCounterCount) != nullptr)
+                if (pCounterCount)
                 {
                     if (pCounters)
                     {
@@ -13867,7 +13861,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_5);
                 if (pCounters)
                 {
-                    if ((pCounterCount) != nullptr)
+                    if (pCounterCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pCounterCount)); ++i)
                         {
@@ -13875,7 +13869,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         }
                     }
                 }
-                if ((pCounterCount) != nullptr)
+                if (pCounterCount)
                 {
                     if (pCounterDescriptions)
                     {
@@ -13890,7 +13884,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_6);
                 if (pCounterDescriptions)
                 {
-                    if ((pCounterCount) != nullptr)
+                    if (pCounterCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pCounterCount)); ++i)
                         {
@@ -14128,7 +14122,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     transform_tohost_VkPhysicalDeviceSurfaceInfo2KHR(m_state, (VkPhysicalDeviceSurfaceInfo2KHR*)(pSurfaceInfo));
                 }
-                if ((pSurfaceFormatCount) != nullptr)
+                if (pSurfaceFormatCount)
                 {
                     if (pSurfaceFormats)
                     {
@@ -14152,7 +14146,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pSurfaceFormatCount, sizeof(uint32_t));
                 }
-                if ((pSurfaceFormatCount) != nullptr)
+                if (pSurfaceFormatCount)
                 {
                     if (pSurfaceFormats)
                     {
@@ -14167,7 +14161,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pSurfaceFormats)
                 {
-                    if ((pSurfaceFormatCount) != nullptr)
+                    if (pSurfaceFormatCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pSurfaceFormatCount)); ++i)
                         {
@@ -14232,7 +14226,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkDisplayProperties2KHR(vkReadStream, (VkDisplayProperties2KHR*)(pProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -14256,7 +14250,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPropertyCount, sizeof(uint32_t));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -14271,7 +14265,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pProperties)
                 {
-                    if ((pPropertyCount) != nullptr)
+                    if (pPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPropertyCount)); ++i)
                         {
@@ -14332,7 +14326,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkDisplayPlaneProperties2KHR(vkReadStream, (VkDisplayPlaneProperties2KHR*)(pProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -14356,7 +14350,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPropertyCount, sizeof(uint32_t));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -14371,7 +14365,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pProperties)
                 {
-                    if ((pPropertyCount) != nullptr)
+                    if (pPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPropertyCount)); ++i)
                         {
@@ -14437,7 +14431,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkDisplayModeProperties2KHR(vkReadStream, (VkDisplayModeProperties2KHR*)(pProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -14461,7 +14455,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPropertyCount, sizeof(uint32_t));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -14476,7 +14470,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_5);
                 if (pProperties)
                 {
-                    if ((pPropertyCount) != nullptr)
+                    if (pPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPropertyCount)); ++i)
                         {
@@ -14704,7 +14698,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     transform_tohost_VkImageSparseMemoryRequirementsInfo2(m_state, (VkImageSparseMemoryRequirementsInfo2*)(pInfo));
                 }
-                if ((pSparseMemoryRequirementCount) != nullptr)
+                if (pSparseMemoryRequirementCount)
                 {
                     if (pSparseMemoryRequirements)
                     {
@@ -14727,7 +14721,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pSparseMemoryRequirementCount, sizeof(uint32_t));
                 }
-                if ((pSparseMemoryRequirementCount) != nullptr)
+                if (pSparseMemoryRequirementCount)
                 {
                     if (pSparseMemoryRequirements)
                     {
@@ -14742,7 +14736,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pSparseMemoryRequirements)
                 {
-                    if ((pSparseMemoryRequirementCount) != nullptr)
+                    if (pSparseMemoryRequirementCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pSparseMemoryRequirementCount)); ++i)
                         {
@@ -15334,7 +15328,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkPhysicalDeviceFragmentShadingRateKHR(vkReadStream, (VkPhysicalDeviceFragmentShadingRateKHR*)(pFragmentShadingRates + i), readStreamPtrPtr);
                     }
                 }
-                if ((pFragmentShadingRateCount) != nullptr)
+                if (pFragmentShadingRateCount)
                 {
                     if (pFragmentShadingRates)
                     {
@@ -15358,7 +15352,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pFragmentShadingRateCount, sizeof(uint32_t));
                 }
-                if ((pFragmentShadingRateCount) != nullptr)
+                if (pFragmentShadingRateCount)
                 {
                     if (pFragmentShadingRates)
                     {
@@ -15373,7 +15367,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pFragmentShadingRates)
                 {
-                    if ((pFragmentShadingRateCount) != nullptr)
+                    if (pFragmentShadingRateCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pFragmentShadingRateCount)); ++i)
                         {
@@ -15823,7 +15817,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     transform_tohost_VkPipelineInfoKHR(m_state, (VkPipelineInfoKHR*)(pPipelineInfo));
                 }
-                if ((pExecutableCount) != nullptr)
+                if (pExecutableCount)
                 {
                     if (pProperties)
                     {
@@ -15847,7 +15841,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pExecutableCount, sizeof(uint32_t));
                 }
-                if ((pExecutableCount) != nullptr)
+                if (pExecutableCount)
                 {
                     if (pProperties)
                     {
@@ -15862,7 +15856,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pProperties)
                 {
-                    if ((pExecutableCount) != nullptr)
+                    if (pExecutableCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pExecutableCount)); ++i)
                         {
@@ -15930,7 +15924,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     transform_tohost_VkPipelineExecutableInfoKHR(m_state, (VkPipelineExecutableInfoKHR*)(pExecutableInfo));
                 }
-                if ((pStatisticCount) != nullptr)
+                if (pStatisticCount)
                 {
                     if (pStatistics)
                     {
@@ -15954,7 +15948,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pStatisticCount, sizeof(uint32_t));
                 }
-                if ((pStatisticCount) != nullptr)
+                if (pStatisticCount)
                 {
                     if (pStatistics)
                     {
@@ -15969,7 +15963,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pStatistics)
                 {
-                    if ((pStatisticCount) != nullptr)
+                    if (pStatisticCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pStatisticCount)); ++i)
                         {
@@ -16037,7 +16031,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     transform_tohost_VkPipelineExecutableInfoKHR(m_state, (VkPipelineExecutableInfoKHR*)(pExecutableInfo));
                 }
-                if ((pInternalRepresentationCount) != nullptr)
+                if (pInternalRepresentationCount)
                 {
                     if (pInternalRepresentations)
                     {
@@ -16061,7 +16055,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pInternalRepresentationCount, sizeof(uint32_t));
                 }
-                if ((pInternalRepresentationCount) != nullptr)
+                if (pInternalRepresentationCount)
                 {
                     if (pInternalRepresentations)
                     {
@@ -16076,7 +16070,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pInternalRepresentations)
                 {
-                    if ((pInternalRepresentationCount) != nullptr)
+                    if (pInternalRepresentationCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pInternalRepresentationCount)); ++i)
                         {
@@ -18381,7 +18375,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkPastPresentationTimingGOOGLE(vkReadStream, (VkPastPresentationTimingGOOGLE*)(pPresentationTimings + i), readStreamPtrPtr);
                     }
                 }
-                if ((pPresentationTimingCount) != nullptr)
+                if (pPresentationTimingCount)
                 {
                     if (pPresentationTimings)
                     {
@@ -18405,7 +18399,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPresentationTimingCount, sizeof(uint32_t));
                 }
-                if ((pPresentationTimingCount) != nullptr)
+                if (pPresentationTimingCount)
                 {
                     if (pPresentationTimings)
                     {
@@ -18420,7 +18414,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_5);
                 if (pPresentationTimings)
                 {
-                    if ((pPresentationTimingCount) != nullptr)
+                    if (pPresentationTimingCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPresentationTimingCount)); ++i)
                         {
@@ -21318,7 +21312,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkCheckpointDataNV(vkReadStream, (VkCheckpointDataNV*)(pCheckpointData + i), readStreamPtrPtr);
                     }
                 }
-                if ((pCheckpointDataCount) != nullptr)
+                if (pCheckpointDataCount)
                 {
                     if (pCheckpointData)
                     {
@@ -21341,7 +21335,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pCheckpointDataCount, sizeof(uint32_t));
                 }
-                if ((pCheckpointDataCount) != nullptr)
+                if (pCheckpointDataCount)
                 {
                     if (pCheckpointData)
                     {
@@ -21356,7 +21350,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pCheckpointData)
                 {
-                    if ((pCheckpointDataCount) != nullptr)
+                    if (pCheckpointDataCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pCheckpointDataCount)); ++i)
                         {
@@ -22088,7 +22082,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkPhysicalDeviceToolPropertiesEXT(vkReadStream, (VkPhysicalDeviceToolPropertiesEXT*)(pToolProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pToolCount) != nullptr)
+                if (pToolCount)
                 {
                     if (pToolProperties)
                     {
@@ -22112,7 +22106,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pToolCount, sizeof(uint32_t));
                 }
-                if ((pToolCount) != nullptr)
+                if (pToolCount)
                 {
                     if (pToolProperties)
                     {
@@ -22127,7 +22121,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pToolProperties)
                 {
-                    if ((pToolCount) != nullptr)
+                    if (pToolCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pToolCount)); ++i)
                         {
@@ -22194,7 +22188,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkCooperativeMatrixPropertiesNV(vkReadStream, (VkCooperativeMatrixPropertiesNV*)(pProperties + i), readStreamPtrPtr);
                     }
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -22218,7 +22212,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pPropertyCount, sizeof(uint32_t));
                 }
-                if ((pPropertyCount) != nullptr)
+                if (pPropertyCount)
                 {
                     if (pProperties)
                     {
@@ -22233,7 +22227,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pProperties)
                 {
-                    if ((pPropertyCount) != nullptr)
+                    if (pPropertyCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pPropertyCount)); ++i)
                         {
@@ -22296,7 +22290,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         reservedunmarshal_VkFramebufferMixedSamplesCombinationNV(vkReadStream, (VkFramebufferMixedSamplesCombinationNV*)(pCombinations + i), readStreamPtrPtr);
                     }
                 }
-                if ((pCombinationCount) != nullptr)
+                if (pCombinationCount)
                 {
                     if (pCombinations)
                     {
@@ -22320,7 +22314,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     vkStream->write((uint32_t*)pCombinationCount, sizeof(uint32_t));
                 }
-                if ((pCombinationCount) != nullptr)
+                if (pCombinationCount)
                 {
                     if (pCombinations)
                     {
@@ -22335,7 +22329,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 vkStream->putBe64(cgen_var_4);
                 if (pCombinations)
                 {
-                    if ((pCombinationCount) != nullptr)
+                    if (pCombinationCount)
                     {
                         for (uint32_t i = 0; i < (uint32_t)(*(pCombinationCount)); ++i)
                         {
@@ -24736,6 +24730,153 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                     m_state->snapshot()->vkQueueFlushCommandsGOOGLE(snapshotTraceBegin, snapshotTraceBytes, &m_pool, queue, commandBuffer, dataSize, pData);
                 }
                 vkReadStream->clearPool();
+                android::base::endTrace();
+                break;
+            }
+            case OP_vkQueueCommitDescriptorSetUpdatesGOOGLE:
+            {
+                android::base::beginTrace("vkQueueCommitDescriptorSetUpdatesGOOGLE decode");
+                VkQueue queue;
+                uint32_t descriptorPoolCount;
+                const VkDescriptorPool* pDescriptorPools;
+                uint32_t descriptorSetCount;
+                const VkDescriptorSetLayout* pSetLayouts;
+                const uint64_t* pDescriptorSetPoolIds;
+                const uint32_t* pDescriptorSetWhichPool;
+                const uint32_t* pDescriptorSetPendingAllocation;
+                const uint32_t* pDescriptorWriteStartingIndices;
+                uint32_t pendingDescriptorWriteCount;
+                const VkWriteDescriptorSet* pPendingDescriptorWrites;
+                // Begin global wrapped dispatchable handle unboxing for queue;
+                uint64_t cgen_var_0;
+                memcpy((uint64_t*)&cgen_var_0, *readStreamPtrPtr, 1 * 8);
+                *readStreamPtrPtr += 1 * 8;
+                *(VkQueue*)&queue = (VkQueue)(VkQueue)((VkQueue)(*&cgen_var_0));
+                memcpy((uint32_t*)&descriptorPoolCount, *readStreamPtrPtr, sizeof(uint32_t));
+                *readStreamPtrPtr += sizeof(uint32_t);
+                vkReadStream->alloc((void**)&pDescriptorPools, ((descriptorPoolCount)) * sizeof(const VkDescriptorPool));
+                if (((descriptorPoolCount)))
+                {
+                    uint8_t* cgen_var_1_ptr = (uint8_t*)(*readStreamPtrPtr);
+                    *readStreamPtrPtr += 8 * ((descriptorPoolCount));
+                    for (uint32_t k = 0; k < ((descriptorPoolCount)); ++k)
+                    {
+                        uint64_t tmpval; memcpy(&tmpval, cgen_var_1_ptr + k * 8, sizeof(uint64_t));
+                        *(((VkDescriptorPool*)pDescriptorPools) + k) = (VkDescriptorPool)unbox_VkDescriptorPool((VkDescriptorPool)tmpval);
+                    }
+                }
+                memcpy((uint32_t*)&descriptorSetCount, *readStreamPtrPtr, sizeof(uint32_t));
+                *readStreamPtrPtr += sizeof(uint32_t);
+                vkReadStream->alloc((void**)&pSetLayouts, ((descriptorSetCount)) * sizeof(const VkDescriptorSetLayout));
+                if (((descriptorSetCount)))
+                {
+                    uint8_t* cgen_var_2_ptr = (uint8_t*)(*readStreamPtrPtr);
+                    *readStreamPtrPtr += 8 * ((descriptorSetCount));
+                    for (uint32_t k = 0; k < ((descriptorSetCount)); ++k)
+                    {
+                        uint64_t tmpval; memcpy(&tmpval, cgen_var_2_ptr + k * 8, sizeof(uint64_t));
+                        *(((VkDescriptorSetLayout*)pSetLayouts) + k) = (VkDescriptorSetLayout)unbox_VkDescriptorSetLayout((VkDescriptorSetLayout)tmpval);
+                    }
+                }
+                vkReadStream->alloc((void**)&pDescriptorSetPoolIds, ((descriptorSetCount)) * sizeof(const uint64_t));
+                memcpy((uint64_t*)pDescriptorSetPoolIds, *readStreamPtrPtr, ((descriptorSetCount)) * sizeof(const uint64_t));
+                *readStreamPtrPtr += ((descriptorSetCount)) * sizeof(const uint64_t);
+                vkReadStream->alloc((void**)&pDescriptorSetWhichPool, ((descriptorSetCount)) * sizeof(const uint32_t));
+                memcpy((uint32_t*)pDescriptorSetWhichPool, *readStreamPtrPtr, ((descriptorSetCount)) * sizeof(const uint32_t));
+                *readStreamPtrPtr += ((descriptorSetCount)) * sizeof(const uint32_t);
+                vkReadStream->alloc((void**)&pDescriptorSetPendingAllocation, ((descriptorSetCount)) * sizeof(const uint32_t));
+                memcpy((uint32_t*)pDescriptorSetPendingAllocation, *readStreamPtrPtr, ((descriptorSetCount)) * sizeof(const uint32_t));
+                *readStreamPtrPtr += ((descriptorSetCount)) * sizeof(const uint32_t);
+                vkReadStream->alloc((void**)&pDescriptorWriteStartingIndices, ((descriptorSetCount)) * sizeof(const uint32_t));
+                memcpy((uint32_t*)pDescriptorWriteStartingIndices, *readStreamPtrPtr, ((descriptorSetCount)) * sizeof(const uint32_t));
+                *readStreamPtrPtr += ((descriptorSetCount)) * sizeof(const uint32_t);
+                memcpy((uint32_t*)&pendingDescriptorWriteCount, *readStreamPtrPtr, sizeof(uint32_t));
+                *readStreamPtrPtr += sizeof(uint32_t);
+                vkReadStream->alloc((void**)&pPendingDescriptorWrites, ((pendingDescriptorWriteCount)) * sizeof(const VkWriteDescriptorSet));
+                for (uint32_t i = 0; i < (uint32_t)((pendingDescriptorWriteCount)); ++i)
+                {
+                    reservedunmarshal_VkWriteDescriptorSet(vkReadStream, (VkWriteDescriptorSet*)(pPendingDescriptorWrites + i), readStreamPtrPtr);
+                }
+                if (pPendingDescriptorWrites)
+                {
+                    for (uint32_t i = 0; i < (uint32_t)((pendingDescriptorWriteCount)); ++i)
+                    {
+                        transform_tohost_VkWriteDescriptorSet(m_state, (VkWriteDescriptorSet*)(pPendingDescriptorWrites + i));
+                    }
+                }
+                if (m_logCalls)
+                {
+                    fprintf(stderr, "stream %p: call vkQueueCommitDescriptorSetUpdatesGOOGLE 0x%llx 0x%llx 0x%llx 0x%llx 0x%llx 0x%llx 0x%llx 0x%llx 0x%llx 0x%llx 0x%llx \n", ioStream, (unsigned long long)queue, (unsigned long long)descriptorPoolCount, (unsigned long long)pDescriptorPools, (unsigned long long)descriptorSetCount, (unsigned long long)pSetLayouts, (unsigned long long)pDescriptorSetPoolIds, (unsigned long long)pDescriptorSetWhichPool, (unsigned long long)pDescriptorSetPendingAllocation, (unsigned long long)pDescriptorWriteStartingIndices, (unsigned long long)pendingDescriptorWriteCount, (unsigned long long)pPendingDescriptorWrites);
+                }
+                m_state->on_vkQueueCommitDescriptorSetUpdatesGOOGLE(&m_pool, queue, descriptorPoolCount, pDescriptorPools, descriptorSetCount, pSetLayouts, pDescriptorSetPoolIds, pDescriptorSetWhichPool, pDescriptorSetPendingAllocation, pDescriptorWriteStartingIndices, pendingDescriptorWriteCount, pPendingDescriptorWrites);
+                vkStream->unsetHandleMapping();
+                vkReadStream->setReadPos((uintptr_t)(*readStreamPtrPtr) - (uintptr_t)snapshotTraceBegin);
+                size_t snapshotTraceBytes = vkReadStream->endTrace();
+                if (m_state->snapshotsEnabled())
+                {
+                    m_state->snapshot()->vkQueueCommitDescriptorSetUpdatesGOOGLE(snapshotTraceBegin, snapshotTraceBytes, &m_pool, queue, descriptorPoolCount, pDescriptorPools, descriptorSetCount, pSetLayouts, pDescriptorSetPoolIds, pDescriptorSetWhichPool, pDescriptorSetPendingAllocation, pDescriptorWriteStartingIndices, pendingDescriptorWriteCount, pPendingDescriptorWrites);
+                }
+                vkReadStream->clearPool();
+                if (queueSubmitWithCommandsEnabled) __atomic_fetch_add(seqnoPtr, 1, __ATOMIC_SEQ_CST);
+                android::base::endTrace();
+                break;
+            }
+            case OP_vkCollectDescriptorPoolIdsGOOGLE:
+            {
+                android::base::beginTrace("vkCollectDescriptorPoolIdsGOOGLE decode");
+                VkDevice device;
+                VkDescriptorPool descriptorPool;
+                uint32_t* pPoolIdCount;
+                uint64_t* pPoolIds;
+                // Begin global wrapped dispatchable handle unboxing for device;
+                uint64_t cgen_var_0;
+                memcpy((uint64_t*)&cgen_var_0, *readStreamPtrPtr, 1 * 8);
+                *readStreamPtrPtr += 1 * 8;
+                *(VkDevice*)&device = (VkDevice)(VkDevice)((VkDevice)(*&cgen_var_0));
+                uint64_t cgen_var_1;
+                memcpy((uint64_t*)&cgen_var_1, *readStreamPtrPtr, 1 * 8);
+                *readStreamPtrPtr += 1 * 8;
+                *(VkDescriptorPool*)&descriptorPool = (VkDescriptorPool)unbox_VkDescriptorPool((VkDescriptorPool)(*&cgen_var_1));
+                // Begin manual dispatchable handle unboxing for pPoolIdCount;
+                vkReadStream->unsetHandleMapping();
+                vkReadStream->alloc((void**)&pPoolIdCount, sizeof(uint32_t));
+                memcpy((uint32_t*)pPoolIdCount, *readStreamPtrPtr, sizeof(uint32_t));
+                *readStreamPtrPtr += sizeof(uint32_t);
+                // Begin manual dispatchable handle unboxing for pPoolIds;
+                vkReadStream->unsetHandleMapping();
+                // WARNING PTR CHECK
+                memcpy((uint64_t**)&pPoolIds, (*readStreamPtrPtr), 8);
+                android::base::Stream::fromBe64((uint8_t*)&pPoolIds);
+                *readStreamPtrPtr += 8;
+                if (pPoolIds)
+                {
+                    vkReadStream->alloc((void**)&pPoolIds, (*(pPoolIdCount)) * sizeof(uint64_t));
+                    memcpy((uint64_t*)pPoolIds, *readStreamPtrPtr, (*(pPoolIdCount)) * sizeof(uint64_t));
+                    *readStreamPtrPtr += (*(pPoolIdCount)) * sizeof(uint64_t);
+                }
+                if (m_logCalls)
+                {
+                    fprintf(stderr, "stream %p: call vkCollectDescriptorPoolIdsGOOGLE 0x%llx 0x%llx 0x%llx 0x%llx \n", ioStream, (unsigned long long)device, (unsigned long long)descriptorPool, (unsigned long long)pPoolIdCount, (unsigned long long)pPoolIds);
+                }
+                m_state->on_vkCollectDescriptorPoolIdsGOOGLE(&m_pool, device, descriptorPool, pPoolIdCount, pPoolIds);
+                vkStream->unsetHandleMapping();
+                vkStream->write((uint32_t*)pPoolIdCount, sizeof(uint32_t));
+                // WARNING PTR CHECK
+                uint64_t cgen_var_3 = (uint64_t)(uintptr_t)pPoolIds;
+                vkStream->putBe64(cgen_var_3);
+                if (pPoolIds)
+                {
+                    vkStream->write((uint64_t*)pPoolIds, (*(pPoolIdCount)) * sizeof(uint64_t));
+                }
+                vkStream->commitWrite();
+                vkReadStream->setReadPos((uintptr_t)(*readStreamPtrPtr) - (uintptr_t)snapshotTraceBegin);
+                size_t snapshotTraceBytes = vkReadStream->endTrace();
+                if (m_state->snapshotsEnabled())
+                {
+                    m_state->snapshot()->vkCollectDescriptorPoolIdsGOOGLE(snapshotTraceBegin, snapshotTraceBytes, &m_pool, device, descriptorPool, pPoolIdCount, pPoolIds);
+                }
+                vkReadStream->clearPool();
+                if (queueSubmitWithCommandsEnabled) __atomic_fetch_add(seqnoPtr, 1, __ATOMIC_SEQ_CST);
                 android::base::endTrace();
                 break;
             }

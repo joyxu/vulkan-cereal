@@ -13,6 +13,10 @@ from .wrapperdefs import RELAXED_APIS
 
 from copy import copy
 
+SKIPPED_DECODER_DELETES = [
+    "vkFreeDescriptorSets",
+]
+
 DELAYED_DECODER_DELETES = [
     "vkDestroyPipelineLayout",
 ]
@@ -374,6 +378,13 @@ def emit_decode_finish(cgen):
 def emit_destroyed_handle_cleanup(api, cgen):
     decodingParams = DecodingParameters(api)
     paramsToRead = decodingParams.toRead
+
+    skipDelete = api.name in SKIPPED_DECODER_DELETES
+
+    if skipDelete:
+        cgen.line("// Skipping handle cleanup for %s" % api.name)
+        return
+
     for p in paramsToRead:
         if p.dispatchHandle:
             pass
@@ -659,6 +670,8 @@ custom_decodes = {
     "vkQueueBindSparseAsyncGOOGLE" : emit_global_state_wrapped_decoding,
     "vkGetLinearImageLayoutGOOGLE" : emit_global_state_wrapped_decoding,
     "vkQueueFlushCommandsGOOGLE" : emit_global_state_wrapped_decoding,
+    "vkQueueCommitDescriptorSetUpdatesGOOGLE" : emit_global_state_wrapped_decoding,
+    "vkCollectDescriptorPoolIdsGOOGLE" : emit_global_state_wrapped_decoding,
 }
 
 class VulkanDecoder(VulkanWrapperGenerator):
