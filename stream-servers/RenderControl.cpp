@@ -230,7 +230,7 @@ static const char* kAsyncFrameCommands = "ANDROID_EMU_async_frame_commands";
 static const char* kVulkanQueueSubmitWithCommands = "ANDROID_EMU_vulkan_queue_submit_with_commands";
 
 // Batched descriptor set update
-static constexpr android::base::StringView kVulkanBatchedDescriptorSetUpdate = "ANDROID_EMU_vulkan_batched_descriptor_set_update";
+static const char* kVulkanBatchedDescriptorSetUpdate = "ANDROID_EMU_vulkan_batched_descriptor_set_update";
 
 static void rcTriggerWait(uint64_t glsync_ptr,
                           uint64_t thread_ptr,
@@ -362,7 +362,7 @@ static bool shouldEnableQueueSubmitWithCommands() {
 static bool shouldEnableBatchedDescriptorSetUpdate() {
     return shouldEnableVulkan() &&
         shouldEnableQueueSubmitWithCommands() &&
-        emugl_feature_is_enabled(android::featurecontrol::VulkanBatchedDescriptorSetUpdate);
+        feature_is_enabled(kFeature_VulkanBatchedDescriptorSetUpdate);
 }
 
 // OpenGL ES 3.x support involves changing the GL_VERSION string, which is
