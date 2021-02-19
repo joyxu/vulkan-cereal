@@ -1111,6 +1111,21 @@ static void rcCreateSyncKHR(EGLenum type,
     // guaranteed, and we need to make sure
     // rcTriggerWait is registered.
     emugl_sync_register_trigger_wait(rcTriggerWait);
+
+    RenderThreadInfo *tInfo = RenderThreadInfo::get();
+
+    if (!tInfo->currContext) {
+        auto fb = FrameBuffer::getFB();
+        uint32_t create_sync_cxt, create_sync_surf;
+        fb->createTrivialContext(0, // There is no context to share.
+                                 &create_sync_cxt,
+                                 &create_sync_surf);
+        fb->bindContext(create_sync_cxt,
+                        create_sync_surf,
+                        create_sync_surf);
+        // This context is then cleaned up when the render thread exits.
+    }
+
     FenceSync* fenceSync = new FenceSync(hasNativeFence,
                                          destroy_when_signaled);
 
@@ -1211,7 +1226,15 @@ static int rcCompose(uint32_t bufferSize, void* buffer) {
     if (!fb) {
         return -1;
     }
-    return fb->compose(bufferSize, buffer);
+    return fb->compose(bufferSize, buffer, true);
+}
+
+static int rcComposeWithoutPost(uint32_t bufferSize, void* buffer) {
+    FrameBuffer *fb = FrameBuffer::getFB();
+    if (!fb) {
+        return -1;
+    }
+    return fb->compose(bufferSize, buffer, false);
 }
 
 static int rcCreateDisplay(uint32_t* displayId) {
@@ -1427,7 +1450,15 @@ static void rcComposeAsync(uint32_t bufferSize, void* buffer) {
     if (!fb) {
         return;
     }
-    fb->compose(bufferSize, buffer);
+    fb->compose(bufferSize, buffer, true);
+}
+
+static void rcComposeAsyncWithoutPost(uint32_t bufferSize, void* buffer) {
+    FrameBuffer *fb = FrameBuffer::getFB();
+    if (!fb) {
+        return;
+    }
+    fb->compose(bufferSize, buffer, false);
 }
 
 static void rcDestroySyncKHRAsync(uint64_t handle) {
@@ -1498,4 +1529,6 @@ void initRenderControlContext(renderControl_decoder_context_t *dec)
     dec->rcMakeCurrentAsync = rcMakeCurrentAsync;
     dec->rcComposeAsync = rcComposeAsync;
     dec->rcDestroySyncKHRAsync = rcDestroySyncKHRAsync;
+    dec->rcComposeWithoutPost = rcComposeWithoutPost;
+    dec->rcComposeAsyncWithoutPost = rcComposeAsyncWithoutPost;
 }
