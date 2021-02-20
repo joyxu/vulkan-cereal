@@ -114,9 +114,13 @@ class TransformCodegen(VulkanTypeIterator):
         def makeLengthAccess(varName):
             return lambda t: self.cgen.generalLengthAccess(t, parentVarName = varName)
 
+        def makeLengthAccessGuard(varName):
+            return lambda t: self.cgen.generalLengthAccessGuard(t, parentVarName=varName)
+
         self.exprAccessor = makeAccess(self.inputVar)
         self.exprAccessorValue = makeAccess(self.inputVar, asPtr = False)
         self.lenAccessor = makeLengthAccess(self.inputVar)
+        self.lenAccessorGuard = makeLengthAccessGuard(self.inputVar)
 
         self.checked = False
 
@@ -145,8 +149,12 @@ class TransformCodegen(VulkanTypeIterator):
 
         access = self.exprAccessor(vulkanType)
         lenAccess = self.lenAccessor(vulkanType)
+        lenAccessGuard = self.lenAccessorGuard(vulkanType)
 
         isPtr = vulkanType.pointerIndirectionLevels > 0
+
+        if lenAccessGuard is not None:
+            self.cgen.beginIf(lenAccessGuard)
 
         if isPtr:
             self.cgen.beginIf(access)
@@ -173,6 +181,9 @@ class TransformCodegen(VulkanTypeIterator):
             self.cgen.endFor()
 
         if isPtr:
+            self.cgen.endIf()
+
+        if lenAccessGuard is not None:
             self.cgen.endIf()
 
     def onString(self, vulkanType):
@@ -264,6 +275,12 @@ class VulkanTransform(VulkanWrapperGenerator):
             return
 
         category = self.typeInfo.categoryOf(name)
+
+        if category in ["struct", "union"] and alias:
+            for variant in self.variants:
+                self.module.appendHeader(
+                    self.codegen.makeFuncAlias(self.transformPrefix + variant + "_" + name,
+                                               self.transformPrefix + variant + "_" + alias))
 
         if category in ["struct", "union"] and not alias:
             structInfo = self.typeInfo.structs[name]
