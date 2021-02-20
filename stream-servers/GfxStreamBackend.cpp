@@ -417,6 +417,8 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
             kFeature_VulkanQueueSubmitWithCommands, true);
     feature_set_enabled_override(kFeature_VulkanNativeSwapchain,
                                  useVulkanNativeSwapchain);
+    feature_set_enabled_override(
+            kFeature_VulkanBatchedDescriptorSetUpdate, true);
 
     if (useVulkanNativeSwapchain && !enableVk) {
         fprintf(stderr,
