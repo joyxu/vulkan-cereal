@@ -42,15 +42,14 @@ PostWorker::PostWorker(
         PostWorker::BindSubwinCallback&& cb,
         bool mainThreadPostingOnly,
         EGLContext eglContext,
-        EGLSurface eglSurface) :
+        EGLSurface) :
     mFb(FrameBuffer::getFB()),
     mBindSubwin(cb),
     m_mainThreadPostingOnly(mainThreadPostingOnly),
     m_runOnUiThread(m_mainThreadPostingOnly ?
         emugl::get_emugl_window_operations().runOnUiThread :
         sDefaultRunOnUiThread),
-    mContext(eglContext),
-    mSurface(eglSurface) {}
+    mContext(eglContext) {}
 
 void PostWorker::fillMultiDisplayPostStruct(ComposeLayer* l,
                                             hwc_rect_t displayArea,
@@ -69,7 +68,6 @@ void PostWorker::postImpl(ColorBuffer* cb) {
     if (!m_mainThreadPostingOnly && !m_initialized) {
         m_initialized = mBindSubwin();
     }
-
     float dpr = mFb->getDpr();
     int windowWidth = mFb->windowWidth();
     int windowHeight = mFb->windowHeight();
@@ -198,7 +196,6 @@ void PostWorker::composeImpl(ComposeDevice* p) {
     if (!m_mainThreadPostingOnly && !m_initialized) {
         m_initialized = mBindSubwin();
     }
-
     ComposeLayer* l = (ComposeLayer*)p->layer;
     GLint vport[4] = { 0, };
     s_gles2.glGetIntegerv(GL_VIEWPORT, vport);
@@ -249,7 +246,6 @@ void PostWorker::composev2Impl(ComposeDevice_v2* p) {
     if (!m_mainThreadPostingOnly && !m_initialized) {
         m_initialized = mBindSubwin();
     }
-
     ComposeLayer* l = (ComposeLayer*)p->layer;
     GLint vport[4] = { 0, };
     s_gles2.glGetIntegerv(GL_VIEWPORT, vport);

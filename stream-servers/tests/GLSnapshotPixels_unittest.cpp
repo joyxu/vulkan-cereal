@@ -34,9 +34,9 @@ TEST_P(SnapshotGlUnpackAlignmentTest, SetUnpackAlign) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotPixels,
-                        SnapshotGlUnpackAlignmentTest,
-                        ::testing::Values(1, 2, 4, 8));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotPixels,
+                         SnapshotGlUnpackAlignmentTest,
+                         ::testing::Values(1, 2, 4, 8));
 
 class SnapshotGlPackAlignmentTest
     : public SnapshotSetValueTest<GLuint>,
@@ -54,8 +54,8 @@ TEST_P(SnapshotGlPackAlignmentTest, SetPackAlign) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotPixels,
-                        SnapshotGlPackAlignmentTest,
-                        ::testing::Values(1, 2, 4, 8));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotPixels,
+                         SnapshotGlPackAlignmentTest,
+                         ::testing::Values(1, 2, 4, 8));
 
 }  // namespace emugl

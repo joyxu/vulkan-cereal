@@ -23,6 +23,8 @@ add_subdirectory(renderControl_dec)
 set(stream-server-core-sources
     ChannelStream.cpp
     ColorBuffer.cpp
+    CompositorVk.cpp
+    DisplayVk.cpp
     FbConfig.cpp
     FenceSync.cpp
     GLESVersionDetector.cpp
@@ -33,6 +35,7 @@ set(stream-server-core-sources
     RenderChannelImpl.cpp
     RenderThreadInfo.cpp
     RingStream.cpp
+    SwapChainStateVk.cpp
     SyncThread.cpp
     TextureDraw.cpp
     TextureResize.cpp
@@ -194,4 +197,31 @@ target_link_libraries(
     PRIVATE
     stream-server-testing-support
     gfxstream-base-testing-support
+    gfxstream-host-common-testing-support)
+
+add_executable(
+    CompositorVk_unittests
+    tests/CompositorVk_unittest.cpp)
+target_link_libraries(
+    CompositorVk_unittests
+    PRIVATE
+    stream-server-testing-support
+    gfxstream-host-common-testing-support)
+
+add_executable(
+    SwapChainStateVk_unittests
+    tests/SwapChainStateVk_unittest.cpp)
+target_link_libraries(
+    SwapChainStateVk_unittests
+    PRIVATE
+    stream-server-testing-support
+    gfxstream-host-common-testing-support)
+
+add_executable(
+    DisplayVk_unittests
+    tests/DisplayVk_unittest.cpp)
+target_link_libraries(
+    DisplayVk_unittests
+    PRIVATE
+    stream-server-testing-support
     gfxstream-host-common-testing-support)

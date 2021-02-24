@@ -27,11 +27,6 @@
 #include "host-common/misc.h" 
 
 std::map<uint32_t, android::MultiDisplayInfo> mMultiDisplay;
-static int32_t sDisplayX = 0;
-static int32_t sDisplayY = 0;
-static int32_t sDisplayW = 0;
-static int32_t sDisplayH = 0;
-static int32_t sDisplayDpi = 0;
 
 static const QAndroidMultiDisplayAgent sMultiDisplayAgent = {
         .setMultiDisplay = [](uint32_t id,

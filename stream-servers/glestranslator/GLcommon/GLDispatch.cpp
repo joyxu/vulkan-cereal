@@ -111,8 +111,6 @@ static return_type dummy_##func_name signature { \
 #define DEFINE_DUMMY_EXTENSION_FUNCTION(return_type, func_name, signature, args) \
   // nothing here
 
-LIST_GLES_FUNCTIONS(DEFINE_DUMMY_FUNCTION, DEFINE_DUMMY_EXTENSION_FUNCTION)
-
 // Initializing static GLDispatch members*/
 
 android::base::Lock GLDispatch::s_lock;

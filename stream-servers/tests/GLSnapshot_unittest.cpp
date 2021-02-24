@@ -36,9 +36,9 @@ TEST_P(SnapshotGlEnableTest, PreserveEnable) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotCapability,
-                        SnapshotGlEnableTest,
-                        ::testing::ValuesIn(kGLES2CanBeEnabled));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotCapability,
+                         SnapshotGlEnableTest,
+                         ::testing::ValuesIn(kGLES2CanBeEnabled));
 
 class SnapshotGlDisableTest : public SnapshotPreserveTest,
                               public ::testing::WithParamInterface<GLenum> {
@@ -55,9 +55,9 @@ TEST_P(SnapshotGlDisableTest, PreserveDisable) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotCapability,
-                        SnapshotGlDisableTest,
-                        ::testing::ValuesIn(kGLES2CanBeDisabled));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotCapability,
+                         SnapshotGlDisableTest,
+                         ::testing::ValuesIn(kGLES2CanBeDisabled));
 
 class SnapshotGlMipmapHintTest : public SnapshotSetValueTest<GLenum>,
                                  public ::testing::WithParamInterface<GLenum> {
@@ -74,8 +74,8 @@ TEST_P(SnapshotGlMipmapHintTest, DISABLED_PreserveHint) {
     doCheckedSnapshot();
 }
 
-INSTANTIATE_TEST_CASE_P(GLES2SnapshotHints,
-                        SnapshotGlMipmapHintTest,
-                        ::testing::ValuesIn(kGLES2GenerateMipmapHints));
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotHints,
+                         SnapshotGlMipmapHintTest,
+                         ::testing::ValuesIn(kGLES2GenerateMipmapHints));
 
 }  // namespace emugl

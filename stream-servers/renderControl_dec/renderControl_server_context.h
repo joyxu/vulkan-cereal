@@ -70,6 +70,8 @@ struct renderControl_server_context_t {
 	rcMakeCurrentAsync_server_proc_t rcMakeCurrentAsync;
 	rcComposeAsync_server_proc_t rcComposeAsync;
 	rcDestroySyncKHRAsync_server_proc_t rcDestroySyncKHRAsync;
+	rcComposeWithoutPost_server_proc_t rcComposeWithoutPost;
+	rcComposeAsyncWithoutPost_server_proc_t rcComposeAsyncWithoutPost;
 	virtual ~renderControl_server_context_t() {}
 	int initDispatchByName( void *(*getProc)(const char *name, void *userData), void *userData);
 };

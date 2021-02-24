@@ -26,9 +26,8 @@ namespace base {
 
 TEST(TypeTraits, IsCallable) {
     class C;
-    C* c = nullptr;
 
-    auto lambda = [c](bool) -> C* { return nullptr; };
+    auto lambda = [](bool) -> C* { return nullptr; };
 
     static_assert(is_callable_as<void(), void()>::value, "simple function");
     static_assert(is_callable_as<void(&)(), void()>::value, "function reference");

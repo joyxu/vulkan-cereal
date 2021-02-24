@@ -32,6 +32,7 @@
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+#include <EGL/eglext_angle.h>
 #include <GLES2/gl2.h>
 #include <memory>
 #include <vector>
@@ -81,7 +82,7 @@ static const char* kGLES2LibName = "libGLESv2.dylib";
     X(const char*, eglQueryString,                                             \
       (EGLDisplay dpy, EGLint id))                                             \
     X(EGLDisplay, eglGetPlatformDisplay,                                    \
-      (EGLenum platform, void *native_display, const EGLint *attrib_list))     \
+      (EGLenum platform, void *native_display, const EGLAttrib *attrib_list))  \
     X(EGLDisplay, eglGetPlatformDisplayEXT,                                    \
       (EGLenum platform, void *native_display, const EGLint *attrib_list))     \
     X(EGLBoolean, eglBindAPI,                                    \
@@ -109,7 +110,9 @@ static const char* kGLES2LibName = "libGLESv2.dylib";
     X(EGLBoolean, eglSwapBuffers, (EGLDisplay display, EGLSurface surface))    \
     X(EGLSurface, eglCreateWindowSurface,                                      \
       (EGLDisplay display, EGLConfig config,                                   \
-       EGLNativeWindowType native_window, EGLint const* attrib_list))
+       EGLNativeWindowType native_window, EGLint const* attrib_list))          \
+    X(EGLBoolean, eglSwapInterval,                                             \
+      (EGLDisplay display, EGLint interval))                                   \
 
 namespace {
 using namespace EglOS;
@@ -292,8 +295,29 @@ private:
 EglOsEglDisplay::EglOsEglDisplay() {
     mVerbose = android::base::getEnvironmentVariable("ANDROID_EMUGL_VERBOSE") == "1";
 
-    mDisplay = mDispatcher.eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    if (android::base::getEnvironmentVariable("ANDROID_EMUGL_EXPERIMENTAL_FAST_PATH") == "1") {
+        const EGLAttrib attr[] = {
+            EGL_PLATFORM_ANGLE_TYPE_ANGLE,
+            EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE,
+            EGL_EXPERIMENTAL_PRESENT_PATH_ANGLE,
+            EGL_EXPERIMENTAL_PRESENT_PATH_FAST_ANGLE,
+            EGL_NONE
+        };
+
+        mDisplay = mDispatcher.eglGetPlatformDisplay(EGL_PLATFORM_ANGLE_ANGLE,
+            (void*)EGL_DEFAULT_DISPLAY,
+            attr);
+
+        if (mDisplay == EGL_NO_DISPLAY) {
+            fprintf(stderr, "%s: no display found that supports the requested extensions\n", __func__);
+        }
+    }
+    else {
+        mDisplay = mDispatcher.eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    }
+
     mDispatcher.eglInitialize(mDisplay, nullptr, nullptr);
+    mDispatcher.eglSwapInterval(mDisplay, 0);
     auto clientExts = mDispatcher.eglQueryString(mDisplay, EGL_EXTENSIONS);
 
     if (mVerbose) {
@@ -491,8 +515,15 @@ Surface* EglOsEglDisplay::createPbufferSurface(const PixelFormat* pixelFormat,
 Surface* EglOsEglDisplay::createWindowSurface(PixelFormat* pf,
                                               EGLNativeWindowType win) {
     D("%s\n", __FUNCTION__);
+    std::vector<EGLint> surface_attribs;
+    auto exts = mDispatcher.eglQueryString(mDisplay, EGL_EXTENSIONS);
+    if (exts != nullptr && emugl::hasExtension(exts, "EGL_ANGLE_direct_composition")) {
+        surface_attribs.push_back(EGL_DIRECT_COMPOSITION_ANGLE);
+        surface_attribs.push_back(EGL_TRUE);
+    }
+    surface_attribs.push_back(EGL_NONE);
     EGLSurface surface = mDispatcher.eglCreateWindowSurface(
-            mDisplay, ((EglOsEglPixelFormat*)pf)->mConfigId, win, nullptr);
+            mDisplay, ((EglOsEglPixelFormat*)pf)->mConfigId, win, surface_attribs.data());
     CHECK_EGL_ERR
     if (surface == EGL_NO_SURFACE) {
         D("create window surface failed\n");

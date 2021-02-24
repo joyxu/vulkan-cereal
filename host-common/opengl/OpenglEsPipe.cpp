@@ -233,7 +233,6 @@ public:
 //             }
         }
 
-        bool mSnapshotCallbackRegistered = false;
         base::Optional<base::FunctorThread> mScreenshotSaver;
 #ifdef SNAPSHOT_PROFILE
         Stopwatch mSaveMeter;
@@ -322,7 +321,6 @@ public:
         int len = 0;
         size_t buffOffset = 0;
 
-        static constexpr uint64_t kBlockReportIntervalUs = 1000000ULL;
         auto buff = buffers;
         const auto buffEnd = buff + numBuffers;
         while (buff != buffEnd) {
@@ -371,8 +369,6 @@ public:
                     // the guest block on work that takes a significant
                     // amount of time.
 
-                    static constexpr uint64_t kBlockReportIntervalUs = 1000000ULL;
-
                     const RenderChannel::Duration kBlockAtMostUs = 100;
                     auto currTime = android::base::getUnixTimeUs();
                     auto result = mChannel->readBefore(&mDataForReading, currTime + kBlockAtMostUs);
@@ -409,14 +405,9 @@ public:
                     // the guest block on work that takes a significant
                     // amount of time.
 
-                    static constexpr uint64_t kBlockReportIntervalUs = 1000000ULL;
-
-                    auto currUs = android::base::getHighResTimeUs();
-
                     const RenderChannel::Duration kBlockAtMostUs = 10000;
                     auto currTime = android::base::getUnixTimeUs();
                     auto result = mChannel->readBefore(&mDataForReading, currTime + kBlockAtMostUs);
-                    auto nextUs = android::base::getHighResTimeUs();
 
                     if (result != IoResult::Ok) {
                         DD("%s: tryRead() failed with %d", __func__, (int)result);
