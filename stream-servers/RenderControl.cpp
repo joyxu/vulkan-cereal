@@ -229,6 +229,9 @@ static const char* kAsyncFrameCommands = "ANDROID_EMU_async_frame_commands";
 // Queue submit with commands
 static const char* kVulkanQueueSubmitWithCommands = "ANDROID_EMU_vulkan_queue_submit_with_commands";
 
+// Batched descriptor set update
+static const char* kVulkanBatchedDescriptorSetUpdate = "ANDROID_EMU_vulkan_batched_descriptor_set_update";
+
 static void rcTriggerWait(uint64_t glsync_ptr,
                           uint64_t thread_ptr,
                           uint64_t timeline);
@@ -356,6 +359,12 @@ static bool shouldEnableQueueSubmitWithCommands() {
         feature_is_enabled(kFeature_VulkanQueueSubmitWithCommands);
 }
 
+static bool shouldEnableBatchedDescriptorSetUpdate() {
+    return shouldEnableVulkan() &&
+        shouldEnableQueueSubmitWithCommands() &&
+        feature_is_enabled(kFeature_VulkanBatchedDescriptorSetUpdate);
+}
+
 // OpenGL ES 3.x support involves changing the GL_VERSION string, which is
 // assumed to be formatted in the following way:
 // "OpenGL ES-CM 1.m <vendor-info>" or
@@ -455,7 +464,7 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         feature_is_enabled(kFeature_YUV420888toNV21);
     bool YUVCacheEnabled =
         feature_is_enabled(kFeature_YUVCache);
-    bool AsyncUnmapBufferEnabled = true;
+    bool AsyncUnmapBufferEnabled = false;
     bool vulkanIgnoredHandlesEnabled =
         shouldEnableVulkan() && feature_is_enabled(kFeature_VulkanIgnoredHandles);
     bool virtioGpuNextEnabled =
@@ -467,6 +476,7 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
     bool vulkanShaderFloat16Int8Enabled = shouldEnableVulkanShaderFloat16Int8();
     bool vulkanAsyncQueueSubmitEnabled = shouldEnableAsyncQueueSubmit();
     bool vulkanQueueSubmitWithCommands = shouldEnableQueueSubmitWithCommands();
+    bool vulkanBatchedDescriptorSetUpdate = shouldEnableBatchedDescriptorSetUpdate();
 
     if (isChecksumEnabled && name == GL_EXTENSIONS) {
         glStr += ChecksumCalculatorThreadInfo::getMaxVersionString();
@@ -580,6 +590,11 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         glStr += " ";
     }
 
+    if (vulkanBatchedDescriptorSetUpdate && name == GL_EXTENSIONS) {
+        glStr += kVulkanBatchedDescriptorSetUpdate;
+        glStr += " ";
+    }
+
     if (virtioGpuNativeSyncEnabled && name == GL_EXTENSIONS) {
         glStr += kVirtioGpuNativeSync;
         glStr += " ";
@@ -617,8 +632,8 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         glStr += " ";
 
         // Async makecurrent support.
-        glStr += kAsyncFrameCommands;
-        glStr += " ";
+       // glStr += kAsyncFrameCommands;
+       // glStr += " ";
 
         if (feature_is_enabled(kFeature_IgnoreHostOpenGLErrors)) {
             glStr += kGLESNoHostError;
@@ -1111,6 +1126,21 @@ static void rcCreateSyncKHR(EGLenum type,
     // guaranteed, and we need to make sure
     // rcTriggerWait is registered.
     emugl_sync_register_trigger_wait(rcTriggerWait);
+
+    RenderThreadInfo *tInfo = RenderThreadInfo::get();
+
+    if (!tInfo->currContext) {
+        auto fb = FrameBuffer::getFB();
+        uint32_t create_sync_cxt, create_sync_surf;
+        fb->createTrivialContext(0, // There is no context to share.
+                                 &create_sync_cxt,
+                                 &create_sync_surf);
+        fb->bindContext(create_sync_cxt,
+                        create_sync_surf,
+                        create_sync_surf);
+        // This context is then cleaned up when the render thread exits.
+    }
+
     FenceSync* fenceSync = new FenceSync(hasNativeFence,
                                          destroy_when_signaled);
 
@@ -1211,7 +1241,15 @@ static int rcCompose(uint32_t bufferSize, void* buffer) {
     if (!fb) {
         return -1;
     }
-    return fb->compose(bufferSize, buffer);
+    return fb->compose(bufferSize, buffer, true);
+}
+
+static int rcComposeWithoutPost(uint32_t bufferSize, void* buffer) {
+    FrameBuffer *fb = FrameBuffer::getFB();
+    if (!fb) {
+        return -1;
+    }
+    return fb->compose(bufferSize, buffer, false);
 }
 
 static int rcCreateDisplay(uint32_t* displayId) {
@@ -1382,7 +1420,7 @@ static int32_t rcMapGpaToBufferHandle(uint32_t bufferHandle, uint64_t gpa) {
     int32_t result = goldfish_vk::mapGpaToBufferHandle(bufferHandle, gpa);
     if (result < 0) {
         fprintf(stderr,
-                "%s: error: failed to map gpa %lx to buffer handle 0x%x: %d\n",
+                "%s: error: failed to map gpa %" PRIx64 " to buffer handle 0x%x: %d\n",
                 __func__, gpa, bufferHandle, result);
     }
     return result;
@@ -1394,7 +1432,7 @@ static int32_t rcMapGpaToBufferHandle2(uint32_t bufferHandle,
     int32_t result = goldfish_vk::mapGpaToBufferHandle(bufferHandle, gpa, size);
     if (result < 0) {
         fprintf(stderr,
-                "%s: error: failed to map gpa %lx to buffer handle 0x%x: %d\n",
+                "%s: error: failed to map gpa %" PRIx64 " to buffer handle 0x%x: %d\n",
                 __func__, gpa, bufferHandle, result);
     }
     return result;
@@ -1427,13 +1465,15 @@ static void rcComposeAsync(uint32_t bufferSize, void* buffer) {
     if (!fb) {
         return;
     }
-    fb->compose(bufferSize, buffer);
+    fb->compose(bufferSize, buffer, true);
 }
 
-static void rcDestroySyncKHRAsyncy(uint64_t handle) {
-    FenceSync* fenceSync = FenceSync::getFromHandle(handle);
-    if (!fenceSync) return;
-    fenceSync->decRef();
+static void rcComposeAsyncWithoutPost(uint32_t bufferSize, void* buffer) {
+    FrameBuffer *fb = FrameBuffer::getFB();
+    if (!fb) {
+        return;
+    }
+    fb->compose(bufferSize, buffer, false);
 }
 
 static void rcDestroySyncKHRAsync(uint64_t handle) {
@@ -1504,4 +1544,6 @@ void initRenderControlContext(renderControl_decoder_context_t *dec)
     dec->rcMakeCurrentAsync = rcMakeCurrentAsync;
     dec->rcComposeAsync = rcComposeAsync;
     dec->rcDestroySyncKHRAsync = rcDestroySyncKHRAsync;
+    dec->rcComposeWithoutPost = rcComposeWithoutPost;
+    dec->rcComposeAsyncWithoutPost = rcComposeAsyncWithoutPost;
 }

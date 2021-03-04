@@ -9,7 +9,7 @@
 # python3 $VULKAN_REGISTRY_XML_DIR/genvk.py -registry $VULKAN_REGISTRY_XML_DIR/vk.xml cereal -o $CEREAL_OUTPUT_DIR
 
 add_library(OpenglRender_vulkan_cereal     common/goldfish_vk_extension_structs.cpp     common/goldfish_vk_marshaling.cpp     common/goldfish_vk_reserved_marshaling.cpp     common/goldfish_vk_testing.cpp     common/goldfish_vk_deepcopy.cpp     common/goldfish_vk_handlemap.cpp     common/goldfish_vk_dispatch.cpp     common/goldfish_vk_transform.cpp )
-target_compile_definitions(OpenglRender_vulkan_cereal PRIVATE -DVK_ANDROID_native_buffer -DVK_GOOGLE_address_space)
+target_compile_definitions(OpenglRender_vulkan_cereal PRIVATE -DVK_ANDROID_native_buffer -DVK_GOOGLE_gfxstream)
 if (WIN32)
     target_compile_definitions(OpenglRender_vulkan_cereal PRIVATE -DVK_USE_PLATFORM_WIN32_KHR)
 endif()

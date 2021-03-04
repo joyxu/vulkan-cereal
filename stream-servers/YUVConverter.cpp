@@ -55,7 +55,7 @@ enum YUVInterleaveDirection {
 static void getYUVOffsets(int width, int height, FrameworkFormat format,
                           uint32_t* yoff, uint32_t* uoff, uint32_t* voff,
                           uint32_t* alignwidth, uint32_t* alignwidthc) {
-    uint32_t totalSize, yStride, cStride, cHeight, cSize, align;
+    uint32_t yStride, cStride, cHeight, cSize, align;
     switch (format) {
     case FRAMEWORK_FORMAT_YV12:
         align = 16;
@@ -522,8 +522,6 @@ YUVConverter::YUVConverter(int width, int height, FrameworkFormat format)
     : mWidth(width),
       mHeight(height),
       mFormat(format),
-      mCbWidth(width),
-      mCbHeight(height),
       mCbFormat(format) {}
 
 void YUVConverter::init(int width, int height, FrameworkFormat format) {

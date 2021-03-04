@@ -27,3 +27,5 @@
 
 EMUGL_COMMON_API void set_emugl_address_space_device_control_ops(struct address_space_device_control_ops* ops);
 EMUGL_COMMON_API const struct address_space_device_control_ops& get_emugl_address_space_device_control_ops();
+
+#undef EMUGL_COMMON_API

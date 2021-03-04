@@ -663,7 +663,7 @@ fprintf(stderr, "%s: transform loc %d\n", __func__, transformLoc);
     auto cpuTime = android::base::cpuTime() - cpuTimeStart;
 
     uint64_t duration_us = cpuTime.wall_time_us;
-    uint64_t duration_cpu_us = cpuTime.usageUs();
+    // uint64_t duration_cpu_us = cpuTime.usageUs();
 
     float ms = duration_us / 1000.0f;
     float sec = duration_us / 1000000.0f;
@@ -822,7 +822,7 @@ TEST_F(FrameBufferTest, SetMultiDisplayPosition) {
 }
 
 TEST_F(FrameBufferTest, ComposeMultiDisplay) {
-    auto gl = LazyLoadedGLESv2Dispatch::get();
+    LazyLoadedGLESv2Dispatch::get();
 
     HandleType context = mFb->createRenderContext(0, 0, GLESApi_3_0);
     HandleType surface = mFb->createWindowSurface(0, mWidth, mHeight);

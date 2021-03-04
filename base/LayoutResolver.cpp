@@ -81,9 +81,6 @@ computeCoordinatesPerRow(
         }
         width += iter.width;
     }
-    for (const auto& iter : retVal) {
-
-    }
     return retVal;
 }
 

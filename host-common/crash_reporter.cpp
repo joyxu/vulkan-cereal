@@ -23,7 +23,7 @@ static void doCrash() {
     *(uint32_t*)(1234) = 5;
 }
 
-EMUGL_COMMON_API void emugl_crash_reporter(const char* message) {
+void emugl_crash_reporter(const char* message) {
     fprintf(stderr, "%s: FATAL: [%s]\n", __func__, message);
     doCrash();
 }
