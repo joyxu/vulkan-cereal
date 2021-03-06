@@ -1989,6 +1989,11 @@ public:
                 for (auto poolId : info->poolIds) {
                     delete_VkDescriptorSet((VkDescriptorSet)poolId);
                 }
+            } else {
+                for (auto poolId : info->poolIds) {
+                    auto handleInfo = sBoxedHandleManager.get(poolId);
+                    if (handleInfo) handleInfo->underlying = VK_NULL_HANDLE;
+                }
             }
         }
 
@@ -4255,7 +4260,6 @@ public:
         } else {
             if (pendingAlloc) {
                 VkDescriptorSet allocedSet;
-                vk->vkFreeDescriptorSets(device, pool, 1, (VkDescriptorSet*)(&setHandleInfo->underlying));
                 VkDescriptorSetAllocateInfo dsAi = {
                     VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, 0,
                     pool,
