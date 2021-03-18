@@ -124,4 +124,5 @@ private:
 }  // namespace base
 }  // namespace android
 
+#undef EMUGL_COMMON_API
 #endif  // EMUGL_COMMON_SHARED_LIBRARY_H

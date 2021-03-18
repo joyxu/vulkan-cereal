@@ -63,7 +63,9 @@
 #define OP_rcMakeCurrentAsync 					10057
 #define OP_rcComposeAsync 					10058
 #define OP_rcDestroySyncKHRAsync 					10059
-#define OP_last 					10060
+#define OP_rcComposeWithoutPost 					10060
+#define OP_rcComposeAsyncWithoutPost 					10061
+#define OP_last 					10062
 
 
 #endif

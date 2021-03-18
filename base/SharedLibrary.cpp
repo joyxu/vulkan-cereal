@@ -75,9 +75,8 @@ SharedLibrary* SharedLibrary::open(const char* libraryName,
         GL_LOG("SharedLibrary::open for [%s]: not found in map, open for the first time\n", libraryName);
         SharedLibrary* load = do_open(libraryName, error, errorSize);
         if (load != nullptr) {
-            s_libraryMap[libraryName] = std::move(
-                    std::unique_ptr<SharedLibrary, SharedLibrary::Deleter>(
-                            load));
+            s_libraryMap[libraryName] =
+                std::unique_ptr<SharedLibrary, SharedLibrary::Deleter>(load);
         }
         return load;
     }

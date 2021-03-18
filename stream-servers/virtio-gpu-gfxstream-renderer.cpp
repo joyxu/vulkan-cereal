@@ -191,13 +191,19 @@ static inline uint32_t align_up(uint32_t n, uint32_t a) {
     return ((n + a - 1) / a) * a;
 }
 
+static inline uint32_t align_up_power_of_2(uint32_t n, uint32_t a) {
+    return (n + (a - 1)) & ~(a - 1);
+}
+
 #define VIRGL_FORMAT_NV12 166
 #define VIRGL_FORMAT_YV12 163
 
 const uint32_t kGlBgra = 0x80e1;
 const uint32_t kGlRgba = 0x1908;
+const uint32_t kGlRgba16f = 0x881A;
 const uint32_t kGlRgb565 = 0x8d62;
 const uint32_t kGlR8 = 0x8229;
+const uint32_t kGlR16 = 0x822A;
 const uint32_t kGlRg8 = 0x822b;
 const uint32_t kGlLuminance = 0x1909;
 const uint32_t kGlLuminanceAlpha = 0x190a;
@@ -206,7 +212,7 @@ const uint32_t kGlUnsignedShort565 = 0x8363;
 
 constexpr uint32_t kFwkFormatGlCompat = 0;
 constexpr uint32_t kFwkFormatYV12 = 1;
-constexpr uint32_t kFwkFormatYUV420888 = 2;
+// constexpr uint32_t kFwkFormatYUV420888 = 2;
 constexpr uint32_t kFwkFormatNV12 = 3;
 
 static inline bool virgl_format_is_yuv(uint32_t format) {
@@ -217,6 +223,8 @@ static inline bool virgl_format_is_yuv(uint32_t format) {
         case VIRGL_FORMAT_R8G8B8A8_UNORM:
         case VIRGL_FORMAT_B5G6R5_UNORM:
         case VIRGL_FORMAT_R8_UNORM:
+        case VIRGL_FORMAT_R16_UNORM:
+        case VIRGL_FORMAT_R16G16B16A16_FLOAT:
         case VIRGL_FORMAT_R8G8_UNORM:
             return false;
         case VIRGL_FORMAT_NV12:
@@ -225,29 +233,6 @@ static inline bool virgl_format_is_yuv(uint32_t format) {
         default:
             VGP_FATAL("Unknown virgl format: 0x%x", format);
     }
-}
-
-static inline uint32_t virgl_format_to_bpp(uint32_t format) {
-    uint32_t bpp = 4U;
-
-    switch (format) {
-        case VIRGL_FORMAT_R8_UNORM:
-            bpp = 1U;
-            break;
-        case VIRGL_FORMAT_R8G8_UNORM:
-        case VIRGL_FORMAT_B5G6R5_UNORM:
-            bpp = 2U;
-            break;
-        case VIRGL_FORMAT_B8G8R8A8_UNORM:
-        case VIRGL_FORMAT_B8G8R8X8_UNORM:
-        case VIRGL_FORMAT_R8G8B8A8_UNORM:
-        case VIRGL_FORMAT_R8G8B8X8_UNORM:
-        default:
-            bpp = 4U;
-            break;
-    }
-
-    return bpp;
 }
 
 static inline uint32_t virgl_format_to_gl(uint32_t virgl_format) {
@@ -260,6 +245,10 @@ static inline uint32_t virgl_format_to_gl(uint32_t virgl_format) {
             return kGlRgba;
         case VIRGL_FORMAT_B5G6R5_UNORM:
             return kGlRgb565;
+        case VIRGL_FORMAT_R16_UNORM:
+            return kGlR16;
+        case VIRGL_FORMAT_R16G16B16A16_FLOAT:
+            return kGlRgba16f;
         case VIRGL_FORMAT_R8_UNORM:
             return kGlR8;
         case VIRGL_FORMAT_R8G8_UNORM:
@@ -280,6 +269,8 @@ static inline uint32_t virgl_format_to_fwk_format(uint32_t virgl_format) {
         case VIRGL_FORMAT_YV12:
             return kFwkFormatYV12;
         case VIRGL_FORMAT_R8_UNORM:
+        case VIRGL_FORMAT_R16_UNORM:
+        case VIRGL_FORMAT_R16G16B16A16_FLOAT:
         case VIRGL_FORMAT_R8G8_UNORM:
         case VIRGL_FORMAT_B8G8R8X8_UNORM:
         case VIRGL_FORMAT_B8G8R8A8_UNORM:
@@ -314,6 +305,9 @@ static inline size_t virgl_format_to_linear_base(
     } else {
         uint32_t bpp = 4;
         switch (format) {
+            case VIRGL_FORMAT_R16G16B16A16_FLOAT:
+                bpp = 8;
+                break;
             case VIRGL_FORMAT_B8G8R8X8_UNORM:
             case VIRGL_FORMAT_B8G8R8A8_UNORM:
             case VIRGL_FORMAT_R8G8B8X8_UNORM:
@@ -322,6 +316,7 @@ static inline size_t virgl_format_to_linear_base(
                 break;
             case VIRGL_FORMAT_B5G6R5_UNORM:
             case VIRGL_FORMAT_R8G8_UNORM:
+            case VIRGL_FORMAT_R16_UNORM:
                 bpp = 2;
                 break;
             case VIRGL_FORMAT_R8_UNORM:
@@ -343,14 +338,35 @@ static inline size_t virgl_format_to_total_xfer_len(
     uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
     if (virgl_format_is_yuv(format)) {
         uint32_t align = (format == VIRGL_FORMAT_YV12) ?  1 : 16;
-        uint32_t yStride = (totalWidth + (align - 1)) & ~(align-1);
-        uint32_t uvStride = (yStride / 2 + (align - 1)) & ~(align-1);
+
+        uint32_t yWidth = totalWidth;
+        uint32_t yHeight = totalHeight;
+        uint32_t yStride = align_up_power_of_2(yWidth, align);
+        uint32_t ySize = yStride * yHeight;
+
+        uint32_t uvWidth;
+        uint32_t uvPlaneCount;
+        if (format == VIRGL_FORMAT_NV12) {
+            uvWidth = totalWidth;
+            uvPlaneCount = 1;
+        } else if (format == VIRGL_FORMAT_YV12) {
+            uvWidth = totalWidth / 2;
+            uvPlaneCount = 2;
+        } else {
+            VGP_FATAL("Unknown yuv virgl format: 0x%x", format);
+        }
         uint32_t uvHeight = totalHeight / 2;
-        uint32_t dataSize = yStride * totalHeight + 2 * (uvHeight * uvStride);
+        uint32_t uvStride = align_up_power_of_2(uvWidth, align);
+        uint32_t uvSize = uvStride * uvHeight * uvPlaneCount;
+
+        uint32_t dataSize = ySize + uvSize;
         return dataSize;
     } else {
         uint32_t bpp = 4;
         switch (format) {
+            case VIRGL_FORMAT_R16G16B16A16_FLOAT:
+                bpp = 8;
+                break;
             case VIRGL_FORMAT_B8G8R8X8_UNORM:
             case VIRGL_FORMAT_B8G8R8A8_UNORM:
             case VIRGL_FORMAT_R8G8B8X8_UNORM:
@@ -358,6 +374,7 @@ static inline size_t virgl_format_to_total_xfer_len(
                 bpp = 4;
                 break;
             case VIRGL_FORMAT_B5G6R5_UNORM:
+            case VIRGL_FORMAT_R16_UNORM:
             case VIRGL_FORMAT_R8G8_UNORM:
                 bpp = 2;
                 break;
@@ -420,7 +437,6 @@ static int sync_iov(PipeResEntry* res, uint64_t offset, const virgl_box* box, Io
 
     uint32_t iovIndex = 0;
     size_t iovOffset = 0;
-    bool first = true;
     size_t written = 0;
     char* linear = static_cast<char*>(res->linear);
 
@@ -1470,7 +1486,6 @@ private:
     Lock mLock;
 
     void* mCookie = nullptr;
-    int mFlags = 0;
     virgl_renderer_callbacks mVirglRendererCallbacks;
     AndroidVirtioGpuOps* mVirtioGpuOps = nullptr;
     ReadPixelsFunc mReadPixelsFunc = nullptr;

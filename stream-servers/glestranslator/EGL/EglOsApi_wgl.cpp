@@ -247,7 +247,7 @@ LRESULT CALLBACK dummyWndProc(HWND hwnd,
                               UINT uMsg,
                               WPARAM wParam,
                               LPARAM lParam) {
-    return DefWindowProc(hwnd, uMsg, wParam, lParam);
+    return DefWindowProcA(hwnd, uMsg, wParam, lParam);
 }
 
 // Create a new dummy window, and return its handle.
@@ -965,7 +965,7 @@ public:
 
         if (0 == maxFormat) {
             WGL_ERR("No pixel formats found from wglDescribePixelFormat! "
-                    "error: 0x%x\n", GetLastError());
+                    "error: 0x%x\n", static_cast<unsigned int>(GetLastError()));
         }
 
         // Inserting rest of formats. Try to map each one to an EGL Config.
@@ -1248,7 +1248,6 @@ private:
     int mCoreMajorVersion = 4;
     int mCoreMinorVersion = 5;
     const int* mCoreProfileCtxAttribs = nullptr;
-    WinPixelFormat* mDefaultPixelFormat = nullptr;
 
     const WglExtensionsDispatch* mDispatch = nullptr;
     WinGlobals* mGlobals = nullptr;

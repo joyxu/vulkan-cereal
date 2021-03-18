@@ -170,7 +170,6 @@ const GLubyte kIndices[] = {
     28, 29, 30, 30, 31, 28  // flip v, 90
 };
 
-const GLint kIndicesLen = sizeof(kIndices) / sizeof(kIndices[0]);
 const GLint kIndicesPerDraw = 6;
 
 }  // namespace

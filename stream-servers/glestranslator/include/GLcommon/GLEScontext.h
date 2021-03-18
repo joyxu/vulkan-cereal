@@ -139,10 +139,10 @@ struct VAOState {
     VAOState(GLuint ibo, ArraysMap* arr, int numVertexAttribBindings) :
         element_array_buffer_binding(ibo),
         vertexAttribInfo(numVertexAttribBindings),
-        legacy(arr != nullptr),
-        arraysMap(arr),
         bindingState(numVertexAttribBindings),
-        everBound(false) { }
+        everBound(false),
+        legacy(arr != nullptr),
+        arraysMap(arr) { }
     VAOState(android::base::Stream* stream);
     GLuint element_array_buffer_binding;
     VertexAttribInfoVector vertexAttribInfo;
