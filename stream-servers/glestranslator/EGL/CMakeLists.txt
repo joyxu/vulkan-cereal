@@ -10,6 +10,7 @@ set(egl-translator-common-sources
     EglThreadInfo.cpp
     EglValidate.cpp
     EglWindowSurface.cpp
+    ShaderCache.cpp
     ThreadInfo.cpp)
 set(egl-translator-windows-sources
     CoreProfileConfigs_windows.cpp EglOsApi_egl.cpp EglOsApi_wgl.cpp)
