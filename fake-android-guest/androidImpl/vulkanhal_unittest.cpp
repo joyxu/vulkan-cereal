@@ -90,10 +90,12 @@ protected:
         delete vk;
     }
 
+    static constexpr kGltransportPropName = "ro.boot.qemu.gltransport";
+
     bool usingAddressSpaceGraphics() {
         char value[PROPERTY_VALUE_MAX];
         if (property_get(
-            "ro.kernel.qemu.gltransport", value, "pipe") > 0) {
+            kGltransportPropName, value, "pipe") > 0) {
             return !strcmp("asg", value);
         }
         return false;
@@ -102,7 +104,7 @@ protected:
     void SetUp() override {
         mProcessPipeRestarted = false;
 
-        property_set("ro.kernel.qemu.gltransport", GetParam());
+        property_set(kGltransportPropName, GetParam());
         printf("%s: using transport: %s\n", __func__, GetParam());
 
         setupGralloc();
