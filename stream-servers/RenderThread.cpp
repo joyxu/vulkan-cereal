@@ -66,17 +66,6 @@ static bool getBenchmarkEnabledFromEnv() {
     return false;
 }
 
-static int getCpuCoreCount() {
-#ifdef _WIN32
-    SYSTEM_INFO si = {};
-    ::GetSystemInfo(&si);
-    return si.dwNumberOfProcessors < 1 ? 1 : si.dwNumberOfProcessors;
-#else
-    auto res = (int)sysconf(_SC_NPROCESSORS_ONLN);
-    return res < 1 ? 1 : res;
-#endif
-}
-
 // Start with a smaller buffer to not waste memory on a low-used render threads.
 static constexpr int kStreamBufferSize = 128 * 1024;
 
@@ -90,7 +79,7 @@ RenderThread::RenderThread(RenderChannelImpl* channel,
                            android::base::Stream* loadStream)
     : android::base::Thread(android::base::ThreadFlags::MaskSignals, 2 * 1024 * 1024),
       mChannel(channel),
-      mRunInLimitedMode(getCpuCoreCount() < kMinThreadsToRunUnlimited)
+      mRunInLimitedMode(android::base::getCpuCoreCount() < kMinThreadsToRunUnlimited)
 {
     if (loadStream) {
         const bool success = loadStream->getByte();
