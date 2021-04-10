@@ -35,6 +35,7 @@ cc_library_static {
         "EglThreadInfo.cpp",
         "EglValidate.cpp",
         "EglWindowSurface.cpp",
+        "ShaderCache.cpp",
         "ThreadInfo.cpp",
         "CoreProfileConfigs_linux.cpp",
         "EglOsApi_egl.cpp",
