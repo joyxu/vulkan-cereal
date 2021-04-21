@@ -6817,10 +6817,10 @@ void handlemap_VkMetalSurfaceCreateInfoEXT(
 }
 
 #endif
-#ifdef VK_GOOGLE_color_buffer
-void handlemap_VkImportColorBufferGOOGLE(
+#ifdef VK_EXT_fragment_density_map
+void handlemap_VkPhysicalDeviceFragmentDensityMapFeaturesEXT(
     VulkanHandleMapping* handlemap,
-    VkImportColorBufferGOOGLE* toMap)
+    VkPhysicalDeviceFragmentDensityMapFeaturesEXT* toMap)
 {
     (void)handlemap;
     (void)toMap;
@@ -6830,9 +6830,9 @@ void handlemap_VkImportColorBufferGOOGLE(
     }
 }
 
-void handlemap_VkImportBufferGOOGLE(
+void handlemap_VkPhysicalDeviceFragmentDensityMapPropertiesEXT(
     VulkanHandleMapping* handlemap,
-    VkImportBufferGOOGLE* toMap)
+    VkPhysicalDeviceFragmentDensityMapPropertiesEXT* toMap)
 {
     (void)handlemap;
     (void)toMap;
@@ -6840,11 +6840,13 @@ void handlemap_VkImportBufferGOOGLE(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
+    handlemap_VkExtent2D(handlemap, (VkExtent2D*)(&toMap->minFragmentDensityTexelSize));
+    handlemap_VkExtent2D(handlemap, (VkExtent2D*)(&toMap->maxFragmentDensityTexelSize));
 }
 
-void handlemap_VkImportPhysicalAddressGOOGLE(
+void handlemap_VkRenderPassFragmentDensityMapCreateInfoEXT(
     VulkanHandleMapping* handlemap,
-    VkImportPhysicalAddressGOOGLE* toMap)
+    VkRenderPassFragmentDensityMapCreateInfoEXT* toMap)
 {
     (void)handlemap;
     (void)toMap;
@@ -6852,6 +6854,7 @@ void handlemap_VkImportPhysicalAddressGOOGLE(
     {
         handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
     }
+    handlemap_VkAttachmentReference(handlemap, (VkAttachmentReference*)(&toMap->fragmentDensityMapAttachment));
 }
 
 #endif
@@ -7861,6 +7864,42 @@ void handlemap_VkDirectFBSurfaceCreateInfoEXT(
 
 #endif
 #ifdef VK_GOOGLE_gfxstream
+void handlemap_VkImportColorBufferGOOGLE(
+    VulkanHandleMapping* handlemap,
+    VkImportColorBufferGOOGLE* toMap)
+{
+    (void)handlemap;
+    (void)toMap;
+    if (toMap->pNext)
+    {
+        handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
+    }
+}
+
+void handlemap_VkImportBufferGOOGLE(
+    VulkanHandleMapping* handlemap,
+    VkImportBufferGOOGLE* toMap)
+{
+    (void)handlemap;
+    (void)toMap;
+    if (toMap->pNext)
+    {
+        handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
+    }
+}
+
+void handlemap_VkImportPhysicalAddressGOOGLE(
+    VulkanHandleMapping* handlemap,
+    VkImportPhysicalAddressGOOGLE* toMap)
+{
+    (void)handlemap;
+    (void)toMap;
+    if (toMap->pNext)
+    {
+        handlemap_extension_struct(handlemap, (void*)(toMap->pNext));
+    }
+}
+
 #endif
 #ifdef VK_KHR_acceleration_structure
 void handlemap_VkDeviceOrHostAddressKHR(
@@ -9383,20 +9422,20 @@ void handlemap_extension_struct(
             break;
         }
 #endif
-#ifdef VK_GOOGLE_color_buffer
-        case VK_STRUCTURE_TYPE_IMPORT_COLOR_BUFFER_GOOGLE:
+#ifdef VK_EXT_fragment_density_map
+        case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_FEATURES_EXT:
         {
-            handlemap_VkImportColorBufferGOOGLE(handlemap, reinterpret_cast<VkImportColorBufferGOOGLE*>(structExtension_out));
+            handlemap_VkPhysicalDeviceFragmentDensityMapFeaturesEXT(handlemap, reinterpret_cast<VkPhysicalDeviceFragmentDensityMapFeaturesEXT*>(structExtension_out));
             break;
         }
-        case VK_STRUCTURE_TYPE_IMPORT_BUFFER_GOOGLE:
+        case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_PROPERTIES_EXT:
         {
-            handlemap_VkImportBufferGOOGLE(handlemap, reinterpret_cast<VkImportBufferGOOGLE*>(structExtension_out));
+            handlemap_VkPhysicalDeviceFragmentDensityMapPropertiesEXT(handlemap, reinterpret_cast<VkPhysicalDeviceFragmentDensityMapPropertiesEXT*>(structExtension_out));
             break;
         }
-        case VK_STRUCTURE_TYPE_IMPORT_PHYSICAL_ADDRESS_GOOGLE:
+        case VK_STRUCTURE_TYPE_RENDER_PASS_FRAGMENT_DENSITY_MAP_CREATE_INFO_EXT:
         {
-            handlemap_VkImportPhysicalAddressGOOGLE(handlemap, reinterpret_cast<VkImportPhysicalAddressGOOGLE*>(structExtension_out));
+            handlemap_VkRenderPassFragmentDensityMapCreateInfoEXT(handlemap, reinterpret_cast<VkRenderPassFragmentDensityMapCreateInfoEXT*>(structExtension_out));
             break;
         }
 #endif
@@ -9743,6 +9782,23 @@ void handlemap_extension_struct(
         case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_4444_FORMATS_FEATURES_EXT:
         {
             handlemap_VkPhysicalDevice4444FormatsFeaturesEXT(handlemap, reinterpret_cast<VkPhysicalDevice4444FormatsFeaturesEXT*>(structExtension_out));
+            break;
+        }
+#endif
+#ifdef VK_GOOGLE_gfxstream
+        case VK_STRUCTURE_TYPE_IMPORT_COLOR_BUFFER_GOOGLE:
+        {
+            handlemap_VkImportColorBufferGOOGLE(handlemap, reinterpret_cast<VkImportColorBufferGOOGLE*>(structExtension_out));
+            break;
+        }
+        case VK_STRUCTURE_TYPE_IMPORT_BUFFER_GOOGLE:
+        {
+            handlemap_VkImportBufferGOOGLE(handlemap, reinterpret_cast<VkImportBufferGOOGLE*>(structExtension_out));
+            break;
+        }
+        case VK_STRUCTURE_TYPE_IMPORT_PHYSICAL_ADDRESS_GOOGLE:
+        {
+            handlemap_VkImportPhysicalAddressGOOGLE(handlemap, reinterpret_cast<VkImportPhysicalAddressGOOGLE*>(structExtension_out));
             break;
         }
 #endif
