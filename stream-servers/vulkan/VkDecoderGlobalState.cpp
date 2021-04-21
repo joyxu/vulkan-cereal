@@ -3513,10 +3513,11 @@ public:
         }
         AutoLock lock(mLock);
         mCmdPoolInfo[*pCommandPool] = CommandPoolInfo();
-        mCmdPoolInfo[*pCommandPool].device = device;
+        auto& cmdPoolInfo = mCmdPoolInfo[*pCommandPool];
+        cmdPoolInfo.device = device;
 
         *pCommandPool = new_boxed_non_dispatchable_VkCommandPool(*pCommandPool);
-        mCmdPoolInfo[*pCommandPool].boxed = *pCommandPool;
+        cmdPoolInfo.boxed = *pCommandPool;
 
         return result;
     }
