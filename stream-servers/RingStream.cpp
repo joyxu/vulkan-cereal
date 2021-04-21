@@ -254,6 +254,7 @@ void RingStream::type1Read(
                 mReadBufferLeft = xfersPtr[i].size;
                 ring_buffer_advance_read(
                         mContext.to_host, sizeof(struct asg_type1_xfer), 1);
+                __atomic_fetch_add(&mContext.ring_config->host_consumed_pos, xfersPtr[i].size, __ATOMIC_RELEASE);
             }
             return;
         }
@@ -261,6 +262,7 @@ void RingStream::type1Read(
         memcpy(*current, src, xfersPtr[i].size);
         ring_buffer_advance_read(
                 mContext.to_host, sizeof(struct asg_type1_xfer), 1);
+        __atomic_fetch_add(&mContext.ring_config->host_consumed_pos, xfersPtr[i].size, __ATOMIC_RELEASE);
         *current += xfersPtr[i].size;
         *count += xfersPtr[i].size;
 
