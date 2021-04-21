@@ -441,6 +441,16 @@ bool queryFileVersionInfo(const char*, int*, int*, int*, int*) {
 }
 #endif // _WIN32
 
+int getCpuCoreCount() {
+#ifdef _WIN32
+    SYSTEM_INFO si = {};
+    ::GetSystemInfo(&si);
+    return si.dwNumberOfProcessors < 1 ? 1 : si.dwNumberOfProcessors;
+#else
+    auto res = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    return res < 1 ? 1 : res;
+#endif
+}
 
 } // namespace base
 } // namespace android
