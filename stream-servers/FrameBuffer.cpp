@@ -1839,6 +1839,12 @@ bool FrameBuffer::flushWindowSurfaceColorBuffer(HandleType p_surface) {
         return false;
     }
 
+    GLenum resetStatus = s_gles2.glGetGraphicsResetStatusEXT();
+    if (resetStatus != GL_NO_ERROR) {
+        ERR("Stream server aborting due to graphics reset. ResetStatus: %#x\n", resetStatus);
+        abort();
+    }
+
     WindowSurface* surface = (*w).second.first.get();
     surface->flushColorBuffer();
 
