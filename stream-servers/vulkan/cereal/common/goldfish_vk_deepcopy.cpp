@@ -29,6 +29,8 @@
 #include "goldfish_vk_private_defs.h"
 #include <string.h>
 
+#include "vk_util.h"
+
 
 namespace goldfish_vk {
 
@@ -92,12 +94,18 @@ void deepcopy_VkBaseInStructure(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const VkBaseInStructure*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -108,12 +116,18 @@ void deepcopy_VkBaseOutStructure(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (VkBaseOutStructure*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -124,12 +138,18 @@ void deepcopy_VkBufferMemoryBarrier(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -176,12 +196,18 @@ void deepcopy_VkImageMemoryBarrier(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkImageSubresourceRange(pool, &from->subresourceRange, (VkImageSubresourceRange*)(&to->subresourceRange));
 }
@@ -193,12 +219,18 @@ void deepcopy_VkMemoryBarrier(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -223,12 +255,18 @@ void deepcopy_VkApplicationInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pApplicationName = nullptr;
     if (from->pApplicationName)
@@ -268,12 +306,18 @@ void deepcopy_VkInstanceCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pApplicationInfo = nullptr;
     if (from->pApplicationInfo)
@@ -391,12 +435,18 @@ void deepcopy_VkDeviceQueueCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pQueuePriorities = nullptr;
     if (from->pQueuePriorities)
@@ -412,12 +462,18 @@ void deepcopy_VkDeviceCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -478,12 +534,18 @@ void deepcopy_VkSubmitInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pWaitSemaphores = nullptr;
     if (from->pWaitSemaphores)
@@ -514,12 +576,18 @@ void deepcopy_VkMappedMemoryRange(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -530,12 +598,18 @@ void deepcopy_VkMemoryAllocateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -651,12 +725,18 @@ void deepcopy_VkBindSparseInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pWaitSemaphores = nullptr;
     if (from->pWaitSemaphores)
@@ -736,12 +816,18 @@ void deepcopy_VkFenceCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -752,12 +838,18 @@ void deepcopy_VkSemaphoreCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -768,12 +860,18 @@ void deepcopy_VkEventCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -784,12 +882,18 @@ void deepcopy_VkQueryPoolCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -800,12 +904,18 @@ void deepcopy_VkBufferCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pQueueFamilyIndices = nullptr;
     if (from->pQueueFamilyIndices)
@@ -821,12 +931,18 @@ void deepcopy_VkBufferViewCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -837,12 +953,18 @@ void deepcopy_VkImageCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkExtent3D(pool, &from->extent, (VkExtent3D*)(&to->extent));
     to->pQueueFamilyIndices = nullptr;
@@ -877,12 +999,18 @@ void deepcopy_VkImageViewCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkComponentMapping(pool, &from->components, (VkComponentMapping*)(&to->components));
     deepcopy_VkImageSubresourceRange(pool, &from->subresourceRange, (VkImageSubresourceRange*)(&to->subresourceRange));
@@ -895,12 +1023,18 @@ void deepcopy_VkShaderModuleCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pCode = nullptr;
     if (from->pCode)
@@ -916,12 +1050,18 @@ void deepcopy_VkPipelineCacheCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pInitialData = nullptr;
     if (from->pInitialData)
@@ -973,12 +1113,18 @@ void deepcopy_VkPipelineShaderStageCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pName = nullptr;
     if (from->pName)
@@ -1000,12 +1146,18 @@ void deepcopy_VkComputePipelineCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkPipelineShaderStageCreateInfo(pool, &from->stage, (VkPipelineShaderStageCreateInfo*)(&to->stage));
 }
@@ -1035,12 +1187,18 @@ void deepcopy_VkPipelineVertexInputStateCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -1077,12 +1235,18 @@ void deepcopy_VkPipelineInputAssemblyStateCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -1093,12 +1257,18 @@ void deepcopy_VkPipelineTessellationStateCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -1118,12 +1288,18 @@ void deepcopy_VkPipelineViewportStateCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -1160,12 +1336,18 @@ void deepcopy_VkPipelineRasterizationStateCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -1176,12 +1358,18 @@ void deepcopy_VkPipelineMultisampleStateCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pSampleMask = nullptr;
     if (from->pSampleMask)
@@ -1206,12 +1394,18 @@ void deepcopy_VkPipelineDepthStencilStateCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkStencilOpState(pool, &from->front, (VkStencilOpState*)(&to->front));
     deepcopy_VkStencilOpState(pool, &from->back, (VkStencilOpState*)(&to->back));
@@ -1233,12 +1427,18 @@ void deepcopy_VkPipelineColorBlendStateCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -1263,12 +1463,18 @@ void deepcopy_VkPipelineDynamicStateCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pDynamicStates = nullptr;
     if (from->pDynamicStates)
@@ -1284,12 +1490,18 @@ void deepcopy_VkGraphicsPipelineCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -1376,12 +1588,18 @@ void deepcopy_VkPipelineLayoutCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pSetLayouts = nullptr;
     if (from->pSetLayouts)
@@ -1410,12 +1628,18 @@ void deepcopy_VkSamplerCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -1426,12 +1650,18 @@ void deepcopy_VkCopyDescriptorSet(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -1469,12 +1699,18 @@ void deepcopy_VkDescriptorPoolCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -1498,12 +1734,18 @@ void deepcopy_VkDescriptorSetAllocateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pSetLayouts = nullptr;
     if (from->pSetLayouts)
@@ -1533,12 +1775,18 @@ void deepcopy_VkDescriptorSetLayoutCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -1562,12 +1810,18 @@ void deepcopy_VkWriteDescriptorSet(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -1627,12 +1881,18 @@ void deepcopy_VkFramebufferCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pAttachments = nullptr;
     if (from->pAttachments)
@@ -1716,12 +1976,18 @@ void deepcopy_VkRenderPassCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -1771,12 +2037,18 @@ void deepcopy_VkCommandPoolCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -1787,12 +2059,18 @@ void deepcopy_VkCommandBufferAllocateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -1803,12 +2081,18 @@ void deepcopy_VkCommandBufferInheritanceInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -1819,12 +2103,18 @@ void deepcopy_VkCommandBufferBeginInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pInheritanceInfo = nullptr;
     if (from->pInheritanceInfo)
@@ -1970,12 +2260,18 @@ void deepcopy_VkRenderPassBeginInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkRect2D(pool, &from->renderArea, (VkRect2D*)(&to->renderArea));
     if (from)
@@ -2002,12 +2298,18 @@ void deepcopy_VkPhysicalDeviceSubgroupProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2018,12 +2320,18 @@ void deepcopy_VkBindBufferMemoryInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2034,12 +2342,18 @@ void deepcopy_VkBindImageMemoryInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2050,12 +2364,18 @@ void deepcopy_VkPhysicalDevice16BitStorageFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2066,12 +2386,18 @@ void deepcopy_VkMemoryDedicatedRequirements(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2082,12 +2408,18 @@ void deepcopy_VkMemoryDedicatedAllocateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2098,12 +2430,18 @@ void deepcopy_VkMemoryAllocateFlagsInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2114,12 +2452,18 @@ void deepcopy_VkDeviceGroupRenderPassBeginInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -2143,12 +2487,18 @@ void deepcopy_VkDeviceGroupCommandBufferBeginInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2159,12 +2509,18 @@ void deepcopy_VkDeviceGroupSubmitInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pWaitSemaphoreDeviceIndices = nullptr;
     if (from->pWaitSemaphoreDeviceIndices)
@@ -2190,12 +2546,18 @@ void deepcopy_VkDeviceGroupBindSparseInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2206,12 +2568,18 @@ void deepcopy_VkBindBufferMemoryDeviceGroupInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pDeviceIndices = nullptr;
     if (from->pDeviceIndices)
@@ -2227,12 +2595,18 @@ void deepcopy_VkBindImageMemoryDeviceGroupInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pDeviceIndices = nullptr;
     if (from->pDeviceIndices)
@@ -2261,12 +2635,18 @@ void deepcopy_VkPhysicalDeviceGroupProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     memcpy(to->physicalDevices, from->physicalDevices, VK_MAX_DEVICE_GROUP_SIZE * sizeof(VkPhysicalDevice));
 }
@@ -2278,12 +2658,18 @@ void deepcopy_VkDeviceGroupDeviceCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pPhysicalDevices = nullptr;
     if (from->pPhysicalDevices)
@@ -2299,12 +2685,18 @@ void deepcopy_VkBufferMemoryRequirementsInfo2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2315,12 +2707,18 @@ void deepcopy_VkImageMemoryRequirementsInfo2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2331,12 +2729,18 @@ void deepcopy_VkImageSparseMemoryRequirementsInfo2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2347,12 +2751,18 @@ void deepcopy_VkMemoryRequirements2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkMemoryRequirements(pool, &from->memoryRequirements, (VkMemoryRequirements*)(&to->memoryRequirements));
 }
@@ -2364,12 +2774,18 @@ void deepcopy_VkSparseImageMemoryRequirements2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkSparseImageMemoryRequirements(pool, &from->memoryRequirements, (VkSparseImageMemoryRequirements*)(&to->memoryRequirements));
 }
@@ -2381,12 +2797,18 @@ void deepcopy_VkPhysicalDeviceFeatures2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkPhysicalDeviceFeatures(pool, &from->features, (VkPhysicalDeviceFeatures*)(&to->features));
 }
@@ -2398,12 +2820,18 @@ void deepcopy_VkPhysicalDeviceProperties2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkPhysicalDeviceProperties(pool, &from->properties, (VkPhysicalDeviceProperties*)(&to->properties));
 }
@@ -2415,12 +2843,18 @@ void deepcopy_VkFormatProperties2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkFormatProperties(pool, &from->formatProperties, (VkFormatProperties*)(&to->formatProperties));
 }
@@ -2432,12 +2866,18 @@ void deepcopy_VkImageFormatProperties2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkImageFormatProperties(pool, &from->imageFormatProperties, (VkImageFormatProperties*)(&to->imageFormatProperties));
 }
@@ -2449,12 +2889,18 @@ void deepcopy_VkPhysicalDeviceImageFormatInfo2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2465,12 +2911,18 @@ void deepcopy_VkQueueFamilyProperties2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkQueueFamilyProperties(pool, &from->queueFamilyProperties, (VkQueueFamilyProperties*)(&to->queueFamilyProperties));
 }
@@ -2482,12 +2934,18 @@ void deepcopy_VkPhysicalDeviceMemoryProperties2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkPhysicalDeviceMemoryProperties(pool, &from->memoryProperties, (VkPhysicalDeviceMemoryProperties*)(&to->memoryProperties));
 }
@@ -2499,12 +2957,18 @@ void deepcopy_VkSparseImageFormatProperties2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkSparseImageFormatProperties(pool, &from->properties, (VkSparseImageFormatProperties*)(&to->properties));
 }
@@ -2516,12 +2980,18 @@ void deepcopy_VkPhysicalDeviceSparseImageFormatInfo2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2532,12 +3002,18 @@ void deepcopy_VkPhysicalDevicePointClippingProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2557,12 +3033,18 @@ void deepcopy_VkRenderPassInputAttachmentAspectCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -2586,12 +3068,18 @@ void deepcopy_VkImageViewUsageCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2602,12 +3090,18 @@ void deepcopy_VkPipelineTessellationDomainOriginStateCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2618,12 +3112,18 @@ void deepcopy_VkRenderPassMultiviewCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pViewMasks = nullptr;
     if (from->pViewMasks)
@@ -2649,12 +3149,18 @@ void deepcopy_VkPhysicalDeviceMultiviewFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2665,12 +3171,18 @@ void deepcopy_VkPhysicalDeviceMultiviewProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2681,12 +3193,18 @@ void deepcopy_VkPhysicalDeviceVariablePointersFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2697,12 +3215,18 @@ void deepcopy_VkPhysicalDeviceProtectedMemoryFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2713,12 +3237,18 @@ void deepcopy_VkPhysicalDeviceProtectedMemoryProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2729,12 +3259,18 @@ void deepcopy_VkDeviceQueueInfo2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2745,12 +3281,18 @@ void deepcopy_VkProtectedSubmitInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2761,12 +3303,18 @@ void deepcopy_VkSamplerYcbcrConversionCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkComponentMapping(pool, &from->components, (VkComponentMapping*)(&to->components));
 }
@@ -2778,12 +3326,18 @@ void deepcopy_VkSamplerYcbcrConversionInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2794,12 +3348,18 @@ void deepcopy_VkBindImagePlaneMemoryInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2810,12 +3370,18 @@ void deepcopy_VkImagePlaneMemoryRequirementsInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2826,12 +3392,18 @@ void deepcopy_VkPhysicalDeviceSamplerYcbcrConversionFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2842,12 +3414,18 @@ void deepcopy_VkSamplerYcbcrConversionImageFormatProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2867,12 +3445,18 @@ void deepcopy_VkDescriptorUpdateTemplateCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -2905,12 +3489,18 @@ void deepcopy_VkPhysicalDeviceExternalImageFormatInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2921,12 +3511,18 @@ void deepcopy_VkExternalImageFormatProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkExternalMemoryProperties(pool, &from->externalMemoryProperties, (VkExternalMemoryProperties*)(&to->externalMemoryProperties));
 }
@@ -2938,12 +3534,18 @@ void deepcopy_VkPhysicalDeviceExternalBufferInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -2954,12 +3556,18 @@ void deepcopy_VkExternalBufferProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkExternalMemoryProperties(pool, &from->externalMemoryProperties, (VkExternalMemoryProperties*)(&to->externalMemoryProperties));
 }
@@ -2971,12 +3579,18 @@ void deepcopy_VkPhysicalDeviceIDProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     memcpy(to->deviceUUID, from->deviceUUID, VK_UUID_SIZE * sizeof(uint8_t));
     memcpy(to->driverUUID, from->driverUUID, VK_UUID_SIZE * sizeof(uint8_t));
@@ -2990,12 +3604,18 @@ void deepcopy_VkExternalMemoryImageCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3006,12 +3626,18 @@ void deepcopy_VkExternalMemoryBufferCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3022,12 +3648,18 @@ void deepcopy_VkExportMemoryAllocateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3038,12 +3670,18 @@ void deepcopy_VkPhysicalDeviceExternalFenceInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3054,12 +3692,18 @@ void deepcopy_VkExternalFenceProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3070,12 +3714,18 @@ void deepcopy_VkExportFenceCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3086,12 +3736,18 @@ void deepcopy_VkExportSemaphoreCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3102,12 +3758,18 @@ void deepcopy_VkPhysicalDeviceExternalSemaphoreInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3118,12 +3780,18 @@ void deepcopy_VkExternalSemaphoreProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3134,12 +3802,18 @@ void deepcopy_VkPhysicalDeviceMaintenance3Properties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3150,12 +3824,18 @@ void deepcopy_VkDescriptorSetLayoutSupport(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3166,12 +3846,18 @@ void deepcopy_VkPhysicalDeviceShaderDrawParametersFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3184,12 +3870,18 @@ void deepcopy_VkPhysicalDeviceVulkan11Features(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3200,12 +3892,18 @@ void deepcopy_VkPhysicalDeviceVulkan11Properties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     memcpy(to->deviceUUID, from->deviceUUID, VK_UUID_SIZE * sizeof(uint8_t));
     memcpy(to->driverUUID, from->driverUUID, VK_UUID_SIZE * sizeof(uint8_t));
@@ -3219,12 +3917,18 @@ void deepcopy_VkPhysicalDeviceVulkan12Features(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3244,12 +3948,18 @@ void deepcopy_VkPhysicalDeviceVulkan12Properties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     memcpy(to->driverName, from->driverName, VK_MAX_DRIVER_NAME_SIZE * sizeof(char));
     memcpy(to->driverInfo, from->driverInfo, VK_MAX_DRIVER_INFO_SIZE * sizeof(char));
@@ -3263,12 +3973,18 @@ void deepcopy_VkImageFormatListCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pViewFormats = nullptr;
     if (from->pViewFormats)
@@ -3284,12 +4000,18 @@ void deepcopy_VkAttachmentDescription2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3300,12 +4022,18 @@ void deepcopy_VkAttachmentReference2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3316,12 +4044,18 @@ void deepcopy_VkSubpassDescription2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -3382,12 +4116,18 @@ void deepcopy_VkSubpassDependency2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3398,12 +4138,18 @@ void deepcopy_VkRenderPassCreateInfo2(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -3458,12 +4204,18 @@ void deepcopy_VkSubpassBeginInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3474,12 +4226,18 @@ void deepcopy_VkSubpassEndInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3490,12 +4248,18 @@ void deepcopy_VkPhysicalDevice8BitStorageFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3506,12 +4270,18 @@ void deepcopy_VkPhysicalDeviceDriverProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     memcpy(to->driverName, from->driverName, VK_MAX_DRIVER_NAME_SIZE * sizeof(char));
     memcpy(to->driverInfo, from->driverInfo, VK_MAX_DRIVER_INFO_SIZE * sizeof(char));
@@ -3525,12 +4295,18 @@ void deepcopy_VkPhysicalDeviceShaderAtomicInt64Features(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3541,12 +4317,18 @@ void deepcopy_VkPhysicalDeviceShaderFloat16Int8Features(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3557,12 +4339,18 @@ void deepcopy_VkPhysicalDeviceFloatControlsProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3573,12 +4361,18 @@ void deepcopy_VkDescriptorSetLayoutBindingFlagsCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pBindingFlags = nullptr;
     if (from->pBindingFlags)
@@ -3594,12 +4388,18 @@ void deepcopy_VkPhysicalDeviceDescriptorIndexingFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3610,12 +4410,18 @@ void deepcopy_VkPhysicalDeviceDescriptorIndexingProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3626,12 +4432,18 @@ void deepcopy_VkDescriptorSetVariableDescriptorCountAllocateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pDescriptorCounts = nullptr;
     if (from->pDescriptorCounts)
@@ -3647,12 +4459,18 @@ void deepcopy_VkDescriptorSetVariableDescriptorCountLayoutSupport(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3663,12 +4481,18 @@ void deepcopy_VkSubpassDescriptionDepthStencilResolve(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pDepthStencilResolveAttachment = nullptr;
     if (from->pDepthStencilResolveAttachment)
@@ -3685,12 +4509,18 @@ void deepcopy_VkPhysicalDeviceDepthStencilResolveProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3701,12 +4531,18 @@ void deepcopy_VkPhysicalDeviceScalarBlockLayoutFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3717,12 +4553,18 @@ void deepcopy_VkImageStencilUsageCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3733,12 +4575,18 @@ void deepcopy_VkSamplerReductionModeCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3749,12 +4597,18 @@ void deepcopy_VkPhysicalDeviceSamplerFilterMinmaxProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3765,12 +4619,18 @@ void deepcopy_VkPhysicalDeviceVulkanMemoryModelFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3781,12 +4641,18 @@ void deepcopy_VkPhysicalDeviceImagelessFramebufferFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3797,12 +4663,18 @@ void deepcopy_VkFramebufferAttachmentImageInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pViewFormats = nullptr;
     if (from->pViewFormats)
@@ -3818,12 +4690,18 @@ void deepcopy_VkFramebufferAttachmentsCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -3847,12 +4725,18 @@ void deepcopy_VkRenderPassAttachmentBeginInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pAttachments = nullptr;
     if (from->pAttachments)
@@ -3868,12 +4752,18 @@ void deepcopy_VkPhysicalDeviceUniformBufferStandardLayoutFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3884,12 +4774,18 @@ void deepcopy_VkPhysicalDeviceShaderSubgroupExtendedTypesFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3900,12 +4796,18 @@ void deepcopy_VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3916,12 +4818,18 @@ void deepcopy_VkAttachmentReferenceStencilLayout(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3932,12 +4840,18 @@ void deepcopy_VkAttachmentDescriptionStencilLayout(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3948,12 +4862,18 @@ void deepcopy_VkPhysicalDeviceHostQueryResetFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3964,12 +4884,18 @@ void deepcopy_VkPhysicalDeviceTimelineSemaphoreFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3980,12 +4906,18 @@ void deepcopy_VkPhysicalDeviceTimelineSemaphoreProperties(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -3996,12 +4928,18 @@ void deepcopy_VkSemaphoreTypeCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4012,12 +4950,18 @@ void deepcopy_VkTimelineSemaphoreSubmitInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pWaitSemaphoreValues = nullptr;
     if (from->pWaitSemaphoreValues)
@@ -4038,12 +4982,18 @@ void deepcopy_VkSemaphoreWaitInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pSemaphores = nullptr;
     if (from->pSemaphores)
@@ -4064,12 +5014,18 @@ void deepcopy_VkSemaphoreSignalInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4080,12 +5036,18 @@ void deepcopy_VkPhysicalDeviceBufferDeviceAddressFeatures(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4096,12 +5058,18 @@ void deepcopy_VkBufferDeviceAddressInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4112,12 +5080,18 @@ void deepcopy_VkBufferOpaqueCaptureAddressCreateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4128,12 +5102,18 @@ void deepcopy_VkMemoryOpaqueCaptureAddressAllocateInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4144,12 +5124,18 @@ void deepcopy_VkDeviceMemoryOpaqueCaptureAddressInfo(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4185,12 +5171,18 @@ void deepcopy_VkSwapchainCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkExtent2D(pool, &from->imageExtent, (VkExtent2D*)(&to->imageExtent));
     to->pQueueFamilyIndices = nullptr;
@@ -4207,12 +5199,18 @@ void deepcopy_VkPresentInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pWaitSemaphores = nullptr;
     if (from->pWaitSemaphores)
@@ -4243,12 +5241,18 @@ void deepcopy_VkImageSwapchainCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4259,12 +5263,18 @@ void deepcopy_VkBindImageMemorySwapchainInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4275,12 +5285,18 @@ void deepcopy_VkAcquireNextImageInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4291,12 +5307,18 @@ void deepcopy_VkDeviceGroupPresentCapabilitiesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     memcpy(to->presentMask, from->presentMask, VK_MAX_DEVICE_GROUP_SIZE * sizeof(uint32_t));
 }
@@ -4308,12 +5330,18 @@ void deepcopy_VkDeviceGroupPresentInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pDeviceMasks = nullptr;
     if (from->pDeviceMasks)
@@ -4329,12 +5357,18 @@ void deepcopy_VkDeviceGroupSwapchainCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4357,12 +5391,18 @@ void deepcopy_VkDisplayModeCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkDisplayModeParametersKHR(pool, &from->parameters, (VkDisplayModeParametersKHR*)(&to->parameters));
 }
@@ -4426,12 +5466,18 @@ void deepcopy_VkDisplaySurfaceCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkExtent2D(pool, &from->imageExtent, (VkExtent2D*)(&to->imageExtent));
 }
@@ -4445,12 +5491,18 @@ void deepcopy_VkDisplayPresentInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkRect2D(pool, &from->srcRect, (VkRect2D*)(&to->srcRect));
     deepcopy_VkRect2D(pool, &from->dstRect, (VkRect2D*)(&to->dstRect));
@@ -4465,12 +5517,18 @@ void deepcopy_VkXlibSurfaceCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->dpy = nullptr;
     if (from->dpy)
@@ -4488,12 +5546,18 @@ void deepcopy_VkXcbSurfaceCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->connection = nullptr;
     if (from->connection)
@@ -4511,12 +5575,18 @@ void deepcopy_VkWaylandSurfaceCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->display = nullptr;
     if (from->display)
@@ -4539,12 +5609,18 @@ void deepcopy_VkAndroidSurfaceCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->window = nullptr;
     if (from->window)
@@ -4562,12 +5638,18 @@ void deepcopy_VkWin32SurfaceCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4598,12 +5680,18 @@ void deepcopy_VkImportMemoryWin32HandleInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4614,12 +5702,18 @@ void deepcopy_VkExportMemoryWin32HandleInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pAttributes = nullptr;
     if (from->pAttributes)
@@ -4635,12 +5729,18 @@ void deepcopy_VkMemoryWin32HandlePropertiesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4651,12 +5751,18 @@ void deepcopy_VkMemoryGetWin32HandleInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4669,12 +5775,18 @@ void deepcopy_VkImportMemoryFdInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4685,12 +5797,18 @@ void deepcopy_VkMemoryFdPropertiesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4701,12 +5819,18 @@ void deepcopy_VkMemoryGetFdInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4719,12 +5843,18 @@ void deepcopy_VkWin32KeyedMutexAcquireReleaseInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pAcquireSyncs = nullptr;
     if (from->pAcquireSyncs)
@@ -4766,12 +5896,18 @@ void deepcopy_VkImportSemaphoreWin32HandleInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4782,12 +5918,18 @@ void deepcopy_VkExportSemaphoreWin32HandleInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pAttributes = nullptr;
     if (from->pAttributes)
@@ -4803,12 +5945,18 @@ void deepcopy_VkD3D12FenceSubmitInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pWaitSemaphoreValues = nullptr;
     if (from->pWaitSemaphoreValues)
@@ -4829,12 +5977,18 @@ void deepcopy_VkSemaphoreGetWin32HandleInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4847,12 +6001,18 @@ void deepcopy_VkImportSemaphoreFdInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4863,12 +6023,18 @@ void deepcopy_VkSemaphoreGetFdInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4881,12 +6047,18 @@ void deepcopy_VkPhysicalDevicePushDescriptorPropertiesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4936,12 +6108,18 @@ void deepcopy_VkPresentRegionsKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -4973,12 +6151,18 @@ void deepcopy_VkSharedPresentSurfaceCapabilitiesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -4995,12 +6179,18 @@ void deepcopy_VkImportFenceWin32HandleInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5011,12 +6201,18 @@ void deepcopy_VkExportFenceWin32HandleInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pAttributes = nullptr;
     if (from->pAttributes)
@@ -5032,12 +6228,18 @@ void deepcopy_VkFenceGetWin32HandleInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5050,12 +6252,18 @@ void deepcopy_VkImportFenceFdInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5066,12 +6274,18 @@ void deepcopy_VkFenceGetFdInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5084,12 +6298,18 @@ void deepcopy_VkPhysicalDevicePerformanceQueryFeaturesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5100,12 +6320,18 @@ void deepcopy_VkPhysicalDevicePerformanceQueryPropertiesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5116,12 +6342,18 @@ void deepcopy_VkPerformanceCounterKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     memcpy(to->uuid, from->uuid, VK_UUID_SIZE * sizeof(uint8_t));
 }
@@ -5133,12 +6365,18 @@ void deepcopy_VkPerformanceCounterDescriptionKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     memcpy(to->name, from->name, VK_MAX_DESCRIPTION_SIZE * sizeof(char));
     memcpy(to->category, from->category, VK_MAX_DESCRIPTION_SIZE * sizeof(char));
@@ -5152,12 +6390,18 @@ void deepcopy_VkQueryPoolPerformanceCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pCounterIndices = nullptr;
     if (from->pCounterIndices)
@@ -5182,12 +6426,18 @@ void deepcopy_VkAcquireProfilingLockInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5198,12 +6448,18 @@ void deepcopy_VkPerformanceQuerySubmitInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5218,12 +6474,18 @@ void deepcopy_VkPhysicalDeviceSurfaceInfo2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5234,12 +6496,18 @@ void deepcopy_VkSurfaceCapabilities2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkSurfaceCapabilitiesKHR(pool, &from->surfaceCapabilities, (VkSurfaceCapabilitiesKHR*)(&to->surfaceCapabilities));
 }
@@ -5251,12 +6519,18 @@ void deepcopy_VkSurfaceFormat2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkSurfaceFormatKHR(pool, &from->surfaceFormat, (VkSurfaceFormatKHR*)(&to->surfaceFormat));
 }
@@ -5272,12 +6546,18 @@ void deepcopy_VkDisplayProperties2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkDisplayPropertiesKHR(pool, &from->displayProperties, (VkDisplayPropertiesKHR*)(&to->displayProperties));
 }
@@ -5289,12 +6569,18 @@ void deepcopy_VkDisplayPlaneProperties2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkDisplayPlanePropertiesKHR(pool, &from->displayPlaneProperties, (VkDisplayPlanePropertiesKHR*)(&to->displayPlaneProperties));
 }
@@ -5306,12 +6592,18 @@ void deepcopy_VkDisplayModeProperties2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkDisplayModePropertiesKHR(pool, &from->displayModeProperties, (VkDisplayModePropertiesKHR*)(&to->displayModeProperties));
 }
@@ -5323,12 +6615,18 @@ void deepcopy_VkDisplayPlaneInfo2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5339,12 +6637,18 @@ void deepcopy_VkDisplayPlaneCapabilities2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkDisplayPlaneCapabilitiesKHR(pool, &from->capabilities, (VkDisplayPlaneCapabilitiesKHR*)(&to->capabilities));
 }
@@ -5372,12 +6676,18 @@ void deepcopy_VkPhysicalDevicePortabilitySubsetFeaturesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5388,12 +6698,18 @@ void deepcopy_VkPhysicalDevicePortabilitySubsetPropertiesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5416,12 +6732,18 @@ void deepcopy_VkPhysicalDeviceShaderClockFeaturesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5446,12 +6768,18 @@ void deepcopy_VkPhysicalDeviceShaderTerminateInvocationFeaturesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5464,12 +6792,18 @@ void deepcopy_VkFragmentShadingRateAttachmentInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pFragmentShadingRateAttachment = nullptr;
     if (from->pFragmentShadingRateAttachment)
@@ -5487,12 +6821,18 @@ void deepcopy_VkPipelineFragmentShadingRateStateCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkExtent2D(pool, &from->fragmentSize, (VkExtent2D*)(&to->fragmentSize));
     memcpy(to->combinerOps, from->combinerOps, 2 * sizeof(VkFragmentShadingRateCombinerOpKHR));
@@ -5505,12 +6845,18 @@ void deepcopy_VkPhysicalDeviceFragmentShadingRateFeaturesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5521,12 +6867,18 @@ void deepcopy_VkPhysicalDeviceFragmentShadingRatePropertiesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkExtent2D(pool, &from->minFragmentShadingRateAttachmentTexelSize, (VkExtent2D*)(&to->minFragmentShadingRateAttachmentTexelSize));
     deepcopy_VkExtent2D(pool, &from->maxFragmentShadingRateAttachmentTexelSize, (VkExtent2D*)(&to->maxFragmentShadingRateAttachmentTexelSize));
@@ -5540,12 +6892,18 @@ void deepcopy_VkPhysicalDeviceFragmentShadingRateKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkExtent2D(pool, &from->fragmentSize, (VkExtent2D*)(&to->fragmentSize));
 }
@@ -5561,12 +6919,18 @@ void deepcopy_VkSurfaceProtectedCapabilitiesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5587,12 +6951,18 @@ void deepcopy_VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5603,12 +6973,18 @@ void deepcopy_VkPipelineInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5619,12 +6995,18 @@ void deepcopy_VkPipelineExecutablePropertiesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     memcpy(to->name, from->name, VK_MAX_DESCRIPTION_SIZE * sizeof(char));
     memcpy(to->description, from->description, VK_MAX_DESCRIPTION_SIZE * sizeof(char));
@@ -5637,12 +7019,18 @@ void deepcopy_VkPipelineExecutableInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5662,12 +7050,18 @@ void deepcopy_VkPipelineExecutableStatisticKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     memcpy(to->name, from->name, VK_MAX_DESCRIPTION_SIZE * sizeof(char));
     memcpy(to->description, from->description, VK_MAX_DESCRIPTION_SIZE * sizeof(char));
@@ -5681,12 +7075,18 @@ void deepcopy_VkPipelineExecutableInternalRepresentationKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     memcpy(to->name, from->name, VK_MAX_DESCRIPTION_SIZE * sizeof(char));
     memcpy(to->description, from->description, VK_MAX_DESCRIPTION_SIZE * sizeof(char));
@@ -5706,12 +7106,18 @@ void deepcopy_VkPipelineLibraryCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pLibraries = nullptr;
     if (from->pLibraries)
@@ -5731,12 +7137,18 @@ void deepcopy_VkBufferCopy2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -5747,12 +7159,18 @@ void deepcopy_VkCopyBufferInfo2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -5776,12 +7194,18 @@ void deepcopy_VkImageCopy2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkImageSubresourceLayers(pool, &from->srcSubresource, (VkImageSubresourceLayers*)(&to->srcSubresource));
     deepcopy_VkOffset3D(pool, &from->srcOffset, (VkOffset3D*)(&to->srcOffset));
@@ -5797,12 +7221,18 @@ void deepcopy_VkCopyImageInfo2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -5826,12 +7256,18 @@ void deepcopy_VkBufferImageCopy2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkImageSubresourceLayers(pool, &from->imageSubresource, (VkImageSubresourceLayers*)(&to->imageSubresource));
     deepcopy_VkOffset3D(pool, &from->imageOffset, (VkOffset3D*)(&to->imageOffset));
@@ -5845,12 +7281,18 @@ void deepcopy_VkCopyBufferToImageInfo2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -5874,12 +7316,18 @@ void deepcopy_VkCopyImageToBufferInfo2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -5903,12 +7351,18 @@ void deepcopy_VkImageBlit2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkImageSubresourceLayers(pool, &from->srcSubresource, (VkImageSubresourceLayers*)(&to->srcSubresource));
     for (uint32_t i = 0; i < (uint32_t)2; ++i)
@@ -5929,12 +7383,18 @@ void deepcopy_VkBlitImageInfo2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -5958,12 +7418,18 @@ void deepcopy_VkImageResolve2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkImageSubresourceLayers(pool, &from->srcSubresource, (VkImageSubresourceLayers*)(&to->srcSubresource));
     deepcopy_VkOffset3D(pool, &from->srcOffset, (VkOffset3D*)(&to->srcOffset));
@@ -5979,12 +7445,18 @@ void deepcopy_VkResolveImageInfo2KHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -6010,12 +7482,18 @@ void deepcopy_VkNativeBufferANDROID(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->handle = nullptr;
     if (from->handle)
@@ -6033,12 +7511,18 @@ void deepcopy_VkDebugReportCallbackCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pUserData = nullptr;
     if (from->pUserData)
@@ -6062,12 +7546,18 @@ void deepcopy_VkPipelineRasterizationStateRasterizationOrderAMD(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6084,12 +7574,18 @@ void deepcopy_VkDebugMarkerObjectNameInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pObjectName = nullptr;
     if (from->pObjectName)
@@ -6105,12 +7601,18 @@ void deepcopy_VkDebugMarkerObjectTagInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pTag = nullptr;
     if (from->pTag)
@@ -6126,12 +7628,18 @@ void deepcopy_VkDebugMarkerMarkerInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pMarkerName = nullptr;
     if (from->pMarkerName)
@@ -6152,12 +7660,18 @@ void deepcopy_VkDedicatedAllocationImageCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6168,12 +7682,18 @@ void deepcopy_VkDedicatedAllocationBufferCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6184,12 +7704,18 @@ void deepcopy_VkDedicatedAllocationMemoryAllocateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6202,12 +7728,18 @@ void deepcopy_VkPhysicalDeviceTransformFeedbackFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6218,12 +7750,18 @@ void deepcopy_VkPhysicalDeviceTransformFeedbackPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6234,12 +7772,18 @@ void deepcopy_VkPipelineRasterizationStateStreamCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6252,12 +7796,18 @@ void deepcopy_VkImageViewHandleInfoNVX(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6268,12 +7818,18 @@ void deepcopy_VkImageViewAddressPropertiesNVX(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6294,12 +7850,18 @@ void deepcopy_VkTextureLODGatherFormatPropertiesAMD(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6336,12 +7898,18 @@ void deepcopy_VkStreamDescriptorSurfaceCreateInfoGGP(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6354,12 +7922,18 @@ void deepcopy_VkPhysicalDeviceCornerSampledImageFeaturesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6386,12 +7960,18 @@ void deepcopy_VkExternalMemoryImageCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6402,12 +7982,18 @@ void deepcopy_VkExportMemoryAllocateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6420,12 +8006,18 @@ void deepcopy_VkImportMemoryWin32HandleInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6436,12 +8028,18 @@ void deepcopy_VkExportMemoryWin32HandleInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pAttributes = nullptr;
     if (from->pAttributes)
@@ -6459,12 +8057,18 @@ void deepcopy_VkWin32KeyedMutexAcquireReleaseInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pAcquireSyncs = nullptr;
     if (from->pAcquireSyncs)
@@ -6502,12 +8106,18 @@ void deepcopy_VkValidationFlagsEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pDisabledValidationChecks = nullptr;
     if (from->pDisabledValidationChecks)
@@ -6525,12 +8135,18 @@ void deepcopy_VkViSurfaceCreateInfoNN(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->window = nullptr;
     if (from->window)
@@ -6552,12 +8168,18 @@ void deepcopy_VkPhysicalDeviceTextureCompressionASTCHDRFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6570,12 +8192,18 @@ void deepcopy_VkImageViewASTCDecodeModeEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6586,12 +8214,18 @@ void deepcopy_VkPhysicalDeviceASTCDecodeFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6604,12 +8238,18 @@ void deepcopy_VkConditionalRenderingBeginInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6620,12 +8260,18 @@ void deepcopy_VkPhysicalDeviceConditionalRenderingFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6636,12 +8282,18 @@ void deepcopy_VkCommandBufferInheritanceConditionalRenderingInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6663,12 +8315,18 @@ void deepcopy_VkPipelineViewportWScalingStateCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -6698,12 +8356,18 @@ void deepcopy_VkSurfaceCapabilities2EXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkExtent2D(pool, &from->currentExtent, (VkExtent2D*)(&to->currentExtent));
     deepcopy_VkExtent2D(pool, &from->minImageExtent, (VkExtent2D*)(&to->minImageExtent));
@@ -6719,12 +8383,18 @@ void deepcopy_VkDisplayPowerInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6735,12 +8405,18 @@ void deepcopy_VkDeviceEventInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6751,12 +8427,18 @@ void deepcopy_VkDisplayEventInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6767,12 +8449,18 @@ void deepcopy_VkSwapchainCounterCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6812,12 +8500,18 @@ void deepcopy_VkPresentTimesInfoGOOGLE(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -6849,12 +8543,18 @@ void deepcopy_VkPhysicalDeviceMultiviewPerViewAttributesPropertiesNVX(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6876,12 +8576,18 @@ void deepcopy_VkPipelineViewportSwizzleStateCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -6907,12 +8613,18 @@ void deepcopy_VkPhysicalDeviceDiscardRectanglePropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6923,12 +8635,18 @@ void deepcopy_VkPipelineDiscardRectangleStateCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -6954,12 +8672,18 @@ void deepcopy_VkPhysicalDeviceConservativeRasterizationPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6970,12 +8694,18 @@ void deepcopy_VkPipelineRasterizationConservativeStateCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -6988,12 +8718,18 @@ void deepcopy_VkPhysicalDeviceDepthClipEnableFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7004,12 +8740,18 @@ void deepcopy_VkPipelineRasterizationDepthClipStateCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7033,12 +8775,18 @@ void deepcopy_VkHdrMetadataEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkXYColorEXT(pool, &from->displayPrimaryRed, (VkXYColorEXT*)(&to->displayPrimaryRed));
     deepcopy_VkXYColorEXT(pool, &from->displayPrimaryGreen, (VkXYColorEXT*)(&to->displayPrimaryGreen));
@@ -7055,12 +8803,18 @@ void deepcopy_VkIOSSurfaceCreateInfoMVK(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pView = nullptr;
     if (from->pView)
@@ -7078,12 +8832,18 @@ void deepcopy_VkMacOSSurfaceCreateInfoMVK(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pView = nullptr;
     if (from->pView)
@@ -7107,12 +8867,18 @@ void deepcopy_VkDebugUtilsLabelEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pLabelName = nullptr;
     if (from->pLabelName)
@@ -7129,12 +8895,18 @@ void deepcopy_VkDebugUtilsObjectNameInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pObjectName = nullptr;
     if (from->pObjectName)
@@ -7150,12 +8922,18 @@ void deepcopy_VkDebugUtilsMessengerCallbackDataEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pMessageIdName = nullptr;
     if (from->pMessageIdName)
@@ -7215,12 +8993,18 @@ void deepcopy_VkDebugUtilsMessengerCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pUserData = nullptr;
     if (from->pUserData)
@@ -7236,12 +9020,18 @@ void deepcopy_VkDebugUtilsObjectTagInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pTag = nullptr;
     if (from->pTag)
@@ -7259,12 +9049,18 @@ void deepcopy_VkAndroidHardwareBufferUsageANDROID(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7275,12 +9071,18 @@ void deepcopy_VkAndroidHardwareBufferPropertiesANDROID(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7291,12 +9093,18 @@ void deepcopy_VkAndroidHardwareBufferFormatPropertiesANDROID(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkComponentMapping(pool, &from->samplerYcbcrConversionComponents, (VkComponentMapping*)(&to->samplerYcbcrConversionComponents));
 }
@@ -7308,12 +9116,18 @@ void deepcopy_VkImportAndroidHardwareBufferInfoANDROID(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->buffer = nullptr;
     if (from->buffer)
@@ -7329,12 +9143,18 @@ void deepcopy_VkMemoryGetAndroidHardwareBufferInfoANDROID(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7345,12 +9165,18 @@ void deepcopy_VkExternalFormatANDROID(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7371,12 +9197,18 @@ void deepcopy_VkPhysicalDeviceInlineUniformBlockFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7387,12 +9219,18 @@ void deepcopy_VkPhysicalDeviceInlineUniformBlockPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7403,12 +9241,18 @@ void deepcopy_VkWriteDescriptorSetInlineUniformBlockEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pData = nullptr;
     if (from->pData)
@@ -7424,12 +9268,18 @@ void deepcopy_VkDescriptorPoolInlineUniformBlockCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7453,12 +9303,18 @@ void deepcopy_VkSampleLocationsInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkExtent2D(pool, &from->sampleLocationGridSize, (VkExtent2D*)(&to->sampleLocationGridSize));
     if (from)
@@ -7503,12 +9359,18 @@ void deepcopy_VkRenderPassSampleLocationsBeginInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -7545,12 +9407,18 @@ void deepcopy_VkPipelineSampleLocationsStateCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkSampleLocationsInfoEXT(pool, &from->sampleLocationsInfo, (VkSampleLocationsInfoEXT*)(&to->sampleLocationsInfo));
 }
@@ -7562,12 +9430,18 @@ void deepcopy_VkPhysicalDeviceSampleLocationsPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkExtent2D(pool, &from->maxSampleLocationGridSize, (VkExtent2D*)(&to->maxSampleLocationGridSize));
     memcpy(to->sampleLocationCoordinateRange, from->sampleLocationCoordinateRange, 2 * sizeof(float));
@@ -7580,12 +9454,18 @@ void deepcopy_VkMultisamplePropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkExtent2D(pool, &from->maxSampleLocationGridSize, (VkExtent2D*)(&to->maxSampleLocationGridSize));
 }
@@ -7599,12 +9479,18 @@ void deepcopy_VkPhysicalDeviceBlendOperationAdvancedFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7615,12 +9501,18 @@ void deepcopy_VkPhysicalDeviceBlendOperationAdvancedPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7631,12 +9523,18 @@ void deepcopy_VkPipelineColorBlendAdvancedStateCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7649,12 +9547,18 @@ void deepcopy_VkPipelineCoverageToColorStateCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7667,12 +9571,18 @@ void deepcopy_VkPipelineCoverageModulationStateCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pCoverageModulationTable = nullptr;
     if (from->pCoverageModulationTable)
@@ -7692,12 +9602,18 @@ void deepcopy_VkPhysicalDeviceShaderSMBuiltinsPropertiesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7708,12 +9624,18 @@ void deepcopy_VkPhysicalDeviceShaderSMBuiltinsFeaturesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7737,12 +9659,18 @@ void deepcopy_VkDrmFormatModifierPropertiesListEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -7766,12 +9694,18 @@ void deepcopy_VkPhysicalDeviceImageDrmFormatModifierInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pQueueFamilyIndices = nullptr;
     if (from->pQueueFamilyIndices)
@@ -7787,12 +9721,18 @@ void deepcopy_VkImageDrmFormatModifierListCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pDrmFormatModifiers = nullptr;
     if (from->pDrmFormatModifiers)
@@ -7808,12 +9748,18 @@ void deepcopy_VkImageDrmFormatModifierExplicitCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -7837,12 +9783,18 @@ void deepcopy_VkImageDrmFormatModifierPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7855,12 +9807,18 @@ void deepcopy_VkValidationCacheCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pInitialData = nullptr;
     if (from->pInitialData)
@@ -7876,12 +9834,18 @@ void deepcopy_VkShaderModuleValidationCacheCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7912,12 +9876,18 @@ void deepcopy_VkPipelineViewportShadingRateImageStateCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -7941,12 +9911,18 @@ void deepcopy_VkPhysicalDeviceShadingRateImageFeaturesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -7957,12 +9933,18 @@ void deepcopy_VkPhysicalDeviceShadingRateImagePropertiesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkExtent2D(pool, &from->shadingRateTexelSize, (VkExtent2D*)(&to->shadingRateTexelSize));
 }
@@ -8005,12 +9987,18 @@ void deepcopy_VkPipelineViewportCoarseSampleOrderStateCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -8036,12 +10024,18 @@ void deepcopy_VkRayTracingShaderGroupCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8052,12 +10046,18 @@ void deepcopy_VkRayTracingPipelineCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -8094,12 +10094,18 @@ void deepcopy_VkGeometryTrianglesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8110,12 +10116,18 @@ void deepcopy_VkGeometryAABBNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8137,12 +10149,18 @@ void deepcopy_VkGeometryNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkGeometryDataNV(pool, &from->geometry, (VkGeometryDataNV*)(&to->geometry));
 }
@@ -8154,12 +10172,18 @@ void deepcopy_VkAccelerationStructureInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -8183,12 +10207,18 @@ void deepcopy_VkAccelerationStructureCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkAccelerationStructureInfoNV(pool, &from->info, (VkAccelerationStructureInfoNV*)(&to->info));
 }
@@ -8200,12 +10230,18 @@ void deepcopy_VkBindAccelerationStructureMemoryInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pDeviceIndices = nullptr;
     if (from->pDeviceIndices)
@@ -8221,12 +10257,18 @@ void deepcopy_VkWriteDescriptorSetAccelerationStructureNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pAccelerationStructures = nullptr;
     if (from->pAccelerationStructures)
@@ -8242,12 +10284,18 @@ void deepcopy_VkAccelerationStructureMemoryRequirementsInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8258,12 +10306,18 @@ void deepcopy_VkPhysicalDeviceRayTracingPropertiesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8305,12 +10359,18 @@ void deepcopy_VkPhysicalDeviceRepresentativeFragmentTestFeaturesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8321,12 +10381,18 @@ void deepcopy_VkPipelineRepresentativeFragmentTestStateCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8339,12 +10405,18 @@ void deepcopy_VkPhysicalDeviceImageViewImageFormatInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8355,12 +10427,18 @@ void deepcopy_VkFilterCubicImageViewImageFormatPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8375,12 +10453,18 @@ void deepcopy_VkDeviceQueueGlobalPriorityCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8393,12 +10477,18 @@ void deepcopy_VkImportMemoryHostPointerInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pHostPointer = nullptr;
     if (from->pHostPointer)
@@ -8414,12 +10504,18 @@ void deepcopy_VkMemoryHostPointerPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8430,12 +10526,18 @@ void deepcopy_VkPhysicalDeviceExternalMemoryHostPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8450,12 +10552,18 @@ void deepcopy_VkPipelineCompilerControlCreateInfoAMD(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8468,12 +10576,18 @@ void deepcopy_VkCalibratedTimestampInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8486,12 +10600,18 @@ void deepcopy_VkPhysicalDeviceShaderCorePropertiesAMD(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8504,12 +10624,18 @@ void deepcopy_VkDeviceMemoryOverallocationCreateInfoAMD(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8522,12 +10648,18 @@ void deepcopy_VkPhysicalDeviceVertexAttributeDivisorPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8547,12 +10679,18 @@ void deepcopy_VkPipelineVertexInputDivisorStateCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -8576,12 +10714,18 @@ void deepcopy_VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8594,12 +10738,18 @@ void deepcopy_VkPresentFrameTokenGGP(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8621,12 +10771,18 @@ void deepcopy_VkPipelineCreationFeedbackCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pPipelineCreationFeedback = nullptr;
     if (from->pPipelineCreationFeedback)
@@ -8660,12 +10816,18 @@ void deepcopy_VkPhysicalDeviceComputeShaderDerivativesFeaturesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8678,12 +10840,18 @@ void deepcopy_VkPhysicalDeviceMeshShaderFeaturesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8694,12 +10862,18 @@ void deepcopy_VkPhysicalDeviceMeshShaderPropertiesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     memcpy(to->maxTaskWorkGroupSize, from->maxTaskWorkGroupSize, 3 * sizeof(uint32_t));
     memcpy(to->maxMeshWorkGroupSize, from->maxMeshWorkGroupSize, 3 * sizeof(uint32_t));
@@ -8723,12 +10897,18 @@ void deepcopy_VkPhysicalDeviceFragmentShaderBarycentricFeaturesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8741,12 +10921,18 @@ void deepcopy_VkPhysicalDeviceShaderImageFootprintFeaturesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8759,12 +10945,18 @@ void deepcopy_VkPipelineViewportExclusiveScissorStateCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -8788,12 +10980,18 @@ void deepcopy_VkPhysicalDeviceExclusiveScissorFeaturesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8806,12 +11004,18 @@ void deepcopy_VkQueueFamilyCheckpointPropertiesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8822,12 +11026,18 @@ void deepcopy_VkCheckpointDataNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pCheckpointMarker = nullptr;
     if (from->pCheckpointMarker)
@@ -8845,12 +11055,18 @@ void deepcopy_VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8887,12 +11103,18 @@ void deepcopy_VkInitializePerformanceApiInfoINTEL(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pUserData = nullptr;
     if (from->pUserData)
@@ -8908,12 +11130,18 @@ void deepcopy_VkQueryPoolPerformanceQueryCreateInfoINTEL(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8924,12 +11152,18 @@ void deepcopy_VkPerformanceMarkerInfoINTEL(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8940,12 +11174,18 @@ void deepcopy_VkPerformanceStreamMarkerInfoINTEL(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8956,12 +11196,18 @@ void deepcopy_VkPerformanceOverrideInfoINTEL(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8972,12 +11218,18 @@ void deepcopy_VkPerformanceConfigurationAcquireInfoINTEL(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -8990,12 +11242,18 @@ void deepcopy_VkPhysicalDevicePCIBusInfoPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9008,12 +11266,18 @@ void deepcopy_VkDisplayNativeHdrSurfaceCapabilitiesAMD(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9024,12 +11288,18 @@ void deepcopy_VkSwapchainDisplayNativeHdrCreateInfoAMD(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9042,12 +11312,18 @@ void deepcopy_VkImagePipeSurfaceCreateInfoFUCHSIA(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9060,12 +11336,18 @@ void deepcopy_VkMetalSurfaceCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pLayer = nullptr;
     if (from->pLayer)
@@ -9083,12 +11365,18 @@ void deepcopy_VkImportColorBufferGOOGLE(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9099,12 +11387,18 @@ void deepcopy_VkImportBufferGOOGLE(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9115,12 +11409,18 @@ void deepcopy_VkImportPhysicalAddressGOOGLE(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9139,12 +11439,18 @@ void deepcopy_VkPhysicalDeviceSubgroupSizeControlFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9155,12 +11461,18 @@ void deepcopy_VkPhysicalDeviceSubgroupSizeControlPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9171,12 +11483,18 @@ void deepcopy_VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9189,12 +11507,18 @@ void deepcopy_VkPhysicalDeviceShaderCoreProperties2AMD(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9207,12 +11531,18 @@ void deepcopy_VkPhysicalDeviceCoherentMemoryFeaturesAMD(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9225,12 +11555,18 @@ void deepcopy_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9243,12 +11579,18 @@ void deepcopy_VkPhysicalDeviceMemoryBudgetPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     memcpy(to->heapBudget, from->heapBudget, VK_MAX_MEMORY_HEAPS * sizeof(VkDeviceSize));
     memcpy(to->heapUsage, from->heapUsage, VK_MAX_MEMORY_HEAPS * sizeof(VkDeviceSize));
@@ -9263,12 +11605,18 @@ void deepcopy_VkPhysicalDeviceMemoryPriorityFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9279,12 +11627,18 @@ void deepcopy_VkMemoryPriorityAllocateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9297,12 +11651,18 @@ void deepcopy_VkPhysicalDeviceDedicatedAllocationImageAliasingFeaturesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9315,12 +11675,18 @@ void deepcopy_VkPhysicalDeviceBufferDeviceAddressFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9331,12 +11697,18 @@ void deepcopy_VkBufferDeviceAddressCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9349,12 +11721,18 @@ void deepcopy_VkPhysicalDeviceToolPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     memcpy(to->name, from->name, VK_MAX_EXTENSION_NAME_SIZE * sizeof(char));
     memcpy(to->version, from->version, VK_MAX_EXTENSION_NAME_SIZE * sizeof(char));
@@ -9373,12 +11751,18 @@ void deepcopy_VkValidationFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pEnabledValidationFeatures = nullptr;
     if (from->pEnabledValidationFeatures)
@@ -9401,12 +11785,18 @@ void deepcopy_VkCooperativeMatrixPropertiesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9417,12 +11807,18 @@ void deepcopy_VkPhysicalDeviceCooperativeMatrixFeaturesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9433,12 +11829,18 @@ void deepcopy_VkPhysicalDeviceCooperativeMatrixPropertiesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9451,12 +11853,18 @@ void deepcopy_VkPhysicalDeviceCoverageReductionModeFeaturesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9467,12 +11875,18 @@ void deepcopy_VkPipelineCoverageReductionStateCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9483,12 +11897,18 @@ void deepcopy_VkFramebufferMixedSamplesCombinationNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9501,12 +11921,18 @@ void deepcopy_VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9519,12 +11945,18 @@ void deepcopy_VkPhysicalDeviceYcbcrImageArraysFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9537,12 +11969,18 @@ void deepcopy_VkSurfaceFullScreenExclusiveInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9553,12 +11991,18 @@ void deepcopy_VkSurfaceCapabilitiesFullScreenExclusiveEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9569,12 +12013,18 @@ void deepcopy_VkSurfaceFullScreenExclusiveWin32InfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9587,12 +12037,18 @@ void deepcopy_VkHeadlessSurfaceCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9605,12 +12061,18 @@ void deepcopy_VkPhysicalDeviceLineRasterizationFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9621,12 +12083,18 @@ void deepcopy_VkPhysicalDeviceLineRasterizationPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9637,12 +12105,18 @@ void deepcopy_VkPipelineRasterizationLineStateCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9655,12 +12129,18 @@ void deepcopy_VkPhysicalDeviceShaderAtomicFloatFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9675,12 +12155,18 @@ void deepcopy_VkPhysicalDeviceIndexTypeUint8FeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9693,12 +12179,18 @@ void deepcopy_VkPhysicalDeviceExtendedDynamicStateFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9711,12 +12203,18 @@ void deepcopy_VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9729,12 +12227,18 @@ void deepcopy_VkPhysicalDeviceDeviceGeneratedCommandsPropertiesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9745,12 +12249,18 @@ void deepcopy_VkPhysicalDeviceDeviceGeneratedCommandsFeaturesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9761,12 +12271,18 @@ void deepcopy_VkGraphicsShaderGroupCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -9802,12 +12318,18 @@ void deepcopy_VkGraphicsPipelineShaderGroupsCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -9881,12 +12403,18 @@ void deepcopy_VkIndirectCommandsLayoutTokenNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pIndexTypes = nullptr;
     if (from->pIndexTypes)
@@ -9907,12 +12435,18 @@ void deepcopy_VkIndirectCommandsLayoutCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -9941,12 +12475,18 @@ void deepcopy_VkGeneratedCommandsInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -9970,12 +12510,18 @@ void deepcopy_VkGeneratedCommandsMemoryRequirementsInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -9988,12 +12534,18 @@ void deepcopy_VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10004,12 +12556,18 @@ void deepcopy_VkPhysicalDeviceTexelBufferAlignmentPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10022,12 +12580,18 @@ void deepcopy_VkRenderPassTransformBeginInfoQCOM(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10038,12 +12602,18 @@ void deepcopy_VkCommandBufferInheritanceRenderPassTransformInfoQCOM(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkRect2D(pool, &from->renderArea, (VkRect2D*)(&to->renderArea));
 }
@@ -10057,12 +12627,18 @@ void deepcopy_VkPhysicalDeviceDeviceMemoryReportFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10073,12 +12649,18 @@ void deepcopy_VkDeviceMemoryReportCallbackDataEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10089,12 +12671,18 @@ void deepcopy_VkDeviceDeviceMemoryReportCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pUserData = nullptr;
     if (from->pUserData)
@@ -10112,12 +12700,18 @@ void deepcopy_VkPhysicalDeviceRobustness2FeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10128,12 +12722,18 @@ void deepcopy_VkPhysicalDeviceRobustness2PropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10146,12 +12746,18 @@ void deepcopy_VkSamplerCustomBorderColorCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkClearColorValue(pool, &from->customBorderColor, (VkClearColorValue*)(&to->customBorderColor));
 }
@@ -10163,12 +12769,18 @@ void deepcopy_VkPhysicalDeviceCustomBorderColorPropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10179,12 +12791,18 @@ void deepcopy_VkPhysicalDeviceCustomBorderColorFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10199,12 +12817,18 @@ void deepcopy_VkPhysicalDevicePrivateDataFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10215,12 +12839,18 @@ void deepcopy_VkDevicePrivateDataCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10231,12 +12861,18 @@ void deepcopy_VkPrivateDataSlotCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10249,12 +12885,18 @@ void deepcopy_VkPhysicalDevicePipelineCreationCacheControlFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10267,12 +12909,18 @@ void deepcopy_VkPhysicalDeviceDiagnosticsConfigFeaturesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10283,12 +12931,18 @@ void deepcopy_VkDeviceDiagnosticsConfigCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10303,12 +12957,18 @@ void deepcopy_VkPhysicalDeviceFragmentShadingRateEnumsFeaturesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10319,12 +12979,18 @@ void deepcopy_VkPhysicalDeviceFragmentShadingRateEnumsPropertiesNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10335,12 +13001,18 @@ void deepcopy_VkPipelineFragmentShadingRateEnumStateCreateInfoNV(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     memcpy(to->combinerOps, from->combinerOps, 2 * sizeof(VkFragmentShadingRateCombinerOpKHR));
 }
@@ -10354,12 +13026,18 @@ void deepcopy_VkPhysicalDeviceFragmentDensityMap2FeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10370,12 +13048,18 @@ void deepcopy_VkPhysicalDeviceFragmentDensityMap2PropertiesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10388,12 +13072,18 @@ void deepcopy_VkCopyCommandTransformInfoQCOM(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10406,12 +13096,18 @@ void deepcopy_VkPhysicalDeviceImageRobustnessFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10424,12 +13120,18 @@ void deepcopy_VkPhysicalDevice4444FormatsFeaturesEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10442,12 +13144,18 @@ void deepcopy_VkDirectFBSurfaceCreateInfoEXT(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->dfb = nullptr;
     if (from->dfb)
@@ -10509,12 +13217,18 @@ void deepcopy_VkAccelerationStructureGeometryTrianglesDataKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkDeviceOrHostAddressConstKHR(pool, &from->vertexData, (VkDeviceOrHostAddressConstKHR*)(&to->vertexData));
     deepcopy_VkDeviceOrHostAddressConstKHR(pool, &from->indexData, (VkDeviceOrHostAddressConstKHR*)(&to->indexData));
@@ -10528,12 +13242,18 @@ void deepcopy_VkAccelerationStructureGeometryAabbsDataKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkDeviceOrHostAddressConstKHR(pool, &from->data, (VkDeviceOrHostAddressConstKHR*)(&to->data));
 }
@@ -10545,12 +13265,18 @@ void deepcopy_VkAccelerationStructureGeometryInstancesDataKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkDeviceOrHostAddressConstKHR(pool, &from->data, (VkDeviceOrHostAddressConstKHR*)(&to->data));
 }
@@ -10574,12 +13300,18 @@ void deepcopy_VkAccelerationStructureGeometryKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkAccelerationStructureGeometryDataKHR(pool, &from->geometry, (VkAccelerationStructureGeometryDataKHR*)(&to->geometry));
 }
@@ -10591,12 +13323,18 @@ void deepcopy_VkAccelerationStructureBuildGeometryInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -10621,12 +13359,18 @@ void deepcopy_VkAccelerationStructureCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10637,12 +13381,18 @@ void deepcopy_VkWriteDescriptorSetAccelerationStructureKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pAccelerationStructures = nullptr;
     if (from->pAccelerationStructures)
@@ -10658,12 +13408,18 @@ void deepcopy_VkPhysicalDeviceAccelerationStructureFeaturesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10674,12 +13430,18 @@ void deepcopy_VkPhysicalDeviceAccelerationStructurePropertiesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10690,12 +13452,18 @@ void deepcopy_VkAccelerationStructureDeviceAddressInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10706,12 +13474,18 @@ void deepcopy_VkAccelerationStructureVersionInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pVersionData = nullptr;
     if (from->pVersionData)
@@ -10727,12 +13501,18 @@ void deepcopy_VkCopyAccelerationStructureToMemoryInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkDeviceOrHostAddressKHR(pool, &from->dst, (VkDeviceOrHostAddressKHR*)(&to->dst));
 }
@@ -10744,12 +13524,18 @@ void deepcopy_VkCopyMemoryToAccelerationStructureInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     deepcopy_VkDeviceOrHostAddressConstKHR(pool, &from->src, (VkDeviceOrHostAddressConstKHR*)(&to->src));
 }
@@ -10761,12 +13547,18 @@ void deepcopy_VkCopyAccelerationStructureInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10777,12 +13569,18 @@ void deepcopy_VkAccelerationStructureBuildSizesInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10795,12 +13593,18 @@ void deepcopy_VkRayTracingShaderGroupCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     to->pShaderGroupCaptureReplayHandle = nullptr;
     if (from->pShaderGroupCaptureReplayHandle)
@@ -10816,12 +13620,18 @@ void deepcopy_VkRayTracingPipelineInterfaceCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10832,12 +13642,18 @@ void deepcopy_VkRayTracingPipelineCreateInfoKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (const void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
     if (from)
     {
@@ -10892,12 +13708,18 @@ void deepcopy_VkPhysicalDeviceRayTracingPipelineFeaturesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10908,12 +13730,18 @@ void deepcopy_VkPhysicalDeviceRayTracingPipelinePropertiesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
@@ -10944,12 +13772,18 @@ void deepcopy_VkPhysicalDeviceRayQueryFeaturesKHR(
 {
     (void)pool;
     *to = *from;
-    size_t pNext_size = goldfish_vk_extension_struct_size(from->pNext);
+    const void* from_pNext = from;
+    size_t pNext_size = 0u;
+    while (!pNext_size && from_pNext)
+    {
+        from_pNext = static_cast<const vk_struct_common*>(from_pNext)->pNext;
+        pNext_size = goldfish_vk_extension_struct_size(from_pNext);
+    }
     to->pNext = nullptr;
     if (pNext_size)
     {
         to->pNext = (void*)pool->alloc(pNext_size);
-        deepcopy_extension_struct(pool, from->pNext, (void*)(to->pNext));
+        deepcopy_extension_struct(pool, from_pNext, (void*)(to->pNext));
     }
 }
 
