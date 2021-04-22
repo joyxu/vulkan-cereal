@@ -4441,8 +4441,11 @@ public:
         AutoLock lock(mLock);
 
         VkFence fence = unbox_VkFence(boxed_fence);
-        DCHECK(fence != VK_NULL_HANDLE);
-        DCHECK(mFenceInfo.find(fence) != mFenceInfo.end());
+        if (fence == VK_NULL_HANDLE || mFenceInfo.find(fence) == mFenceInfo.end()) {
+            // No fence, could be a semaphore.
+            // TODO: Async wait for semaphores
+            return VK_SUCCESS;
+        }
 
         const VkDevice device = mFenceInfo[fence].device;
         const VulkanDispatch* vk = mFenceInfo[fence].vk;
@@ -4456,8 +4459,11 @@ public:
         AutoLock lock(mLock);
 
         VkFence fence = unbox_VkFence(boxed_fence);
-        DCHECK(fence != VK_NULL_HANDLE);
-        DCHECK(mFenceInfo.find(fence) != mFenceInfo.end());
+        if (fence == VK_NULL_HANDLE || mFenceInfo.find(fence) == mFenceInfo.end()) {
+            // No fence, could be a semaphore.
+            // TODO: Async get status for semaphores
+            return VK_SUCCESS;
+        }
 
         const VkDevice device = mFenceInfo[fence].device;
         const VulkanDispatch* vk = mFenceInfo[fence].vk;
