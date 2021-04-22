@@ -232,6 +232,9 @@ static const char* kVulkanQueueSubmitWithCommands = "ANDROID_EMU_vulkan_queue_su
 // Batched descriptor set update
 static const char* kVulkanBatchedDescriptorSetUpdate = "ANDROID_EMU_vulkan_batched_descriptor_set_update";
 
+// Synchronized glBufferData call
+static const char* kSyncBufferData = "ANDROID_EMU_sync_buffer_data";
+
 static void rcTriggerWait(uint64_t glsync_ptr,
                           uint64_t thread_ptr,
                           uint64_t timeline);
@@ -477,6 +480,7 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
     bool vulkanAsyncQueueSubmitEnabled = shouldEnableAsyncQueueSubmit();
     bool vulkanQueueSubmitWithCommands = shouldEnableQueueSubmitWithCommands();
     bool vulkanBatchedDescriptorSetUpdate = shouldEnableBatchedDescriptorSetUpdate();
+    bool syncBufferDataEnabled = true;
 
     if (isChecksumEnabled && name == GL_EXTENSIONS) {
         glStr += ChecksumCalculatorThreadInfo::getMaxVersionString();
@@ -597,6 +601,11 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
 
     if (virtioGpuNativeSyncEnabled && name == GL_EXTENSIONS) {
         glStr += kVirtioGpuNativeSync;
+        glStr += " ";
+    }
+
+    if (syncBufferDataEnabled && name == GL_EXTENSIONS) {
+        glStr += kSyncBufferData;
         glStr += " ";
     }
 

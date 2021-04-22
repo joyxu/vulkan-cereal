@@ -436,6 +436,7 @@ int gles2_server_context_t::initDispatchByName(void *(*getProc)(const char *, vo
 	glDrawElementsDataNullAEMU = (glDrawElementsDataNullAEMU_server_proc_t) getProc("glDrawElementsDataNullAEMU", userData);
 	glUnmapBufferAsyncAEMU = (glUnmapBufferAsyncAEMU_server_proc_t) getProc("glUnmapBufferAsyncAEMU", userData);
 	glFlushMappedBufferRangeAEMU2 = (glFlushMappedBufferRangeAEMU2_server_proc_t) getProc("glFlushMappedBufferRangeAEMU2", userData);
+	glBufferDataSyncAEMU = (glBufferDataSyncAEMU_server_proc_t) getProc("glBufferDataSyncAEMU", userData);
 	return 0;
 }
 
