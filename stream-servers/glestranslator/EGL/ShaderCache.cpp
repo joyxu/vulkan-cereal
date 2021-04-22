@@ -21,9 +21,40 @@
 #include <vector>
 
 namespace {
+    using BlobCacheType = std::vector<uint8_t>;
+
+    template <class K, class V>
+    class CacheObserver : android::base::MruCache<K, V>::MruCacheObserver {
+    public:
+        int count = 0;
+        CacheObserver(android::base::MruCache<K, V>* cacheReference) {
+            mCacheRef = cacheReference;
+            cacheReference->setObserver(this);
+        }
+
+        void cacheChanged() override {
+            // TODO: This will dictate when we flatten the cache.
+        }
+
+    private:
+        android::base::MruCache<K, V>* mCacheRef;
+    };
+
+    template <class K, class V>
+    class CacheFlattener : public android::base::MruCache<K, V>::CacheFlattener {
+        using MruCache = std::map<typename android::base::MruCache<K, V>::template EntryWithSize<K>,
+            typename android::base::MruCache<K, V>::template EntryWithSize<V>>;
+
+    public:
+        void handleFlatten(MruCache &mCache, void* buf, size_t bufSize) {
+            // TODO: This will handle the actual serialization.
+        }
+    };
+
+    CacheFlattener<BlobCacheType, BlobCacheType> testFlattener;
     // 3200 is ~32MB of shaders, very rough estimate.
-    android::base::MruCache<std::vector<uint8_t>,
-        std::vector<uint8_t>> mruCache(3200);
+    android::base::MruCache<BlobCacheType, BlobCacheType> mruCache(3200, &testFlattener);
+    CacheObserver<BlobCacheType, BlobCacheType> sss(&mruCache);
 }
 
 void SetBlob(const void* key, EGLsizeiANDROID keySize, const void* value, EGLsizeiANDROID valueSize) {
@@ -33,7 +64,7 @@ void SetBlob(const void* key, EGLsizeiANDROID keySize, const void* value, EGLsiz
     std::vector<uint8_t> valueVec(valueSize);
     memcpy(valueVec.data(), value, valueSize);
 
-    mruCache.put(keyVec, std::move(valueVec));
+    mruCache.put(keyVec, keySize, std::move(valueVec), valueSize);
 }
 
 EGLsizeiANDROID GetBlob(const void* key, EGLsizeiANDROID keySize, void* value, EGLsizeiANDROID valueSize) {
