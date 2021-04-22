@@ -4610,5 +4610,16 @@ GL_APICALL void GL_APIENTRY glPrimitiveRestartIndex(GLuint index) {
     ctx->dispatcher().glPrimitiveRestartIndex(index);
 }
 
+GL_APICALL GLenum GL_APIENTRY glGetGraphicsResetStatusEXT() {
+    GET_CTX_V2_RET(GL_NO_ERROR);
+    auto fptr = ctx->dispatcher().glGetGraphicsResetStatusEXT;
+    if (!fptr) {
+        // If we're running on native OpenGL (not ANGLE) and glGetGraphicsResetStatusEXT
+        // isn't supported by the driver, then default to no error. See b/185407409
+        return GL_NO_ERROR;
+    }
+    return fptr();
+}
+
 } // namespace translator
 } // namespace gles2

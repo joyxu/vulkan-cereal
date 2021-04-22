@@ -475,6 +475,11 @@ EglOsEglDisplay::createContext(EGLint profileMask,
         attributes.push_back(EGL_CONTEXT_OPENGL_NO_ERROR_KHR);
         attributes.push_back(EGL_TRUE);
     }
+
+    if (exts != nullptr && emugl::hasExtension(exts, "EGL_EXT_create_context_robustness")) {
+        attributes.push_back(EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_EXT);
+        attributes.push_back(EGL_LOSE_CONTEXT_ON_RESET_EXT);
+    }
     attributes.push_back(EGL_NONE);
 
     // TODO: support GLES3.1
