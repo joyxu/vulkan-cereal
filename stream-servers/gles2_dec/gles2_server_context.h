@@ -535,6 +535,7 @@ struct gles2_server_context_t {
 	glDrawElementsDataNullAEMU_server_proc_t glDrawElementsDataNullAEMU;
 	glUnmapBufferAsyncAEMU_server_proc_t glUnmapBufferAsyncAEMU;
 	glFlushMappedBufferRangeAEMU2_server_proc_t glFlushMappedBufferRangeAEMU2;
+	glBufferDataSyncAEMU_server_proc_t glBufferDataSyncAEMU;
 	virtual ~gles2_server_context_t() {}
 	int initDispatchByName( void *(*getProc)(const char *name, void *userData), void *userData);
 };
