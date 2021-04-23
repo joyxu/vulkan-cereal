@@ -9487,6 +9487,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     fprintf(stderr, "stream %p: call vkWaitSemaphores 0x%llx 0x%llx 0x%llx \n", ioStream, (unsigned long long)device, (unsigned long long)pWaitInfo, (unsigned long long)timeout);
                 }
+                if (queueSubmitWithCommandsEnabled) __atomic_fetch_add(seqnoPtr, 1, __ATOMIC_SEQ_CST);
                 VkResult vkWaitSemaphores_VkResult_return = (VkResult)0;
                 vkWaitSemaphores_VkResult_return = vk->vkWaitSemaphores(unboxed_device, pWaitInfo, timeout);
                 vkStream->unsetHandleMapping();
@@ -9499,7 +9500,6 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                     m_state->snapshot()->vkWaitSemaphores(snapshotTraceBegin, snapshotTraceBytes, &m_pool, vkWaitSemaphores_VkResult_return, device, pWaitInfo, timeout);
                 }
                 vkReadStream->clearPool();
-                if (queueSubmitWithCommandsEnabled) __atomic_fetch_add(seqnoPtr, 1, __ATOMIC_SEQ_CST);
                 android::base::endTrace();
                 break;
             }
@@ -15125,6 +15125,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     fprintf(stderr, "stream %p: call vkWaitSemaphoresKHR 0x%llx 0x%llx 0x%llx \n", ioStream, (unsigned long long)device, (unsigned long long)pWaitInfo, (unsigned long long)timeout);
                 }
+                if (queueSubmitWithCommandsEnabled) __atomic_fetch_add(seqnoPtr, 1, __ATOMIC_SEQ_CST);
                 VkResult vkWaitSemaphoresKHR_VkResult_return = (VkResult)0;
                 vkWaitSemaphoresKHR_VkResult_return = vk->vkWaitSemaphoresKHR(unboxed_device, pWaitInfo, timeout);
                 vkStream->unsetHandleMapping();
@@ -15137,7 +15138,6 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                     m_state->snapshot()->vkWaitSemaphoresKHR(snapshotTraceBegin, snapshotTraceBytes, &m_pool, vkWaitSemaphoresKHR_VkResult_return, device, pWaitInfo, timeout);
                 }
                 vkReadStream->clearPool();
-                if (queueSubmitWithCommandsEnabled) __atomic_fetch_add(seqnoPtr, 1, __ATOMIC_SEQ_CST);
                 android::base::endTrace();
                 break;
             }
