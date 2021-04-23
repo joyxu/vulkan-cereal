@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.11)
 
 if (WIN32)
     add_definitions("-DUNICODE -D_UNICODE -DNOMINMAX -DEMUGL_BUILD -DVK_USE_PLATFORM_WIN32_KHR -DBUILDING_EMUGL_COMMON_SHARED")
+    add_definitions(/MP)
 endif()
 
 find_package(Threads)
