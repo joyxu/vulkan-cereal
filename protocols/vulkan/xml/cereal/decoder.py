@@ -9,6 +9,7 @@ from .transform import TransformCodegen, genTransformsForVulkanType
 from .wrapperdefs import API_PREFIX_MARSHAL
 from .wrapperdefs import API_PREFIX_UNMARSHAL, API_PREFIX_RESERVEDUNMARSHAL
 from .wrapperdefs import VULKAN_STREAM_TYPE
+from .wrapperdefs import ROOT_TYPE_DEFAULT_VALUE
 from .wrapperdefs import RELAXED_APIS
 
 from copy import copy
@@ -114,6 +115,7 @@ def emit_unmarshal(typeInfo, param, cgen, output = False, destroy = False, noUnb
         iterateVulkanType(typeInfo, param, VulkanReservedMarshalingCodegen(
             cgen,
             READ_STREAM,
+            ROOT_TYPE_DEFAULT_VALUE,
             param.paramName,
             "readStreamPtrPtr",
             API_PREFIX_RESERVEDUNMARSHAL,
@@ -140,6 +142,7 @@ def emit_unmarshal(typeInfo, param, cgen, output = False, destroy = False, noUnb
         iterateVulkanType(typeInfo, param, VulkanReservedMarshalingCodegen(
             cgen,
             READ_STREAM,
+            ROOT_TYPE_DEFAULT_VALUE,
             param.paramName,
             "readStreamPtrPtr",
             API_PREFIX_RESERVEDUNMARSHAL,
@@ -153,6 +156,7 @@ def emit_dispatch_unmarshal(typeInfo, param, cgen, globalWrapped):
         iterateVulkanType(typeInfo, param, VulkanReservedMarshalingCodegen(
             cgen,
             READ_STREAM,
+            ROOT_TYPE_DEFAULT_VALUE,
             param.paramName,
             "readStreamPtrPtr",
             API_PREFIX_RESERVEDUNMARSHAL,
@@ -165,6 +169,7 @@ def emit_dispatch_unmarshal(typeInfo, param, cgen, globalWrapped):
         iterateVulkanType(typeInfo, param, VulkanReservedMarshalingCodegen(
             cgen,
             READ_STREAM,
+            ROOT_TYPE_DEFAULT_VALUE,
             param.paramName,
             "readStreamPtrPtr",
             API_PREFIX_RESERVEDUNMARSHAL,
@@ -188,6 +193,7 @@ def emit_marshal(typeInfo, param, cgen, handleMapOverwrites=False):
     iterateVulkanType(typeInfo, param, VulkanMarshalingCodegen(
         cgen,
         WRITE_STREAM,
+        ROOT_TYPE_DEFAULT_VALUE,
         param.paramName,
         API_PREFIX_MARSHAL,
         direction="write",
@@ -372,8 +378,13 @@ def emit_decode_return_writeback(api, cgen):
         cgen.stmt("%s->write(&%s, %s)" %
             (WRITE_STREAM, retVar, cgen.sizeofExpr(api.retType)))
 
-def emit_decode_finish(cgen):
-    cgen.stmt("%s->commitWrite()" % WRITE_STREAM)
+def emit_decode_finish(api, cgen):
+    decodingParams = DecodingParameters(api)
+    retTypeName = api.getRetTypeExpr()
+    paramsToWrite = decodingParams.toWrite
+
+    if retTypeName != "void" or len(paramsToWrite) != 0:
+        cgen.stmt("%s->commitWrite()" % WRITE_STREAM)
 
 def emit_destroyed_handle_cleanup(api, cgen):
     decodingParams = DecodingParameters(api)
@@ -462,7 +473,7 @@ def emit_default_decoding(typeInfo, api, cgen):
     emit_dispatch_call(api, cgen)
     emit_decode_parameters_writeback(typeInfo, api, cgen)
     emit_decode_return_writeback(api, cgen)
-    emit_decode_finish(cgen)
+    emit_decode_finish(api, cgen)
     emit_snapshot(typeInfo, api, cgen)
     emit_destroyed_handle_cleanup(api, cgen)
     emit_pool_free(cgen)
@@ -481,7 +492,7 @@ def emit_global_state_wrapped_decoding(typeInfo, api, cgen):
     emit_global_state_wrapped_call(api, cgen)
     emit_decode_parameters_writeback(typeInfo, api, cgen, autobox=False)
     emit_decode_return_writeback(api, cgen)
-    emit_decode_finish(cgen)
+    emit_decode_finish(api, cgen)
     emit_snapshot(typeInfo, api, cgen)
     emit_destroyed_handle_cleanup(api, cgen)
     emit_pool_free(cgen)
@@ -511,7 +522,7 @@ def decode_vkFlushMappedMemoryRanges(typeInfo, api, cgen):
     emit_dispatch_call(api, cgen)
     emit_decode_parameters_writeback(typeInfo, api, cgen)
     emit_decode_return_writeback(api, cgen)
-    emit_decode_finish(cgen)
+    emit_decode_finish(api, cgen)
     emit_snapshot(typeInfo, api, cgen);
     emit_pool_free(cgen)
     emit_seqno_incr(api, cgen)
@@ -539,7 +550,7 @@ def decode_vkInvalidateMappedMemoryRanges(typeInfo, api, cgen):
     cgen.endFor()
     cgen.endIf()
 
-    emit_decode_finish(cgen)
+    emit_decode_finish(api, cgen)
     emit_snapshot(typeInfo, api, cgen);
     emit_pool_free(cgen)
     emit_seqno_incr(api, cgen)
@@ -640,6 +651,9 @@ custom_decodes = {
     "vkGetSemaphoreFdKHR" : emit_global_state_wrapped_decoding,
     "vkImportSemaphoreFdKHR" : emit_global_state_wrapped_decoding,
     "vkDestroySemaphore" : emit_global_state_wrapped_decoding,
+
+    "vkCreateFence" : emit_global_state_wrapped_decoding,
+    "vkDestroyFence" : emit_global_state_wrapped_decoding,
 
     # VK_GOOGLE_gfxstream
     "vkFreeMemorySyncGOOGLE" : emit_global_state_wrapped_decoding,
