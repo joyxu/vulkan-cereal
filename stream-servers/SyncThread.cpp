@@ -66,7 +66,7 @@ static GlobalSyncThread* sGlobalSyncThread() {
 
 static const uint32_t kTimelineInterval = 1;
 static const uint64_t kDefaultTimeoutNsecs = 5ULL * 1000ULL * 1000ULL * 1000ULL;
-static const uint64_t kNumWorkerThreads = 4u;
+static const uint64_t kNumWorkerThreads = 1u;
 
 SyncThread::SyncThread()
     : android::base::Thread(android::base::ThreadFlags::MaskSignals, 512 * 1024),
