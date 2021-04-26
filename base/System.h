@@ -26,5 +26,7 @@ CpuTime cpuTime();
 
 bool queryFileVersionInfo(const char* filename, int* major, int* minor, int* build1, int* build2);
 
+int getCpuCoreCount();
+
 } // namespace base
 } // namespace android
