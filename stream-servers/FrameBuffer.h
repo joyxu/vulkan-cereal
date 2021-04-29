@@ -30,6 +30,7 @@
 #include "FbConfig.h"
 #include "GLESVersionDetector.h"
 #include "Hwc2.h"
+#include "PostCommands.h"
 #include "PostWorker.h"
 #include "ReadbackWorker.h"
 #include "RenderContext.h"
@@ -680,6 +681,9 @@ class FrameBuffer {
     TextureDraw* m_textureDraw = nullptr;
     EGLConfig m_eglConfig = nullptr;
     HandleType m_lastPostedColorBuffer = 0;
+    // With Vulkan swapchain, compose also means to post to the WSI surface.
+    // In this case, don't do anything in the subsequent resource flush.
+    bool m_justVkComposed = false;
     float m_zRot = 0;
     float m_px = 0;
     float m_py = 0;
@@ -754,38 +758,6 @@ class FrameBuffer {
     // refcount hits 0. This is for use with guest kernels where the color
     // buffer is already tied to a file descriptor in the guest kernel.
     bool m_noDelayCloseColorBufferEnabled = false;
-
-    // Posting
-    enum class PostCmd {
-        Post = 0,
-        Viewport = 1,
-        Compose = 2,
-        Clear = 3,
-        Screenshot = 4,
-        Exit = 5,
-    };
-
-    struct Post {
-        PostCmd cmd;
-        int composeVersion;
-        std::vector<char> composeBuffer;
-        union {
-            ColorBuffer* cb;
-            struct {
-                int width;
-                int height;
-            } viewport;
-            struct {
-                ColorBuffer* cb;
-                int screenwidth;
-                int screenheight;
-                GLenum format;
-                GLenum type;
-                int rotation;
-                void* pixels;
-            } screenshot;
-        };
-    };
 
     std::unique_ptr<PostWorker> m_postWorker = {};
     android::base::WorkerThread<Post> m_postThread;
