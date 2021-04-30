@@ -757,7 +757,7 @@ FrameBuffer::FrameBuffer(int p_width, int p_height, bool useSubWindow)
               kFeature_RefCountPipe)),
       m_noDelayCloseColorBufferEnabled(feature_is_enabled(
               kFeature_NoDelayCloseColorBuffer)),
-      m_postThread([this](FrameBuffer::Post&& post) {
+      m_postThread([this](Post&& post) {
           return postWorkerFunc(post);
       }) {
      uint32_t displayId = 0;
@@ -857,7 +857,7 @@ FrameBuffer::postWorkerFunc(const Post& post) {
     return WorkerProcessingResult::Continue;
 }
 
-void FrameBuffer::sendPostWorkerCmd(FrameBuffer::Post post) {
+void FrameBuffer::sendPostWorkerCmd(Post post) {
 #ifdef __APPLE__
     bool postOnlyOnMainThread = m_subWin && (emugl::getRenderer() == SELECTED_RENDERER_HOST);
 #else
@@ -2480,7 +2480,12 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
 
     // TODO(kaiyili, b/179481815): make DisplayVk::post asynchronous.
     if (m_displayVk != nullptr) {
+        if (m_justVkComposed) {
+            m_justVkComposed = false;
+            goto EXIT;
+        }
         m_displayVk->post(c->second.cb->getDisplayBufferVk());
+        m_lastPostedColorBuffer = p_colorbuffer;
         goto EXIT;
     }
 
@@ -2784,9 +2789,47 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
        composeCmd.composeBuffer.resize(bufferSize);
        memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
        composeCmd.cmd = PostCmd::Compose;
-       sendPostWorkerCmd(composeCmd);
-       if (p2->displayId == 0 && needPost) {
-           post(p2->targetHandle, false);
+       if (m_displayVk) {
+           ColorBufferMap::iterator c;
+
+           std::vector<ColorBufferPtr> cbs; // Keep ColorBuffers alive
+           std::vector<std::shared_ptr<DisplayVk::DisplayBufferInfo>> composeBuffers;
+           ComposeDevice_v2* composeDevice = (ComposeDevice_v2*)buffer;
+           ComposeLayer* l = (ComposeLayer*)composeDevice->layer;
+           for (int i = 0; i < composeDevice->numLayers; ++i, ++l) {
+                c = m_colorbuffers.find(l->cbHandle);
+                if (c == m_colorbuffers.end()) {
+                    composeBuffers.push_back(nullptr);
+                    continue;
+                }
+                cbs.push_back(c->second.cb);
+                auto db = c->second.cb->getDisplayBufferVk();
+                if (!db) {
+                    mutex.unlock();
+                    goldfish_vk::setupVkColorBuffer(l->cbHandle);
+                    mutex.lock();
+                    db = c->second.cb->getDisplayBufferVk();
+                }
+                composeBuffers.push_back(db);
+           }
+
+           c = m_colorbuffers.find(p2->targetHandle);
+           auto db = c->second.cb->getDisplayBufferVk();
+
+           if (!db) {
+               mutex.unlock();
+               goldfish_vk::setupVkColorBuffer(p2->targetHandle);
+               mutex.lock();
+               db = c->second.cb->getDisplayBufferVk();
+           }
+
+           m_displayVk->compose(composeCmd, composeBuffers, db);
+           m_justVkComposed = true;
+       } else {
+           sendPostWorkerCmd(composeCmd);
+           if (p2->displayId == 0 && needPost) {
+               post(p2->targetHandle, false);
+           }
        }
        return true;
     }
