@@ -21,6 +21,8 @@
 #include "TextureDraw.h"
 #include "TextureResize.h"
 #include "YUVConverter.h"
+#include "vulkan/VulkanDispatch.h"
+#include "vulkan/VkCommonOperations.h"
 
 #include "OpenGLESDispatch/DispatchTables.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
