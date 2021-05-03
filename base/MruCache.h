@@ -17,6 +17,7 @@
 #ifndef ANDROID_BASE_MRUCACHE_
 #define ANDROID_BASE_MRUCACHE_
 
+#include <algorithm>
 #include <list>
 #include <map>
 
