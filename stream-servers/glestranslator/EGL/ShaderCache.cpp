@@ -15,6 +15,7 @@
 #include "ShaderCache.h"
 
 #include "base/MruCache.h"
+#include <string.h>
 #include <cstdio>
 
 #include <map>
