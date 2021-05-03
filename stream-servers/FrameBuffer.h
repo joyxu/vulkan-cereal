@@ -542,7 +542,8 @@ class FrameBuffer {
     void registerProcessSequenceNumberForPuid(uint64_t puid);
     uint32_t* getProcessSequenceNumberPtr(uint64_t puid);
 
-    int createDisplay(uint32_t* displayId);
+    int createDisplay(uint32_t *displayId);
+    int createDisplay(uint32_t displayId);
     int destroyDisplay(uint32_t displayId);
     int setDisplayColorBuffer(uint32_t displayId, uint32_t colorBuffer);
     int getDisplayColorBuffer(uint32_t displayId, uint32_t* colorBuffer);
