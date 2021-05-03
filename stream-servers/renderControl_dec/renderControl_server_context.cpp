@@ -72,6 +72,8 @@ int renderControl_server_context_t::initDispatchByName(void *(*getProc)(const ch
 	rcDestroySyncKHRAsync = (rcDestroySyncKHRAsync_server_proc_t) getProc("rcDestroySyncKHRAsync", userData);
 	rcComposeWithoutPost = (rcComposeWithoutPost_server_proc_t) getProc("rcComposeWithoutPost", userData);
 	rcComposeAsyncWithoutPost = (rcComposeAsyncWithoutPost_server_proc_t) getProc("rcComposeAsyncWithoutPost", userData);
+	rcCreateDisplayById = (rcCreateDisplayById_server_proc_t) getProc("rcCreateDisplayById", userData);
+	rcSetDisplayPoseDpi = (rcSetDisplayPoseDpi_server_proc_t) getProc("rcSetDisplayPoseDpi", userData);
 	return 0;
 }
 
