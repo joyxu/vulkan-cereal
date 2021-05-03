@@ -66,7 +66,7 @@ static GlobalSyncThread* sGlobalSyncThread() {
 
 static const uint32_t kTimelineInterval = 1;
 static const uint64_t kDefaultTimeoutNsecs = 5ULL * 1000ULL * 1000ULL * 1000ULL;
-static const uint64_t kNumWorkerThreads = 1u;
+static const uint64_t kNumWorkerThreads = 4u;
 
 SyncThread::SyncThread()
     : android::base::Thread(android::base::ThreadFlags::MaskSignals, 512 * 1024),
@@ -132,9 +132,13 @@ void SyncThread::cleanup() {
 
 void SyncThread::initSyncContext() {
     DPRINT("enter");
-    SyncThreadCmd to_send;
-    to_send.opCode = SYNC_THREAD_INIT;
-    sendAndWaitForResult(to_send);
+    // TODO(b/187082169, warty): The thread pool's command-assignment strategy
+    // is round-robin, so as a hack, create one command for each worker.
+    for (int i = 0; i < mWorkerThreadPool.numWorkers(); i++) {
+        SyncThreadCmd to_send;
+        to_send.opCode = SYNC_THREAD_INIT;
+        sendAndWaitForResult(to_send);
+    }
     DPRINT("exit");
 }
 
@@ -313,8 +317,9 @@ void SyncThread::doSyncBlockedWaitNoTimeline(SyncThreadCmd* cmd) {
            wait_result);
 
     if (wait_result != EGL_CONDITION_SATISFIED_KHR) {
-        fprintf(stderr, "error: eglClientWaitSync abnormal exit 0x%x %p\n",
-                wait_result, cmd->fenceSync);
+        EGLint error = s_egl.eglGetError();
+        fprintf(stderr, "error: eglClientWaitSync abnormal exit 0x%x %p %#x\n",
+                wait_result, cmd->fenceSync, error);
     }
 }
 
