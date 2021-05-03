@@ -10,7 +10,9 @@ and forward graphics API calls from one place to another:
 # Build: Linux
 
 Make sure the latest CMake is installed.
-Make sure you are using Clang as your `CC` and `CXX`. Then
+Make sure the opengl lib is installed. Otherwise, sudo apt-get install
+libglu1-mesa-dev freeglut3-dev mesa-common-dev
+Make sure you are using Clang as your `CC` and clang++ as your`CXX`. Then
 
     mkdir build
     cd build
