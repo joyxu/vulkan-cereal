@@ -3184,6 +3184,10 @@ int FrameBuffer::createDisplay(uint32_t *displayId) {
     return emugl::get_emugl_multi_display_operations().createDisplay(displayId);
 }
 
+int FrameBuffer::createDisplay(uint32_t displayId) {
+    return emugl::get_emugl_multi_display_operations().createDisplay(&displayId);
+}
+
 int FrameBuffer::destroyDisplay(uint32_t displayId) {
     return emugl::get_emugl_multi_display_operations().destroyDisplay(displayId);
 }
