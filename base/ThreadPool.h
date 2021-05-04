@@ -121,6 +121,7 @@ public:
 
     void enqueue(Item&& item) {
         // Iterate over the worker threads until we find a one that's running.
+        // TODO(b/187082169, warty): We rely on this round-robin strategy in SyncThread
         for (;;) {
             int currentIndex =
                     mNextWorkerIndex.fetch_add(1, std::memory_order_relaxed);

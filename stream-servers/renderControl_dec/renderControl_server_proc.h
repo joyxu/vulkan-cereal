@@ -74,6 +74,8 @@ typedef void (renderControl_APIENTRY *rcComposeAsync_server_proc_t) (uint32_t, v
 typedef void (renderControl_APIENTRY *rcDestroySyncKHRAsync_server_proc_t) (uint64_t);
 typedef GLint (renderControl_APIENTRY *rcComposeWithoutPost_server_proc_t) (uint32_t, void*);
 typedef void (renderControl_APIENTRY *rcComposeAsyncWithoutPost_server_proc_t) (uint32_t, void*);
+typedef int (renderControl_APIENTRY *rcCreateDisplayById_server_proc_t) (uint32_t);
+typedef int (renderControl_APIENTRY *rcSetDisplayPoseDpi_server_proc_t) (uint32_t, GLint, GLint, uint32_t, uint32_t, uint32_t);
 
 
 #endif
