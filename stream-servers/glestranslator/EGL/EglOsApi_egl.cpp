@@ -471,7 +471,9 @@ EglOsEglDisplay::createContext(EGLint profileMask,
     // Always GLES3
     std::vector<EGLint> attributes = { EGL_CONTEXT_CLIENT_VERSION, 3 };
     auto exts = mDispatcher.eglQueryString(mDisplay, EGL_EXTENSIONS);
-    if (exts != nullptr && emugl::hasExtension(exts, "EGL_KHR_create_context_no_error")) {
+
+    bool disableValidation = android::base::getEnvironmentVariable("ANDROID_EMUGL_EGL_VALIDATION") == "0";
+    if (exts != nullptr && emugl::hasExtension(exts, "EGL_KHR_create_context_no_error") && disableValidation) {
         attributes.push_back(EGL_CONTEXT_OPENGL_NO_ERROR_KHR);
         attributes.push_back(EGL_TRUE);
     }

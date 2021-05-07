@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include "CompositorVk.h"
+#include "Hwc2.h"
 #include "RenderContext.h"
 #include "SwapChainStateVk.h"
 #include "vulkan/cereal/common/goldfish_vk_dispatch.h"
@@ -49,8 +50,20 @@ class DisplayVk {
                                                            uint32_t height);
     void post(const std::shared_ptr<DisplayBufferInfo> &);
 
+    void compose(
+        uint32_t numLayers, const ComposeLayer layers[],
+        const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers);
+
    private:
     bool canComposite(VkFormat);
+    // Returns if the composition specified by the parameter is different from
+    // the previous composition. If the composition is different, update the
+    // previous composition stored in m_surfaceState. Must be called after
+    // bindToSurface() is called.
+    bool compareAndSaveComposition(
+        uint32_t renderTargetIndex, uint32_t numLayers,
+        const ComposeLayer layers[],
+        const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers);
 
     const goldfish_vk::VulkanDispatch &m_vk;
     VkPhysicalDevice m_vkPhysicalDevice;
@@ -68,10 +81,15 @@ class DisplayVk {
     std::unique_ptr<SwapChainStateVk> m_swapChainStateVk;
     std::unique_ptr<CompositorVk> m_compositorVk;
     struct SurfaceState {
+        struct Layer {
+            ComposeLayer m_hwc2Layer;
+            std::weak_ptr<DisplayBufferInfo> m_displayBuffer;
+        };
+
         uint32_t m_width = 0;
         uint32_t m_height = 0;
-        std::weak_ptr<DisplayBufferInfo> m_prevDisplayBuffer =
-            std::weak_ptr<DisplayBufferInfo>();
+        std::unordered_map<uint32_t, std::vector<std::unique_ptr<Layer>>>
+            m_prevCompositions;
     };
     std::unique_ptr<SurfaceState> m_surfaceState;
     std::unordered_map<VkFormat, bool> m_canComposite;
