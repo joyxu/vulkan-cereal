@@ -80,6 +80,7 @@ target_link_libraries(
 
 if (WIN32)
     target_link_libraries(gfxstream_backend PRIVATE D3d9.lib)
+    target_link_options(gfxstream_backend PRIVATE /DEBUG)
 endif()
 
 target_include_directories(
