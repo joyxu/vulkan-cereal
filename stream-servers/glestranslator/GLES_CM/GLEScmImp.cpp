@@ -1064,14 +1064,14 @@ GL_API void GL_APIENTRY  glGetBooleanv( GLenum pname, GLboolean *params) {
         }
         break;
     case GL_NUM_COMPRESSED_TEXTURE_FORMATS:
-        *params = (GLboolean)getCompressedFormats(NULL);
+        *params = (GLboolean)getCompressedFormats(1, NULL);
         break;
     case GL_COMPRESSED_TEXTURE_FORMATS:
         {
-            int nparams = getCompressedFormats(NULL);
+            int nparams = getCompressedFormats(1, NULL);
             if (nparams>0) {
                 int * iparams = new int[nparams];
-                getCompressedFormats(iparams);
+                getCompressedFormats(1, iparams);
                 for (int i=0; i<nparams; i++) params[i] = (GLboolean)iparams[i];
                 delete [] iparams;
             }
@@ -1162,15 +1162,15 @@ GL_API void GL_APIENTRY  glGetFixedv( GLenum pname, GLfixed *params) {
         glGetFloatv(pname,&fParams[0]);
         break;
     case GL_NUM_COMPRESSED_TEXTURE_FORMATS:
-        *params = I2X(getCompressedFormats(NULL));
+        *params = I2X(getCompressedFormats(1, NULL));
         return;
         break;
     case GL_COMPRESSED_TEXTURE_FORMATS:
         {
-            int nparams = getCompressedFormats(NULL);
+            int nparams = getCompressedFormats(1, NULL);
             if (nparams>0) {
                 int * iparams = new int[nparams];
-                getCompressedFormats(iparams);
+                getCompressedFormats(1, iparams);
                 for (int i=0; i<nparams; i++) params[i] = I2X(iparams[i]);
                 delete [] iparams;
             }
@@ -1208,14 +1208,14 @@ GL_API void GL_APIENTRY  glGetFloatv( GLenum pname, GLfloat *params) {
         *params = (GLfloat)i;
         break;
     case GL_NUM_COMPRESSED_TEXTURE_FORMATS:
-        *params = (GLfloat)getCompressedFormats(NULL);
+        *params = (GLfloat)getCompressedFormats(1, NULL);
         break;
     case GL_COMPRESSED_TEXTURE_FORMATS:
         {
-            int nparams = getCompressedFormats(NULL);
+            int nparams = getCompressedFormats(1, NULL);
             if (nparams>0) {
                 int * iparams = new int[nparams];
-                getCompressedFormats(iparams);
+                getCompressedFormats(1, iparams);
                 for (int i=0; i<nparams; i++) params[i] = (GLfloat)iparams[i];
                 delete [] iparams;
             }
@@ -1266,10 +1266,10 @@ GL_API void GL_APIENTRY  glGetIntegerv( GLenum pname, GLint *params) {
         }
         break;
     case GL_NUM_COMPRESSED_TEXTURE_FORMATS:
-        *params = getCompressedFormats(NULL);
+        *params = getCompressedFormats(1, NULL);
         break;
     case GL_COMPRESSED_TEXTURE_FORMATS:
-        getCompressedFormats(params);
+        getCompressedFormats(1, params);
         break;
     case GL_MAX_CLIP_PLANES:
         ctx->dispatcher().glGetIntegerv(pname,params);
