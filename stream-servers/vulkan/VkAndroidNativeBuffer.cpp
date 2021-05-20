@@ -495,7 +495,8 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
                 VK_STRUCTURE_TYPE_SUBMIT_INFO, 0,
                 0, nullptr, nullptr,
                 0, nullptr,
-                1, &semaphore,
+                (uint32_t)(semaphore == VK_NULL_HANDLE ? 0 : 1),
+                semaphore == VK_NULL_HANDLE ? nullptr : &semaphore,
             };
             vk->vkQueueSubmit(queueState.queue, 1, &submitInfo, fence);
         }
