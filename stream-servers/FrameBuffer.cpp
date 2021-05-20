@@ -757,7 +757,7 @@ FrameBuffer::FrameBuffer(int p_width, int p_height, bool useSubWindow)
               kFeature_RefCountPipe)),
       m_noDelayCloseColorBufferEnabled(feature_is_enabled(
               kFeature_NoDelayCloseColorBuffer)),
-      m_postThread([this](FrameBuffer::Post&& post) {
+      m_postThread([this](Post&& post) {
           return postWorkerFunc(post);
       }) {
      uint32_t displayId = 0;
@@ -857,7 +857,7 @@ FrameBuffer::postWorkerFunc(const Post& post) {
     return WorkerProcessingResult::Continue;
 }
 
-void FrameBuffer::sendPostWorkerCmd(FrameBuffer::Post post) {
+void FrameBuffer::sendPostWorkerCmd(Post post) {
 #ifdef __APPLE__
     bool postOnlyOnMainThread = m_subWin && (emugl::getRenderer() == SELECTED_RENDERER_HOST);
 #else
@@ -1839,6 +1839,12 @@ bool FrameBuffer::flushWindowSurfaceColorBuffer(HandleType p_surface) {
         return false;
     }
 
+    GLenum resetStatus = s_gles2.glGetGraphicsResetStatusEXT();
+    if (resetStatus != GL_NO_ERROR) {
+        ERR("Stream server aborting due to graphics reset. ResetStatus: %#x\n", resetStatus);
+        abort();
+    }
+
     WindowSurface* surface = (*w).second.first.get();
     surface->flushColorBuffer();
 
@@ -2474,7 +2480,12 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
 
     // TODO(kaiyili, b/179481815): make DisplayVk::post asynchronous.
     if (m_displayVk != nullptr) {
+        if (m_justVkComposed) {
+            m_justVkComposed = false;
+            goto EXIT;
+        }
         m_displayVk->post(c->second.cb->getDisplayBufferVk());
+        m_lastPostedColorBuffer = p_colorbuffer;
         goto EXIT;
     }
 
@@ -2769,18 +2780,50 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
        // support for multi-display
        ComposeDevice_v2* p2 = (ComposeDevice_v2*)buffer;
        if (p2->displayId != 0) {
-            mutex.unlock();
-            setDisplayColorBuffer(p2->displayId, p2->targetHandle);
-            mutex.lock();
+           mutex.unlock();
+           setDisplayColorBuffer(p2->displayId, p2->targetHandle);
+           mutex.lock();
        }
-       Post composeCmd;
-       composeCmd.composeVersion = 2;
-       composeCmd.composeBuffer.resize(bufferSize);
-       memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
-       composeCmd.cmd = PostCmd::Compose;
-       sendPostWorkerCmd(composeCmd);
-       if (p2->displayId == 0 && needPost) {
-           post(p2->targetHandle, false);
+       if (m_displayVk) {
+           // We don't copy the render result to the targetHandle color buffer
+           // when using the Vulkan native host swapchain, because we directly
+           // render to the swapchain image instead of rendering onto a
+           // ColorBuffer, and we don't readback from the ColorBuffer so far.
+           ColorBufferMap::iterator c;
+
+           std::vector<ColorBufferPtr> cbs; // Keep ColorBuffers alive
+           std::vector<std::shared_ptr<DisplayVk::DisplayBufferInfo>> composeBuffers;
+           ComposeDevice_v2* const composeDevice = p2;
+           const ComposeLayer* const l = (ComposeLayer*)composeDevice->layer;
+           for (int i = 0; i < composeDevice->numLayers; ++i) {
+               c = m_colorbuffers.find(l[i].cbHandle);
+               if (c == m_colorbuffers.end()) {
+                   composeBuffers.push_back(nullptr);
+                   continue;
+               }
+               cbs.push_back(c->second.cb);
+               auto db = c->second.cb->getDisplayBufferVk();
+               if (!db) {
+                   mutex.unlock();
+                   goldfish_vk::setupVkColorBuffer(l[i].cbHandle);
+                   mutex.lock();
+                   db = c->second.cb->getDisplayBufferVk();
+               }
+               composeBuffers.push_back(db);
+           }
+
+           m_displayVk->compose(composeDevice->numLayers, l, composeBuffers);
+           m_justVkComposed = true;
+       } else {
+           Post composeCmd;
+           composeCmd.composeVersion = 2;
+           composeCmd.composeBuffer.resize(bufferSize);
+           memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
+           composeCmd.cmd = PostCmd::Compose;
+           sendPostWorkerCmd(composeCmd);
+           if (p2->displayId == 0 && needPost) {
+               post(p2->targetHandle, false);
+           }
        }
        return true;
     }
@@ -3135,6 +3178,10 @@ int FrameBuffer::createDisplay(uint32_t *displayId) {
     return emugl::get_emugl_multi_display_operations().createDisplay(displayId);
 }
 
+int FrameBuffer::createDisplay(uint32_t displayId) {
+    return emugl::get_emugl_multi_display_operations().createDisplay(&displayId);
+}
+
 int FrameBuffer::destroyDisplay(uint32_t displayId) {
     return emugl::get_emugl_multi_display_operations().destroyDisplay(displayId);
 }
@@ -3211,7 +3258,8 @@ void FrameBuffer::setGuestManagedColorBufferLifetime(bool guestManaged) {
     m_guestManagedColorBufferLifetime = guestManaged;
 }
 
-VkImageLayout FrameBuffer::getVkImageLayoutForPresent() const {
+VkImageLayout FrameBuffer::getVkImageLayoutForCompose() const {
+    // TODO(segal): This is backwards. Correct it.
     if (m_displayVk == nullptr) {
         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }

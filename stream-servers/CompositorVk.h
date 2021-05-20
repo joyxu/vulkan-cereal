@@ -12,19 +12,35 @@
 #include "vulkan/cereal/common/goldfish_vk_dispatch.h"
 #include "vulkan/vk_util.h"
 
+#include "Hwc2.h"
+
+class ComposeLayerVk {
+   public:
+    VkSampler m_vkSampler;
+    VkImageView m_vkImageView;
+    struct LayerTransform {
+        glm::mat4 pos;
+        glm::mat4 texcoord;
+    } m_layerTransform;
+
+    static std::unique_ptr<ComposeLayerVk> createFromHwc2ComposeLayer(
+        VkSampler, VkImageView, const ComposeLayer &, uint32_t cbWidth,
+        uint32_t cbHeight, uint32_t dstWidth, uint32_t dstHeight);
+
+   private:
+    ComposeLayerVk() = delete;
+    explicit ComposeLayerVk(VkSampler, VkImageView, const LayerTransform &);
+};
+
+// If we want to apply transform to all layers to rotate/clip/position the
+// virtual display, we should add that functionality here.
 class Composition {
    public:
-    VkImageView m_vkImageView;
-    VkSampler m_vkSampler;
-    uint32_t m_width;
-    uint32_t m_height;
-
-    // transform matrix in screen coordinates
-    glm::mat3 m_transform;
+    std::vector<std::unique_ptr<ComposeLayerVk>> m_composeLayers;
 
     Composition() = delete;
-    explicit Composition(VkImageView, VkSampler, uint32_t width,
-                         uint32_t height);
+    explicit Composition(
+        std::vector<std::unique_ptr<ComposeLayerVk>> composeLayers);
 };
 
 struct CompositorVkBase
@@ -117,7 +133,8 @@ class CompositorVk : protected CompositorVkBase {
     void copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize) const;
 
     struct UniformBufferObject {
-        alignas(16) glm::mat4 transform;
+        alignas(16) glm::mat4 pos_transform;
+        alignas(16) glm::mat4 texcoord_transform;
     };
 
     struct Vertex {

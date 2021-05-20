@@ -232,6 +232,9 @@ static const char* kVulkanQueueSubmitWithCommands = "ANDROID_EMU_vulkan_queue_su
 // Batched descriptor set update
 static const char* kVulkanBatchedDescriptorSetUpdate = "ANDROID_EMU_vulkan_batched_descriptor_set_update";
 
+// Synchronized glBufferData call
+static const char* kSyncBufferData = "ANDROID_EMU_sync_buffer_data";
+
 static void rcTriggerWait(uint64_t glsync_ptr,
                           uint64_t thread_ptr,
                           uint64_t timeline);
@@ -477,6 +480,7 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
     bool vulkanAsyncQueueSubmitEnabled = shouldEnableAsyncQueueSubmit();
     bool vulkanQueueSubmitWithCommands = shouldEnableQueueSubmitWithCommands();
     bool vulkanBatchedDescriptorSetUpdate = shouldEnableBatchedDescriptorSetUpdate();
+    bool syncBufferDataEnabled = true;
 
     if (isChecksumEnabled && name == GL_EXTENSIONS) {
         glStr += ChecksumCalculatorThreadInfo::getMaxVersionString();
@@ -597,6 +601,11 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
 
     if (virtioGpuNativeSyncEnabled && name == GL_EXTENSIONS) {
         glStr += kVirtioGpuNativeSync;
+        glStr += " ";
+    }
+
+    if (syncBufferDataEnabled && name == GL_EXTENSIONS) {
+        glStr += kSyncBufferData;
         glStr += " ";
     }
 
@@ -1091,16 +1100,18 @@ static void rcTriggerWait(uint64_t eglsync_ptr,
     if (thread_ptr == 1) {
         // Is vulkan sync fd;
         // just signal right away for now
-        SyncThread::get()->triggerWait(0, timeline);
+        EGLSYNC_DPRINT("vkFence=0x%llx timeline=0x%llx", eglsync_ptr,
+                       thread_ptr, timeline);
+        SyncThread::get()->triggerWaitVk(reinterpret_cast<VkFence>(eglsync_ptr),
+                                         timeline);
+    } else {
+        FenceSync* fenceSync = reinterpret_cast<FenceSync*>(eglsync_ptr);
+        EGLSYNC_DPRINT(
+                "eglsync=0x%llx fenceSync=%p thread_ptr=0x%llx "
+                "timeline=0x%llx",
+                eglsync_ptr, fenceSync, thread_ptr, timeline);
+        SyncThread::get()->triggerWait(fenceSync, timeline);
     }
-
-    FenceSync* fenceSync = (FenceSync*)(uintptr_t)eglsync_ptr;
-    EGLSYNC_DPRINT("eglsync=0x%llx "
-                   "fenceSync=%p "
-                   "thread_ptr=0x%llx "
-                   "timeline=0x%llx",
-                   eglsync_ptr, fenceSync, thread_ptr, timeline);
-    SyncThread::get()->triggerWait(fenceSync, timeline);
 }
 
 // |rcCreateSyncKHR| implements the guest's |eglCreateSyncKHR| by calling the
@@ -1263,6 +1274,15 @@ static int rcCreateDisplay(uint32_t* displayId) {
     return fb->createDisplay(displayId);
 }
 
+static int rcCreateDisplayById(uint32_t displayId) {
+    FrameBuffer *fb = FrameBuffer::getFB();
+    if (!fb) {
+        return -1;
+    }
+
+    return fb->createDisplay(displayId);
+}
+
 static int rcDestroyDisplay(uint32_t displayId) {
     FrameBuffer *fb = FrameBuffer::getFB();
     if (!fb) {
@@ -1323,6 +1343,20 @@ static int rcSetDisplayPose(uint32_t displayId,
     }
 
     return fb->setDisplayPose(displayId, x, y, w, h);
+}
+
+static int rcSetDisplayPoseDpi(uint32_t displayId,
+                               int32_t x,
+                               int32_t y,
+                               uint32_t w,
+                               uint32_t h,
+                               uint32_t dpi) {
+    FrameBuffer *fb = FrameBuffer::getFB();
+    if (!fb) {
+        return -1;
+    }
+
+    return fb->setDisplayPose(displayId, x, y, w, h, dpi);
 }
 
 static void rcReadColorBufferYUV(uint32_t colorBuffer,
@@ -1546,4 +1580,6 @@ void initRenderControlContext(renderControl_decoder_context_t *dec)
     dec->rcDestroySyncKHRAsync = rcDestroySyncKHRAsync;
     dec->rcComposeWithoutPost = rcComposeWithoutPost;
     dec->rcComposeAsyncWithoutPost = rcComposeAsyncWithoutPost;
+    dec->rcCreateDisplayById = rcCreateDisplayById;
+    dec->rcSetDisplayPoseDpi = rcSetDisplayPoseDpi;
 }

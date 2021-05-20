@@ -65,7 +65,9 @@
 #define OP_rcDestroySyncKHRAsync 					10059
 #define OP_rcComposeWithoutPost 					10060
 #define OP_rcComposeAsyncWithoutPost 					10061
-#define OP_last 					10062
+#define OP_rcCreateDisplayById 					10062
+#define OP_rcSetDisplayPoseDpi 					10063
+#define OP_last 					10064
 
 
 #endif
