@@ -423,15 +423,14 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
         !anbInfo->everAcquired;
 
     anbInfo->everAcquired = true;
-        // fprintf(stderr, "%s: call\n", __func__);
 
     if (firstTimeSetup) {
-
         VkSubmitInfo submitInfo = {
             VK_STRUCTURE_TYPE_SUBMIT_INFO, 0,
             0, nullptr, nullptr,
             0, nullptr,
-            1, &semaphore,
+            (uint32_t)(semaphore == VK_NULL_HANDLE ? 0 : 1),
+            semaphore == VK_NULL_HANDLE ? nullptr : &semaphore,
         };
 
         vk->vkQueueSubmit(defaultQueue, 1, &submitInfo, fence);
@@ -483,8 +482,8 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
                 nullptr,
                 1,
                 &queueState.cb2,
-                1,
-                &semaphore,
+                (uint32_t)(semaphore == VK_NULL_HANDLE ? 0 : 1),
+                semaphore == VK_NULL_HANDLE ? nullptr : &semaphore,
             };
 
             // TODO(kaiyili): initiate ownership transfer from DisplayVk here
