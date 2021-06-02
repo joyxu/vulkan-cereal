@@ -2785,6 +2785,15 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
            mutex.lock();
        }
        if (m_displayVk) {
+           auto targetBufferIter = m_colorbuffers.find(p2->targetHandle);
+           if (targetBufferIter == m_colorbuffers.end()) {
+               ERR("failed to retrieve the composition target buffer\n");
+               std::abort();
+           }
+           uint32_t dstWidth =
+               static_cast<uint32_t>(targetBufferIter->second.cb->getWidth());
+           uint32_t dstHeight =
+               static_cast<uint32_t>(targetBufferIter->second.cb->getHeight());
            // We don't copy the render result to the targetHandle color buffer
            // when using the Vulkan native host swapchain, because we directly
            // render to the swapchain image instead of rendering onto a
@@ -2812,7 +2821,8 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
                composeBuffers.push_back(db);
            }
 
-           m_displayVk->compose(composeDevice->numLayers, l, composeBuffers);
+           m_displayVk->compose(composeDevice->numLayers, l, composeBuffers,
+                                dstWidth, dstHeight);
            m_justVkComposed = true;
        } else {
            Post composeCmd;
