@@ -50,9 +50,13 @@ class DisplayVk {
                                                            uint32_t height);
     void post(const std::shared_ptr<DisplayBufferInfo> &);
 
+    // dstWidth and dstHeight describe the size of the render target the guest
+    // "thinks" it composes to, essentially, the virtual display size. Note that
+    // this can be different from the actual window size.
     void compose(
         uint32_t numLayers, const ComposeLayer layers[],
-        const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers);
+        const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers,
+        uint32_t dstWidth, uint32_t dstHeight);
 
    private:
     bool canComposite(VkFormat);
