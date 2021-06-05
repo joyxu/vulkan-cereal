@@ -47,6 +47,7 @@
 #endif
 
 #define VK_COMMON_ERROR(fmt,...) fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
+#define VK_COMMON_LOG(fmt,...) fprintf(stdout, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
 #define VK_COMMON_VERBOSE(fmt,...) if (android::base::isVerboseLogging()) fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
 
 using android::base::AutoLock;
@@ -764,9 +765,8 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
     }
 
     auto deviceVersion = sVkEmulation->deviceInfo.physdevProps.apiVersion;
+    VK_COMMON_LOG("Selecting Vulkan device: %s", sVkEmulation->deviceInfo.physdevProps.deviceName);
 
-    // LOG(VERBOSE) << "Vulkan device found: "
-    //              << sVkEmulation->deviceInfo.physdevProps.deviceName;
     // LOG(VERBOSE) << "Version: "
     //              << VK_VERSION_MAJOR(deviceVersion) << "." << VK_VERSION_MINOR(deviceVersion) << "." << VK_VERSION_PATCH(deviceVersion);
     // LOG(VERBOSE) << "Has graphics queue? "
