@@ -780,5 +780,10 @@ class FrameBuffer {
     std::unique_ptr<DisplayVk> m_displayVk;
     VkInstance m_vkInstance = VK_NULL_HANDLE;
     VkSurfaceKHR m_vkSurface = VK_NULL_HANDLE;
+
+    // UUIDs of physical devices for Vulkan and GLES, respectively.  In most
+    // cases, this determines whether we can support zero-copy interop.
+    uint8_t m_vulkanUUID[VK_UUID_SIZE];
+    uint8_t m_glesUUID[VK_UUID_SIZE];
 };
 #endif
