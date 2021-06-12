@@ -608,7 +608,7 @@ public:
                         // in VkCommonOperations.
                         return memcmp(m_emu->deviceInfo.idProps.deviceUUID,
                                       idProps.deviceUUID, VK_UUID_SIZE) != 0;
-                    }));
+                    }), validPhysicalDevices.end());
             } else {
                 fprintf(stderr,
                         "%s: warning: failed to "
