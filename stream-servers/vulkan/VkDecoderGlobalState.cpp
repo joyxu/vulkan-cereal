@@ -3094,7 +3094,7 @@ public:
             // Ensure color buffer has Vulkan backing.
             setupVkColorBuffer(importCbInfoPtr->colorBuffer,
                                vulkanOnly,
-                               0u /* memoryProperty */, nullptr,
+                               memoryPropertyFlags, nullptr,
                                // Modify the allocation size and type index
                                // to suit the resulting image memory size.
                                &localAllocInfo.allocationSize,
@@ -3131,7 +3131,7 @@ public:
             // Ensure buffer has Vulkan backing.
             setupVkBuffer(importBufferInfoPtr->buffer,
                           true /* Buffers are Vulkan only */,
-                          0u /* memoryProperty */, nullptr,
+                          memoryPropertyFlags, nullptr,
                           // Modify the allocation size and type index
                           // to suit the resulting image memory size.
                           &localAllocInfo.allocationSize,
