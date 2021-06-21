@@ -7345,6 +7345,29 @@ size_t gles2_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::endTrace();
 			break;
 		}
+		case OP_glBufferDataSyncAEMU: {
+			android::base::beginTrace("glBufferDataSyncAEMU decode");
+			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
+			GLsizeiptr var_size = Unpack<GLsizeiptr,uint32_t>(ptr + 8 + 4);
+			uint32_t size_data __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
+			InputBuffer inptr_data(ptr + 8 + 4 + 4 + 4, size_data);
+			GLenum var_usage = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4 + 4 + size_data);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + size_data + 4, checksumSize, 
+					"gles2_decoder_context_t::decode, OP_glBufferDataSyncAEMU: GL checksumCalculator failure\n");
+			}
+			size_t totalTmpSize = sizeof(GLboolean);
+			totalTmpSize += checksumSize;
+			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			*(GLboolean *)(&tmpBuf[0]) = 			this->glBufferDataSyncAEMU(this, var_target, var_size, size_data == 0 ? nullptr : (const GLvoid*)(inptr_data.get()), var_usage);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
+			}
+			stream->flush();
+			SET_LASTCALL("glBufferDataSyncAEMU");
+			android::base::endTrace();
+			break;
+		}
 		default:
 			return ptr - (unsigned char*)buf;
 		} //switch

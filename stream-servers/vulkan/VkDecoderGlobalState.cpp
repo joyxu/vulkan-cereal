@@ -64,6 +64,9 @@ using android::base::ConditionVariable;
 using android::base::Lock;
 using android::base::Optional;
 
+// TODO: Asserts build
+#define DCHECK(condition)
+
 #define VKDGS_DEBUG 0
 
 #if VKDGS_DEBUG
@@ -292,6 +295,7 @@ public:
         mBufferInfo.clear();
         mMapInfo.clear();
         mSemaphoreInfo.clear();
+        mFenceInfo.clear();
 #ifdef _WIN32
         mSemaphoreId = 1;
         mExternalSemaphoresById.clear();
@@ -536,55 +540,136 @@ public:
         fb->unregisterProcessCleanupCallback(instance);
     }
 
-    VkResult on_vkEnumeratePhysicalDevices(
-            android::base::BumpPool* pool,
-            VkInstance boxed_instance,
-            uint32_t* physicalDeviceCount,
-            VkPhysicalDevice* physicalDevices) {
-
+    VkResult on_vkEnumeratePhysicalDevices(android::base::BumpPool* pool,
+                                           VkInstance boxed_instance,
+                                           uint32_t* physicalDeviceCount,
+                                           VkPhysicalDevice* physicalDevices) {
         auto instance = unbox_VkInstance(boxed_instance);
         auto vk = dispatch_VkInstance(boxed_instance);
 
-        auto res = vk->vkEnumeratePhysicalDevices(instance, physicalDeviceCount, physicalDevices);
+        uint32_t physicalDevicesSize = 0;
+        if (physicalDeviceCount) {
+            physicalDevicesSize = *physicalDeviceCount;
+        }
 
+        uint32_t actualPhysicalDeviceCount;
+        auto res = vk->vkEnumeratePhysicalDevices(
+            instance, &actualPhysicalDeviceCount, nullptr);
+        if (res != VK_SUCCESS) {
+            return res;
+        }
+        std::vector<VkPhysicalDevice> validPhysicalDevices(
+            actualPhysicalDeviceCount);
+        res = vk->vkEnumeratePhysicalDevices(
+            instance, &actualPhysicalDeviceCount, validPhysicalDevices.data());
         if (res != VK_SUCCESS) return res;
 
         AutoLock lock(mLock);
 
+        if (m_emu->instanceSupportsExternalMemoryCapabilities) {
+            PFN_vkGetPhysicalDeviceProperties2KHR getPhysdevProps2Func =
+                (PFN_vkGetPhysicalDeviceProperties2KHR)(vk->vkGetInstanceProcAddr(
+                    instance, "vkGetPhysicalDeviceProperties2KHR"));
+
+            if (!getPhysdevProps2Func) {
+                getPhysdevProps2Func =
+                    (PFN_vkGetPhysicalDeviceProperties2KHR)(vk->vkGetInstanceProcAddr(
+                        instance, "vkGetPhysicalDeviceProperties2"));
+            }
+
+            if (!getPhysdevProps2Func) {
+                PFN_vkGetPhysicalDeviceProperties2KHR khrFunc =
+                    vk->vkGetPhysicalDeviceProperties2KHR;
+                PFN_vkGetPhysicalDeviceProperties2KHR coreFunc =
+                    vk->vkGetPhysicalDeviceProperties2;
+
+                if (coreFunc) getPhysdevProps2Func = coreFunc;
+                if (!getPhysdevProps2Func && khrFunc)
+                    getPhysdevProps2Func = khrFunc;
+            }
+
+            if (getPhysdevProps2Func) {
+                validPhysicalDevices.erase(std::remove_if(
+                    validPhysicalDevices.begin(), validPhysicalDevices.end(),
+                    [getPhysdevProps2Func,
+                     this](VkPhysicalDevice physicalDevice) {
+                        // We can get the device UUID.
+                        VkPhysicalDeviceIDPropertiesKHR idProps = {
+                            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES_KHR,
+                            nullptr,
+                        };
+                        VkPhysicalDeviceProperties2KHR propsWithId = {
+                            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR,
+                            &idProps,
+                        };
+                        getPhysdevProps2Func(physicalDevice, &propsWithId);
+
+                        // Remove those devices whose UUIDs don't match the one
+                        // in VkCommonOperations.
+                        return memcmp(m_emu->deviceInfo.idProps.deviceUUID,
+                                      idProps.deviceUUID, VK_UUID_SIZE) != 0;
+                    }), validPhysicalDevices.end());
+            } else {
+                fprintf(stderr,
+                        "%s: warning: failed to "
+                        "vkGetPhysicalDeviceProperties2KHR\n",
+                        __func__);
+            }
+        } else {
+            // If we don't support ID properties then just advertise only the
+            // first physical device.
+            fprintf(stderr,
+                    "%s: device id properties not supported, using first "
+                    "physical device\n",
+                    __func__);
+        }
+        if (!validPhysicalDevices.empty()) {
+            validPhysicalDevices.erase(std::next(validPhysicalDevices.begin()),
+                                       validPhysicalDevices.end());
+        }
+
+        if (physicalDeviceCount) {
+            *physicalDeviceCount = validPhysicalDevices.size();
+        }
+
         if (physicalDeviceCount && physicalDevices) {
             // Box them up
-            for (uint32_t i = 0; i < *physicalDeviceCount; ++i) {
-                mPhysicalDeviceToInstance[physicalDevices[i]] = instance;
+            for (uint32_t i = 0;
+                 i < std::min(*physicalDeviceCount, physicalDevicesSize); ++i) {
+                mPhysicalDeviceToInstance[validPhysicalDevices[i]] = instance;
 
-                auto& physdevInfo = mPhysdevInfo[physicalDevices[i]];
+                auto& physdevInfo = mPhysdevInfo[validPhysicalDevices[i]];
 
+                physdevInfo.boxed = new_boxed_VkPhysicalDevice(
+                    validPhysicalDevices[i], vk,
+                    false /* does not own dispatch */);
 
-                physdevInfo.boxed =
-                    new_boxed_VkPhysicalDevice(physicalDevices[i], vk, false /* does not own dispatch */);
-
-                vk->vkGetPhysicalDeviceProperties(physicalDevices[i],
-                        &physdevInfo.props);
+                vk->vkGetPhysicalDeviceProperties(validPhysicalDevices[i],
+                                                  &physdevInfo.props);
 
                 if (physdevInfo.props.apiVersion > kMaxSafeVersion) {
                     physdevInfo.props.apiVersion = kMaxSafeVersion;
                 }
 
                 vk->vkGetPhysicalDeviceMemoryProperties(
-                        physicalDevices[i], &physdevInfo.memoryProperties);
+                    validPhysicalDevices[i], &physdevInfo.memoryProperties);
 
                 uint32_t queueFamilyPropCount = 0;
 
                 vk->vkGetPhysicalDeviceQueueFamilyProperties(
-                        physicalDevices[i], &queueFamilyPropCount, nullptr);
+                    validPhysicalDevices[i], &queueFamilyPropCount, nullptr);
 
                 physdevInfo.queueFamilyProperties.resize(
-                        (size_t)queueFamilyPropCount);
+                    (size_t)queueFamilyPropCount);
 
                 vk->vkGetPhysicalDeviceQueueFamilyProperties(
-                        physicalDevices[i], &queueFamilyPropCount,
-                        physdevInfo.queueFamilyProperties.data());
+                    validPhysicalDevices[i], &queueFamilyPropCount,
+                    physdevInfo.queueFamilyProperties.data());
 
                 physicalDevices[i] = (VkPhysicalDevice)physdevInfo.boxed;
+            }
+            if (physicalDevicesSize < *physicalDeviceCount) {
+                res = VK_INCOMPLETE;
             }
         }
 
@@ -1763,6 +1848,15 @@ public:
         VkSemaphoreCreateInfo localCreateInfo = vk_make_orphan_copy(*pCreateInfo);
         vk_struct_chain_iterator structChainIter = vk_make_chain_iterator(&localCreateInfo);
 
+        VkSemaphoreTypeCreateInfoKHR localSemaphoreTypeCreateInfo;
+        if (const VkSemaphoreTypeCreateInfoKHR* semaphoreTypeCiPtr =
+                    vk_find_struct<VkSemaphoreTypeCreateInfoKHR>(pCreateInfo);
+            semaphoreTypeCiPtr) {
+            localSemaphoreTypeCreateInfo =
+                    vk_make_orphan_copy(*semaphoreTypeCiPtr);
+            vk_append_struct(&structChainIter, &localSemaphoreTypeCreateInfo);
+        }
+
         const VkExportSemaphoreCreateInfoKHR* exportCiPtr =
             vk_find_struct<VkExportSemaphoreCreateInfoKHR>(pCreateInfo);
         VkExportSemaphoreCreateInfoKHR localSemaphoreCreateInfo;
@@ -1785,6 +1879,36 @@ public:
         if (res != VK_SUCCESS) return res;
 
         *pSemaphore = new_boxed_non_dispatchable_VkSemaphore(*pSemaphore);
+
+        return res;
+    }
+
+    VkResult on_vkCreateFence(android::base::BumpPool* pool,
+                              VkDevice boxed_device,
+                              const VkFenceCreateInfo* pCreateInfo,
+                              const VkAllocationCallbacks* pAllocator,
+                              VkFence* pFence) {
+        auto device = unbox_VkDevice(boxed_device);
+        auto vk = dispatch_VkDevice(boxed_device);
+
+        VkResult res =
+                vk->vkCreateFence(device, pCreateInfo, pAllocator, pFence);
+        if (res != VK_SUCCESS) {
+            return res;
+        }
+
+        {
+            AutoLock lock(mLock);
+
+            DCHECK(mFenceInfo.find(*pFence) == mFenceInfo.end());
+            mFenceInfo[*pFence] = {};
+            auto& fenceInfo = mFenceInfo[*pFence];
+            fenceInfo.device = device;
+            fenceInfo.vk = vk;
+
+            *pFence = new_boxed_non_dispatchable_VkFence(*pFence);
+            fenceInfo.boxed = *pFence;
+        }
 
         return res;
     }
@@ -1883,6 +2007,21 @@ public:
         }
 #endif
         vk->vkDestroySemaphore(device, semaphore, pAllocator);
+    }
+
+    void on_vkDestroyFence(android::base::BumpPool* pool,
+                           VkDevice boxed_device,
+                           VkFence fence,
+                           const VkAllocationCallbacks* pAllocator) {
+        auto device = unbox_VkDevice(boxed_device);
+        auto vk = dispatch_VkDevice(boxed_device);
+
+        {
+            AutoLock lock(mLock);
+            mFenceInfo.erase(fence);
+        }
+
+        vk->vkDestroyFence(device, fence, pAllocator);
     }
 
     VkResult on_vkCreateDescriptorSetLayout(
@@ -3504,10 +3643,11 @@ public:
         }
         AutoLock lock(mLock);
         mCmdPoolInfo[*pCommandPool] = CommandPoolInfo();
-        mCmdPoolInfo[*pCommandPool].device = device;
+        auto& cmdPoolInfo = mCmdPoolInfo[*pCommandPool];
+        cmdPoolInfo.device = device;
 
         *pCommandPool = new_boxed_non_dispatchable_VkCommandPool(*pCommandPool);
-        mCmdPoolInfo[*pCommandPool].boxed = *pCommandPool;
+        cmdPoolInfo.boxed = *pCommandPool;
 
         return result;
     }
@@ -4113,15 +4253,113 @@ public:
         return res;
     }
 
-    void on_vkQueueBindSparseAsyncGOOGLE(
+    VkResult on_vkQueueBindSparse(
         android::base::BumpPool* pool,
         VkQueue boxed_queue,
         uint32_t bindInfoCount,
         const VkBindSparseInfo* pBindInfo, VkFence fence) {
+
+        // If pBindInfo contains VkTimelineSemaphoreSubmitInfo, then it's
+        // possible the host driver isn't equipped to deal with them yet.  To
+        // work around this, send empty vkQueueSubmits before and after the
+        // call to vkQueueBindSparse that contain the right values for
+        // wait/signal semaphores and contains the user's
+        // VkTimelineSemaphoreSubmitInfo structure, following the *submission
+        // order* implied by the indices of pBindInfo.
+
+        // TODO: Detect if we are running on a driver that supports timeline
+        // semaphore signal/wait operations in vkQueueBindSparse
+        const bool needTimelineSubmitInfoWorkaround = true;
+
+        bool hasTimelineSemaphoreSubmitInfo = false;
+
+        for (uint32_t i = 0; i < bindInfoCount; ++i) {
+            const VkTimelineSemaphoreSubmitInfoKHR* tsSi =
+                vk_find_struct<VkTimelineSemaphoreSubmitInfoKHR>(pBindInfo + i);
+            if (tsSi) {
+                hasTimelineSemaphoreSubmitInfo = true;
+            }
+        }
+
         auto queue = unbox_VkQueue(boxed_queue);
         auto vk = dispatch_VkQueue(boxed_queue);
-        (void)pool;
-        vk->vkQueueBindSparse(queue, bindInfoCount, pBindInfo, fence);
+
+        if (!hasTimelineSemaphoreSubmitInfo) {
+            (void)pool;
+            return vk->vkQueueBindSparse(queue, bindInfoCount, pBindInfo, fence);
+        } else {
+            std::vector<VkPipelineStageFlags> waitDstStageMasks;
+            VkTimelineSemaphoreSubmitInfoKHR currTsSi = {
+                VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO, 0,
+                0, nullptr,
+                0, nullptr,
+            };
+
+            VkSubmitInfo currSi = {
+                VK_STRUCTURE_TYPE_SUBMIT_INFO, &currTsSi,
+                0, nullptr,
+                nullptr,
+                0, nullptr, // No commands
+                0, nullptr,
+            };
+
+            VkBindSparseInfo currBi;
+
+            VkResult res;
+
+            for (uint32_t i = 0; i < bindInfoCount; ++i) {
+                const VkTimelineSemaphoreSubmitInfoKHR* tsSi =
+                    vk_find_struct<VkTimelineSemaphoreSubmitInfoKHR>(pBindInfo + i);
+                if (!tsSi) {
+                    res = vk->vkQueueBindSparse(queue, 1, pBindInfo + i, fence);
+                    if (VK_SUCCESS != res) return res;
+                    continue;
+                }
+
+                currTsSi.waitSemaphoreValueCount = tsSi->waitSemaphoreValueCount;
+                currTsSi.pWaitSemaphoreValues = tsSi->pWaitSemaphoreValues;
+                currTsSi.signalSemaphoreValueCount = 0;
+                currTsSi.pSignalSemaphoreValues = nullptr;
+
+                currSi.waitSemaphoreCount = pBindInfo[i].waitSemaphoreCount;
+                currSi.pWaitSemaphores = pBindInfo[i].pWaitSemaphores;
+                waitDstStageMasks.resize(pBindInfo[i].waitSemaphoreCount, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+                currSi.pWaitDstStageMask = waitDstStageMasks.data();
+                
+                currSi.signalSemaphoreCount = 0;
+                currSi.pSignalSemaphores = nullptr;
+
+                res = vk->vkQueueSubmit(queue, 1, &currSi, nullptr);
+                if (VK_SUCCESS != res) return res;
+
+                currBi = pBindInfo[i];
+
+                vk_struct_chain_remove(tsSi, &currBi);
+
+                currBi.waitSemaphoreCount = 0;
+                currBi.pWaitSemaphores = nullptr;
+                currBi.signalSemaphoreCount = 0;
+                currBi.pSignalSemaphores = nullptr;
+
+                res = vk->vkQueueBindSparse(queue, 1, &currBi, nullptr);
+                if (VK_SUCCESS != res) return res;
+
+                currTsSi.waitSemaphoreValueCount = 0;
+                currTsSi.pWaitSemaphoreValues = nullptr;
+                currTsSi.signalSemaphoreValueCount = tsSi->signalSemaphoreValueCount;
+                currTsSi.pSignalSemaphoreValues = tsSi->pSignalSemaphoreValues;
+
+                currSi.waitSemaphoreCount = 0;
+                currSi.pWaitSemaphores = nullptr;
+                currSi.signalSemaphoreCount = pBindInfo[i].signalSemaphoreCount;
+                currSi.pSignalSemaphores = pBindInfo[i].pSignalSemaphores;
+
+                res = vk->vkQueueSubmit(queue, 1, &currSi, i == bindInfoCount - 1 ? fence : nullptr);
+                if (VK_SUCCESS != res) return res;
+            }
+
+            return VK_SUCCESS;
+        }
     }
 
     void on_vkGetLinearImageLayoutGOOGLE(
@@ -4378,7 +4616,45 @@ public:
         }
     }
 
-#define GUEST_EXTERNAL_MEMORY_HANDLE_TYPES (VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID | VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA)
+    VkResult waitForFence(VkFence boxed_fence, uint64_t timeout) {
+        AutoLock lock(mLock);
+
+        VkFence fence = unbox_VkFence(boxed_fence);
+        if (fence == VK_NULL_HANDLE || mFenceInfo.find(fence) == mFenceInfo.end()) {
+            // No fence, could be a semaphore.
+            // TODO: Async wait for semaphores
+            return VK_SUCCESS;
+        }
+
+        const VkDevice device = mFenceInfo[fence].device;
+        const VulkanDispatch* vk = mFenceInfo[fence].vk;
+        lock.unlock();
+
+        return vk->vkWaitForFences(device, /* fenceCount */ 1u, &fence,
+                                   /* waitAll */ false, timeout);
+    }
+
+    VkResult getFenceStatus(VkFence boxed_fence) {
+        AutoLock lock(mLock);
+
+        VkFence fence = unbox_VkFence(boxed_fence);
+        if (fence == VK_NULL_HANDLE || mFenceInfo.find(fence) == mFenceInfo.end()) {
+            // No fence, could be a semaphore.
+            // TODO: Async get status for semaphores
+            return VK_SUCCESS;
+        }
+
+        const VkDevice device = mFenceInfo[fence].device;
+        const VulkanDispatch* vk = mFenceInfo[fence].vk;
+        lock.unlock();
+
+        return vk->vkGetFenceStatus(device, fence);
+    }
+
+#define GUEST_EXTERNAL_MEMORY_HANDLE_TYPES                                \
+    (VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID | \
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA |         \
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA)
 
     // Transforms
 
@@ -4607,6 +4883,7 @@ private:
 #endif
                 }
             }
+
             return res;
         }
 
@@ -6106,6 +6383,12 @@ private:
         VkSampler emulatedborderSampler = VK_NULL_HANDLE;
     };
 
+    struct FenceInfo {
+        VkDevice device = VK_NULL_HANDLE;
+        VkFence boxed = VK_NULL_HANDLE;
+        VulkanDispatch* vk = nullptr;
+    };
+
     struct SemaphoreInfo {
         int externalHandleId = 0;
         VK_EXT_MEMORY_HANDLE externalHandle =
@@ -6266,6 +6549,7 @@ private:
     std::unordered_map<VkDeviceMemory, MappedMemoryInfo> mMapInfo;
 
     std::unordered_map<VkSemaphore, SemaphoreInfo> mSemaphoreInfo;
+    std::unordered_map<VkFence, FenceInfo> mFenceInfo;
 
     std::unordered_map<VkDescriptorSetLayout, DescriptorSetLayoutInfo> mDescriptorSetLayoutInfo;
     std::unordered_map<VkDescriptorPool, DescriptorPoolInfo> mDescriptorPoolInfo;
@@ -6675,6 +6959,24 @@ void VkDecoderGlobalState::on_vkDestroySemaphore(
     VkSemaphore semaphore,
     const VkAllocationCallbacks* pAllocator) {
     mImpl->on_vkDestroySemaphore(pool, device, semaphore, pAllocator);
+}
+
+VkResult VkDecoderGlobalState::on_vkCreateFence(
+        android::base::BumpPool* pool,
+        VkDevice device,
+        const VkFenceCreateInfo* pCreateInfo,
+        const VkAllocationCallbacks* pAllocator,
+        VkFence* pFence) {
+    return mImpl->on_vkCreateFence(pool, device, pCreateInfo, pAllocator,
+                                   pFence);
+}
+
+void VkDecoderGlobalState::on_vkDestroyFence(
+        android::base::BumpPool* pool,
+        VkDevice device,
+        VkFence fence,
+        const VkAllocationCallbacks* pAllocator) {
+    return mImpl->on_vkDestroyFence(pool, device, fence, pAllocator);
 }
 
 VkResult VkDecoderGlobalState::on_vkCreateDescriptorSetLayout(
@@ -7261,7 +7563,7 @@ void VkDecoderGlobalState::on_vkQueueBindSparseAsyncGOOGLE(
     VkQueue queue,
     uint32_t bindInfoCount,
     const VkBindSparseInfo* pBindInfo, VkFence fence) {
-    mImpl->on_vkQueueBindSparseAsyncGOOGLE(pool, queue, bindInfoCount, pBindInfo, fence);
+    mImpl->on_vkQueueBindSparse(pool, queue, bindInfoCount, pBindInfo, fence);
 }
 
 void VkDecoderGlobalState::on_vkGetLinearImageLayoutGOOGLE(
@@ -7305,6 +7607,23 @@ void VkDecoderGlobalState::on_vkCollectDescriptorPoolIdsGOOGLE(
     uint32_t* pPoolIdCount,
     uint64_t* pPoolIds) {
     mImpl->on_vkCollectDescriptorPoolIdsGOOGLE(pool, device, descriptorPool, pPoolIdCount, pPoolIds);
+}
+
+VkResult VkDecoderGlobalState::on_vkQueueBindSparse(
+    android::base::BumpPool* pool,
+    VkQueue queue,
+    uint32_t bindInfoCount,
+    const VkBindSparseInfo* pBindInfo, VkFence fence) {
+    return mImpl->on_vkQueueBindSparse(pool, queue, bindInfoCount, pBindInfo, fence);
+}
+
+VkResult VkDecoderGlobalState::waitForFence(VkFence boxed_fence,
+                                            uint64_t timeout) {
+    return mImpl->waitForFence(boxed_fence, timeout);
+}
+
+VkResult VkDecoderGlobalState::getFenceStatus(VkFence boxed_fence) {
+    return mImpl->getFenceStatus(boxed_fence);
 }
 
 void VkDecoderGlobalState::deviceMemoryTransform_tohost(
