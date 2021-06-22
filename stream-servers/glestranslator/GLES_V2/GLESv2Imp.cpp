@@ -4477,7 +4477,6 @@ fprintf(stderr, "%s: begin count %d\n", __func__, count);
 GL_APICALL void GL_APIENTRY glGetUnsignedBytevEXT(GLenum pname, GLubyte* data) {
     GET_CTX_V2();
     if (!ctx->dispatcher().glGetUnsignedBytevEXT) {
-        fprintf(stderr, "%s: error: glGetUnsignedBytevEXT not loaded\n");
         return;
     }
     ctx->dispatcher().glGetUnsignedBytevEXT(pname, data);
@@ -4486,7 +4485,6 @@ GL_APICALL void GL_APIENTRY glGetUnsignedBytevEXT(GLenum pname, GLubyte* data) {
 GL_APICALL void GL_APIENTRY glGetUnsignedBytei_vEXT(GLenum target, GLuint index, GLubyte* data) {
     GET_CTX_V2();
     if (!ctx->dispatcher().glGetUnsignedBytei_vEXT) {
-        fprintf(stderr, "%s: error: glGetUnsignedBytei_vEXT not loaded\n");
         return;
     }
     ctx->dispatcher().glGetUnsignedBytei_vEXT(target, index, data);
