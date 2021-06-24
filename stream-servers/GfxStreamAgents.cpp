@@ -24,9 +24,17 @@
 #include "host-common/multi_display_agent.h"  // for QAndroidM...
 #include "host-common/vm_operations.h"        // for SnapshotC...
 #include "host-common/window_agent.h"         // for WindowMes...
-#include "host-common/misc.h" 
+#include "host-common/misc.h"
+
+#ifdef _DEBUG
+#define DEBUG_LOG(fd, fmt, ...) fprintf(fd, fmt, __VA_ARGS__);
+#else
+#define DEBUG_LOG(fd, fmt, ...)
+#endif
 
 std::map<uint32_t, android::MultiDisplayInfo> mMultiDisplay;
+
+using namespace android;
 
 static const QAndroidMultiDisplayAgent sMultiDisplayAgent = {
         .setMultiDisplay = [](uint32_t id,
@@ -37,12 +45,10 @@ static const QAndroidMultiDisplayAgent sMultiDisplayAgent = {
                               uint32_t dpi,
                               uint32_t flag,
                               bool add) -> int {
-            fprintf(stderr,
+            DEBUG_LOG(stderr,
                     "setMultiDisplay (mock): %d, x: %d, y: %d, w: %d, h: %d, "
                     "dpi: %d, flag: %d\n",
                     id, x, y, w, h, dpi, flag);
-            mMultiDisplay[id] =
-                    android::MultiDisplayInfo(x, y, w, h, dpi, flag, add);
             return 0;
         },
         .getMultiDisplay = [](uint32_t id,
@@ -52,19 +58,35 @@ static const QAndroidMultiDisplayAgent sMultiDisplayAgent = {
                               uint32_t* h,
                               uint32_t* dpi,
                               uint32_t* flag,
-                              bool* enable) -> bool {
-            fprintf(stderr, "getMultiDisplay (mock) id %u\n", id);
-            if (x)
+                              bool* enabled) -> bool {
+            DEBUG_LOG(stderr, "getMultiDisplay (mock) id %u\n", id);
+            if (mMultiDisplay.find(id) == mMultiDisplay.end()) {
+                if (enabled) {
+                    *enabled = false;
+                }
+                return false;
+            }
+            if (x) {
                 *x = mMultiDisplay[id].pos_x;
-            if (y)
+            }
+            if (y) {
                 *y = mMultiDisplay[id].pos_y;
-            if (w)
+            }
+            if (w) {
                 *w = mMultiDisplay[id].width;
-            if (h)
+            }
+            if (h) {
                 *h = mMultiDisplay[id].height;
-            if (dpi)
+            }
+            if (dpi) {
                 *dpi = mMultiDisplay[id].dpi;
-
+            }
+            if (flag) {
+                *flag = mMultiDisplay[id].flag;
+            }
+            if (enabled) {
+                *enabled = mMultiDisplay[id].enabled;
+            }
             return true;
         },
         .getNextMultiDisplay = [](int32_t start_id,
@@ -76,7 +98,7 @@ static const QAndroidMultiDisplayAgent sMultiDisplayAgent = {
                                   uint32_t* dpi,
                                   uint32_t* flag,
                                   uint32_t* cb) -> bool {
-            fprintf(stderr, "getNextMultiDisplay (mock) start_id %u\n",
+            DEBUG_LOG(stderr, "getNextMultiDisplay (mock) start_id %u\n",
                     start_id);
             uint32_t key;
             std::map<uint32_t, android::MultiDisplayInfo>::iterator i;
@@ -131,11 +153,37 @@ static const QAndroidMultiDisplayAgent sMultiDisplayAgent = {
         },
         .setGpuMode = [](bool isGuestMode, uint32_t w, uint32_t h) {},
         .createDisplay = [](uint32_t* displayId) -> int {
+            if (displayId == nullptr) {
+                fprintf(stderr, "null displayId pointer\n");
+                return -1;
+            }
+            if (mMultiDisplay.size() >= MultiDisplay::s_maxNumMultiDisplay) {
+                fprintf(stderr, "cannot create more displays, exceeding limits %d\n",
+                        MultiDisplay::s_maxNumMultiDisplay);
+                return -1;
+            }
+            if (mMultiDisplay.find(*displayId) != mMultiDisplay.end()) {
+                return 0;
+            }
+            // displays created by internal rcCommands
+            if (*displayId == MultiDisplay::s_invalidIdMultiDisplay) {
+                for (int i = MultiDisplay::s_displayIdInternalBegin; i < MultiDisplay::s_maxNumMultiDisplay; i++) {
+                    if (mMultiDisplay.find(i) == mMultiDisplay.end()) {
+                        *displayId = i;
+                        break;
+                    }
+                }
+            }
+            if (*displayId == MultiDisplay::s_invalidIdMultiDisplay) {
+                fprintf(stderr, "cannot create more internaldisplays, exceeding limits %d\n",
+                        MultiDisplay::s_maxNumMultiDisplay - MultiDisplay::s_displayIdInternalBegin);
+                return -1;
+            }
+
             mMultiDisplay.emplace(*displayId, android::MultiDisplayInfo());
             return 0;
         },
         .destroyDisplay = [](uint32_t displayId) -> int {
-            fprintf(stderr, "destroyDisplay (mock): %d\n", displayId);
             mMultiDisplay.erase(displayId);
             return 0;
         },
@@ -145,6 +193,10 @@ static const QAndroidMultiDisplayAgent sMultiDisplayAgent = {
                              uint32_t w,
                              uint32_t h,
                              uint32_t dpi) -> int {
+            if (mMultiDisplay.find(displayId) == mMultiDisplay.end()) {
+                fprintf(stderr, "cannot find display %d\n", displayId);
+                return -1;
+            }
             mMultiDisplay[displayId].pos_x = x;
             mMultiDisplay[displayId].pos_y = y;
             mMultiDisplay[displayId].width = w;
@@ -157,6 +209,10 @@ static const QAndroidMultiDisplayAgent sMultiDisplayAgent = {
                              int32_t* y,
                              uint32_t* w,
                              uint32_t* h) -> int {
+            if (mMultiDisplay.find(displayId) == mMultiDisplay.end()) {
+                fprintf(stderr, "cannot find display %d\n", displayId);
+                return -1;
+            }
             if (x)
                 *x = mMultiDisplay[displayId].pos_x;
             if (y)
@@ -169,6 +225,10 @@ static const QAndroidMultiDisplayAgent sMultiDisplayAgent = {
         },
         .getDisplayColorBuffer = [](uint32_t displayId,
                                     uint32_t* colorBuffer) -> int {
+            if (mMultiDisplay.find(displayId) == mMultiDisplay.end()) {
+                fprintf(stderr, "cannot find display %d\n", displayId);
+                return -1;
+            }
             *colorBuffer = mMultiDisplay[displayId].cb;
             return 0;
         },
@@ -184,6 +244,10 @@ static const QAndroidMultiDisplayAgent sMultiDisplayAgent = {
         },
         .setDisplayColorBuffer = [](uint32_t displayId,
                                     uint32_t colorBuffer) -> int {
+            if (mMultiDisplay.find(displayId) == mMultiDisplay.end()) {
+                fprintf(stderr, "cannot find display %d\n", displayId);
+                return -1;
+            }
             mMultiDisplay[displayId].cb = colorBuffer;
             return 0;
         }};
@@ -193,34 +257,34 @@ static bool sIsFolded = false;
 static const QAndroidEmulatorWindowAgent sQAndroidEmulatorWindowAgent = {
         .getEmulatorWindow =
                 [](void) {
-                    fprintf(stderr,
+                    DEBUG_LOG(stderr,
                             "window-agent-GfxStream-impl: "
                             ".getEmulatorWindow\n");
                     return (EmulatorWindow*)nullptr;
                 },
         .rotate90Clockwise =
                 [](void) {
-                    fprintf(stderr,
+                    DEBUG_LOG(stderr,
                             "window-agent-GfxStream-impl: "
                             ".rotate90Clockwise\n");
                     return true;
                 },
         .rotate =
                 [](int rotation) {
-                    fprintf(stderr,
+                    DEBUG_LOG(stderr,
                             "window-agent-GfxStream-impl: "
                             ".rotate90Clockwise\n");
                     return true;
                 },
         .getRotation =
                 [](void) {
-                    fprintf(stderr,
+                    DEBUG_LOG(stderr,
                             "window-agent-GfxStream-impl: .getRotation\n");
                     return (int)SKIN_ROTATION_0;
                 },
         .showMessage =
                 [](const char* message, WindowMessageType type, int timeoutMs) {
-                    fprintf(stderr,
+                    DEBUG_LOG(stderr,
                             "window-agent-GfxStream-impl: .showMessage %s\n",
                             message);
                 },
@@ -231,29 +295,29 @@ static const QAndroidEmulatorWindowAgent sQAndroidEmulatorWindowAgent = {
                    void* context,
                    void (*func)(void*),
                    int timeoutMs) {
-                    fprintf(stderr,
+                    DEBUG_LOG(stderr,
                             "window-agent-GfxStream-impl: "
                             ".showMessageWithDismissCallback %s\n",
                             message);
                 },
         .fold =
                 [](bool is_fold) -> bool {
-                    fprintf(stderr, "window-agent-GfxStream-impl: .fold %d\n",
+                    DEBUG_LOG(stderr, "window-agent-GfxStream-impl: .fold %d\n",
                             is_fold);
                     sIsFolded = is_fold;
                     return true;
                 },
         .isFolded = [](void) -> bool { return sIsFolded; },
         .getFoldedArea = [](int* x, int* y, int* w, int* h) -> bool {
-            fprintf(stderr, "window-agent-GfxStream-impl: .getFoldedArea\n");
+            DEBUG_LOG(stderr, "window-agent-GfxStream-impl: .getFoldedArea\n");
             return true;
         },
         .updateFoldablePostureIndicator = [](bool) {
-            fprintf(stderr, "window-agent-GfxStream-impl: updateFoldablePostureIndicator\n");
+            DEBUG_LOG(stderr, "window-agent-GfxStream-impl: updateFoldablePostureIndicator\n");
         },
         .setUIDisplayRegion =
                 [](int x_offset, int y_offset, int w, int h) {
-                    fprintf(stderr,
+                    DEBUG_LOG(stderr,
                             "window-agent-GfxStream-impl: .setUIDisplayRegion "
                             "%d %d %dx%d\n",
                             x_offset, y_offset, w, h);
@@ -263,7 +327,7 @@ static const QAndroidEmulatorWindowAgent sQAndroidEmulatorWindowAgent = {
         .restoreSkin = [](void) {},
         .updateUIMultiDisplayPage =
                 [](uint32_t id) {
-                    fprintf(stderr, "updateMultiDisplayPage\n");
+                    DEBUG_LOG(stderr, "updateMultiDisplayPage\n");
                 },
         .getMonitorRect =
                 [](uint32_t* w, uint32_t* h) -> bool {
@@ -277,116 +341,116 @@ static const QAndroidEmulatorWindowAgent sQAndroidEmulatorWindowAgent = {
 
 static const QAndroidVmOperations sQAndroidVmOperations = {
         .vmStop = []() -> bool {
-            fprintf(stderr, "goldfish-opengl vm ops: vm stop\n");
+            DEBUG_LOG(stderr, "goldfish-opengl vm ops: vm stop\n");
             return true;
         },
         .vmStart = []() -> bool {
-            fprintf(stderr, "goldfish-opengl vm ops: vm start\n");
+            DEBUG_LOG(stderr, "goldfish-opengl vm ops: vm start\n");
             return true;
         },
         .vmReset =
-                []() { fprintf(stderr, "goldfish-opengl vm ops: vm reset\n"); },
+                []() { DEBUG_LOG(stderr, "goldfish-opengl vm ops: vm reset\n"); },
         .vmShutdown =
-                []() { fprintf(stderr, "goldfish-opengl vm ops: vm reset\n"); },
+                []() { DEBUG_LOG(stderr, "goldfish-opengl vm ops: vm reset\n"); },
         .vmPause = []() -> bool {
-            fprintf(stderr, "goldfish-opengl vm ops: vm pause\n");
+            DEBUG_LOG(stderr, "goldfish-opengl vm ops: vm pause\n");
             return true;
         },
         .vmResume = []() -> bool {
-            fprintf(stderr, "goldfish-opengl vm ops: vm resume\n");
+            DEBUG_LOG(stderr, "goldfish-opengl vm ops: vm resume\n");
             return true;
         },
         .vmIsRunning = []() -> bool {
-            fprintf(stderr, "goldfish-opengl vm ops: vm is running\n");
+            DEBUG_LOG(stderr, "goldfish-opengl vm ops: vm is running\n");
             return true;
         },
         .snapshotList =
                 [](void*, LineConsumerCallback, LineConsumerCallback) -> bool {
-            fprintf(stderr, "goldfish-opengl vm ops: snapshot list\n");
+            DEBUG_LOG(stderr, "goldfish-opengl vm ops: snapshot list\n");
             return true;
         },
         .snapshotSave = [](const char* name,
                            void* opaque,
                            LineConsumerCallback) -> bool {
-            fprintf(stderr, "gfxstream vm ops: snapshot save\n");
+            DEBUG_LOG(stderr, "gfxstream vm ops: snapshot save\n");
             return true;
         },
         .snapshotLoad = [](const char* name,
                            void* opaque,
                            LineConsumerCallback) -> bool {
-            fprintf(stderr, "gfxstream vm ops: snapshot load\n");
+            DEBUG_LOG(stderr, "gfxstream vm ops: snapshot load\n");
             return true;
         },
         .snapshotDelete = [](const char* name,
                              void* opaque,
                              LineConsumerCallback errConsumer) -> bool {
-            fprintf(stderr, "goldfish-opengl vm ops: snapshot delete\n");
+            DEBUG_LOG(stderr, "goldfish-opengl vm ops: snapshot delete\n");
             return true;
         },
         .snapshotRemap = [](bool shared,
                             void* opaque,
                             LineConsumerCallback errConsumer) -> bool {
-            fprintf(stderr, "goldfish-opengl vm ops: snapshot remap\n");
+            DEBUG_LOG(stderr, "goldfish-opengl vm ops: snapshot remap\n");
             return true;
         },
         .snapshotExport = [](const char* snapshot,
                              const char* dest,
                              void* opaque,
                              LineConsumerCallback errConsumer) -> bool {
-            fprintf(stderr, "goldfish-opengl vm ops: snapshot export image\n");
+            DEBUG_LOG(stderr, "goldfish-opengl vm ops: snapshot export image\n");
             return true;
         },
         .setSnapshotCallbacks =
                 [](void* opaque, const SnapshotCallbacks* callbacks) {
-                    fprintf(stderr,
+                    DEBUG_LOG(stderr,
                             "goldfish-opengl vm ops: set snapshot callbacks\n");
                 },
         .mapUserBackedRam =
                 [](uint64_t gpa, void* hva, uint64_t size) {
-                    fprintf(stderr, "%s: map user backed ram\n", __func__);
+                    DEBUG_LOG(stderr, "%s: map user backed ram\n", __func__);
                 },
         .unmapUserBackedRam =
                 [](uint64_t gpa, uint64_t size) {
-                    fprintf(stderr, "%s: unmap user backed ram\n", __func__);
+                    DEBUG_LOG(stderr, "%s: unmap user backed ram\n", __func__);
                 },
         .getVmConfiguration =
                 [](VmConfiguration* out) {
-                    fprintf(stderr,
+                    DEBUG_LOG(stderr,
                             "goldfish-opengl vm ops: get vm configuration\n");
                 },
         .setFailureReason =
                 [](const char* name, int failureReason) {
-                    fprintf(stderr,
+                    DEBUG_LOG(stderr,
                             "goldfish-opengl vm ops: set failure reason\n");
                 },
         .setExiting =
                 []() {
-                    fprintf(stderr, "goldfish-opengl vm ops: set exiting\n");
+                    DEBUG_LOG(stderr, "goldfish-opengl vm ops: set exiting\n");
                 },
         .allowRealAudio =
                 [](bool allow) {
-                    fprintf(stderr,
+                    DEBUG_LOG(stderr,
                             "goldfish-opengl vm ops: allow real audio\n");
                 },
         .physicalMemoryGetAddr =
                 [](uint64_t gpa) {
-                    fprintf(stderr, "%s: physmemGetAddr\n", __func__);
+                    DEBUG_LOG(stderr, "%s: physmemGetAddr\n", __func__);
                     return (void*)nullptr;
                 },
         .isRealAudioAllowed =
                 [](void) {
-                    fprintf(stderr,
+                    DEBUG_LOG(stderr,
                             "goldfish-opengl vm ops: is real audiop allowed\n");
                     return true;
                 },
         .setSkipSnapshotSave =
                 [](bool used) {
-                    fprintf(stderr,
+                    DEBUG_LOG(stderr,
                             "goldfish-opengl vm ops: set skip snapshot save\n");
                 },
         .isSnapshotSaveSkipped =
                 []() {
-                    fprintf(stderr,
+                    DEBUG_LOG(stderr,
                             "goldfish-opengl vm ops: is snapshot save "
                             "skipped\n");
                     return false;

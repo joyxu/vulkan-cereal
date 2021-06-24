@@ -28,7 +28,6 @@ GL_APICALL void GL_APIENTRY glFramebufferTexture3DEXT(GLenum, GLenum, GLenum, GL
 GL_APICALL void GL_APIENTRY glFramebufferRenderbufferEXT(GLenum, GLenum, GLenum, GLuint) { return; }
 GL_APICALL void GL_APIENTRY glGetFramebufferAttachmentParameterivEXT(GLenum, GLenum, GLenum, GLint *) { return; }
 GL_APICALL void GL_APIENTRY glGenerateMipmapEXT(GLenum) { return; }
-GL_APICALL GLenum GL_APIENTRY glGetGraphicsResetStatusEXT() { return (GLenum)0; }
 GL_APICALL void GL_APIENTRY glReadnPixelsEXT(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, GLsizei, void *) { return; }
 GL_APICALL void GL_APIENTRY glGetnUniformfvEXT(GLuint, GLint, GLsizei, float *) { return; }
 GL_APICALL void GL_APIENTRY glGetnUniformivEXT(GLuint, GLint, GLsizei, GLint *) { return; }

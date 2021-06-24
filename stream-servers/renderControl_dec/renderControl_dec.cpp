@@ -1222,6 +1222,49 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			android::base::endTrace();
 			break;
 		}
+		case OP_rcCreateDisplayById: {
+			android::base::beginTrace("rcCreateDisplayById decode");
+			uint32_t var_displayId = Unpack<uint32_t,uint32_t>(ptr + 8);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+					"renderControl_decoder_context_t::decode, OP_rcCreateDisplayById: GL checksumCalculator failure\n");
+			}
+			size_t totalTmpSize = sizeof(int);
+			totalTmpSize += checksumSize;
+			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			*(int *)(&tmpBuf[0]) = 			this->rcCreateDisplayById(var_displayId);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
+			}
+			stream->flush();
+			SET_LASTCALL("rcCreateDisplayById");
+			android::base::endTrace();
+			break;
+		}
+		case OP_rcSetDisplayPoseDpi: {
+			android::base::beginTrace("rcSetDisplayPoseDpi decode");
+			uint32_t var_displayId = Unpack<uint32_t,uint32_t>(ptr + 8);
+			GLint var_x = Unpack<GLint,uint32_t>(ptr + 8 + 4);
+			GLint var_y = Unpack<GLint,uint32_t>(ptr + 8 + 4 + 4);
+			uint32_t var_w = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4);
+			uint32_t var_h = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
+			uint32_t var_dpi = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+					"renderControl_decoder_context_t::decode, OP_rcSetDisplayPoseDpi: GL checksumCalculator failure\n");
+			}
+			size_t totalTmpSize = sizeof(int);
+			totalTmpSize += checksumSize;
+			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			*(int *)(&tmpBuf[0]) = 			this->rcSetDisplayPoseDpi(var_displayId, var_x, var_y, var_w, var_h, var_dpi);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
+			}
+			stream->flush();
+			SET_LASTCALL("rcSetDisplayPoseDpi");
+			android::base::endTrace();
+			break;
+		}
 		default:
 			return ptr - (unsigned char*)buf;
 		} //switch

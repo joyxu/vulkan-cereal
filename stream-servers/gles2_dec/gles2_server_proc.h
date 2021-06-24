@@ -537,6 +537,7 @@ typedef void (gles2_APIENTRY *glDrawElementsOffsetNullAEMU_server_proc_t) (void 
 typedef void (gles2_APIENTRY *glDrawElementsDataNullAEMU_server_proc_t) (void *ctx, GLenum, GLsizei, GLenum, void*, GLuint);
 typedef void (gles2_APIENTRY *glUnmapBufferAsyncAEMU_server_proc_t) (void *ctx, GLenum, GLintptr, GLsizeiptr, GLbitfield, void*, GLboolean*);
 typedef void (gles2_APIENTRY *glFlushMappedBufferRangeAEMU2_server_proc_t) (void *ctx, GLenum, GLintptr, GLsizeiptr, GLbitfield, void*);
+typedef GLboolean (gles2_APIENTRY *glBufferDataSyncAEMU_server_proc_t) (void *ctx, GLenum, GLsizeiptr, const GLvoid*, GLenum);
 
 
 #endif
