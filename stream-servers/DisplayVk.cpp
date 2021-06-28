@@ -133,20 +133,23 @@ void DisplayVk::post(
         {0, 0, 0, 0},
         static_cast<hwc_transform_t>(0) /* transform */
     };
-    compose(1, &composeLayer, {std::move(displayBufferPtr)});
+    // Use the size of the buffer as the dstWidth and dstHeight to fill the
+    // entire render target with the buffer.
+    compose(1, &composeLayer, {std::move(displayBufferPtr)},
+            displayBufferPtr->m_width, displayBufferPtr->m_height);
 }
 
 void DisplayVk::compose(
     uint32_t numLayers, const ComposeLayer layers[],
-    const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers) {
-    if (!m_swapChainStateVk || !m_compositorVk || !m_surfaceState) {
+    const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers,
+    uint32_t dstWidth, uint32_t dstHeight) {
+    if (!m_swapChainStateVk || !m_compositorVk) {
         ERR("%s(%s:%d): Haven't bound to a surface, can't compose color "
             "buffer.\n",
             __FUNCTION__, __FILE__, static_cast<int>(__LINE__));
         return;
     }
 
-    auto &surfaceState = *m_surfaceState;
     std::vector<std::unique_ptr<ComposeLayerVk>> composeLayers;
     for (int i = 0; i < numLayers; ++i) {
         if (!composeBuffers[i]) {
@@ -167,8 +170,8 @@ void DisplayVk::compose(
         }
         auto layer = ComposeLayerVk::createFromHwc2ComposeLayer(
             m_compositionVkSampler, composeBuffers[i]->m_vkImageView, layers[i],
-            composeBuffers[i]->m_width, composeBuffers[i]->m_height,
-            surfaceState.m_width, surfaceState.m_height);
+            composeBuffers[i]->m_width, composeBuffers[i]->m_height, dstWidth,
+            dstHeight);
         composeLayers.emplace_back(std::move(layer));
     }
 
