@@ -33301,6 +33301,12 @@ const char* api_opcode_to_string(
             return "OP_vkCmdBindVertexBuffers2EXT";
         }
 #endif
+#ifdef VK_GOOGLE_gfxstream
+        case OP_vkQueueSignalReleaseImageANDROIDAsyncGOOGLE:
+        {
+            return "OP_vkQueueSignalReleaseImageANDROIDAsyncGOOGLE";
+        }
+#endif
 #ifdef VK_VERSION_1_2
         case OP_vkCmdNextSubpass2:
         {
