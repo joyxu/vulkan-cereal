@@ -600,6 +600,10 @@ public:
                               const VkFenceCreateInfo* pCreateInfo,
                               const VkAllocationCallbacks* pAllocator,
                               VkFence* pFence);
+    VkResult on_vkResetFences(android::base::BumpPool* pool,
+                              VkDevice device,
+                              uint32_t fenceCount,
+                              const VkFence* pFences);
     void on_vkDestroyFence(android::base::BumpPool* pool,
                            VkDevice device,
                            VkFence fence,
@@ -764,6 +768,12 @@ public:
         VkQueue queue,
         uint32_t bindInfoCount,
         const VkBindSparseInfo* pBindInfo, VkFence fence);
+    void on_vkQueueSignalReleaseImageANDROIDAsyncGOOGLE(
+        android::base::BumpPool* pool,
+        VkQueue queue,
+        uint32_t waitSemaphoreCount,
+        const VkSemaphore* pWaitSemaphores,
+        VkImage image);
 
     // Fence waits
     VkResult waitForFence(VkFence boxed_fence, uint64_t timeout);

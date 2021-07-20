@@ -653,6 +653,7 @@ custom_decodes = {
     "vkDestroySemaphore" : emit_global_state_wrapped_decoding,
 
     "vkCreateFence" : emit_global_state_wrapped_decoding,
+    "vkResetFences" : emit_global_state_wrapped_decoding,
     "vkDestroyFence" : emit_global_state_wrapped_decoding,
 
     # VK_GOOGLE_gfxstream
@@ -686,6 +687,7 @@ custom_decodes = {
     "vkQueueFlushCommandsGOOGLE" : emit_global_state_wrapped_decoding,
     "vkQueueCommitDescriptorSetUpdatesGOOGLE" : emit_global_state_wrapped_decoding,
     "vkCollectDescriptorPoolIdsGOOGLE" : emit_global_state_wrapped_decoding,
+    "vkQueueSignalReleaseImageANDROIDAsyncGOOGLE" : emit_global_state_wrapped_decoding,
 
     "vkQueueBindSparse" : emit_global_state_wrapped_decoding,
 }
