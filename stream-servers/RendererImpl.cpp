@@ -598,6 +598,12 @@ static struct AndroidVirtioGpuOps sVirtioGpuOps = {
         .async_wait_for_gpu_vulkan_with_cb = [](uint64_t device, uint64_t fence, FenceCompletionCallback cb) {
             FrameBuffer::getFB()->asyncWaitForGpuVulkanWithCb(device, fence, cb);
         },
+        .async_wait_for_gpu_vulkan_qsri_with_cb = [](uint64_t image, FenceCompletionCallback cb) {
+            FrameBuffer::getFB()->asyncWaitForGpuVulkanQsriWithCb(image, cb);
+        },
+        .wait_for_gpu_vulkan_qsri = [](uint64_t image) {
+            FrameBuffer::getFB()->waitForGpuVulkanQsri(image);
+        },
 };
 
 struct AndroidVirtioGpuOps* RendererImpl::getVirtioGpuOps() {
