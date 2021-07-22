@@ -592,6 +592,12 @@ static struct AndroidVirtioGpuOps sVirtioGpuOps = {
         .set_guest_managed_color_buffer_lifetime = [](bool guestManaged) {
             FrameBuffer::getFB()->setGuestManagedColorBufferLifetime(true);
         },
+        .async_wait_for_gpu_with_cb = [](uint64_t eglsync, FenceCompletionCallback cb) {
+            FrameBuffer::getFB()->asyncWaitForGpuWithCb(eglsync, cb);
+        },
+        .async_wait_for_gpu_vulkan_with_cb = [](uint64_t device, uint64_t fence, FenceCompletionCallback cb) {
+            FrameBuffer::getFB()->asyncWaitForGpuVulkanWithCb(device, fence, cb);
+        },
 };
 
 struct AndroidVirtioGpuOps* RendererImpl::getVirtioGpuOps() {
