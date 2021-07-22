@@ -579,6 +579,8 @@ class FrameBuffer {
     void waitForGpuVulkan(uint64_t deviceHandle, uint64_t fenceHandle);
     void asyncWaitForGpuWithCb(uint64_t eglsync, FenceCompletionCallback cb);
     void asyncWaitForGpuVulkanWithCb(uint64_t deviceHandle, uint64_t fenceHandle, FenceCompletionCallback cb);
+    void asyncWaitForGpuVulkanQsriWithCb(uint64_t image, FenceCompletionCallback cb);
+    void waitForGpuVulkanQsri(uint64_t image);
 
     void setGuestManagedColorBufferLifetime(bool guestManaged);
 

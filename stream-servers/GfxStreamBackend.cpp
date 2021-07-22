@@ -396,6 +396,12 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
                                  useVulkanNativeSwapchain);
     feature_set_enabled_override(
             kFeature_VulkanBatchedDescriptorSetUpdate, true);
+    // TODO: Strictly speaking, renderer_flags check is insufficient because
+    // fence contexts require us to be running a new-enough guest kernel.
+    feature_set_enabled_override(
+           kFeature_VirtioGpuFenceContexts,
+           !syncFdDisabledByFlag &&
+           (renderer_flags & GFXSTREAM_RENDERER_FLAGS_ASYNC_FENCE_CB));
 
     if (useVulkanNativeSwapchain && !enableVk) {
         fprintf(stderr,
