@@ -29,6 +29,7 @@
 #include "base/ThreadPool.h"
 #include "base/MessageChannel.h"
 #include "vulkan/VkDecoderGlobalState.h"
+#include "virtio_gpu_ops.h"
 
 // SyncThread///////////////////////////////////////////////////////////////////
 // The purpose of SyncThread is to track sync device timelines and give out +
@@ -52,19 +53,32 @@ enum SyncThreadOpCode {
     // and timeline handle.
     // A fence FD object / Zircon eventpair in the guest is signaled.
     SYNC_THREAD_WAIT_VK = 4,
+    // Command to wait on the presentation the given VkImage.
+    SYNC_THREAD_WAIT_VK_QSRI = 5,
+    // Command that consists only of a callback.
+    SYNC_THREAD_GENERAL = 6,
 };
 
 struct SyncThreadCmd {
+    // For use with initialization in multiple thread pools.
+    int workerId = 0;
+    // For use with ThreadPool::broadcastIndexed
+    void setIndex(int id) { workerId = id; }
+
     SyncThreadOpCode opCode = SYNC_THREAD_INIT;
     union {
         FenceSync* fenceSync = nullptr;
         VkFence vkFence;
+        VkImage vkImage;
     };
     uint64_t timeline = 0;
 
     android::base::Lock* lock = nullptr;
     android::base::ConditionVariable* cond = nullptr;
     android::base::Optional<int>* result = nullptr;
+
+    bool useFenceCompletionCallback = false;
+    FenceCompletionCallback fenceCompletionCallback;;
 };
 
 struct RenderThreadInfo;
@@ -98,6 +112,14 @@ public:
     // for use with the virtio-gpu path; is meant to have a current context
     // while waiting.
     void triggerBlockedWaitNoTimeline(FenceSync* fenceSync);
+
+    // For use with virtio-gpu and async fence completion callback. This is async like triggerWait, but takes a fence completion callback instead of incrementing some timeline directly.
+    void triggerWaitWithCompletionCallback(FenceSync* fenceSync, FenceCompletionCallback);
+    void triggerWaitVkWithCompletionCallback(VkFence fenceHandle, FenceCompletionCallback);
+    void triggerWaitVkQsriWithCompletionCallback(VkImage image, FenceCompletionCallback);
+    void triggerWaitVkQsriBlockedNoTimeline(VkImage image);
+
+    void triggerGeneral(FenceCompletionCallback);
 
     // |cleanup|: for use with destructors and other cleanup functions.
     // it destroys the sync context and exits the sync thread.
@@ -136,17 +158,21 @@ private:
     // |doSyncThreadCmd| and related functions below
     // execute the actual commands. These run on the sync thread.
     int doSyncThreadCmd(SyncThreadCmd* cmd);
-    void doSyncContextInit();
+    void doSyncContextInit(SyncThreadCmd* cmd);
     void doSyncWait(SyncThreadCmd* cmd);
     int doSyncWaitVk(SyncThreadCmd* cmd);
+    int doSyncWaitVkQsri(SyncThreadCmd* cmd);
+    int doSyncGeneral(SyncThreadCmd* cmd);
     void doSyncBlockedWaitNoTimeline(SyncThreadCmd* cmd);
-    void doExit();
+    void doExit(SyncThreadCmd* cmd);
 
     // EGL objects / object handles specific to
     // a sync thread.
+    static const uint32_t kNumWorkerThreads = 4u;
+
     EGLDisplay mDisplay = EGL_NO_DISPLAY;
-    EGLContext mContext = EGL_NO_CONTEXT;
-    EGLSurface mSurface = EGL_NO_SURFACE;
+    EGLSurface mSurface[kNumWorkerThreads];
+    EGLContext mContext[kNumWorkerThreads];
 
     bool mExiting = false;
     android::base::Lock mLock;

@@ -2328,14 +2328,11 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 VkDevice device;
                 uint32_t fenceCount;
                 const VkFence* pFences;
-                // Begin non wrapped dispatchable handle unboxing for device;
+                // Begin global wrapped dispatchable handle unboxing for device;
                 uint64_t cgen_var_0;
                 memcpy((uint64_t*)&cgen_var_0, *readStreamPtrPtr, 1 * 8);
                 *readStreamPtrPtr += 1 * 8;
                 *(VkDevice*)&device = (VkDevice)(VkDevice)((VkDevice)(*&cgen_var_0));
-                auto unboxed_device = unbox_VkDevice(device);
-                auto vk = dispatch_VkDevice(device);
-                // End manual dispatchable handle unboxing for device;
                 memcpy((uint32_t*)&fenceCount, *readStreamPtrPtr, sizeof(uint32_t));
                 *readStreamPtrPtr += sizeof(uint32_t);
                 vkReadStream->alloc((void**)&pFences, ((fenceCount)) * sizeof(const VkFence));
@@ -2354,7 +2351,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                     fprintf(stderr, "stream %p: call vkResetFences 0x%llx 0x%llx 0x%llx \n", ioStream, (unsigned long long)device, (unsigned long long)fenceCount, (unsigned long long)pFences);
                 }
                 VkResult vkResetFences_VkResult_return = (VkResult)0;
-                vkResetFences_VkResult_return = vk->vkResetFences(unboxed_device, fenceCount, pFences);
+                vkResetFences_VkResult_return = m_state->on_vkResetFences(&m_pool, device, fenceCount, pFences);
                 vkStream->unsetHandleMapping();
                 vkStream->write(&vkResetFences_VkResult_return, sizeof(VkResult));
                 vkStream->commitWrite();
@@ -24687,6 +24684,59 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 if (m_state->snapshotsEnabled())
                 {
                     m_state->snapshot()->vkCollectDescriptorPoolIdsGOOGLE(snapshotTraceBegin, snapshotTraceBytes, &m_pool, device, descriptorPool, pPoolIdCount, pPoolIds);
+                }
+                vkReadStream->clearPool();
+                if (queueSubmitWithCommandsEnabled) __atomic_fetch_add(seqnoPtr, 1, __ATOMIC_SEQ_CST);
+                android::base::endTrace();
+                break;
+            }
+            case OP_vkQueueSignalReleaseImageANDROIDAsyncGOOGLE:
+            {
+                android::base::beginTrace("vkQueueSignalReleaseImageANDROIDAsyncGOOGLE decode");
+                VkQueue queue;
+                uint32_t waitSemaphoreCount;
+                const VkSemaphore* pWaitSemaphores;
+                VkImage image;
+                // Begin global wrapped dispatchable handle unboxing for queue;
+                uint64_t cgen_var_0;
+                memcpy((uint64_t*)&cgen_var_0, *readStreamPtrPtr, 1 * 8);
+                *readStreamPtrPtr += 1 * 8;
+                *(VkQueue*)&queue = (VkQueue)(VkQueue)((VkQueue)(*&cgen_var_0));
+                memcpy((uint32_t*)&waitSemaphoreCount, *readStreamPtrPtr, sizeof(uint32_t));
+                *readStreamPtrPtr += sizeof(uint32_t);
+                // WARNING PTR CHECK
+                memcpy((VkSemaphore**)&pWaitSemaphores, (*readStreamPtrPtr), 8);
+                android::base::Stream::fromBe64((uint8_t*)&pWaitSemaphores);
+                *readStreamPtrPtr += 8;
+                if (pWaitSemaphores)
+                {
+                    vkReadStream->alloc((void**)&pWaitSemaphores, ((waitSemaphoreCount)) * sizeof(const VkSemaphore));
+                    if (((waitSemaphoreCount)))
+                    {
+                        uint8_t* cgen_var_1_0_ptr = (uint8_t*)(*readStreamPtrPtr);
+                        *readStreamPtrPtr += 8 * ((waitSemaphoreCount));
+                        for (uint32_t k = 0; k < ((waitSemaphoreCount)); ++k)
+                        {
+                            uint64_t tmpval; memcpy(&tmpval, cgen_var_1_0_ptr + k * 8, sizeof(uint64_t));
+                            *(((VkSemaphore*)pWaitSemaphores) + k) = (VkSemaphore)unbox_VkSemaphore((VkSemaphore)tmpval);
+                        }
+                    }
+                }
+                uint64_t cgen_var_2;
+                memcpy((uint64_t*)&cgen_var_2, *readStreamPtrPtr, 1 * 8);
+                *readStreamPtrPtr += 1 * 8;
+                *(VkImage*)&image = (VkImage)unbox_VkImage((VkImage)(*&cgen_var_2));
+                if (m_logCalls)
+                {
+                    fprintf(stderr, "stream %p: call vkQueueSignalReleaseImageANDROIDAsyncGOOGLE 0x%llx 0x%llx 0x%llx 0x%llx \n", ioStream, (unsigned long long)queue, (unsigned long long)waitSemaphoreCount, (unsigned long long)pWaitSemaphores, (unsigned long long)image);
+                }
+                m_state->on_vkQueueSignalReleaseImageANDROIDAsyncGOOGLE(&m_pool, queue, waitSemaphoreCount, pWaitSemaphores, image);
+                vkStream->unsetHandleMapping();
+                vkReadStream->setReadPos((uintptr_t)(*readStreamPtrPtr) - (uintptr_t)snapshotTraceBegin);
+                size_t snapshotTraceBytes = vkReadStream->endTrace();
+                if (m_state->snapshotsEnabled())
+                {
+                    m_state->snapshot()->vkQueueSignalReleaseImageANDROIDAsyncGOOGLE(snapshotTraceBegin, snapshotTraceBytes, &m_pool, queue, waitSemaphoreCount, pWaitSemaphores, image);
                 }
                 vkReadStream->clearPool();
                 if (queueSubmitWithCommandsEnabled) __atomic_fetch_add(seqnoPtr, 1, __ATOMIC_SEQ_CST);

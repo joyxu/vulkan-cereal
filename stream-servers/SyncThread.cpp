@@ -66,7 +66,6 @@ static GlobalSyncThread* sGlobalSyncThread() {
 
 static const uint32_t kTimelineInterval = 1;
 static const uint64_t kDefaultTimeoutNsecs = 5ULL * 1000ULL * 1000ULL * 1000ULL;
-static const uint64_t kNumWorkerThreads = 4u;
 
 SyncThread::SyncThread()
     : android::base::Thread(android::base::ThreadFlags::MaskSignals, 512 * 1024),
@@ -116,6 +115,61 @@ void SyncThread::triggerBlockedWaitNoTimeline(FenceSync* fenceSync) {
     DPRINT("exit");
 }
 
+void SyncThread::triggerWaitWithCompletionCallback(FenceSync* fenceSync, FenceCompletionCallback cb) {
+    DPRINT("fenceSyncInfo=0x%llx ...", fenceSync);
+    SyncThreadCmd to_send;
+    to_send.opCode = SYNC_THREAD_WAIT;
+    to_send.fenceSync = fenceSync;
+    to_send.useFenceCompletionCallback = true;
+    to_send.fenceCompletionCallback = cb;
+    DPRINT("opcode=%u", to_send.opCode);
+    sendAsync(to_send);
+    DPRINT("exit");
+}
+
+
+void SyncThread::triggerWaitVkWithCompletionCallback(VkFence vkFence, FenceCompletionCallback cb) {
+    DPRINT("fenceSyncInfo=0x%llx ...", fenceSync);
+    SyncThreadCmd to_send;
+    to_send.opCode = SYNC_THREAD_WAIT_VK;
+    to_send.vkFence = vkFence;
+    to_send.useFenceCompletionCallback = true;
+    to_send.fenceCompletionCallback = cb;
+    DPRINT("opcode=%u", to_send.opCode);
+    sendAsync(to_send);
+    DPRINT("exit");
+}
+
+void SyncThread::triggerWaitVkQsriWithCompletionCallback(VkImage vkImage, FenceCompletionCallback cb) {
+    DPRINT("fenceSyncInfo=0x%llx ...", fenceSync);
+    SyncThreadCmd to_send;
+    to_send.opCode = SYNC_THREAD_WAIT_VK_QSRI;
+    to_send.vkImage = vkImage;
+    to_send.useFenceCompletionCallback = true;
+    to_send.fenceCompletionCallback = cb;
+    DPRINT("opcode=%u", to_send.opCode);
+    sendAsync(to_send);
+    DPRINT("exit");
+}
+
+void SyncThread::triggerWaitVkQsriBlockedNoTimeline(VkImage vkImage) {
+    DPRINT("fenceSyncInfo=0x%llx ...", fenceSync);
+    SyncThreadCmd to_send;
+    to_send.opCode = SYNC_THREAD_WAIT_VK_QSRI;
+    to_send.vkImage = vkImage;
+    DPRINT("opcode=%u", to_send.opCode);
+    sendAndWaitForResult(to_send);
+    DPRINT("exit");
+}
+
+void SyncThread::triggerGeneral(FenceCompletionCallback cb) {
+    SyncThreadCmd to_send;
+    to_send.opCode = SYNC_THREAD_GENERAL;
+    to_send.useFenceCompletionCallback = true;
+    to_send.fenceCompletionCallback = cb;
+    sendAsync(to_send);
+}
+
 void SyncThread::cleanup() {
     DPRINT("enter");
     SyncThreadCmd to_send;
@@ -132,13 +186,10 @@ void SyncThread::cleanup() {
 
 void SyncThread::initSyncContext() {
     DPRINT("enter");
-    // TODO(b/187082169, warty): The thread pool's command-assignment strategy
-    // is round-robin, so as a hack, create one command for each worker.
-    for (int i = 0; i < mWorkerThreadPool.numWorkers(); i++) {
-        SyncThreadCmd to_send;
-        to_send.opCode = SYNC_THREAD_INIT;
-        sendAndWaitForResult(to_send);
-    }
+    SyncThreadCmd to_send;
+    to_send.opCode = SYNC_THREAD_INIT;
+    mWorkerThreadPool.broadcastIndexed(to_send);
+    mWorkerThreadPool.waitAllItems();
     DPRINT("exit");
 }
 
@@ -176,7 +227,9 @@ void SyncThread::sendAsync(SyncThreadCmd& cmd) {
     mWorkerThreadPool.enqueue(std::move(cmd));
 }
 
-void SyncThread::doSyncContextInit() {
+void SyncThread::doSyncContextInit(SyncThreadCmd* cmd) {
+    DPRINT("for worker id: %d", cmd->workerId);
+
     const EGLDispatch* egl = emugl::LazyLoadedEGLDispatch::get();
 
     mDisplay = egl->eglGetDisplay(EGL_DEFAULT_DISPLAY);
@@ -203,13 +256,13 @@ void SyncThread::doSyncContextInit() {
         EGL_NONE,
     };
 
-    mSurface =
+    mSurface[cmd->workerId] =
         egl->eglCreatePbufferSurface(mDisplay, config, pbufferAttribs);
 
     const EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
-    mContext = egl->eglCreateContext(mDisplay, config, EGL_NO_CONTEXT, contextAttribs);
+    mContext[cmd->workerId] = egl->eglCreateContext(mDisplay, config, EGL_NO_CONTEXT, contextAttribs);
 
-    egl->eglMakeCurrent(mDisplay, mSurface, mSurface, mContext);
+    egl->eglMakeCurrent(mDisplay, mSurface[cmd->workerId], mSurface[cmd->workerId], mContext[cmd->workerId]);
 }
 
 void SyncThread::doSyncWait(SyncThreadCmd* cmd) {
@@ -219,7 +272,13 @@ void SyncThread::doSyncWait(SyncThreadCmd* cmd) {
         FenceSync::getFromHandle((uint64_t)(uintptr_t)cmd->fenceSync);
 
     if (!fenceSync) {
-        emugl::emugl_sync_timeline_inc(cmd->timeline, kTimelineInterval);
+        if (cmd->useFenceCompletionCallback) {
+            DPRINT("wait done (null fence), use completion callback");
+            cmd->fenceCompletionCallback();
+        } else {
+            DPRINT("wait done (null fence), use sync timeline inc");
+            emugl::emugl_sync_timeline_inc(cmd->timeline, kTimelineInterval);
+        }
         return;
     }
 
@@ -263,7 +322,13 @@ void SyncThread::doSyncWait(SyncThreadCmd* cmd) {
     //   incrementing the timeline means that the app's rendering freezes.
     //   So, despite the faulty GPU driver, not incrementing is too heavyweight a response.
 
-    emugl::emugl_sync_timeline_inc(cmd->timeline, kTimelineInterval);
+    if (cmd->useFenceCompletionCallback) {
+        DPRINT("wait done (with fence), use completion callback");
+        cmd->fenceCompletionCallback();
+    } else {
+        DPRINT("wait done (with fence), use goldfish sync timeline inc");
+        emugl::emugl_sync_timeline_inc(cmd->timeline, kTimelineInterval);
+    }
     FenceSync::incrementTimelineAndDeleteOldFences();
 
     DPRINT("done timeline increment");
@@ -277,11 +342,9 @@ int SyncThread::doSyncWaitVk(SyncThreadCmd* cmd) {
     auto decoder = goldfish_vk::VkDecoderGlobalState::get();
     auto result = decoder->waitForFence(cmd->vkFence, kDefaultTimeoutNsecs);
     if (result == VK_TIMEOUT) {
-        fprintf(stderr, "SyncThread::%s: SYNC_WAIT_VK timeout: vkFence=%p\n",
-                __func__, cmd->vkFence);
+        DPRINT("SYNC_WAIT_VK timeout: vkFence=%p", cmd->vkFence);
     } else if (result != VK_SUCCESS) {
-        fprintf(stderr, "SyncThread::%s: SYNC_WAIT_VK error: %d vkFence=%p\n",
-                __func__, result, cmd->vkFence);
+        DPRINT("SYNC_WAIT_VK error: %d vkFence=%p", result, cmd->vkFence);
     }
 
     DPRINT("issue timeline increment");
@@ -289,12 +352,64 @@ int SyncThread::doSyncWaitVk(SyncThreadCmd* cmd) {
     // We always unconditionally increment timeline at this point, even
     // if the call to vkWaitForFences returned abnormally.
     // See comments in |doSyncWait| about the rationale.
-    emugl::emugl_sync_timeline_inc(cmd->timeline, kTimelineInterval);
+    if (cmd->useFenceCompletionCallback) {
+        DPRINT("vk wait done, use completion callback");
+        cmd->fenceCompletionCallback();
+    } else {
+        DPRINT("vk wait done, use goldfish sync timeline inc");
+        emugl::emugl_sync_timeline_inc(cmd->timeline, kTimelineInterval);
+    }
 
     DPRINT("done timeline increment");
 
     DPRINT("exit");
     return result;
+}
+
+int SyncThread::doSyncWaitVkQsri(SyncThreadCmd* cmd) {
+    DPRINT("enter");
+
+    auto decoder = goldfish_vk::VkDecoderGlobalState::get();
+    DPRINT("doSyncWaitVkQsri for image %p", cmd->vkImage);
+    auto result = decoder->waitQsri(cmd->vkImage, kDefaultTimeoutNsecs);
+    DPRINT("doSyncWaitVkQsri for image %p (done, do signal/callback)", cmd->vkImage);
+    if (result == VK_TIMEOUT) {
+        fprintf(stderr, "SyncThread::%s: SYNC_WAIT_VK_QSRI timeout: vkImage=%p\n",
+                __func__, cmd->vkImage);
+    } else if (result != VK_SUCCESS) {
+        fprintf(stderr, "SyncThread::%s: SYNC_WAIT_VK_QSRI error: %d vkImage=%p\n",
+                __func__, result, cmd->vkImage);
+    }
+
+    DPRINT("issue timeline increment");
+
+    // We always unconditionally increment timeline at this point, even
+    // if the call to vkWaitForFences returned abnormally.
+    // See comments in |doSyncWait| about the rationale.
+    if (cmd->useFenceCompletionCallback) {
+        DPRINT("wait done, use completion callback");
+        cmd->fenceCompletionCallback();
+    } else {
+        DPRINT("wait done, use goldfish sync timeline inc");
+        emugl::emugl_sync_timeline_inc(cmd->timeline, kTimelineInterval);
+    }
+
+    DPRINT("done timeline increment");
+
+    DPRINT("exit");
+    return result;
+}
+
+int SyncThread::doSyncGeneral(SyncThreadCmd* cmd) {
+    DPRINT("enter");
+    if (cmd->useFenceCompletionCallback) {
+        DPRINT("wait done, use completion callback");
+        cmd->fenceCompletionCallback();
+    } else {
+        DPRINT("warning, completion callback not provided in general op!");
+    }
+
+    return 0;
 }
 
 void SyncThread::doSyncBlockedWaitNoTimeline(SyncThreadCmd* cmd) {
@@ -323,17 +438,16 @@ void SyncThread::doSyncBlockedWaitNoTimeline(SyncThreadCmd* cmd) {
     }
 }
 
-void SyncThread::doExit() {
-
-    if (mContext == EGL_NO_CONTEXT) return;
+void SyncThread::doExit(SyncThreadCmd* cmd) {
 
     const EGLDispatch* egl = emugl::LazyLoadedEGLDispatch::get();
 
     egl->eglMakeCurrent(mDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-    egl->eglDestroyContext(mDisplay, mContext);
-    egl->eglDestroySurface(mDisplay, mContext);
-    mContext = EGL_NO_CONTEXT;
-    mSurface = EGL_NO_SURFACE;
+
+    egl->eglDestroyContext(mDisplay, mContext[cmd->workerId]);
+    egl->eglDestroySurface(mDisplay, mSurface[cmd->workerId]);
+    mContext[cmd->workerId] = EGL_NO_CONTEXT;
+    mSurface[cmd->workerId] = EGL_NO_SURFACE;
 }
 
 int SyncThread::doSyncThreadCmd(SyncThreadCmd* cmd) {
@@ -348,7 +462,7 @@ int SyncThread::doSyncThreadCmd(SyncThreadCmd* cmd) {
     switch (cmd->opCode) {
     case SYNC_THREAD_INIT:
         DPRINT("exec SYNC_THREAD_INIT");
-        doSyncContextInit();
+        doSyncContextInit(cmd);
         break;
     case SYNC_THREAD_WAIT:
         DPRINT("exec SYNC_THREAD_WAIT");
@@ -358,9 +472,17 @@ int SyncThread::doSyncThreadCmd(SyncThreadCmd* cmd) {
         DPRINT("exec SYNC_THREAD_WAIT_VK");
         result = doSyncWaitVk(cmd);
         break;
+    case SYNC_THREAD_WAIT_VK_QSRI:
+        DPRINT("exec SYNC_THREAD_WAIT_VK_QSRI");
+        result = doSyncWaitVkQsri(cmd);
+        break;
+    case SYNC_THREAD_GENERAL:
+        DPRINT("exec SYNC_THREAD_GENERAL");
+        result = doSyncGeneral(cmd);
+        break;
     case SYNC_THREAD_EXIT:
         DPRINT("exec SYNC_THREAD_EXIT");
-        doExit();
+        doExit(cmd);
         break;
     case SYNC_THREAD_BLOCKED_WAIT_NO_TIMELINE:
         DPRINT("exec SYNC_THREAD_BLOCKED_WAIT_NO_TIMELINE");
