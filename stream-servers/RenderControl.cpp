@@ -350,7 +350,8 @@ static bool shouldEnableAsyncQueueSubmit() {
 static bool shouldEnableVulkanAsyncQsri() {
     return shouldEnableVulkan() &&
         (feature_is_enabled(kFeature_GLAsyncSwap) ||
-         feature_is_enabled(kFeature_VirtioGpuNativeSync));
+         (feature_is_enabled(kFeature_VirtioGpuNativeSync) &&
+          feature_is_enabled(kFeature_VirtioGpuFenceContexts)));
 }
 
 const char* maxVersionToFeatureString(GLESDispatchMaxVersion version) {
@@ -619,12 +620,10 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         glStr += " ";
     }
 
-    // Bug: 193809913
-    // Only switch on after everything else about this is merged / works.
-    // if (vulkanAsyncQsri) {
-    //     glStr += kVulkanAsyncQsri;
-    //     glStr += " ";
-    // }
+    if (vulkanAsyncQsri && name == GL_EXTENSIONS) {
+        glStr += kVulkanAsyncQsri;
+        glStr += " ";
+    }
 
     if (name == GL_EXTENSIONS) {
 
