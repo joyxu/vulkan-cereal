@@ -150,6 +150,15 @@ target_link_libraries(
     OSWindow
     gtest)
 
+if (LINUX)
+add_library(
+    x11_testing_support
+    tests/X11TestingSupport.cpp)
+target_link_libraries(
+    x11_testing_support
+    gfxstream-base)
+endif()
+
 # Basic opengl rendering tests##################################################
 add_executable(
     OpenglRender_unittests
@@ -163,6 +172,12 @@ target_link_libraries(
     stream-server-testing-support
     gfxstream-base-testing-support
     gfxstream-host-common-testing-support)
+if (LINUX)
+    target_link_libraries(
+        OpenglRender_unittests
+        PRIVATE x11_testing_support)
+endif()
+
 
 # Snapshot tests################################################################
 add_executable(
