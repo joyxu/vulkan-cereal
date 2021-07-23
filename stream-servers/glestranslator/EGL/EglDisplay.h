@@ -46,8 +46,8 @@ public:
     // this will be considered the default diplay.
     EglDisplay(EGLNativeDisplayType dpy, EglOS::Display* idpy);
 
-    // Return the native display handle for this EglDisplay.
-    EGLNativeDisplayType getNativeDisplay() const { return m_dpy; }
+    // Return the EglOs Engine display handle for this EglDisplay.
+    EGLNativeDisplayType getEglOsEngineDisplay() const { return m_dpy; }
 
     // Return the native internal display handle for this EglDisplay.
     EglOS::Display* nativeType() const { return m_idpy; }
@@ -79,7 +79,7 @@ public:
         return nativeType()->destroyImage(dpy, image);
     }
 
-    EGLDisplay getNativeDisplay() {
+    EGLDisplay getHostDriverDisplay() {
         return nativeType()->getNative();
     }
 
