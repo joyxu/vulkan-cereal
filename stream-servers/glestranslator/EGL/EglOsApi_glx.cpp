@@ -313,7 +313,7 @@ public:
 
     GLXContext context() const { return mContext; }
 
-    ~GlxContext() {
+    virtual ~GlxContext() {
         PROFILE_SLOW("~GlxContext()");
         getGlxApi()->glXDestroyContext(mDisplay, mContext);
     }
