@@ -8,6 +8,10 @@ if (WIN32)
     add_definitions(/MP)
 endif()
 
+if(UNIX AND NOT APPLE)
+    set(LINUX TRUE)
+endif()
+
 find_package(Threads)
 include(ExternalProject)
 enable_testing()
