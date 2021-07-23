@@ -747,6 +747,7 @@ VkResult syncImageToColorBuffer(
         // Queue wait to sync thread with completion callback
         // Pass anbInfo by value to get a ref
         SyncThread::get()->triggerGeneral([anbInfoPtr, anbInfo, vk, device, qsriFence] {
+            (void)anbInfoPtr;
             VK_ANB_DEBUG_OBJ(anbInfoPtr, "wait callback: enter");
             if (qsriFence) {
                 VK_ANB_DEBUG_OBJ(anbInfoPtr, "wait callback: wait for fence %p...", qsriFence);
