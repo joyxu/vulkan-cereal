@@ -115,7 +115,15 @@ static const char* kGLES2LibName = "libGLESv2.dylib";
     X(EGLBoolean, eglSwapInterval,                                             \
       (EGLDisplay display, EGLint interval))                                   \
     X(void, eglSetBlobCacheFuncsANDROID, (EGLDisplay display,                  \
-        EGLSetBlobFuncANDROID set, EGLGetBlobFuncANDROID get))
+      EGLSetBlobFuncANDROID set, EGLGetBlobFuncANDROID get))                   \
+    X(EGLImage, eglCreateImageKHR, (EGLDisplay dpy,                            \
+      EGLContext ctx, EGLenum target, EGLClientBuffer buffer,                  \
+      const EGLint *attrib_list))                                              \
+    X(EGLBoolean, eglDestroyImageKHR, (EGLDisplay dpy, EGLImage image))        \
+    X(EGLImage, eglCreateImage, (EGLDisplay dpy,                               \
+      EGLContext ctx, EGLenum target, EGLClientBuffer buffer,                  \
+      const EGLint *attrib_list))                                              \
+    X(EGLBoolean, eglDestroyImage, (EGLDisplay dpy, EGLImage image))           \
 
 namespace {
 using namespace EglOS;
@@ -225,7 +233,7 @@ public:
         mDisplay(display),
         mNativeCtx(context) { }
 
-    ~EglOsEglContext() {
+    virtual ~EglOsEglContext() {
         D("%s %p\n", __FUNCTION__, mNativeCtx);
         if (!mDispatcher->eglDestroyContext(mDisplay, mNativeCtx)) {
             // TODO: print a better error message
@@ -236,6 +244,7 @@ public:
         return mNativeCtx;
     }
 
+    virtual void* getNative() { return (void*)mNativeCtx; }
 private:
     EglOsEglDispatcher* mDispatcher = nullptr;
     EGLDisplay mDisplay;
@@ -261,6 +270,17 @@ public:
     EglOsEglDisplay();
     ~EglOsEglDisplay();
     virtual EglOS::GlesVersion getMaxGlesVersion();
+    virtual const char* getExtensionString();
+    virtual EGLImage createImage(
+            EGLDisplay dpy,
+            EGLContext ctx,
+            EGLenum target,
+            EGLClientBuffer buffer,
+            const EGLint *attrib_list);
+    virtual EGLBoolean destroyImage(
+            EGLDisplay dpy,
+            EGLImage image);
+    virtual EGLDisplay getNative();
     void queryConfigs(int renderableType,
                       AddConfigCallback* addConfigFunc,
                       void* addConfigOpaque);
@@ -289,6 +309,7 @@ private:
     EGLDisplay mDisplay;
     EglOsEglDispatcher mDispatcher;
     bool mHeadless = false;
+    std::string mClientExts;
 
 #ifdef __linux__
     ::Display* mGlxDisplay = nullptr;
@@ -327,6 +348,10 @@ EglOsEglDisplay::EglOsEglDisplay() {
         fprintf(stderr, "%s: client exts: [%s]\n", __func__, clientExts);
     }
 
+    if (clientExts) {
+        mClientExts = clientExts;
+    }
+
     mDispatcher.eglBindAPI(EGL_OPENGL_ES_API);
     CHECK_EGL_ERR
 
@@ -354,6 +379,37 @@ EglOsEglDisplay::~EglOsEglDisplay() {
 EglOS::GlesVersion EglOsEglDisplay::getMaxGlesVersion() {
     // TODO: Detect and return the highest version like in GLESVersionDetector.cpp
     return EglOS::GlesVersion::ES30;
+}
+
+const char* EglOsEglDisplay::getExtensionString() {
+    return mClientExts.c_str();
+}
+
+EGLImage EglOsEglDisplay::createImage(
+        EGLDisplay dpy,
+        EGLContext ctx,
+        EGLenum target,
+        EGLClientBuffer buffer,
+        const EGLint *attrib_list) {
+    if (mDispatcher.eglCreateImage) {
+        return mDispatcher.eglCreateImage(dpy, ctx, target, buffer, attrib_list);
+    } else {
+        return mDispatcher.eglCreateImageKHR(dpy, ctx, target, buffer, attrib_list);
+    }
+}
+
+EGLBoolean EglOsEglDisplay::destroyImage(
+        EGLDisplay dpy,
+        EGLImage image) {
+    if (mDispatcher.eglDestroyImage) {
+        return mDispatcher.eglDestroyImage(dpy, image);
+    } else {
+        return mDispatcher.eglDestroyImageKHR(dpy, image);
+    }
+}
+
+EGLDisplay EglOsEglDisplay::getNative() {
+    return mDisplay;
 }
 
 void EglOsEglDisplay::queryConfigs(int renderableType,
