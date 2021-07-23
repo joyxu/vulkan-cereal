@@ -85,7 +85,7 @@ EglDisplay* EglGlobalInfo::addDisplay(EGLNativeDisplayType dpy,
     //search if it already exists.
     android::base::AutoLock mutex(m_lock);
     for (size_t n = 0; n < m_displays.size(); ++n) {
-        if (m_displays[n]->getNativeDisplay() == dpy) {
+        if (m_displays[n]->getEglOsEngineDisplay() == dpy) {
             return m_displays[n];
         }
     }
@@ -113,7 +113,7 @@ bool  EglGlobalInfo::removeDisplay(EGLDisplay dpy) {
 EglDisplay* EglGlobalInfo::getDisplay(EGLNativeDisplayType dpy) const {
     android::base::AutoLock mutex(m_lock);
     for (size_t n = 0; n < m_displays.size(); ++n) {
-        if (m_displays[n]->getNativeDisplay() == dpy) {
+        if (m_displays[n]->getEglOsEngineDisplay() == dpy) {
             return m_displays[n];
         }
     }
