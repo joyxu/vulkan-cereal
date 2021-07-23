@@ -47,6 +47,7 @@
 #include "render_api.h"
 #include "snapshot/common.h"
 #include "vulkan/vk_util.h"
+#include "virtio_gpu_ops.h"
 
 struct ColorBufferRef {
     ColorBufferPtr cb;
@@ -576,6 +577,10 @@ class FrameBuffer {
     HandleType getLastPostedColorBuffer() { return m_lastPostedColorBuffer; }
     void waitForGpu(uint64_t eglsync);
     void waitForGpuVulkan(uint64_t deviceHandle, uint64_t fenceHandle);
+    void asyncWaitForGpuWithCb(uint64_t eglsync, FenceCompletionCallback cb);
+    void asyncWaitForGpuVulkanWithCb(uint64_t deviceHandle, uint64_t fenceHandle, FenceCompletionCallback cb);
+    void asyncWaitForGpuVulkanQsriWithCb(uint64_t image, FenceCompletionCallback cb);
+    void waitForGpuVulkanQsri(uint64_t image);
 
     void setGuestManagedColorBufferLifetime(bool guestManaged);
 
