@@ -99,4 +99,7 @@ uint32_t texImageSize(GLenum internalformat,
                       GLsizei width,
                       GLsizei height);
 
+GLenum getFormatFromInternalFormat(GLint internalFormat);
+GLenum getTypeFromInternalFormat(GLint internalFormat);
+
 #endif
