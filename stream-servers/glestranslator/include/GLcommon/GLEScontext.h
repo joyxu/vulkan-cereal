@@ -475,6 +475,7 @@ public:
     void blitFromReadBufferToTextureFlipped(GLuint globalTexObj,
                                             GLuint width, GLuint height,
                                             GLint internalFormat, GLenum format, GLenum type);
+    void blitFromReadBufferToEGLImage(EGLImage image, GLint internalFormat, int width, int height);
 
 protected:
     void initDefaultFboImpl(
@@ -685,6 +686,8 @@ private:
         GLint internalFormat = 0;
         uint32_t samples = 0;
         uint32_t prevSamples = 0;
+
+        GLuint eglImageTex = 0;
     };
 
     ImageBlitState m_blitState = {};
