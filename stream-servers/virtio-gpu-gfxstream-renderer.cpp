@@ -1678,6 +1678,7 @@ private:
                 VGPLOG("This was an async signal, write fence, erase it and continue");
                 mVirglRendererCallbacks.write_fence2(mCookie, fence_value, ctx_id, 0 /* ring idx */);
                 it = pendingFencesThisCtx.erase(it);
+                break;
             } else {
                 VGPLOG("This was Not an async signal, quit and process them in subsequent call to signalOutstandingSyncSignaledFences");
                 break;
