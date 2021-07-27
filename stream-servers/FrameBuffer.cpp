@@ -43,7 +43,6 @@
 #include "host-common/vm_operations.h"
 
 #include <stdio.h>
-#include <unistd.h>
 #include <string.h>
 #include <time.h>
 
