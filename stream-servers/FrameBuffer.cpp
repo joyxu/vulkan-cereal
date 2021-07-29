@@ -43,7 +43,6 @@
 #include "host-common/vm_operations.h"
 
 #include <stdio.h>
-#include <unistd.h>
 #include <string.h>
 #include <time.h>
 
@@ -278,6 +277,10 @@ void FrameBuffer::finalize() {
     m_perfThread->wait(NULL);
     sInitialized.store(true, std::memory_order_relaxed);
     sGlobals()->condVar.broadcastAndUnlock(&lock);
+
+    for (auto it : m_platformEglContexts) {
+        destroySharedTrivialContext(it.second.context, it.second.surface);
+    }
 
     if (m_shuttingDown) {
         // The only visible thing in the framebuffer is subwindow. Everything else
@@ -2472,8 +2475,8 @@ void FrameBuffer::createTrivialContext(HandleType shared,
     *surfOut = createWindowSurface(0, 1, 1);
 }
 
-void FrameBuffer::createAndBindTrivialSharedContext(EGLContext* contextOut,
-                                                    EGLSurface* surfOut) {
+void FrameBuffer::createSharedTrivialContext(EGLContext* contextOut,
+                                             EGLSurface* surfOut) {
     assert(contextOut);
     assert(surfOut);
 
@@ -2495,16 +2498,11 @@ void FrameBuffer::createAndBindTrivialSharedContext(EGLContext* contextOut,
         EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE };
 
     *surfOut = s_egl.eglCreatePbufferSurface(m_eglDisplay, config->getEglConfig(), pbufAttribs);
-
-    s_egl.eglMakeCurrent(m_eglDisplay, *surfOut, *surfOut, *contextOut);
 }
 
-void FrameBuffer::unbindAndDestroyTrivialSharedContext(EGLContext context,
-                                                       EGLSurface surface) {
+void FrameBuffer::destroySharedTrivialContext(EGLContext context,
+                                              EGLSurface surface) {
     if (m_eglDisplay != EGL_NO_DISPLAY) {
-        s_egl.eglMakeCurrent(m_eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE,
-                             EGL_NO_CONTEXT);
-
         s_egl.eglDestroyContext(m_eglDisplay, context);
         s_egl.eglDestroySurface(m_eglDisplay, surface);
     }
@@ -3357,4 +3355,64 @@ VkImageLayout FrameBuffer::getVkImageLayoutForCompose() const {
         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
     return VK_IMAGE_LAYOUT_GENERAL;
+}
+
+bool FrameBuffer::platformImportResource(uint32_t handle, uint32_t type, void* resource) {
+    if (!resource) {
+        fprintf(stderr, "%s: Error: resource was null\n", __func__);
+    }
+
+    AutoLock mutex(m_lock);
+
+    ColorBufferMap::iterator c(m_colorbuffers.find(handle));
+    if (c == m_colorbuffers.end()) {
+        fprintf(stderr, "%s: Error: resource %u not found as a ColorBuffer\n", __func__, handle);
+        return false;
+    }
+
+    switch (type) {
+        case RESOURCE_TYPE_EGL_NATIVE_PIXMAP:
+            return (*c).second.cb->importEglNativePixmap(resource);
+        case RESOURCE_TYPE_EGL_IMAGE:
+            return (*c).second.cb->importEglImage(resource);
+        default:
+            fprintf(stderr, "%s: Error: unsupported resource type: %u\n", __func__, type);
+            return false;
+    }
+
+    return true;
+}
+
+void* FrameBuffer::platformCreateSharedEglContext(void) {
+    AutoLock lock(m_lock);
+
+    EGLContext context;
+    EGLSurface surface;
+    createSharedTrivialContext(&context, &surface);
+
+    void* underlyingContext = s_egl.eglGetNativeContextANDROID(m_eglDisplay, context);
+    if (!underlyingContext) {
+        fprintf(stderr, "%s: Error: Underlying egl backend could not produce a native EGL context.\n", __func__);
+        return nullptr;
+    }
+
+    m_platformEglContexts[underlyingContext] = { context, surface };
+
+    return underlyingContext;
+}
+
+bool FrameBuffer::platformDestroySharedEglContext(void* underlyingContext) {
+    AutoLock lock(m_lock);
+
+    auto it = m_platformEglContexts.find(underlyingContext);
+    if (it == m_platformEglContexts.end()) {
+        fprintf(stderr, "%s: Error: Could not find underlying egl context %p (perhaps already destroyed?)\n", __func__, underlyingContext);
+        return false;
+    }
+
+    destroySharedTrivialContext(it->second.context, it->second.surface);
+
+    m_platformEglContexts.erase(it);
+
+    return true;
 }
