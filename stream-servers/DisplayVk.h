@@ -52,12 +52,16 @@ class DisplayVk {
     std::shared_ptr<DisplayBufferInfo> createDisplayBuffer(VkImage, VkFormat,
                                                            uint32_t width,
                                                            uint32_t height);
-    void post(const std::shared_ptr<DisplayBufferInfo> &);
+    // Returns false if the swapchain is no longer valid and bindToSurface()
+    // needs to be called again.
+    bool post(const std::shared_ptr<DisplayBufferInfo> &);
 
     // dstWidth and dstHeight describe the size of the render target the guest
     // "thinks" it composes to, essentially, the virtual display size. Note that
     // this can be different from the actual window size.
-    void compose(
+    // Returns false if the swapchain is no longer valid and bindToSurface()
+    // needs to be called again.
+    bool compose(
         uint32_t numLayers, const ComposeLayer layers[],
         const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers,
         uint32_t dstWidth, uint32_t dstHeight);
