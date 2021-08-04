@@ -710,6 +710,13 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     fprintf(stderr, "%s: glvk interop final: %d\n", __func__, fb->m_vulkanInteropSupported);
     goldfish_vk::setGlInteropSupported(fb->m_vulkanInteropSupported);
 
+    // Start up the single sync thread if GLAsyncSwap enabled
+    if (feature_is_enabled(kFeature_GLAsyncSwap)) {
+        // If we are using Vulkan native swapchain, then don't initialize
+        // SyncThread worker threads with EGL contexts.
+        SyncThread::initialize(/* noGL */ fb->m_displayVk != nullptr);
+    }
+
     //
     // Keep the singleton framebuffer pointer
     //
@@ -718,11 +725,6 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         AutoLock lock(sGlobals()->lock);
         sInitialized.store(true, std::memory_order_release);
         sGlobals()->condVar.broadcastAndUnlock(&lock);
-    }
-
-    // Start up the single sync thread if GLAsyncSwap enabled
-    if (feature_is_enabled(kFeature_GLAsyncSwap)) {
-        SyncThread::get();
     }
 
     GL_LOG("basic EGL initialization successful");

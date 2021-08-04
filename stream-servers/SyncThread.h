@@ -37,9 +37,9 @@
 
 // We communicate with the sync thread in 3 ways:
 enum SyncThreadOpCode {
-    // Nonblocking command to initialize sync thread's contents,
-    // such as the EGL context for sync operations
-    SYNC_THREAD_INIT = 0,
+    // Nonblocking command to initialize sync thread's EGL contexts for sync
+    // operations
+    SYNC_THREAD_EGL_INIT = 0,
     // Nonblocking command to wait on a given FenceSync object
     // and timeline handle.
     // A fence FD object in the guest is signaled.
@@ -65,7 +65,7 @@ struct SyncThreadCmd {
     // For use with ThreadPool::broadcastIndexed
     void setIndex(int id) { workerId = id; }
 
-    SyncThreadOpCode opCode = SYNC_THREAD_INIT;
+    SyncThreadOpCode opCode = SYNC_THREAD_EGL_INIT;
     union {
         FenceSync* fenceSync = nullptr;
         VkFence vkFence;
@@ -86,8 +86,8 @@ class SyncThread : public android::base::Thread {
 public:
     // - constructor: start up the sync worker threads for a given context.
     // The initialization of the sync threads is nonblocking.
-    // - Triggers a |SyncThreadCmd| with op code |SYNC_THREAD_INIT|
-    SyncThread();
+    // - Triggers a |SyncThreadCmd| with op code |SYNC_THREAD_EGL_INIT|
+    SyncThread(bool noGL);
     ~SyncThread();
 
     // |triggerWait|: async wait with a given FenceSync object.
@@ -128,6 +128,9 @@ public:
     // - Triggers a |SyncThreadCmd| with op code |SYNC_THREAD_EXIT|
     void cleanup();
 
+    // Initialize the global sync thread.
+    static void initialize(bool noGL);
+
     // Obtains the global sync thread.
     static SyncThread* get();
 
@@ -139,8 +142,8 @@ private:
     // |initSyncContext| creates an EGL context expressly for calling
     // eglClientWaitSyncKHR in the processing caused by |triggerWait|.
     // This is used by the constructor only. It is non-blocking.
-    // - Triggers a |SyncThreadCmd| with op code |SYNC_THREAD_INIT|
-    void initSyncContext();
+    // - Triggers a |SyncThreadCmd| with op code |SYNC_THREAD_EGL_INIT|
+    void initSyncEGLContext();
 
     // Thread function.
     // It keeps the workers runner until |mExiting| is set.
@@ -158,7 +161,7 @@ private:
     // |doSyncThreadCmd| and related functions below
     // execute the actual commands. These run on the sync thread.
     int doSyncThreadCmd(SyncThreadCmd* cmd);
-    void doSyncContextInit(SyncThreadCmd* cmd);
+    void doSyncEGLContextInit(SyncThreadCmd* cmd);
     void doSyncWait(SyncThreadCmd* cmd);
     int doSyncWaitVk(SyncThreadCmd* cmd);
     int doSyncWaitVkQsri(SyncThreadCmd* cmd);
@@ -178,5 +181,6 @@ private:
     android::base::Lock mLock;
     android::base::ConditionVariable mCv;
     android::base::ThreadPool<SyncThreadCmd> mWorkerThreadPool;
+    bool mNoGL;
 };
 
