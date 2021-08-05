@@ -357,7 +357,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     feature_set_enabled_override(
             kFeature_GLDMA, false);
     feature_set_enabled_override(
-            kFeature_GLAsyncSwap, false);
+            kFeature_GLAsyncSwap, true);
     feature_set_enabled_override(
             kFeature_RefCountPipe, false);
     feature_set_enabled_override(

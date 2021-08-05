@@ -48,15 +48,36 @@ static uint64_t curr_ms() {
 
 #endif
 
+#define SYNC_THREAD_CHECK(condition)                                        \
+    do {                                                                    \
+        if (!(condition)) {                                                 \
+            fprintf(stderr, "%s(%s:%d): %s is false\n", __func__, __FILE__, \
+                    __LINE__, #condition);                                  \
+            fflush(stderr);                                                 \
+            ::std::abort();                                                 \
+        }                                                                   \
+    } while (0)
+
 // The single global sync thread instance.
 class GlobalSyncThread {
 public:
     GlobalSyncThread() = default;
 
-    SyncThread* syncThreadPtr() { return &mSyncThread; }
+    void initialize(bool noGL) {
+        AutoLock mutex(mLock);
+        SYNC_THREAD_CHECK(!mSyncThread);
+        mSyncThread = std::make_unique<SyncThread>(noGL);
+    }
+    SyncThread* syncThreadPtr() {
+        AutoLock mutex(mLock);
+        return mSyncThread.get();
+    }
 
 private:
-    SyncThread mSyncThread;
+    std::unique_ptr<SyncThread> mSyncThread = nullptr;
+    // lock for the access to this object
+    android::base::Lock mLock;
+    using AutoLock = android::base::AutoLock;
 };
 
 static GlobalSyncThread* sGlobalSyncThread() {
@@ -67,14 +88,17 @@ static GlobalSyncThread* sGlobalSyncThread() {
 static const uint32_t kTimelineInterval = 1;
 static const uint64_t kDefaultTimeoutNsecs = 5ULL * 1000ULL * 1000ULL * 1000ULL;
 
-SyncThread::SyncThread()
-    : android::base::Thread(android::base::ThreadFlags::MaskSignals, 512 * 1024),
-      mWorkerThreadPool(kNumWorkerThreads, [this](SyncThreadCmd&& cmd) {
-          doSyncThreadCmd(&cmd);
-      }) {
+SyncThread::SyncThread(bool noGL)
+    : android::base::Thread(android::base::ThreadFlags::MaskSignals,
+                            512 * 1024),
+      mWorkerThreadPool(kNumWorkerThreads,
+                        [this](SyncThreadCmd&& cmd) { doSyncThreadCmd(&cmd); }),
+      mNoGL(noGL) {
     this->start();
     mWorkerThreadPool.start();
-    initSyncContext();
+    if (!noGL) {
+        initSyncEGLContext();
+    }
 }
 
 SyncThread::~SyncThread() {
@@ -184,10 +208,10 @@ void SyncThread::cleanup() {
 
 // Private methods below////////////////////////////////////////////////////////
 
-void SyncThread::initSyncContext() {
+void SyncThread::initSyncEGLContext() {
     DPRINT("enter");
     SyncThreadCmd to_send;
-    to_send.opCode = SYNC_THREAD_INIT;
+    to_send.opCode = SYNC_THREAD_EGL_INIT;
     mWorkerThreadPool.broadcastIndexed(to_send);
     mWorkerThreadPool.waitAllItems();
     DPRINT("exit");
@@ -227,8 +251,11 @@ void SyncThread::sendAsync(SyncThreadCmd& cmd) {
     mWorkerThreadPool.enqueue(std::move(cmd));
 }
 
-void SyncThread::doSyncContextInit(SyncThreadCmd* cmd) {
+void SyncThread::doSyncEGLContextInit(SyncThreadCmd* cmd) {
     DPRINT("for worker id: %d", cmd->workerId);
+    // We shouldn't initialize EGL context, when SyncThread is initialized
+    // without GL enabled.
+    SYNC_THREAD_CHECK(!mNoGL);
 
     const EGLDispatch* egl = emugl::LazyLoadedEGLDispatch::get();
 
@@ -281,6 +308,9 @@ void SyncThread::doSyncWait(SyncThreadCmd* cmd) {
         }
         return;
     }
+    // We shouldn't use FenceSync to wait, when SyncThread is initialized
+    // without GL enabled, because FenceSync uses EGL/GLES.
+    SYNC_THREAD_CHECK(!mNoGL);
 
     EGLint wait_result = 0x0;
 
@@ -422,6 +452,10 @@ void SyncThread::doSyncBlockedWaitNoTimeline(SyncThreadCmd* cmd) {
         return;
     }
 
+    // We shouldn't use FenceSync to wait, when SyncThread is initialized
+    // without GL enabled, because FenceSync uses EGL/GLES.
+    SYNC_THREAD_CHECK(!mNoGL);
+
     EGLint wait_result = 0x0;
 
     DPRINT("wait on sync obj: %p", cmd->fenceSync);
@@ -439,15 +473,17 @@ void SyncThread::doSyncBlockedWaitNoTimeline(SyncThreadCmd* cmd) {
 }
 
 void SyncThread::doExit(SyncThreadCmd* cmd) {
+    if (!mNoGL) {
+        const EGLDispatch* egl = emugl::LazyLoadedEGLDispatch::get();
 
-    const EGLDispatch* egl = emugl::LazyLoadedEGLDispatch::get();
+        egl->eglMakeCurrent(mDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE,
+                            EGL_NO_CONTEXT);
 
-    egl->eglMakeCurrent(mDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-
-    egl->eglDestroyContext(mDisplay, mContext[cmd->workerId]);
-    egl->eglDestroySurface(mDisplay, mSurface[cmd->workerId]);
-    mContext[cmd->workerId] = EGL_NO_CONTEXT;
-    mSurface[cmd->workerId] = EGL_NO_SURFACE;
+        egl->eglDestroyContext(mDisplay, mContext[cmd->workerId]);
+        egl->eglDestroySurface(mDisplay, mSurface[cmd->workerId]);
+        mContext[cmd->workerId] = EGL_NO_CONTEXT;
+        mSurface[cmd->workerId] = EGL_NO_SURFACE;
+    }
 }
 
 int SyncThread::doSyncThreadCmd(SyncThreadCmd* cmd) {
@@ -460,9 +496,9 @@ int SyncThread::doSyncThreadCmd(SyncThreadCmd* cmd) {
 
     int result = 0;
     switch (cmd->opCode) {
-    case SYNC_THREAD_INIT:
-        DPRINT("exec SYNC_THREAD_INIT");
-        doSyncContextInit(cmd);
+    case SYNC_THREAD_EGL_INIT:
+        DPRINT("exec SYNC_THREAD_EGL_INIT");
+        doSyncEGLContextInit(cmd);
         break;
     case SYNC_THREAD_WAIT:
         DPRINT("exec SYNC_THREAD_WAIT");
@@ -501,5 +537,11 @@ int SyncThread::doSyncThreadCmd(SyncThreadCmd* cmd) {
 
 /* static */
 SyncThread* SyncThread::get() {
-    return sGlobalSyncThread()->syncThreadPtr();
+    auto res = sGlobalSyncThread()->syncThreadPtr();
+    SYNC_THREAD_CHECK(res);
+    return res;
+}
+
+void SyncThread::initialize(bool noEGL) {
+    sGlobalSyncThread()->initialize(noEGL);
 }
