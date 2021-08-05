@@ -1460,7 +1460,7 @@ EGLAPI EGLBoolean EGLAPIENTRY eglDestroyImageKHR(EGLDisplay display, EGLImageKHR
         img->sync = nullptr;
     }
 
-    if (img->isNative) {
+    if (img->isNative && !img->isImported) {
         dpy->destroyNativeImage(dpy->getHostDriverDisplay(), img->nativeImage);
     }
 
@@ -1830,6 +1830,7 @@ EGLImage eglImportImageANDROID(EGLDisplay display, EGLImage nativeImage) {
     VALIDATE_DISPLAY_RETURN(display, (EGLImage)0);
 	ImagePtr img( new EglImage() );
 	img->isNative = true;
+	img->isImported = true;
 	img->nativeImage = nativeImage;
     return dpy->addImageKHR(img);
 }
