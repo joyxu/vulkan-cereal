@@ -239,7 +239,7 @@ public:
 
 // getEgl2EglHostInstance returns a host instance that is used to mount
 // EGL/GLES translator on top of another EGL/GLES library
-Engine* getEgl2EglHostInstance();
+Engine* getEgl2EglHostInstance(bool nullEgl);
 
 }  // namespace EglOS
 
