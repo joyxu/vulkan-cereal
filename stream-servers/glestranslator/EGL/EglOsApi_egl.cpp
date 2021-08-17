@@ -267,7 +267,7 @@ private:
 
 class EglOsEglDisplay : public EglOS::Display {
 public:
-    EglOsEglDisplay();
+    EglOsEglDisplay(bool nullEgl);
     ~EglOsEglDisplay();
     virtual EglOS::GlesVersion getMaxGlesVersion();
     virtual const char* getExtensionString();
@@ -316,10 +316,24 @@ private:
 #endif // __linux__
 };
 
-EglOsEglDisplay::EglOsEglDisplay() {
+EglOsEglDisplay::EglOsEglDisplay(bool nullEgl) {
     mVerbose = android::base::getEnvironmentVariable("ANDROID_EMUGL_VERBOSE") == "1";
 
-    if (android::base::getEnvironmentVariable("ANDROID_EMUGL_EXPERIMENTAL_FAST_PATH") == "1") {
+    if (nullEgl) {
+        const EGLAttrib attr[] = {
+            EGL_PLATFORM_ANGLE_TYPE_ANGLE,
+            EGL_PLATFORM_ANGLE_TYPE_NULL_ANGLE,
+            EGL_NONE
+        };
+
+        mDisplay = mDispatcher.eglGetPlatformDisplay(EGL_PLATFORM_ANGLE_ANGLE,
+            (void*)EGL_DEFAULT_DISPLAY,
+            attr);
+
+        if (mDisplay == EGL_NO_DISPLAY) {
+            fprintf(stderr, "%s: no display found that supports null backend\n", __func__);
+        }
+    } else if (android::base::getEnvironmentVariable("ANDROID_EMUGL_EXPERIMENTAL_FAST_PATH") == "1") {
         const EGLAttrib attr[] = {
             EGL_PLATFORM_ANGLE_TYPE_ANGLE,
             EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE,
@@ -712,19 +726,21 @@ bool EglOsEglDisplay::checkWindowPixelFormatMatch(EGLNativeWindowType win,
 #endif // __APPLE__
 }
 
-static EglOsEglDisplay* sHostDisplay() {
-    static EglOsEglDisplay* d = new EglOsEglDisplay;
+static EglOsEglDisplay* sHostDisplay(bool nullEgl = false) {
+    static EglOsEglDisplay* d = new EglOsEglDisplay(nullEgl);
     return d;
 }
 
 class EglEngine : public EglOS::Engine {
 public:
-    EglEngine() = default;
+    EglEngine(bool nullEgl) :
+        EglOS::Engine(),
+        mUseNullEgl(nullEgl) {}
     ~EglEngine() = default;
 
     EglOS::Display* getDefaultDisplay() {
         D("%s\n", __FUNCTION__);
-        return sHostDisplay();
+        return sHostDisplay(mUseNullEgl);
     }
     GlLibrary* getGlLibrary() {
         D("%s\n", __FUNCTION__);
@@ -741,18 +757,19 @@ public:
 
 private:
     EglOsGlLibrary mGlLib;
+    bool mUseNullEgl;
 };
 
 }  // namespace
 
-static EglEngine* sHostEngine() {
-    static EglEngine* res = new EglEngine;
+static EglEngine* sHostEngine(bool nullEgl) {
+    static EglEngine* res = new EglEngine(nullEgl);
     return res;
 }
 
 namespace EglOS {
-Engine* getEgl2EglHostInstance() {
+Engine* getEgl2EglHostInstance(bool nullEgl) {
     D("%s\n", __FUNCTION__);
-    return sHostEngine();
+    return sHostEngine(nullEgl);
 }
 }  // namespace EglOS
