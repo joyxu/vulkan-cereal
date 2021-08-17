@@ -1559,7 +1559,7 @@ public:
         }
         cmpInfo.device = device;
 
-        AndroidNativeBufferInfo anbInfo;
+        AndroidNativeBufferInfo* anbInfo = new AndroidNativeBufferInfo;
         const VkNativeBufferANDROID* nativeBufferANDROID =
             vk_find_struct<VkNativeBufferANDROID>(pCreateInfo);
 
@@ -1572,9 +1572,9 @@ public:
             createRes =
                 prepareAndroidNativeBufferImage(
                         vk, device, pCreateInfo, nativeBufferANDROID, pAllocator,
-                        memProps, &anbInfo);
+                        memProps, anbInfo);
             if (createRes == VK_SUCCESS) {
-                *pImage = anbInfo.image;
+                *pImage = anbInfo->image;
             }
         } else {
             createRes =
@@ -1589,7 +1589,9 @@ public:
         }
 
         auto& imageInfo = mImageInfo[*pImage];
-        imageInfo.anbInfo = anbInfo;
+
+        if (anbInfo) imageInfo.anbInfo.reset(anbInfo);
+
         imageInfo.cmpInfo = cmpInfo;
 
         *pImage = new_boxed_non_dispatchable_VkImage(*pImage);
@@ -1613,9 +1615,7 @@ public:
 
         auto info = it->second;
 
-        if (info.anbInfo.image) {
-            teardownAndroidNativeBufferImage(vk, &info.anbInfo);
-        } else {
+        if (!info.anbInfo) {
             if (info.cmpInfo.isCompressed) {
                 CompressedImageInfo& cmpInfo = info.cmpInfo;
                 if (image != cmpInfo.decompImg) {
@@ -1744,9 +1744,10 @@ public:
                 pCreateInfo = &createInfo;
             }
         }
-        if (imageInfoIt->second.anbInfo.externallyBacked) {
+        if (imageInfoIt->second.anbInfo &&
+            imageInfoIt->second.anbInfo->externallyBacked) {
             createInfo = *pCreateInfo;
-            createInfo.format = imageInfoIt->second.anbInfo.vkFormat;
+            createInfo.format = imageInfoIt->second.anbInfo->vkFormat;
             pCreateInfo = &createInfo;
         }
 
@@ -1901,7 +1902,7 @@ public:
             AutoLock lock(mLock);
 
             DCHECK(mFenceInfo.find(*pFence) == mFenceInfo.end());
-            mFenceInfo[*pFence] = {};
+            // Create FenceInfo for *pFence.
             auto& fenceInfo = mFenceInfo[*pFence];
             fenceInfo.device = device;
             fenceInfo.vk = vk;
@@ -1911,6 +1912,34 @@ public:
         }
 
         return res;
+    }
+
+    VkResult on_vkResetFences(android::base::BumpPool* pool,
+                              VkDevice boxed_device,
+                              uint32_t fenceCount,
+                              const VkFence* pFences) {
+        auto device = unbox_VkDevice(boxed_device);
+        auto vk = dispatch_VkDevice(boxed_device);
+
+        std::vector<VkFence> cleanedFences;
+
+        for (uint32_t i = 0; i < fenceCount; ++i) {
+            if (pFences[i] != VK_NULL_HANDLE)
+                cleanedFences.push_back(pFences[i]);
+        }
+
+        VkResult res = vk->vkResetFences(
+			device, (uint32_t)cleanedFences.size(), cleanedFences.data());
+
+        // Reset all fences' states to kNotWaitable.
+        {
+            AutoLock lock(mLock);
+            for (uint32_t i = 0; i < fenceCount; i++) {
+                DCHECK(mFenceInfo.find(pFences[i]) != mFenceInfo.end());
+                mFenceInfo[pFences[i]].state = FenceInfo::State::kNotWaitable;
+            }
+        }
+        return VK_SUCCESS;
     }
 
     VkResult on_vkImportSemaphoreFdKHR(
@@ -3447,7 +3476,7 @@ public:
             return VK_ERROR_INITIALIZATION_FAILED;
         }
 
-        AndroidNativeBufferInfo* anbInfo = &imageInfo->anbInfo;
+        AndroidNativeBufferInfo* anbInfo = imageInfo->anbInfo.get();
 
         return
             setAndroidNativeImageSemaphoreSignaled(
@@ -3476,7 +3505,7 @@ public:
         }
 
         auto imageInfo = android::base::find(mImageInfo, image);
-        AndroidNativeBufferInfo* anbInfo = &imageInfo->anbInfo;
+        auto anbInfo = imageInfo->anbInfo;
 
         return
             syncImageToColorBuffer(
@@ -3738,7 +3767,21 @@ public:
 
         AutoLock qlock(*ql);
 
-        return vk->vkQueueSubmit(queue, submitCount, pSubmits, fence);
+        auto result = vk->vkQueueSubmit(queue, submitCount, pSubmits, fence);
+
+        // After vkQueueSubmit is called, we can signal the conditional variable
+        // in FenceInfo, so that other threads (e.g. SyncThread) can call
+        // waitForFence() on this fence.
+        lock.lock();
+        auto fenceInfo = mFenceInfo.find(fence);
+        if (fenceInfo != mFenceInfo.end()) {
+            fenceInfo->second.state = FenceInfo::State::kWaitable;
+            fenceInfo->second.lock.lock();
+            fenceInfo->second.cv.signalAndUnlock(&fenceInfo->second.lock);
+        }
+        lock.unlock();
+
+        return result;
     }
 
     VkResult on_vkQueueWaitIdle(
@@ -4626,9 +4669,33 @@ public:
             return VK_SUCCESS;
         }
 
+        // Vulkan specs require fences of vkQueueSubmit to be *externally
+        // synchronized*, i.e. we cannot submit a queue while waiting for the
+        // fence in another thread. For threads that call this function, they
+        // have to wait until a vkQueueSubmit() using this fence is called
+        // before calling vkWaitForFences(). So we use a conditional variable
+        // and mutex for thread synchronization.
+        //
+        // See:
+        // https://www.khronos.org/registry/vulkan/specs/1.2/html/vkspec.html#fundamentals-threadingbehavior
+        // https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/issues/519
+
         const VkDevice device = mFenceInfo[fence].device;
         const VulkanDispatch* vk = mFenceInfo[fence].vk;
+        auto& fenceLock = mFenceInfo[fence].lock;
+        auto& cv = mFenceInfo[fence].cv;
         lock.unlock();
+
+        fenceLock.lock();
+        cv.wait(&fenceLock, [this, fence] {
+            AutoLock lock(mLock);
+            if (mFenceInfo[fence].state == FenceInfo::State::kWaitable) {
+                mFenceInfo[fence].state = FenceInfo::State::kWaiting;
+                return true;
+            }
+            return false;
+        });
+        fenceLock.unlock();
 
         return vk->vkWaitForFences(device, /* fenceCount */ 1u, &fence,
                                    /* waitAll */ false, timeout);
@@ -4649,6 +4716,59 @@ public:
         lock.unlock();
 
         return vk->vkGetFenceStatus(device, fence);
+    }
+
+    VkResult waitQsri(VkImage boxed_image, uint64_t timeout) {
+        (void)timeout; // TODO
+
+        AutoLock lock(mLock);
+
+        VkImage image = unbox_VkImage(boxed_image);
+
+        if (mLogging) {
+            fprintf(stderr, "%s: for boxed image 0x%llx image %p\n",
+                             __func__, (unsigned long long)boxed_image, image);
+        }
+
+        if (image == VK_NULL_HANDLE || mImageInfo.find(image) == mImageInfo.end()) {
+            // No image
+            return VK_SUCCESS;
+        }
+
+        auto anbInfo = mImageInfo[image].anbInfo; // shared ptr, take ref
+        lock.unlock();
+
+        if (!anbInfo) {
+            fprintf(stderr, "%s: warning: image %p doesn't ahve anb info\n", __func__, image);
+            return VK_SUCCESS;
+        }
+        if (!anbInfo->vk) {
+            fprintf(stderr, "%s:%p warning: image %p anb info not initialized\n", __func__, anbInfo.get(), image);
+            return VK_SUCCESS;
+        }
+        // Could be null or mismatched image, check later
+        if (image != anbInfo->image) {
+            fprintf(stderr, "%s:%p warning: image %p anb info has wrong image: %p\n", __func__, anbInfo.get(), image, anbInfo->image);
+            return VK_SUCCESS;
+        }
+
+        AutoLock qsriLock(anbInfo->qsriWaitInfo.lock);
+        ++anbInfo->qsriWaitInfo.requestedPresentCount;
+        uint64_t targetPresentCount = anbInfo->qsriWaitInfo.requestedPresentCount;
+
+        if (mLogging) {
+            fprintf(stderr, "%s:%p New target present count %llu\n",
+                    __func__, anbInfo.get(), (unsigned long long)targetPresentCount);
+        }
+
+        anbInfo->qsriWaitInfo.cv.wait(&anbInfo->qsriWaitInfo.lock, [anbInfo, targetPresentCount] {
+            return targetPresentCount <= anbInfo->qsriWaitInfo.presentCount;
+        });
+
+        if (mLogging) {
+            fprintf(stderr, "%s:%p Done waiting\n", __func__, anbInfo.get());
+        }
+        return VK_SUCCESS;
     }
 
 #define GUEST_EXTERNAL_MEMORY_HANDLE_TYPES                                \
@@ -6369,7 +6489,7 @@ private:
     };
 
     struct ImageInfo {
-        AndroidNativeBufferInfo anbInfo;
+        std::shared_ptr<AndroidNativeBufferInfo> anbInfo;
         CompressedImageInfo cmpInfo;
     };
 
@@ -6387,6 +6507,16 @@ private:
         VkDevice device = VK_NULL_HANDLE;
         VkFence boxed = VK_NULL_HANDLE;
         VulkanDispatch* vk = nullptr;
+
+        android::base::StaticLock lock;
+        android::base::ConditionVariable cv;
+
+        enum class State {
+            kWaitable,
+            kNotWaitable,
+            kWaiting,
+        };
+        State state = State::kNotWaitable;
     };
 
     struct SemaphoreInfo {
@@ -6969,6 +7099,13 @@ VkResult VkDecoderGlobalState::on_vkCreateFence(
         VkFence* pFence) {
     return mImpl->on_vkCreateFence(pool, device, pCreateInfo, pAllocator,
                                    pFence);
+}
+
+VkResult VkDecoderGlobalState::on_vkResetFences(android::base::BumpPool* pool,
+                                                VkDevice device,
+                                                uint32_t fenceCount,
+                                                const VkFence* pFences) {
+    return mImpl->on_vkResetFences(pool, device, fenceCount, pFences);
 }
 
 void VkDecoderGlobalState::on_vkDestroyFence(
@@ -7617,6 +7754,18 @@ VkResult VkDecoderGlobalState::on_vkQueueBindSparse(
     return mImpl->on_vkQueueBindSparse(pool, queue, bindInfoCount, pBindInfo, fence);
 }
 
+void VkDecoderGlobalState::on_vkQueueSignalReleaseImageANDROIDAsyncGOOGLE(
+    android::base::BumpPool* pool,
+    VkQueue queue,
+    uint32_t waitSemaphoreCount,
+    const VkSemaphore* pWaitSemaphores,
+    VkImage image) {
+    int fenceFd;
+    mImpl->on_vkQueueSignalReleaseImageANDROID(
+        pool, queue, waitSemaphoreCount, pWaitSemaphores,
+        image, &fenceFd);
+}
+
 VkResult VkDecoderGlobalState::waitForFence(VkFence boxed_fence,
                                             uint64_t timeout) {
     return mImpl->waitForFence(boxed_fence, timeout);
@@ -7624,6 +7773,10 @@ VkResult VkDecoderGlobalState::waitForFence(VkFence boxed_fence,
 
 VkResult VkDecoderGlobalState::getFenceStatus(VkFence boxed_fence) {
     return mImpl->getFenceStatus(boxed_fence);
+}
+
+VkResult VkDecoderGlobalState::waitQsri(VkImage image, uint64_t timeout) {
+    return mImpl->waitQsri(image, timeout);
 }
 
 void VkDecoderGlobalState::deviceMemoryTransform_tohost(

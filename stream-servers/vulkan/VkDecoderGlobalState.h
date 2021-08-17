@@ -600,6 +600,10 @@ public:
                               const VkFenceCreateInfo* pCreateInfo,
                               const VkAllocationCallbacks* pAllocator,
                               VkFence* pFence);
+    VkResult on_vkResetFences(android::base::BumpPool* pool,
+                              VkDevice device,
+                              uint32_t fenceCount,
+                              const VkFence* pFences);
     void on_vkDestroyFence(android::base::BumpPool* pool,
                            VkDevice device,
                            VkFence fence,
@@ -764,11 +768,24 @@ public:
         VkQueue queue,
         uint32_t bindInfoCount,
         const VkBindSparseInfo* pBindInfo, VkFence fence);
+    void on_vkQueueSignalReleaseImageANDROIDAsyncGOOGLE(
+        android::base::BumpPool* pool,
+        VkQueue queue,
+        uint32_t waitSemaphoreCount,
+        const VkSemaphore* pWaitSemaphores,
+        VkImage image);
 
     // Fence waits
     VkResult waitForFence(VkFence boxed_fence, uint64_t timeout);
 
     VkResult getFenceStatus(VkFence boxed_fence);
+
+    // Wait for present (vkQueueSignalReleaseImageANDROID). This explicitly
+    // requires the image to be presented again versus how many times it's been
+    // presented so far, so it ends up incrementing a "target present count"
+    // for this image, and then waiting for the image to get vkQSRI'ed at least
+    // that many times.
+    VkResult waitQsri(VkImage boxed_image, uint64_t timeout);
 
     // Transformations
     void deviceMemoryTransform_tohost(

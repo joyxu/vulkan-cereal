@@ -278,6 +278,10 @@ void FrameBuffer::finalize() {
     sInitialized.store(true, std::memory_order_relaxed);
     sGlobals()->condVar.broadcastAndUnlock(&lock);
 
+    for (auto it : m_platformEglContexts) {
+        destroySharedTrivialContext(it.second.context, it.second.surface);
+    }
+
     if (m_shuttingDown) {
         // The only visible thing in the framebuffer is subwindow. Everything else
         // will get cleaned when the process exits.
@@ -380,8 +384,9 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         }
     }
 
-    if (s_egl.eglUseOsEglApi)
-        s_egl.eglUseOsEglApi(egl2egl);
+    if (s_egl.eglUseOsEglApi) {
+        s_egl.eglUseOsEglApi(egl2egl, (feature_is_enabled(kFeature_VulkanNativeSwapchain) ? EGL_TRUE : EGL_FALSE));
+    }
     //
     // Initialize backend EGL display
     //
@@ -706,6 +711,13 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     fprintf(stderr, "%s: glvk interop final: %d\n", __func__, fb->m_vulkanInteropSupported);
     goldfish_vk::setGlInteropSupported(fb->m_vulkanInteropSupported);
 
+    // Start up the single sync thread if GLAsyncSwap enabled
+    if (feature_is_enabled(kFeature_GLAsyncSwap)) {
+        // If we are using Vulkan native swapchain, then don't initialize
+        // SyncThread worker threads with EGL contexts.
+        SyncThread::initialize(/* noGL */ fb->m_displayVk != nullptr);
+    }
+
     //
     // Keep the singleton framebuffer pointer
     //
@@ -714,11 +726,6 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         AutoLock lock(sGlobals()->lock);
         sInitialized.store(true, std::memory_order_release);
         sGlobals()->condVar.broadcastAndUnlock(&lock);
-    }
-
-    // Start up the single sync thread if GLAsyncSwap enabled
-    if (feature_is_enabled(kFeature_GLAsyncSwap)) {
-        SyncThread::get();
     }
 
     GL_LOG("basic EGL initialization successful");
@@ -2471,8 +2478,8 @@ void FrameBuffer::createTrivialContext(HandleType shared,
     *surfOut = createWindowSurface(0, 1, 1);
 }
 
-void FrameBuffer::createAndBindTrivialSharedContext(EGLContext* contextOut,
-                                                    EGLSurface* surfOut) {
+void FrameBuffer::createSharedTrivialContext(EGLContext* contextOut,
+                                             EGLSurface* surfOut) {
     assert(contextOut);
     assert(surfOut);
 
@@ -2494,16 +2501,11 @@ void FrameBuffer::createAndBindTrivialSharedContext(EGLContext* contextOut,
         EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE };
 
     *surfOut = s_egl.eglCreatePbufferSurface(m_eglDisplay, config->getEglConfig(), pbufAttribs);
-
-    s_egl.eglMakeCurrent(m_eglDisplay, *surfOut, *surfOut, *contextOut);
 }
 
-void FrameBuffer::unbindAndDestroyTrivialSharedContext(EGLContext context,
-                                                       EGLSurface surface) {
+void FrameBuffer::destroySharedTrivialContext(EGLContext context,
+                                              EGLSurface surface) {
     if (m_eglDisplay != EGL_NO_DISPLAY) {
-        s_egl.eglMakeCurrent(m_eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE,
-                             EGL_NO_CONTEXT);
-
         s_egl.eglDestroyContext(m_eglDisplay, context);
         s_egl.eglDestroySurface(m_eglDisplay, surface);
     }
@@ -3315,8 +3317,35 @@ void FrameBuffer::waitForGpuVulkan(uint64_t deviceHandle, uint64_t fenceHandle) 
     // Note: this will always be nullptr.
     FenceSync* fenceSync = FenceSync::getFromHandle(fenceHandle);
 
-    // Note: this will always signal right away.
+    // Note: This will always signal right away.
     SyncThread::get()->triggerBlockedWaitNoTimeline(fenceSync);
+}
+
+void FrameBuffer::asyncWaitForGpuWithCb(uint64_t eglsync, FenceCompletionCallback cb) {
+    FenceSync* fenceSync = FenceSync::getFromHandle(eglsync);
+
+    if (!fenceSync) {
+        fprintf(stderr, "%s: err: fence sync 0x%llx not found\n", __func__,
+                (unsigned long long)eglsync);
+        return;
+    }
+
+    SyncThread::get()->triggerWaitWithCompletionCallback(fenceSync, std::move(cb));
+}
+
+void FrameBuffer::asyncWaitForGpuVulkanWithCb(uint64_t deviceHandle, uint64_t fenceHandle, FenceCompletionCallback cb) {
+    (void)deviceHandle;
+    SyncThread::get()->triggerWaitVkWithCompletionCallback((VkFence)fenceHandle, std::move(cb));
+}
+
+void FrameBuffer::asyncWaitForGpuVulkanQsriWithCb(uint64_t image, FenceCompletionCallback cb) {
+    SyncThread::get()->triggerWaitVkQsriWithCompletionCallback((VkImage)image, std::move(cb));
+}
+
+void FrameBuffer::waitForGpuVulkanQsri(uint64_t image) {
+    (void)image;
+    // Signal immediately, because this was a sync wait and it's vulkan.
+    SyncThread::get()->triggerBlockedWaitNoTimeline(nullptr);
 }
 
 void FrameBuffer::setGuestManagedColorBufferLifetime(bool guestManaged) {
@@ -3329,4 +3358,64 @@ VkImageLayout FrameBuffer::getVkImageLayoutForCompose() const {
         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
     return VK_IMAGE_LAYOUT_GENERAL;
+}
+
+bool FrameBuffer::platformImportResource(uint32_t handle, uint32_t type, void* resource) {
+    if (!resource) {
+        fprintf(stderr, "%s: Error: resource was null\n", __func__);
+    }
+
+    AutoLock mutex(m_lock);
+
+    ColorBufferMap::iterator c(m_colorbuffers.find(handle));
+    if (c == m_colorbuffers.end()) {
+        fprintf(stderr, "%s: Error: resource %u not found as a ColorBuffer\n", __func__, handle);
+        return false;
+    }
+
+    switch (type) {
+        case RESOURCE_TYPE_EGL_NATIVE_PIXMAP:
+            return (*c).second.cb->importEglNativePixmap(resource);
+        case RESOURCE_TYPE_EGL_IMAGE:
+            return (*c).second.cb->importEglImage(resource);
+        default:
+            fprintf(stderr, "%s: Error: unsupported resource type: %u\n", __func__, type);
+            return false;
+    }
+
+    return true;
+}
+
+void* FrameBuffer::platformCreateSharedEglContext(void) {
+    AutoLock lock(m_lock);
+
+    EGLContext context;
+    EGLSurface surface;
+    createSharedTrivialContext(&context, &surface);
+
+    void* underlyingContext = s_egl.eglGetNativeContextANDROID(m_eglDisplay, context);
+    if (!underlyingContext) {
+        fprintf(stderr, "%s: Error: Underlying egl backend could not produce a native EGL context.\n", __func__);
+        return nullptr;
+    }
+
+    m_platformEglContexts[underlyingContext] = { context, surface };
+
+    return underlyingContext;
+}
+
+bool FrameBuffer::platformDestroySharedEglContext(void* underlyingContext) {
+    AutoLock lock(m_lock);
+
+    auto it = m_platformEglContexts.find(underlyingContext);
+    if (it == m_platformEglContexts.end()) {
+        fprintf(stderr, "%s: Error: Could not find underlying egl context %p (perhaps already destroyed?)\n", __func__, underlyingContext);
+        return false;
+    }
+
+    destroySharedTrivialContext(it->second.context, it->second.surface);
+
+    m_platformEglContexts.erase(it);
+
+    return true;
 }

@@ -47,6 +47,7 @@
 #include "render_api.h"
 #include "snapshot/common.h"
 #include "vulkan/vk_util.h"
+#include "virtio_gpu_ops.h"
 
 struct ColorBufferRef {
     ColorBufferPtr cb;
@@ -477,12 +478,10 @@ class FrameBuffer {
     // outside the facilities the FrameBuffer class provides.
     void createTrivialContext(HandleType shared, HandleType* contextOut,
                               HandleType* surfOut);
-    // createAndBindTrivialSharedContext(), but with a m_pbufContext
+    // createTrivialContext(), but with a m_pbufContext
     // as shared, and not adding itself to the context map at all.
-    void createAndBindTrivialSharedContext(EGLContext* contextOut,
-                                           EGLSurface* surfOut);
-    void unbindAndDestroyTrivialSharedContext(EGLContext context,
-                                              EGLSurface surf);
+    void createSharedTrivialContext(EGLContext* contextOut, EGLSurface* surfOut);
+    void destroySharedTrivialContext(EGLContext context, EGLSurface surf);
 
     void setShuttingDown() { m_shuttingDown = true; }
     bool isShuttingDown() const { return m_shuttingDown; }
@@ -576,6 +575,14 @@ class FrameBuffer {
     HandleType getLastPostedColorBuffer() { return m_lastPostedColorBuffer; }
     void waitForGpu(uint64_t eglsync);
     void waitForGpuVulkan(uint64_t deviceHandle, uint64_t fenceHandle);
+    void asyncWaitForGpuWithCb(uint64_t eglsync, FenceCompletionCallback cb);
+    void asyncWaitForGpuVulkanWithCb(uint64_t deviceHandle, uint64_t fenceHandle, FenceCompletionCallback cb);
+    void asyncWaitForGpuVulkanQsriWithCb(uint64_t image, FenceCompletionCallback cb);
+    void waitForGpuVulkanQsri(uint64_t image);
+
+    bool platformImportResource(uint32_t handle, uint32_t type, void* resource);
+    void* platformCreateSharedEglContext(void);
+    bool platformDestroySharedEglContext(void* context);
 
     void setGuestManagedColorBufferLifetime(bool guestManaged);
 
@@ -788,5 +795,13 @@ class FrameBuffer {
     uint8_t m_vulkanUUID[VK_UUID_SIZE];
     uint8_t m_glesUUID[GL_UUID_SIZE_EXT];
     static_assert(VK_UUID_SIZE == GL_UUID_SIZE_EXT);
+
+    // Tracks platform EGL contexts that have been handed out to other users,
+    // indexed by underlying native EGL context object.
+    struct PlatformEglContextInfo {
+        EGLContext context;
+        EGLSurface surface;
+    };
+    std::unordered_map<void*, PlatformEglContextInfo> m_platformEglContexts;
 };
 #endif
