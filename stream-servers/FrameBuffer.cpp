@@ -387,7 +387,11 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     }
 
     if (s_egl.eglUseOsEglApi) {
-        s_egl.eglUseOsEglApi(egl2egl, (feature_is_enabled(kFeature_VulkanNativeSwapchain) ? EGL_TRUE : EGL_FALSE));
+        auto useNullBackend = EGL_FALSE;
+        if (egl2egl && feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
+            useNullBackend = EGL_TRUE;
+        }
+        s_egl.eglUseOsEglApi(egl2egl, useNullBackend);
     }
     //
     // Initialize backend EGL display
