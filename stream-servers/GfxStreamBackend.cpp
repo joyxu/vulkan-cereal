@@ -40,6 +40,7 @@
 #include "VulkanDispatch.h"
 #include "GfxStreamAgents.h"
 #include "render_api.h"
+#include "FrameBuffer.h"
 
 #define GFXSTREAM_DEBUG_LEVEL 1
 
@@ -536,6 +537,23 @@ extern "C" VG_EXPORT void gfxstream_backend_set_screen_mask(int width, int heigh
 extern "C" VG_EXPORT void get_pixels(void* pixels, uint32_t bytes) {
     //TODO: support display > 0
     sGetPixelsFunc(pixels, bytes, 0);
+}
+
+extern "C" VG_EXPORT void gfxstream_backend_getrender(char* buf, size_t bufSize, size_t* size) {
+    const char* render = "";
+    FrameBuffer* pFB = FrameBuffer::getFB();
+    if (pFB) {
+        const char* vendor = nullptr;
+        const char* version = nullptr;
+        pFB->getGLStrings(&vendor, &render, &version);
+    }
+    if (!buf || bufSize==0) {
+        if (size) *size = strlen(render);
+        return;
+    }
+    *buf = '\0';
+    strncat(buf, render, bufSize - 1);
+    if (size) *size = strlen(buf);
 }
 
 extern "C" const GoldfishPipeServiceOps* goldfish_pipe_get_service_ops() {
