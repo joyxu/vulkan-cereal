@@ -133,12 +133,13 @@ const VkExtent2D CompositorVk::k_emptyCompositionExtent = {1, 1};
 
 std::unique_ptr<CompositorVk> CompositorVk::create(
     const goldfish_vk::VulkanDispatch &vk, VkDevice vkDevice,
-    VkPhysicalDevice vkPhysicalDevice, VkQueue vkQueue, VkFormat format,
+    VkPhysicalDevice vkPhysicalDevice, VkQueue vkQueue,
+    std::shared_ptr<android::base::Lock> queueLock, VkFormat format,
     VkImageLayout initialLayout, VkImageLayout finalLayout, uint32_t width,
     uint32_t height, const std::vector<VkImageView> &renderTargets,
     VkCommandPool commandPool) {
     auto res = std::unique_ptr<CompositorVk>(new CompositorVk(
-        vk, vkDevice, vkPhysicalDevice, vkQueue, commandPool, width, height));
+        vk, vkDevice, vkPhysicalDevice, vkQueue, queueLock, commandPool));
     res->setUpGraphicsPipeline(width, height, format, initialLayout,
                                finalLayout);
     res->setUpVertexBuffers();
@@ -158,21 +159,17 @@ std::unique_ptr<CompositorVk> CompositorVk::create(
 
 CompositorVk::CompositorVk(const goldfish_vk::VulkanDispatch &vk,
                            VkDevice vkDevice, VkPhysicalDevice vkPhysicalDevice,
-                           VkQueue vkQueue, VkCommandPool vkCommandPool,
-                           uint32_t renderTargetWidth,
-                           uint32_t renderTargetHeight)
-    : CompositorVkBase(vk, vkDevice, vkPhysicalDevice, vkQueue, vkCommandPool),
-      m_renderTargetWidth(renderTargetWidth),
-      m_renderTargetHeight(renderTargetHeight),
+                           VkQueue vkQueue,
+                           std::shared_ptr<android::base::Lock> queueLock,
+                           VkCommandPool vkCommandPool)
+    : CompositorVkBase(vk, vkDevice, vkPhysicalDevice, vkQueue, queueLock,
+                       vkCommandPool),
       m_emptyCompositionVkImage(VK_NULL_HANDLE),
       m_emptyCompositionVkDeviceMemory(VK_NULL_HANDLE),
       m_emptyCompositionVkImageView(VK_NULL_HANDLE),
       m_emptyCompositionVkSampler(VK_NULL_HANDLE),
       m_currentCompositions(0),
       m_uniformStorage({VK_NULL_HANDLE, VK_NULL_HANDLE, nullptr, 0}) {
-    (void)m_renderTargetWidth;
-    (void)m_renderTargetHeight;
-
     VkPhysicalDeviceProperties physicalDeviceProperties;
     m_vk.vkGetPhysicalDeviceProperties(m_vkPhysicalDevice,
                                        &physicalDeviceProperties);
@@ -465,13 +462,14 @@ std::tuple<VkBuffer, VkDeviceMemory> CompositorVk::createStagingBufferWithData(
 
 void CompositorVk::copyBuffer(VkBuffer src, VkBuffer dst,
                               VkDeviceSize size) const {
-    runSingleTimeCommands(m_vkQueue, [&, this](const auto &cmdBuff) {
-        VkBufferCopy copyRegion = {};
-        copyRegion.srcOffset = 0;
-        copyRegion.dstOffset = 0;
-        copyRegion.size = size;
-        m_vk.vkCmdCopyBuffer(cmdBuff, src, dst, 1, &copyRegion);
-    });
+    runSingleTimeCommands(
+        m_vkQueue, m_vkQueueLock, [&, this](const auto &cmdBuff) {
+            VkBufferCopy copyRegion = {};
+            copyRegion.srcOffset = 0;
+            copyRegion.dstOffset = 0;
+            copyRegion.size = size;
+            m_vk.vkCmdCopyBuffer(cmdBuff, src, dst, 1, &copyRegion);
+        });
 }
 
 void CompositorVk::setUpVertexBuffers() {
@@ -656,25 +654,26 @@ void CompositorVk::setUpEmptyComposition(VkFormat format) {
                                    &m_emptyCompositionVkDeviceMemory));
     VK_CHECK(m_vk.vkBindImageMemory(m_vkDevice, m_emptyCompositionVkImage,
                                     m_emptyCompositionVkDeviceMemory, 0));
-    runSingleTimeCommands(m_vkQueue, [&, this](const auto &cmdBuff) {
-        recordImageLayoutTransformCommands(
-            cmdBuff, m_emptyCompositionVkImage, VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        VkClearColorValue clearColor = {.float32 = {0.0, 0.0, 0.0, 1.0}};
-        VkImageSubresourceRange range = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1};
-        m_vk.vkCmdClearColorImage(cmdBuff, m_emptyCompositionVkImage,
-                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                  &clearColor, 1, &range);
-        recordImageLayoutTransformCommands(
-            cmdBuff, m_emptyCompositionVkImage,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    });
+    runSingleTimeCommands(
+        m_vkQueue, m_vkQueueLock, [&, this](const auto &cmdBuff) {
+            recordImageLayoutTransformCommands(
+                cmdBuff, m_emptyCompositionVkImage, VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            VkClearColorValue clearColor = {.float32 = {0.0, 0.0, 0.0, 1.0}};
+            VkImageSubresourceRange range = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1};
+            m_vk.vkCmdClearColorImage(cmdBuff, m_emptyCompositionVkImage,
+                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                      &clearColor, 1, &range);
+            recordImageLayoutTransformCommands(
+                cmdBuff, m_emptyCompositionVkImage,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        });
 
     VkImageViewCreateInfo imageViewCi = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
