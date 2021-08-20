@@ -53,7 +53,6 @@ struct AndroidNativeBufferInfo {
     VkFormat vkFormat;
     VkExtent3D extent;
     VkImageUsageFlags usage;
-    VkSharingMode sharingMode;
     std::vector<uint32_t> queueFamilyIndices;
 
     int format;
