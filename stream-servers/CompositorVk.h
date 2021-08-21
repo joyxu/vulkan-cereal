@@ -9,10 +9,10 @@
 #include <variant>
 #include <vector>
 
+#include "Hwc2.h"
+#include "base/Lock.h"
 #include "vulkan/cereal/common/goldfish_vk_dispatch.h"
 #include "vulkan/vk_util.h"
-
-#include "Hwc2.h"
 
 class ComposeLayerVk {
    public:
@@ -53,6 +53,7 @@ struct CompositorVkBase
     const VkDevice m_vkDevice;
     const VkPhysicalDevice m_vkPhysicalDevice;
     const VkQueue m_vkQueue;
+    std::shared_ptr<android::base::Lock> m_vkQueueLock;
     VkDescriptorSetLayout m_vkDescriptorSetLayout;
     VkPipelineLayout m_vkPipelineLayout;
     VkRenderPass m_vkRenderPass;
@@ -70,11 +71,14 @@ struct CompositorVkBase
 
     explicit CompositorVkBase(const goldfish_vk::VulkanDispatch &vk,
                               VkDevice device, VkPhysicalDevice physicalDevice,
-                              VkQueue queue, VkCommandPool commandPool)
+                              VkQueue queue,
+                              std::shared_ptr<android::base::Lock> queueLock,
+                              VkCommandPool commandPool)
         : m_vk(vk),
           m_vkDevice(device),
           m_vkPhysicalDevice(physicalDevice),
           m_vkQueue(queue),
+          m_vkQueueLock(queueLock),
           m_vkDescriptorSetLayout(VK_NULL_HANDLE),
           m_vkPipelineLayout(VK_NULL_HANDLE),
           m_vkRenderPass(VK_NULL_HANDLE),
@@ -94,9 +98,10 @@ class CompositorVk : protected CompositorVkBase {
    public:
     static std::unique_ptr<CompositorVk> create(
         const goldfish_vk::VulkanDispatch &vk, VkDevice, VkPhysicalDevice,
-        VkQueue, VkFormat, VkImageLayout initialLayout,
-        VkImageLayout finalLayout, uint32_t width, uint32_t height,
-        const std::vector<VkImageView> &renderTargets, VkCommandPool);
+        VkQueue, std::shared_ptr<android::base::Lock> queueLock, VkFormat,
+        VkImageLayout initialLayout, VkImageLayout finalLayout, uint32_t width,
+        uint32_t height, const std::vector<VkImageView> &renderTargets,
+        VkCommandPool);
     static bool validatePhysicalDeviceFeatures(
         const VkPhysicalDeviceFeatures2 &features);
     static bool validateQueueFamilyProperties(
@@ -111,9 +116,9 @@ class CompositorVk : protected CompositorVkBase {
 
    private:
     explicit CompositorVk(const goldfish_vk::VulkanDispatch &, VkDevice,
-                          VkPhysicalDevice, VkQueue, VkCommandPool,
-                          uint32_t renderTargetWidth,
-                          uint32_t renderTargetHeight);
+                          VkPhysicalDevice, VkQueue,
+                          std::shared_ptr<android::base::Lock> queueLock,
+                          VkCommandPool);
     void setUpGraphicsPipeline(uint32_t width, uint32_t height,
                                VkFormat renderTargetFormat,
                                VkImageLayout initialLayout,
