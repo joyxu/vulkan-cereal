@@ -164,7 +164,7 @@ struct RenderResourceVk : public RenderResourceVkBase {
             return false;
         }
 
-        runSingleTimeCommands(m_vkQueue, [this](const auto &cmdBuff) {
+        runSingleTimeCommands(m_vkQueue, nullptr, [this](const auto &cmdBuff) {
             recordImageLayoutTransformCommands(
                 cmdBuff, m_vkImage, VK_IMAGE_LAYOUT_UNDEFINED, k_vkImageLayout);
         });
