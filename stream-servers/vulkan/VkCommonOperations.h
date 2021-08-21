@@ -15,10 +15,14 @@
 
 #include <vulkan/vulkan.h>
 
+#include <atomic>
+#include <functional>
+#include <memory>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
+#include "base/Lock.h"
 #include "base/Optional.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 
@@ -92,7 +96,9 @@ struct VkEmulation {
 
     // Queue, command pool, and command buffer
     // for running commands to sync stuff system-wide.
+    // TODO(b/197362803): Encapsulate host side VkQueue and the lock.
     VkQueue queue = VK_NULL_HANDLE;
+    std::shared_ptr<android::base::Lock> queueLock = nullptr;
     uint32_t queueFamilyIndex = 0;
     VkCommandPool commandPool = VK_NULL_HANDLE;
     VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
