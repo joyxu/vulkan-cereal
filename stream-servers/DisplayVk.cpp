@@ -9,14 +9,19 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk,
                      VkPhysicalDevice vkPhysicalDevice,
                      uint32_t swapChainQueueFamilyIndex,
                      uint32_t compositorQueueFamilyIndex, VkDevice vkDevice,
-                     VkQueue compositorVkQueue, VkQueue swapChainVkqueue)
+                     VkQueue compositorVkQueue,
+                     std::shared_ptr<android::base::Lock> compositorVkQueueLock,
+                     VkQueue swapChainVkqueue,
+                     std::shared_ptr<android::base::Lock> swapChainVkQueueLock)
     : m_vk(vk),
       m_vkPhysicalDevice(vkPhysicalDevice),
       m_swapChainQueueFamilyIndex(swapChainQueueFamilyIndex),
       m_compositorQueueFamilyIndex(compositorQueueFamilyIndex),
       m_vkDevice(vkDevice),
       m_compositorVkQueue(compositorVkQueue),
+      m_compositorVkQueueLock(compositorVkQueueLock),
       m_swapChainVkQueue(swapChainVkqueue),
+      m_swapChainVkQueueLock(swapChainVkQueueLock),
       m_vkCommandPool(VK_NULL_HANDLE),
       m_swapChainStateVk(nullptr),
       m_compositorVk(nullptr),
@@ -99,9 +104,9 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width,
         std::make_unique<SwapChainStateVk>(m_vk, m_vkDevice, *swapChainCi);
     m_compositorVk = CompositorVk::create(
         m_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
-        m_swapChainStateVk->getFormat(), VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, width, height,
-        m_swapChainStateVk->getVkImageViews(), m_vkCommandPool);
+        m_compositorVkQueueLock, m_swapChainStateVk->getFormat(),
+        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, width,
+        height, m_swapChainStateVk->getVkImageViews(), m_vkCommandPool);
     auto surfaceState = std::make_unique<SurfaceState>();
     surfaceState->m_height = height;
     surfaceState->m_width = width;
@@ -206,8 +211,11 @@ void DisplayVk::compose(
                                .pCommandBuffers = &cmdBuff,
                                .signalSemaphoreCount = 1,
                                .pSignalSemaphores = &m_frameDrawCompleteSem};
-    VK_CHECK(m_vk.vkQueueSubmit(m_compositorVkQueue, 1, &submitInfo,
-                                m_frameDrawCompleteFence));
+    {
+        android::base::AutoLock lock(*m_compositorVkQueueLock);
+        VK_CHECK(m_vk.vkQueueSubmit(m_compositorVkQueue, 1, &submitInfo,
+                                    m_frameDrawCompleteFence));
+    }
 
     auto swapChain = m_swapChainStateVk->getSwapChain();
     VkPresentInfoKHR presentInfo = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -216,9 +224,12 @@ void DisplayVk::compose(
                                     .swapchainCount = 1,
                                     .pSwapchains = &swapChain,
                                     .pImageIndices = &imageIndex};
-    VK_CHECK(m_vk.vkQueuePresentKHR(m_swapChainVkQueue, &presentInfo));
-    VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &m_frameDrawCompleteFence,
-                                  VK_TRUE, UINT64_MAX));
+    {
+        android::base::AutoLock lock(*m_swapChainVkQueueLock);
+        VK_CHECK(m_vk.vkQueuePresentKHR(m_swapChainVkQueue, &presentInfo));
+        VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &m_frameDrawCompleteFence,
+                                      VK_TRUE, UINT64_MAX));
+    }
 }
 
 bool DisplayVk::canComposite(VkFormat format) {
