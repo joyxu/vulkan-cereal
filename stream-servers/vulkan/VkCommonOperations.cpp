@@ -926,10 +926,14 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
 
     // LOG(VERBOSE) << "Vulkan logical device created and extension functions obtained.\n";
 
-    dvk->vkGetDeviceQueue(
+    sVkEmulation->queueLock = std::make_shared<android::base::Lock>();
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        dvk->vkGetDeviceQueue(
             sVkEmulation->device,
             sVkEmulation->deviceInfo.graphicsQueueFamilyIndices[0], 0,
             &sVkEmulation->queue);
+    }
 
     sVkEmulation->queueFamilyIndex =
             sVkEmulation->deviceInfo.graphicsQueueFamilyIndices[0];
@@ -1677,7 +1681,10 @@ bool teardownVkColorBuffer(uint32_t colorBufferHandle) {
     if (!infoPtr) return false;
 
     auto& info = *infoPtr;
-
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        VK_CHECK(vk->vkQueueWaitIdle(sVkEmulation->queue));
+    }
     vk->vkDestroyImage(sVkEmulation->device, info.image, nullptr);
     freeExternalMemoryLocked(vk, &info.memory);
 
@@ -1818,10 +1825,11 @@ bool updateColorBufferFromVkImage(uint32_t colorBufferHandle) {
         0, nullptr,
     };
 
-    vk->vkQueueSubmit(
-        sVkEmulation->queue,
-        1, &submitInfo,
-        sVkEmulation->commandBufferFence);
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
+                          sVkEmulation->commandBufferFence);
+    }
 
     static constexpr uint64_t ANB_MAX_WAIT_NS =
         5ULL * 1000ULL * 1000ULL * 1000ULL;
@@ -2025,10 +2033,11 @@ bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
         0, nullptr,
     };
 
-    vk->vkQueueSubmit(
-        sVkEmulation->queue,
-        1, &submitInfo,
-        sVkEmulation->commandBufferFence);
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
+                          sVkEmulation->commandBufferFence);
+    }
 
     static constexpr uint64_t ANB_MAX_WAIT_NS =
         5ULL * 1000ULL * 1000ULL * 1000ULL;
@@ -2333,6 +2342,10 @@ bool teardownVkBuffer(uint32_t bufferHandle) {
     auto infoPtr = android::base::find(sVkEmulation->buffers, bufferHandle);
     if (!infoPtr)
         return false;
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        VK_CHECK(vk->vkQueueWaitIdle(sVkEmulation->queue));
+    }
     auto& info = *infoPtr;
 
     vk->vkDestroyBuffer(sVkEmulation->device, info.buffer, nullptr);
