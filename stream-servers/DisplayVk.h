@@ -9,6 +9,7 @@
 #include "Hwc2.h"
 #include "RenderContext.h"
 #include "SwapChainStateVk.h"
+#include "base/Lock.h"
 #include "vulkan/cereal/common/goldfish_vk_dispatch.h"
 
 // The DisplayVk class holds the Vulkan and other states required to draw a
@@ -37,7 +38,10 @@ class DisplayVk {
     DisplayVk(const goldfish_vk::VulkanDispatch &, VkPhysicalDevice,
               uint32_t swapChainQueueFamilyIndex,
               uint32_t compositorQueueFamilyIndex, VkDevice,
-              VkQueue compositorVkQueue, VkQueue swapChainVkQueue);
+              VkQueue compositorVkQueue,
+              std::shared_ptr<android::base::Lock> compositorVkQueueLock,
+              VkQueue swapChainVkQueue,
+              std::shared_ptr<android::base::Lock> swapChainVkQueueLock);
     ~DisplayVk();
     void bindToSurface(VkSurfaceKHR, uint32_t width, uint32_t height);
     // The caller is responsible to make sure the VkImage lives longer than the
@@ -75,7 +79,9 @@ class DisplayVk {
     uint32_t m_compositorQueueFamilyIndex;
     VkDevice m_vkDevice;
     VkQueue m_compositorVkQueue;
+    std::shared_ptr<android::base::Lock> m_compositorVkQueueLock;
     VkQueue m_swapChainVkQueue;
+    std::shared_ptr<android::base::Lock> m_swapChainVkQueueLock;
     VkCommandPool m_vkCommandPool;
     VkSampler m_compositionVkSampler;
     VkFence m_frameDrawCompleteFence;
