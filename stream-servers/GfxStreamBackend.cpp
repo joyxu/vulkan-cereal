@@ -40,6 +40,7 @@
 #include "VulkanDispatch.h"
 #include "GfxStreamAgents.h"
 #include "render_api.h"
+#include "FrameBuffer.h"
 
 #define GFXSTREAM_DEBUG_LEVEL 1
 
@@ -249,29 +250,6 @@ enum BackendFlags {
     GFXSTREAM_BACKEND_FLAGS_EGL2EGL_BIT = 1 << 1,
 };
 
-// based on VIRGL_RENDERER_USE* and friends
-enum RendererFlags {
-    GFXSTREAM_RENDERER_FLAGS_USE_EGL_BIT = 1 << 0,
-    GFXSTREAM_RENDERER_FLAGS_THREAD_SYNC = 1 << 1,
-    GFXSTREAM_RENDERER_FLAGS_USE_GLX_BIT = 1 << 2,
-    GFXSTREAM_RENDERER_FLAGS_USE_SURFACELESS_BIT = 1 << 3,
-    GFXSTREAM_RENDERER_FLAGS_USE_GLES_BIT = 1 << 4,
-    GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT = 1 << 5,  // for disabling vk
-    GFXSTREAM_RENDERER_FLAGS_IGNORE_HOST_GL_ERRORS_BIT =
-        1 << 6,  // control IgnoreHostOpenGLErrors flag
-    GFXSTREAM_RENDERER_FLAGS_NATIVE_TEXTURE_DECOMPRESSION_BIT =
-        1 << 7,  // Attempt GPU texture decompression
-    GFXSTREAM_RENDERER_FLAGS_ENABLE_BPTC_TEXTURES_BIT =
-        1 << 8,  // enable BPTC texture support if available
-    GFXSTREAM_RENDERER_FLAGS_ENABLE_GLES31_BIT =
-        1 << 9,  // disables the PlayStoreImage flag
-    GFXSTREAM_RENDERER_FLAGS_ENABLE_S3TC_TEXTURES_BIT =
-        1 << 10,  // enable S3TC texture support if available
-    GFXSTREAM_RENDERER_FLAGS_NO_SYNCFD_BIT = 1 << 20,  // for disabling syncfd
-    GFXSTREAM_RENDERER_FLAGS_GUEST_USES_ANGLE = 1 << 21,
-    GFXSTREAM_RENDERER_FLAGS_VULKAN_NATIVE_SWAPCHAIN_BIT = 1 << 22,
-};
-
 // Sets backend flags for different kinds of initialization.
 // Default (and default if not called): flags == 0
 // Needs to be called before |gfxstream_backend_init|.
@@ -380,7 +358,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     feature_set_enabled_override(
             kFeature_GLDMA, false);
     feature_set_enabled_override(
-            kFeature_GLAsyncSwap, false);
+            kFeature_GLAsyncSwap, true);
     feature_set_enabled_override(
             kFeature_RefCountPipe, false);
     feature_set_enabled_override(
@@ -419,6 +397,12 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
                                  useVulkanNativeSwapchain);
     feature_set_enabled_override(
             kFeature_VulkanBatchedDescriptorSetUpdate, true);
+    // TODO: Strictly speaking, renderer_flags check is insufficient because
+    // fence contexts require us to be running a new-enough guest kernel.
+    feature_set_enabled_override(
+           kFeature_VirtioGpuFenceContexts,
+           !syncFdDisabledByFlag &&
+           (renderer_flags & GFXSTREAM_RENDERER_FLAGS_ASYNC_FENCE_CB));
 
     if (useVulkanNativeSwapchain && !enableVk) {
         fprintf(stderr,
@@ -553,6 +537,23 @@ extern "C" VG_EXPORT void gfxstream_backend_set_screen_mask(int width, int heigh
 extern "C" VG_EXPORT void get_pixels(void* pixels, uint32_t bytes) {
     //TODO: support display > 0
     sGetPixelsFunc(pixels, bytes, 0);
+}
+
+extern "C" VG_EXPORT void gfxstream_backend_getrender(char* buf, size_t bufSize, size_t* size) {
+    const char* render = "";
+    FrameBuffer* pFB = FrameBuffer::getFB();
+    if (pFB) {
+        const char* vendor = nullptr;
+        const char* version = nullptr;
+        pFB->getGLStrings(&vendor, &render, &version);
+    }
+    if (!buf || bufSize==0) {
+        if (size) *size = strlen(render);
+        return;
+    }
+    *buf = '\0';
+    strncat(buf, render, bufSize - 1);
+    if (size) *size = strlen(buf);
 }
 
 extern "C" const GoldfishPipeServiceOps* goldfish_pipe_get_service_ops() {

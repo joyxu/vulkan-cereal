@@ -115,7 +115,15 @@ static const char* kGLES2LibName = "libGLESv2.dylib";
     X(EGLBoolean, eglSwapInterval,                                             \
       (EGLDisplay display, EGLint interval))                                   \
     X(void, eglSetBlobCacheFuncsANDROID, (EGLDisplay display,                  \
-        EGLSetBlobFuncANDROID set, EGLGetBlobFuncANDROID get))
+      EGLSetBlobFuncANDROID set, EGLGetBlobFuncANDROID get))                   \
+    X(EGLImage, eglCreateImageKHR, (EGLDisplay dpy,                            \
+      EGLContext ctx, EGLenum target, EGLClientBuffer buffer,                  \
+      const EGLint *attrib_list))                                              \
+    X(EGLBoolean, eglDestroyImageKHR, (EGLDisplay dpy, EGLImage image))        \
+    X(EGLImage, eglCreateImage, (EGLDisplay dpy,                               \
+      EGLContext ctx, EGLenum target, EGLClientBuffer buffer,                  \
+      const EGLint *attrib_list))                                              \
+    X(EGLBoolean, eglDestroyImage, (EGLDisplay dpy, EGLImage image))           \
 
 namespace {
 using namespace EglOS;
@@ -225,7 +233,7 @@ public:
         mDisplay(display),
         mNativeCtx(context) { }
 
-    ~EglOsEglContext() {
+    virtual ~EglOsEglContext() {
         D("%s %p\n", __FUNCTION__, mNativeCtx);
         if (!mDispatcher->eglDestroyContext(mDisplay, mNativeCtx)) {
             // TODO: print a better error message
@@ -236,6 +244,7 @@ public:
         return mNativeCtx;
     }
 
+    virtual void* getNative() { return (void*)mNativeCtx; }
 private:
     EglOsEglDispatcher* mDispatcher = nullptr;
     EGLDisplay mDisplay;
@@ -258,9 +267,20 @@ private:
 
 class EglOsEglDisplay : public EglOS::Display {
 public:
-    EglOsEglDisplay();
+    EglOsEglDisplay(bool nullEgl);
     ~EglOsEglDisplay();
     virtual EglOS::GlesVersion getMaxGlesVersion();
+    virtual const char* getExtensionString();
+    virtual EGLImage createImage(
+            EGLDisplay dpy,
+            EGLContext ctx,
+            EGLenum target,
+            EGLClientBuffer buffer,
+            const EGLint *attrib_list);
+    virtual EGLBoolean destroyImage(
+            EGLDisplay dpy,
+            EGLImage image);
+    virtual EGLDisplay getNative();
     void queryConfigs(int renderableType,
                       AddConfigCallback* addConfigFunc,
                       void* addConfigOpaque);
@@ -289,16 +309,31 @@ private:
     EGLDisplay mDisplay;
     EglOsEglDispatcher mDispatcher;
     bool mHeadless = false;
+    std::string mClientExts;
 
 #ifdef __linux__
     ::Display* mGlxDisplay = nullptr;
 #endif // __linux__
 };
 
-EglOsEglDisplay::EglOsEglDisplay() {
+EglOsEglDisplay::EglOsEglDisplay(bool nullEgl) {
     mVerbose = android::base::getEnvironmentVariable("ANDROID_EMUGL_VERBOSE") == "1";
 
-    if (android::base::getEnvironmentVariable("ANDROID_EMUGL_EXPERIMENTAL_FAST_PATH") == "1") {
+    if (nullEgl) {
+        const EGLAttrib attr[] = {
+            EGL_PLATFORM_ANGLE_TYPE_ANGLE,
+            EGL_PLATFORM_ANGLE_TYPE_NULL_ANGLE,
+            EGL_NONE
+        };
+
+        mDisplay = mDispatcher.eglGetPlatformDisplay(EGL_PLATFORM_ANGLE_ANGLE,
+            (void*)EGL_DEFAULT_DISPLAY,
+            attr);
+
+        if (mDisplay == EGL_NO_DISPLAY) {
+            fprintf(stderr, "%s: no display found that supports null backend\n", __func__);
+        }
+    } else if (android::base::getEnvironmentVariable("ANDROID_EMUGL_EXPERIMENTAL_FAST_PATH") == "1") {
         const EGLAttrib attr[] = {
             EGL_PLATFORM_ANGLE_TYPE_ANGLE,
             EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE,
@@ -325,6 +360,10 @@ EglOsEglDisplay::EglOsEglDisplay() {
 
     if (mVerbose) {
         fprintf(stderr, "%s: client exts: [%s]\n", __func__, clientExts);
+    }
+
+    if (clientExts) {
+        mClientExts = clientExts;
     }
 
     mDispatcher.eglBindAPI(EGL_OPENGL_ES_API);
@@ -354,6 +393,37 @@ EglOsEglDisplay::~EglOsEglDisplay() {
 EglOS::GlesVersion EglOsEglDisplay::getMaxGlesVersion() {
     // TODO: Detect and return the highest version like in GLESVersionDetector.cpp
     return EglOS::GlesVersion::ES30;
+}
+
+const char* EglOsEglDisplay::getExtensionString() {
+    return mClientExts.c_str();
+}
+
+EGLImage EglOsEglDisplay::createImage(
+        EGLDisplay dpy,
+        EGLContext ctx,
+        EGLenum target,
+        EGLClientBuffer buffer,
+        const EGLint *attrib_list) {
+    if (mDispatcher.eglCreateImage) {
+        return mDispatcher.eglCreateImage(dpy, ctx, target, buffer, attrib_list);
+    } else {
+        return mDispatcher.eglCreateImageKHR(dpy, ctx, target, buffer, attrib_list);
+    }
+}
+
+EGLBoolean EglOsEglDisplay::destroyImage(
+        EGLDisplay dpy,
+        EGLImage image) {
+    if (mDispatcher.eglDestroyImage) {
+        return mDispatcher.eglDestroyImage(dpy, image);
+    } else {
+        return mDispatcher.eglDestroyImageKHR(dpy, image);
+    }
+}
+
+EGLDisplay EglOsEglDisplay::getNative() {
+    return mDisplay;
 }
 
 void EglOsEglDisplay::queryConfigs(int renderableType,
@@ -656,19 +726,21 @@ bool EglOsEglDisplay::checkWindowPixelFormatMatch(EGLNativeWindowType win,
 #endif // __APPLE__
 }
 
-static EglOsEglDisplay* sHostDisplay() {
-    static EglOsEglDisplay* d = new EglOsEglDisplay;
+static EglOsEglDisplay* sHostDisplay(bool nullEgl = false) {
+    static EglOsEglDisplay* d = new EglOsEglDisplay(nullEgl);
     return d;
 }
 
 class EglEngine : public EglOS::Engine {
 public:
-    EglEngine() = default;
+    EglEngine(bool nullEgl) :
+        EglOS::Engine(),
+        mUseNullEgl(nullEgl) {}
     ~EglEngine() = default;
 
     EglOS::Display* getDefaultDisplay() {
         D("%s\n", __FUNCTION__);
-        return sHostDisplay();
+        return sHostDisplay(mUseNullEgl);
     }
     GlLibrary* getGlLibrary() {
         D("%s\n", __FUNCTION__);
@@ -685,18 +757,19 @@ public:
 
 private:
     EglOsGlLibrary mGlLib;
+    bool mUseNullEgl;
 };
 
 }  // namespace
 
-static EglEngine* sHostEngine() {
-    static EglEngine* res = new EglEngine;
+static EglEngine* sHostEngine(bool nullEgl) {
+    static EglEngine* res = new EglEngine(nullEgl);
     return res;
 }
 
 namespace EglOS {
-Engine* getEgl2EglHostInstance() {
+Engine* getEgl2EglHostInstance(bool nullEgl) {
     D("%s\n", __FUNCTION__);
-    return sHostEngine();
+    return sHostEngine(nullEgl);
 }
 }  // namespace EglOS

@@ -47,6 +47,7 @@
 #endif
 
 #define VK_COMMON_ERROR(fmt,...) fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
+#define VK_COMMON_LOG(fmt,...) fprintf(stdout, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
 #define VK_COMMON_VERBOSE(fmt,...) if (android::base::isVerboseLogging()) fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
 
 using android::base::AutoLock;
@@ -601,6 +602,18 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
                 ivk->vkGetInstanceProcAddr(
                         sVkEmulation->instance,
                         "vkGetPhysicalDeviceImageFormatProperties2KHR"));
+        sVkEmulation->getPhysicalDeviceProperties2Func = reinterpret_cast<
+                PFN_vkGetPhysicalDeviceProperties2KHR>(
+                ivk->vkGetInstanceProcAddr(
+                        sVkEmulation->instance,
+                        "vkGetPhysicalDeviceProperties2KHR"));
+        if (!sVkEmulation->getPhysicalDeviceProperties2Func) {
+            sVkEmulation->getPhysicalDeviceProperties2Func = reinterpret_cast<
+                    PFN_vkGetPhysicalDeviceProperties2KHR>(
+                    ivk->vkGetInstanceProcAddr(
+                            sVkEmulation->instance,
+                            "vkGetPhysicalDeviceProperties2"));
+        }
     }
 
     if (sVkEmulation->instanceSupportsMoltenVK) {
@@ -663,6 +676,25 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
         if (sVkEmulation->instanceSupportsExternalMemoryCapabilities) {
             deviceInfos[i].supportsExternalMemory = extensionsSupported(
                     deviceExts, externalMemoryDeviceExtNames);
+            deviceInfos[i].supportsIdProperties =
+                sVkEmulation->getPhysicalDeviceProperties2Func != nullptr;
+            if (!sVkEmulation->getPhysicalDeviceProperties2Func) {
+                fprintf(stderr, "%s: warning: device claims to support ID properties "
+                        "but vkGetPhysicalDeviceProperties2 could not be found\n", __func__);
+            }
+        }
+
+        if (deviceInfos[i].supportsIdProperties) {
+            VkPhysicalDeviceIDPropertiesKHR idProps = {
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES_KHR, nullptr,
+            };
+            VkPhysicalDeviceProperties2KHR propsWithId = {
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR, &idProps,
+            };
+            sVkEmulation->getPhysicalDeviceProperties2Func(
+                physdevs[i],
+                &propsWithId);
+            deviceInfos[i].idProps = idProps;
         }
 
         uint32_t queueFamilyCount = 0;
@@ -727,19 +759,33 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
 
     for (uint32_t i = 0; i < physdevCount; ++i) {
         uint32_t deviceScore = 0;
-        if (deviceInfos[i].hasGraphicsQueueFamily) deviceScore += 100;
-        if (deviceInfos[i].supportsExternalMemory) deviceScore += 10;
-        if (deviceInfos[i].hasComputeQueueFamily) deviceScore += 1;
+        if (deviceInfos[i].hasGraphicsQueueFamily) deviceScore += 10000;
+        if (deviceInfos[i].supportsExternalMemory) deviceScore += 1000;
+        if (deviceInfos[i].physdevProps.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ||
+            deviceInfos[i].physdevProps.deviceType == VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU) {
+            deviceScore += 100;
+        }
+        if (deviceInfos[i].physdevProps.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
+            deviceScore += 50;
+        }
         deviceScores[i] = deviceScore;
     }
 
     uint32_t maxScoringIndex = 0;
     uint32_t maxScore = 0;
 
-    for (uint32_t i = 0; i < physdevCount; ++i) {
-        if (deviceScores[i] > maxScore) {
-            maxScoringIndex = i;
-            maxScore = deviceScores[i];
+    // If we don't support physical device ID properties,
+    // just pick the first physical device.
+    if (!sVkEmulation->instanceSupportsExternalMemoryCapabilities) {
+        fprintf(stderr, "%s: warning: instance doesn't support "
+            "external memory capabilities, picking first physical device\n", __func__);
+        maxScoringIndex = 0;
+    } else {
+        for (uint32_t i = 0; i < physdevCount; ++i) {
+            if (deviceScores[i] > maxScore) {
+                maxScoringIndex = i;
+                maxScore = deviceScores[i];
+            }
         }
     }
 
@@ -764,9 +810,8 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
     }
 
     auto deviceVersion = sVkEmulation->deviceInfo.physdevProps.apiVersion;
+    VK_COMMON_LOG("Selecting Vulkan device: %s", sVkEmulation->deviceInfo.physdevProps.deviceName);
 
-    // LOG(VERBOSE) << "Vulkan device found: "
-    //              << sVkEmulation->deviceInfo.physdevProps.deviceName;
     // LOG(VERBOSE) << "Version: "
     //              << VK_VERSION_MAJOR(deviceVersion) << "." << VK_VERSION_MINOR(deviceVersion) << "." << VK_VERSION_PATCH(deviceVersion);
     // LOG(VERBOSE) << "Has graphics queue? "
@@ -881,10 +926,14 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
 
     // LOG(VERBOSE) << "Vulkan logical device created and extension functions obtained.\n";
 
-    dvk->vkGetDeviceQueue(
+    sVkEmulation->queueLock = std::make_shared<android::base::Lock>();
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        dvk->vkGetDeviceQueue(
             sVkEmulation->device,
             sVkEmulation->deviceInfo.graphicsQueueFamilyIndices[0], 0,
             &sVkEmulation->queue);
+    }
 
     sVkEmulation->queueFamilyIndex =
             sVkEmulation->deviceInfo.graphicsQueueFamilyIndices[0];
@@ -1418,6 +1467,9 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
 
     // Already setup
     if (infoPtr) {
+        // Setting exported is required for on_vkCreateImage backed by
+        // an AHardwareBuffer.
+        if (exported) *exported = infoPtr->glExported;
         // Update the allocation size to what the host driver wanted, or we
         // might get VK_ERROR_OUT_OF_DEVICE_MEMORY and a host crash
         if (allocSize) *allocSize = infoPtr->memory.size;
@@ -1598,7 +1650,7 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
     }
 
     if (sVkEmulation->deviceInfo.supportsExternalMemory &&
-        sVkEmulation->deviceInfo.glInteropSupported && glCompatible &&
+        glCompatible &&
         FrameBuffer::getFB()->importMemoryToColorBuffer(
             dupExternalMemory(res.memory.exportedHandle), res.memory.size,
             false /* dedicated */, res.tiling == VK_IMAGE_TILING_LINEAR,
@@ -1629,7 +1681,10 @@ bool teardownVkColorBuffer(uint32_t colorBufferHandle) {
     if (!infoPtr) return false;
 
     auto& info = *infoPtr;
-
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        VK_CHECK(vk->vkQueueWaitIdle(sVkEmulation->queue));
+    }
     vk->vkDestroyImage(sVkEmulation->device, info.image, nullptr);
     freeExternalMemoryLocked(vk, &info.memory);
 
@@ -1770,10 +1825,11 @@ bool updateColorBufferFromVkImage(uint32_t colorBufferHandle) {
         0, nullptr,
     };
 
-    vk->vkQueueSubmit(
-        sVkEmulation->queue,
-        1, &submitInfo,
-        sVkEmulation->commandBufferFence);
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
+                          sVkEmulation->commandBufferFence);
+    }
 
     static constexpr uint64_t ANB_MAX_WAIT_NS =
         5ULL * 1000ULL * 1000ULL * 1000ULL;
@@ -1977,10 +2033,11 @@ bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
         0, nullptr,
     };
 
-    vk->vkQueueSubmit(
-        sVkEmulation->queue,
-        1, &submitInfo,
-        sVkEmulation->commandBufferFence);
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
+                          sVkEmulation->commandBufferFence);
+    }
 
     static constexpr uint64_t ANB_MAX_WAIT_NS =
         5ULL * 1000ULL * 1000ULL * 1000ULL;
@@ -2285,6 +2342,10 @@ bool teardownVkBuffer(uint32_t bufferHandle) {
     auto infoPtr = android::base::find(sVkEmulation->buffers, bufferHandle);
     if (!infoPtr)
         return false;
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        VK_CHECK(vk->vkQueueWaitIdle(sVkEmulation->queue));
+    }
     auto& info = *infoPtr;
 
     vk->vkDestroyBuffer(sVkEmulation->device, info.buffer, nullptr);

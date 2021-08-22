@@ -15,10 +15,14 @@
 
 #include <vulkan/vulkan.h>
 
+#include <atomic>
+#include <functional>
+#include <memory>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
+#include "base/Lock.h"
 #include "base/Optional.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 
@@ -83,6 +87,8 @@ struct VkEmulation {
     bool instanceSupportsExternalMemoryCapabilities = false;
     PFN_vkGetPhysicalDeviceImageFormatProperties2KHR
             getImageFormatProperties2Func = nullptr;
+    PFN_vkGetPhysicalDeviceProperties2KHR
+            getPhysicalDeviceProperties2Func = nullptr;
 
     bool instanceSupportsMoltenVK = false;
     PFN_vkSetMTLTextureMVK setMTLTextureFunc = nullptr;
@@ -90,7 +96,9 @@ struct VkEmulation {
 
     // Queue, command pool, and command buffer
     // for running commands to sync stuff system-wide.
+    // TODO(b/197362803): Encapsulate host side VkQueue and the lock.
     VkQueue queue = VK_NULL_HANDLE;
+    std::shared_ptr<android::base::Lock> queueLock = nullptr;
     uint32_t queueFamilyIndex = 0;
     VkCommandPool commandPool = VK_NULL_HANDLE;
     VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
@@ -125,6 +133,7 @@ struct VkEmulation {
         bool hasGraphicsQueueFamily = false;
         bool hasComputeQueueFamily = false;
         bool supportsExternalMemory = false;
+        bool supportsIdProperties = false;
         bool glInteropSupported = false;
 
         std::vector<uint32_t> graphicsQueueFamilyIndices;
@@ -132,6 +141,7 @@ struct VkEmulation {
 
         VkPhysicalDeviceProperties physdevProps;
         VkPhysicalDeviceMemoryProperties memProps;
+        VkPhysicalDeviceIDPropertiesKHR idProps;
 
         PFN_vkGetImageMemoryRequirements2KHR getImageMemoryRequirements2Func = nullptr;
         PFN_vkGetBufferMemoryRequirements2KHR getBufferMemoryRequirements2Func = nullptr;

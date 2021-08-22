@@ -1,9 +1,15 @@
 project(gfx-streaming-kit)
 cmake_minimum_required(VERSION 3.11)
 
+option(BUILD_GOOGLETEST "Download and build the googletest library" ON)
+
 if (WIN32)
     add_definitions("-DUNICODE -D_UNICODE -DNOMINMAX -DEMUGL_BUILD -DVK_USE_PLATFORM_WIN32_KHR -DBUILDING_EMUGL_COMMON_SHARED")
     add_definitions(/MP)
+endif()
+
+if(UNIX AND NOT APPLE)
+    set(LINUX TRUE)
 endif()
 
 find_package(Threads)
@@ -15,6 +21,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/distribution)
 if (WIN32)
+    SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi")
 else()
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -O3")
 endif()
@@ -46,7 +53,9 @@ endif()
 
 # GoogleTest support: uses CMake ExternalProject to pull in external repo
 # without manual steps (during CMake build script generation phase)
-include(gtest.cmake)
+if (BUILD_GOOGLETEST)
+    include(gtest.cmake)
+endif()
 
 set(GFXSTREAM_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 

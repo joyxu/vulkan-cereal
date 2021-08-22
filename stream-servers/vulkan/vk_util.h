@@ -30,8 +30,10 @@
 #include <vulkan/vulkan.h>
 
 #include <functional>
+#include <memory>
 #include <optional>
 
+#include "base/Lock.h"
 #include "common/vk_struct_id.h"
 
 struct vk_struct_common {
@@ -248,6 +250,19 @@ void vk_append_struct(vk_struct_chain_iterator *i, T *vk_struct) {
     *i = vk_make_chain_iterator(vk_struct);
 }
 
+template <class S, class T> void vk_struct_chain_remove(S* unwanted, T* vk_struct)
+{
+    if (!unwanted) return;
+
+    vk_foreach_struct(current, vk_struct) {
+        if ((void*)unwanted == current->pNext) {
+            const vk_struct_common* unwanted_as_common =
+                reinterpret_cast<const vk_struct_common*>(unwanted);
+            current->pNext = unwanted_as_common->pNext;
+        }
+    }
+}
+
 #define VK_CHECK(x)                                                      \
     do {                                                                 \
         VkResult err = x;                                                \
@@ -286,7 +301,7 @@ template <class T, class U = CRTPBase>
 class RunSingleTimeCommand : public U {
    protected:
     void runSingleTimeCommands(
-        VkQueue queue,
+        VkQueue queue, std::shared_ptr<android::base::Lock> queueLock,
         std::function<void(const VkCommandBuffer &commandBuffer)> f) const {
         const T &self = static_cast<const T &>(*this);
         VkCommandBuffer cmdBuff;
@@ -306,9 +321,15 @@ class RunSingleTimeCommand : public U {
         VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
                                    .commandBufferCount = 1,
                                    .pCommandBuffers = &cmdBuff};
-        VK_CHECK(
-            self.m_vk.vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
-        VK_CHECK(self.m_vk.vkQueueWaitIdle(queue));
+        {
+            std::unique_ptr<android::base::AutoLock> lock = nullptr;
+            if (queueLock) {
+                lock = std::make_unique<android::base::AutoLock>(*queueLock);
+            }
+            VK_CHECK(
+                self.m_vk.vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+            VK_CHECK(self.m_vk.vkQueueWaitIdle(queue));
+        }
         self.m_vk.vkFreeCommandBuffers(self.m_vkDevice, self.m_vkCommandPool, 1,
                                        &cmdBuff);
     }
