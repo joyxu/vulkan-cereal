@@ -767,8 +767,8 @@ VkResult syncImageToColorBuffer(
             if (qsriFence) {
                 anbInfo->qsriWaitInfo.returnFenceLocked(qsriFence);
             }
-            ++anbInfo->qsriWaitInfo.presentCount;
-            VK_ANB_DEBUG_OBJ(anbInfoPtr, "wait callback: done, present count is now %llu", (unsigned long long)anbInfo->qsriWaitInfo.presentCount);
+            uint64_t presentCount = ++anbInfo->qsriWaitInfo.presentCount;
+            VK_ANB_DEBUG_OBJ(anbInfoPtr, "wait callback: done, present count is now %llu", (unsigned long long)presentCount);
             anbInfo->qsriWaitInfo.cv.signal();
             VK_ANB_DEBUG_OBJ(anbInfoPtr, "wait callback: exit");
         });
@@ -812,8 +812,8 @@ VkResult syncImageToColorBuffer(
                 bpp * anbInfo->extent.width * anbInfo->extent.height);
 
         AutoLock lock(anbInfo->qsriWaitInfo.lock);
-        ++anbInfo->qsriWaitInfo.presentCount;
-        VK_ANB_DEBUG_OBJ(anbInfoPtr, "done, present count is now %llu", (unsigned long long)anbInfo->qsriWaitInfo.presentCount);
+        uint64_t presentCount = ++anbInfo->qsriWaitInfo.presentCount;
+        VK_ANB_DEBUG_OBJ(anbInfoPtr, "done, present count is now %llu", (unsigned long long)presentCount);
         anbInfo->qsriWaitInfo.cv.signal();
         if (qsriFence) {
             anbInfo->qsriWaitInfo.returnFenceLocked(qsriFence);
