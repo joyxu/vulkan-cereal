@@ -21,6 +21,7 @@
 #include "base/ConditionVariable.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 
+#include <atomic>
 #include <deque>
 #include <memory>
 #include <vector>
@@ -133,10 +134,10 @@ struct AndroidNativeBufferInfo {
         // How many times the image was presented via vkQueueSignalReleaseImageANDROID
         // versus how many times we want it to be (for sync fd fence waiting).
         // Incremented by waitQsri.
-        uint64_t requestedPresentCount = 0;
+        std::atomic_uint64_t requestedPresentCount = 0;
         // Incremented by waitQsri if vkWaitForFences there succeeds,
         // or by syncImageToColorBuffer in the non-zero-copy case.
-        uint64_t presentCount = 0;
+        std::atomic_uint64_t presentCount = 0;
 
         void ensureDispatchAndDevice(VulkanDispatch* vkIn, VkDevice deviceIn) {
             vk = vkIn;
