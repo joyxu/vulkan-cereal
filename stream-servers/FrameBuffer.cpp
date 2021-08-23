@@ -371,7 +371,8 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         if (feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
             fb->m_displayVk = std::make_unique<DisplayVk>(
                 *dispatch, vkEmu->physdev, vkEmu->queueFamilyIndex,
-                vkEmu->queueFamilyIndex, vkEmu->device, vkEmu->queue, vkEmu->queue);
+                vkEmu->queueFamilyIndex, vkEmu->device, vkEmu->queue,
+                vkEmu->queueLock, vkEmu->queue, vkEmu->queueLock);
             fb->m_vkInstance = vkEmu->instance;
         }
         if (vkEmu->deviceInfo.supportsIdProperties) {
@@ -382,6 +383,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
             GL_LOG("Doesn't support id properties, no vulkan device UUID");
             fprintf(stderr, "%s: Doesn't support id properties, no vulkan device UUID\n", __func__);
         }
+        fb->m_glRenderer = std::string(vkEmu->deviceInfo.physdevProps.deviceName);
     }
 
     if (s_egl.eglUseOsEglApi) {
