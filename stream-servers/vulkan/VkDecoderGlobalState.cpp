@@ -4753,8 +4753,7 @@ public:
         }
 
         AutoLock qsriLock(anbInfo->qsriWaitInfo.lock);
-        ++anbInfo->qsriWaitInfo.requestedPresentCount;
-        uint64_t targetPresentCount = anbInfo->qsriWaitInfo.requestedPresentCount;
+        uint64_t targetPresentCount = ++anbInfo->qsriWaitInfo.requestedPresentCount;
 
         if (mLogging) {
             fprintf(stderr, "%s:%p New target present count %llu\n",
