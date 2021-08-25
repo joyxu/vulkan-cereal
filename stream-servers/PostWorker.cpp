@@ -15,14 +15,16 @@
 */
 #include "PostWorker.h"
 
+#include <string.h>
+
 #include "ColorBuffer.h"
 #include "DispatchTables.h"
 #include "FrameBuffer.h"
-#include "RenderThreadInfo.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "OpenGLESDispatch/GLESv2Dispatch.h"
+#include "RenderThreadInfo.h"
 #include "host-common/misc.h"
-#include <string.h>
+#include "vulkan/VkCommonOperations.h"
 
 #define POST_DEBUG 0
 #if POST_DEBUG >= 1
@@ -32,24 +34,30 @@
 #define DD(fmt, ...) (void)0
 #endif
 
+#define POST_ERROR(fmt, ...)                                                  \
+    do {                                                                      \
+        fprintf(stderr, "%s(%s:%d): " fmt "\n", __func__, __FILE__, __LINE__, \
+                ##__VA_ARGS__);                                               \
+        fflush(stderr);                                                       \
+    } while (0)
+
 static void sDefaultRunOnUiThread(UiUpdateFunc f, void* data, bool wait) {
     (void)f;
     (void)data;
     (void)wait;
 }
 
-PostWorker::PostWorker(
-        PostWorker::BindSubwinCallback&& cb,
-        bool mainThreadPostingOnly,
-        EGLContext eglContext,
-        EGLSurface) :
-    mFb(FrameBuffer::getFB()),
-    mBindSubwin(cb),
-    m_mainThreadPostingOnly(mainThreadPostingOnly),
-    m_runOnUiThread(m_mainThreadPostingOnly ?
-        emugl::get_emugl_window_operations().runOnUiThread :
-        sDefaultRunOnUiThread),
-    mContext(eglContext) {}
+PostWorker::PostWorker(PostWorker::BindSubwinCallback&& cb,
+                       bool mainThreadPostingOnly, EGLContext eglContext,
+                       EGLSurface, std::shared_ptr<DisplayVk> displayVk)
+    : mFb(FrameBuffer::getFB()),
+      mBindSubwin(cb),
+      m_mainThreadPostingOnly(mainThreadPostingOnly),
+      m_runOnUiThread(m_mainThreadPostingOnly
+                          ? emugl::get_emugl_window_operations().runOnUiThread
+                          : sDefaultRunOnUiThread),
+      mContext(eglContext),
+      m_displayVk(std::move(displayVk)) {}
 
 void PostWorker::fillMultiDisplayPostStruct(ComposeLayer* l,
                                             hwc_rect_t displayArea,
@@ -65,9 +73,23 @@ void PostWorker::fillMultiDisplayPostStruct(ComposeLayer* l,
 
 void PostWorker::postImpl(ColorBuffer* cb) {
     // bind the subwindow eglSurface
-    if (!m_mainThreadPostingOnly && !m_initialized) {
-        m_initialized = mBindSubwin();
+    if (!m_mainThreadPostingOnly && m_needsToRebindWindow) {
+        m_needsToRebindWindow = !mBindSubwin();
+        if (m_needsToRebindWindow) {
+            // Do not proceed if fail to bind to the window.
+            return;
+        }
     }
+
+    if (m_displayVk) {
+        if (m_justVkComposed) {
+            m_justVkComposed = false;
+            return;
+        }
+        m_needsToRebindWindow = !m_displayVk->post(cb->getDisplayBufferVk());
+        return;
+    }
+
     float dpr = mFb->getDpr();
     int windowWidth = mFb->windowWidth();
     int windowHeight = mFb->windowHeight();
@@ -167,10 +189,21 @@ void PostWorker::postImpl(ColorBuffer* cb) {
 // when the refresh is a display change, for instance)
 // and resets the posting viewport.
 void PostWorker::viewportImpl(int width, int height) {
-    // rebind the subwindow eglSurface unconditionally---
-    // this could be from a display change
     if (!m_mainThreadPostingOnly) {
-        m_initialized = mBindSubwin();
+        // For GLES, we rebind the subwindow eglSurface unconditionally: this
+        // could be from a display change, but we want to avoid binding
+        // VkSurfaceKHR too frequently, because that's too expensive.
+        if (!m_displayVk || m_needsToRebindWindow) {
+            m_needsToRebindWindow = !mBindSubwin();
+            if (m_needsToRebindWindow) {
+                // Do not proceed if fail to bind to the window.
+                return;
+            }
+        }
+    }
+
+    if (m_displayVk) {
+        return;
     }
 
     float dpr = mFb->getDpr();
@@ -184,6 +217,10 @@ void PostWorker::viewportImpl(int width, int height) {
 // displaying whatever happens to be in the back buffer,
 // clear() is useful for outputting consistent colors.
 void PostWorker::clearImpl() {
+    if (m_displayVk) {
+        POST_ERROR("PostWorker with Vulkan doesn't support clear.");
+        ::std::abort();
+    }
 #ifndef __linux__
     s_gles2.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
                     GL_STENCIL_BUFFER_BIT);
@@ -192,9 +229,17 @@ void PostWorker::clearImpl() {
 }
 
 void PostWorker::composeImpl(ComposeDevice* p) {
+    if (m_displayVk) {
+        POST_ERROR("PostWorker with Vulkan doesn't support ComposeV1.");
+        ::std::abort();
+    }
     // bind the subwindow eglSurface
-    if (!m_mainThreadPostingOnly && !m_initialized) {
-        m_initialized = mBindSubwin();
+    if (!m_mainThreadPostingOnly && m_needsToRebindWindow) {
+        m_needsToRebindWindow = !mBindSubwin();
+        if (m_needsToRebindWindow) {
+            // Do not proceed if fail to bind to the window.
+            return;
+        }
     }
     ComposeLayer* l = (ComposeLayer*)p->layer;
     GLint vport[4] = { 0, };
@@ -231,7 +276,7 @@ void PostWorker::composeImpl(ComposeDevice* p) {
                l->displayFrame.right, l->displayFrame.bottom,
                l->crop.left, l->crop.top, l->crop.right,
                l->crop.bottom);
-        composeLayer(l, mFb->getWidth(), mFb->getHeight());
+        glesComposeLayer(l, mFb->getWidth(), mFb->getHeight());
     }
 
     cbPtr->setSync();
@@ -243,10 +288,53 @@ void PostWorker::composeImpl(ComposeDevice* p) {
 
 void PostWorker::composev2Impl(ComposeDevice_v2* p) {
     // bind the subwindow eglSurface
-    if (!m_mainThreadPostingOnly && !m_initialized) {
-        m_initialized = mBindSubwin();
+    if (!m_mainThreadPostingOnly && m_needsToRebindWindow) {
+        m_needsToRebindWindow = !mBindSubwin();
+        if (m_needsToRebindWindow) {
+            // Do not proceed if fail to bind to the window.
+            return;
+        }
     }
     ComposeLayer* l = (ComposeLayer*)p->layer;
+    auto targetColorBufferPtr = mFb->findColorBuffer(p->targetHandle);
+
+    if (m_displayVk) {
+        if (!targetColorBufferPtr) {
+            ERR("failed to retrieve the composition target buffer\n");
+            std::abort();
+        }
+        uint32_t dstWidth =
+            static_cast<uint32_t>(targetColorBufferPtr->getWidth());
+        uint32_t dstHeight =
+            static_cast<uint32_t>(targetColorBufferPtr->getHeight());
+        // We don't copy the render result to the targetHandle color buffer
+        // when using the Vulkan native host swapchain, because we directly
+        // render to the swapchain image instead of rendering onto a
+        // ColorBuffer, and we don't readback from the ColorBuffer so far.
+        std::vector<ColorBufferPtr> cbs;  // Keep ColorBuffers alive
+        std::vector<std::shared_ptr<DisplayVk::DisplayBufferInfo>>
+            composeBuffers;
+        for (int i = 0; i < p->numLayers; ++i) {
+            auto colorBufferPtr = mFb->findColorBuffer(l[i].cbHandle);
+            if (!colorBufferPtr) {
+                composeBuffers.push_back(nullptr);
+                continue;
+            }
+            cbs.push_back(colorBufferPtr);
+            auto db = colorBufferPtr->getDisplayBufferVk();
+            if (!db) {
+                goldfish_vk::setupVkColorBuffer(l[i].cbHandle);
+                db = colorBufferPtr->getDisplayBufferVk();
+            }
+            composeBuffers.push_back(db);
+        }
+
+        m_needsToRebindWindow = !m_displayVk->compose(
+            p->numLayers, l, composeBuffers, dstWidth, dstHeight);
+        m_justVkComposed = true;
+        return;
+    }
+
     GLint vport[4] = { 0, };
     s_gles2.glGetIntegerv(GL_VIEWPORT, vport);
     uint32_t w, h;
@@ -264,19 +352,15 @@ void PostWorker::composev2Impl(ComposeDevice_v2* p) {
     }
     s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, m_composeFbo);
 
-    auto cbPtr = mFb->findColorBuffer(p->targetHandle);
-
-    if (!cbPtr) {
+    if (!targetColorBufferPtr) {
         s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, 0);
         s_gles2.glViewport(vport[0], vport[1], vport[2], vport[3]);
         return;
     }
 
-    s_gles2.glFramebufferTexture2D(GL_FRAMEBUFFER,
-                                   GL_COLOR_ATTACHMENT0_OES,
+    s_gles2.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_OES,
                                    GL_TEXTURE_2D,
-                                   cbPtr->getTexture(),
-                                   0);
+                                   targetColorBufferPtr->getTexture(), 0);
 
     DD("worker compose %d layers\n", p->numLayers);
     mFb->getTextureDraw()->prepareForDrawLayer();
@@ -290,17 +374,17 @@ void PostWorker::composev2Impl(ComposeDevice_v2* p) {
                l->displayFrame.right, l->displayFrame.bottom,
                l->crop.left, l->crop.top, l->crop.right,
                l->crop.bottom);
-        composeLayer(l, w, h);
+        glesComposeLayer(l, w, h);
     }
 
-    cbPtr->setSync();
+    targetColorBufferPtr->setSync();
     s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, 0);
     s_gles2.glViewport(vport[0], vport[1], vport[2], vport[3]);
     mFb->getTextureDraw()->cleanupForDrawLayer();
 }
 
 void PostWorker::bind() {
-    if (m_mainThreadPostingOnly) {
+    if (m_mainThreadPostingOnly && !m_displayVk) {
         if (mFb->getDisplay() != EGL_NO_DISPLAY) {
             EGLint res = s_egl.eglMakeCurrent(mFb->getDisplay(), mFb->getWindowSurface(), mFb->getWindowSurface(), mContext);
             if (!res) fprintf(stderr, "%s: error in binding: 0x%x\n", __func__, s_egl.eglGetError());
@@ -313,13 +397,20 @@ void PostWorker::bind() {
 }
 
 void PostWorker::unbind() {
+    if (m_displayVk) {
+        return;
+    }
     if (mFb->getDisplay() != EGL_NO_DISPLAY) {
         s_egl.eglMakeCurrent(mFb->getDisplay(), EGL_NO_SURFACE, EGL_NO_SURFACE,
                              EGL_NO_CONTEXT);
     }
 }
 
-void PostWorker::composeLayer(ComposeLayer* l, uint32_t w, uint32_t h) {
+void PostWorker::glesComposeLayer(ComposeLayer* l, uint32_t w, uint32_t h) {
+    if (m_displayVk) {
+        POST_ERROR("Should not reach with native Vulkan swapchain enabled.");
+        ::std::abort();
+    }
     if (l->composeMode == HWC2_COMPOSITION_DEVICE) {
         ColorBufferPtr cb = mFb->findColorBuffer(l->cbHandle);
         if (!cb) {
@@ -343,6 +434,11 @@ void PostWorker::screenshot(
     GLenum type,
     int rotation,
     void* pixels) {
+    if (m_displayVk) {
+        POST_ERROR(
+            "Screenshot not supported with native Vulkan swapchain enabled.");
+        ::std::abort();
+    }
     cb->readPixelsScaled(
         width, height, format, type, rotation, pixels);
 }
@@ -466,4 +562,3 @@ void PostWorker::clear() {
         clearImpl();
     }
 }
-
