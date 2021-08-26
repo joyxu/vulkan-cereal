@@ -371,7 +371,8 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         if (feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
             fb->m_displayVk = std::make_unique<DisplayVk>(
                 *dispatch, vkEmu->physdev, vkEmu->queueFamilyIndex,
-                vkEmu->queueFamilyIndex, vkEmu->device, vkEmu->queue, vkEmu->queue);
+                vkEmu->queueFamilyIndex, vkEmu->device, vkEmu->queue,
+                vkEmu->queueLock, vkEmu->queue, vkEmu->queueLock);
             fb->m_vkInstance = vkEmu->instance;
         }
         if (vkEmu->deviceInfo.supportsIdProperties) {
