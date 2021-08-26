@@ -63,7 +63,8 @@ add_library(
     ${stream-server-core-platform-sources}
     GfxStreamAgents.cpp
     GfxStreamBackend.cpp
-    virtio-gpu-gfxstream-renderer.cpp)
+    virtio-gpu-gfxstream-renderer.cpp
+    VirtioGpuTimelines.cpp)
 target_link_libraries(
     gfxstream_backend
     PUBLIC
@@ -241,3 +242,19 @@ target_link_libraries(
     PRIVATE
     stream-server-testing-support
     gfxstream-host-common-testing-support)
+
+add_executable(
+    VirtioGpuTimelines_unittests
+    tests/VirtioGpuTimelines_unittest.cpp
+    VirtioGpuTimelines.cpp)
+target_include_directories(
+    VirtioGpuTimelines_unittests
+    PRIVATE
+    ${GFXSTREAM_REPO_ROOT}
+    ${GFXSTREAM_REPO_ROOT}/stream-servers
+    ${GFXSTREAM_REPO_ROOT}/include)
+target_link_libraries(
+    VirtioGpuTimelines_unittests
+    PRIVATE
+    gtest
+    gmock)
