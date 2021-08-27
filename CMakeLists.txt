@@ -5,7 +5,6 @@ option(BUILD_GOOGLETEST "Download and build the googletest library" ON)
 
 if (WIN32)
     add_definitions("-DUNICODE -D_UNICODE -DNOMINMAX -DEMUGL_BUILD -DVK_USE_PLATFORM_WIN32_KHR -DBUILDING_EMUGL_COMMON_SHARED")
-    add_definitions(/MP)
 endif()
 
 if(UNIX AND NOT APPLE)
