@@ -486,6 +486,10 @@ class FrameBuffer {
     void setShuttingDown() { m_shuttingDown = true; }
     bool isShuttingDown() const { return m_shuttingDown; }
     bool compose(uint32_t bufferSize, void* buffer, bool post = true);
+    // When false is returned, the callback won't be called. The callback will
+    // be called on the PostWorker thread without blocking the current thread.
+    bool composeWithCallback(uint32_t bufferSize, void* buffer,
+                             std::function<void()> callback);
 
     ~FrameBuffer();
 
@@ -768,7 +772,7 @@ class FrameBuffer {
 
     std::unique_ptr<PostWorker> m_postWorker = {};
     android::base::WorkerThread<Post> m_postThread;
-    android::base::WorkerProcessingResult postWorkerFunc(const Post& post);
+    android::base::WorkerProcessingResult postWorkerFunc(Post& post);
     std::future<void> sendPostWorkerCmd(Post post);
 
     bool m_fastBlitSupported = false;

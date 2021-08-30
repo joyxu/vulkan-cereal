@@ -886,8 +886,7 @@ FrameBuffer::sendReadbackWorkerCmd(const Readback& readback) {
     return WorkerProcessingResult::Stop;
 }
 
-WorkerProcessingResult
-FrameBuffer::postWorkerFunc(const Post& post) {
+WorkerProcessingResult FrameBuffer::postWorkerFunc(Post& post) {
     switch (post.cmd) {
         case PostCmd::Post:
             m_postWorker->post(post.cb);
@@ -898,9 +897,13 @@ FrameBuffer::postWorkerFunc(const Post& post) {
             break;
         case PostCmd::Compose: {
             if (post.composeVersion <= 1) {
-                m_postWorker->compose((ComposeDevice*)post.composeBuffer.data(), post.composeBuffer.size());
+                m_postWorker->compose((ComposeDevice*)post.composeBuffer.data(),
+                                      post.composeBuffer.size(),
+                                      std::move(post.composeCallback));
             } else {
-                m_postWorker->compose((ComposeDevice_v2*)post.composeBuffer.data(), post.composeBuffer.size());
+                m_postWorker->compose(
+                    (ComposeDevice_v2*)post.composeBuffer.data(),
+                    post.composeBuffer.size(), std::move(post.composeCallback));
             }
             break;
         }
@@ -970,6 +973,7 @@ std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
     // For now, this fixes a screenshot issue on macOS.
     std::future<void> res = std::async(std::launch::deferred, [] {});
     res.wait();
+    PostCmd postCmd = post.cmd;
     if (postOnlyOnMainThread && (PostCmd::Screenshot == post.cmd) &&
         emugl::get_emugl_window_operations().isRunningInUiThread()) {
         post.cb->readPixelsScaled(
@@ -980,7 +984,8 @@ std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
             post.screenshot.rotation,
             post.screenshot.pixels);
     } else {
-        std::future<void> completeFuture = m_postThread.enqueue(Post(post));
+        std::future<void> completeFuture =
+            m_postThread.enqueue(Post(std::move(post)));
         if (!postOnlyOnMainThread ||
             (PostCmd::Screenshot == post.cmd &&
              !emugl::get_emugl_window_operations().isRunningInUiThread())) {
@@ -1188,7 +1193,8 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
             postCmd.cmd = PostCmd::Viewport;
             postCmd.viewport.width = fbw;
             postCmd.viewport.height = fbh;
-            std::future<void> completeFuture = sendPostWorkerCmd(postCmd);
+            std::future<void> completeFuture =
+                sendPostWorkerCmd(std::move(postCmd));
             completeFuture.wait();
 
             if (m_displayVk == nullptr) {
@@ -1200,8 +1206,10 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
                 }
 
                 if (!posted) {
+                    Post postCmd;
                     postCmd.cmd = PostCmd::Clear;
-                    std::future<void> completeFuture = sendPostWorkerCmd(postCmd);
+                    std::future<void> completeFuture =
+                        sendPostWorkerCmd(std::move(postCmd));
                     completeFuture.wait();
                 }
             }
@@ -2564,7 +2572,8 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
         Post postCmd;
         postCmd.cmd = PostCmd::Post;
         postCmd.cb = c->second.cb.get();
-        std::future<void> completeFuture = sendPostWorkerCmd(postCmd);
+        std::future<void> completeFuture =
+            sendPostWorkerCmd(std::move(postCmd));
         completeFuture.wait();
     } else {
         markOpened(&c->second);
@@ -2798,7 +2807,7 @@ void FrameBuffer::getScreenshot(unsigned int nChannels, unsigned int* width,
     scrCmd.screenshot.rotation = desiredRotation;
     scrCmd.screenshot.pixels = pixels.data();
 
-    std::future<void> completeFuture = sendPostWorkerCmd(scrCmd);
+    std::future<void> completeFuture = sendPostWorkerCmd(std::move(scrCmd));
     completeFuture.wait();
 }
 
@@ -2825,6 +2834,42 @@ bool FrameBuffer::decColorBufferRefCountLocked(HandleType p_colorbuffer) {
 }
 
 bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
+    std::promise<void> promise;
+    std::future<void> completeFuture = promise.get_future();
+    auto composeRes = composeWithCallback(
+        bufferSize, buffer,
+        [&] { promise.set_value(); });
+    if (!composeRes) {
+        return false;
+    }
+    completeFuture.wait();
+
+    if (needPost) {
+        ComposeDevice* composeDevice = (ComposeDevice*)buffer;
+        AutoLock mutex(m_lock);
+
+        switch (composeDevice->version) {
+            case 1: {
+                post(composeDevice->targetHandle, false);
+                break;
+            }
+            case 2: {
+                ComposeDevice_v2* composeDeviceV2 = (ComposeDevice_v2*)buffer;
+                if (composeDeviceV2->displayId == 0) {
+                    post(composeDeviceV2->targetHandle, false);
+                }
+                break;
+            }
+            default: {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
+                                      std::function<void()> callback) {
     ComposeDevice* p = (ComposeDevice*)buffer;
     AutoLock mutex(m_lock);
 
@@ -2834,46 +2879,35 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
         composeCmd.composeVersion = 1;
         composeCmd.composeBuffer.resize(bufferSize);
         memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
+        composeCmd.composeCallback =
+            std::make_shared<std::function<void()>>(callback);
         composeCmd.cmd = PostCmd::Compose;
-        std::future<void> completeFuture = sendPostWorkerCmd(composeCmd);
-        completeFuture.wait();
-        if(needPost) {
-            post(p->targetHandle, false);
-        }
+        sendPostWorkerCmd(std::move(composeCmd));
         return true;
     }
 
     case 2: {
-       // support for multi-display
-       ComposeDevice_v2* p2 = (ComposeDevice_v2*)buffer;
-       if (p2->displayId != 0) {
-           mutex.unlock();
-           setDisplayColorBuffer(p2->displayId, p2->targetHandle);
-           mutex.lock();
-       }
-       Post composeCmd;
-       composeCmd.composeVersion = 2;
-       composeCmd.composeBuffer.resize(bufferSize);
-       memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
-       composeCmd.cmd = PostCmd::Compose;
-       std::future<void> completeFuture = sendPostWorkerCmd(composeCmd);
-       // The Vulkan composer may grab the sVkEmulationLock, if we don't unlock
-       // the FrameBuffer lock, we may first grab FrameBuffer lock, then grab
-       // the sVkEmulationLock, while when calling setupVkColorBuffer, we may
-       // first grab the sVkEmulationLock, then grab the FrameBuffer lock, which
-       // could result in a dead lock. To prevent the dead lock, we release the
-       // FrameBuffer lock here. Releasing the lock here does make it possible
-       // to access FrameBuffer::m_colorbuffers, which is a std::unordered_map,
-       // at the same time from different threads, which may cause undefined
-       // behaviour.
-       // TODO: Fix the potential data race on FrameBuffer::m_colorbuffers here.
-       mutex.unlock();
-       completeFuture.wait();
-       mutex.lock();
-       if (p2->displayId == 0 && needPost) {
-           post(p2->targetHandle, false);
-       }
-       return true;
+        // support for multi-display
+        ComposeDevice_v2* p2 = (ComposeDevice_v2*)buffer;
+        if (p2->displayId != 0) {
+            mutex.unlock();
+            setDisplayColorBuffer(p2->displayId, p2->targetHandle);
+            mutex.lock();
+        }
+        Post composeCmd;
+        composeCmd.composeVersion = 2;
+        composeCmd.composeBuffer.resize(bufferSize);
+        memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
+        composeCmd.composeCallback =
+            std::make_shared<std::function<void()>>(callback);
+        composeCmd.cmd = PostCmd::Compose;
+        // Composition without holding the FrameBuffer lock here can lead to a
+        // race condition, because it is possible to access
+        // FrameBuffer::m_colorbuffers, which is a std::unordered_map, at the
+        // same time from different threads, which may cause undefined behaviour.
+        // TODO: Fix the potential data race on FrameBuffer::m_colorbuffers here.
+        sendPostWorkerCmd(std::move(composeCmd));
+        return true;
     }
 
     default:
