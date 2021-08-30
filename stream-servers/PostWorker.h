@@ -1,47 +1,46 @@
 /*
-* Copyright (C) 2017 The Android Open Source Project
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (C) 2017 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
-
-#include "base/Compiler.h"
-#include "base/MessageChannel.h"
-#include "host-common/window_agent.h"
 
 #include <EGL/egl.h>
 #include <GLES/gl.h>
 #include <GLES3/gl3.h>
+#include <vulkan/vulkan.h>
 
 #include <functional>
 #include <vector>
 
+#include "DisplayVk.h"
 #include "Hwc2.h"
 #include "base/Compiler.h"
 #include "base/Lock.h"
+#include "base/MessageChannel.h"
+#include "host-common/window_agent.h"
 
 class ColorBuffer;
 class FrameBuffer;
 struct RenderThreadInfo;
 
 class PostWorker {
-public:
+   public:
     using BindSubwinCallback = std::function<bool(void)>;
 
-    PostWorker(BindSubwinCallback&& cb,
-               bool mainThreadPostingOnly,
-               EGLContext eglContext,
-               EGLSurface eglSurface);
+    PostWorker(BindSubwinCallback&& cb, bool mainThreadPostingOnly,
+               EGLContext eglContext, EGLSurface eglSurface,
+               std::shared_ptr<DisplayVk>);
     ~PostWorker();
 
     // post: posts the next color buffer.
@@ -64,15 +63,10 @@ public:
     // if there is no last posted color buffer to show yet.
     void clear();
 
-    void screenshot(ColorBuffer* cb,
-                    int screenwidth,
-                    int screenheight,
-                    GLenum format,
-                    GLenum type,
-                    int skinRotation,
-                    void* pixels);
+    void screenshot(ColorBuffer* cb, int screenwidth, int screenheight,
+                    GLenum format, GLenum type, int skinRotation, void* pixels);
 
-private:
+   private:
     // Impl versions of the above, so we can run it from separate threads
     void postImpl(ColorBuffer* cb);
     void viewportImpl(int width, int height);
@@ -84,13 +78,12 @@ private:
     void bind();
     void unbind();
 
-    void composeLayer(ComposeLayer* l, uint32_t w, uint32_t h);
-    void fillMultiDisplayPostStruct(ComposeLayer* l,
-                                    hwc_rect_t displayArea,
+    void glesComposeLayer(ComposeLayer* l, uint32_t w, uint32_t h);
+    void fillMultiDisplayPostStruct(ComposeLayer* l, hwc_rect_t displayArea,
                                     hwc_frect_t cropArea,
                                     hwc_transform_t transform);
 
-private:
+   private:
     using UiThreadRunner = std::function<void(UiUpdateFunc, void*, bool)>;
     struct PostArgs {
         ColorBuffer* postCb;
@@ -103,7 +96,7 @@ private:
 
     std::function<bool(void)> mBindSubwin;
 
-    bool m_initialized = false;
+    bool m_needsToRebindWindow = true;
     int m_viewportWidth = 0;
     int m_viewportHeight = 0;
     GLuint m_composeFbo = 0;
@@ -112,6 +105,13 @@ private:
     UiThreadRunner m_runOnUiThread = 0;
     android::base::MessageChannel<PostArgs, 1> m_toUiThread;
     EGLContext mContext = EGL_NO_CONTEXT;
+
+    // The implementation for Vulkan native swapchain. Only initialized when
+    // useVulkan is set when calling FrameBuffer::initialize().
+    std::shared_ptr<DisplayVk> m_displayVk;
+    // With Vulkan swapchain, compose also means to post to the WSI surface.
+    // In this case, don't do anything in the subsequent resource flush.
+    bool m_justVkComposed = false;
 
     DISALLOW_COPY_AND_ASSIGN(PostWorker);
 };
