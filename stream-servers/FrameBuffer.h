@@ -778,7 +778,7 @@ class FrameBuffer {
     std::unique_ptr<PostWorker> m_postWorker = {};
     android::base::WorkerThread<Post> m_postThread;
     android::base::WorkerProcessingResult postWorkerFunc(const Post& post);
-    void sendPostWorkerCmd(Post post);
+    std::future<void> sendPostWorkerCmd(Post post);
 
     bool m_fastBlitSupported = false;
     bool m_vulkanInteropSupported = false;
