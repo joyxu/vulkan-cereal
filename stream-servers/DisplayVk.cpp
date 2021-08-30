@@ -5,6 +5,14 @@
 
 #include "ErrorLog.h"
 
+namespace {
+
+bool shouldRecreateSwapchain(VkResult result) {
+    return result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR;
+}
+
+}  // namespace
+
 DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk,
                      VkPhysicalDevice vkPhysicalDevice,
                      uint32_t swapChainQueueFamilyIndex,
@@ -79,6 +87,9 @@ DisplayVk::~DisplayVk() {
 
 void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width,
                               uint32_t height) {
+    m_compositorVk.reset();
+    m_swapChainStateVk.reset();
+
     if (!SwapChainStateVk::validateQueueFamilyProperties(
             m_vk, m_vkPhysicalDevice, surface, m_swapChainQueueFamilyIndex)) {
         ERR("%s(%s:%d): DisplayVk can't create VkSwapchainKHR with given "
@@ -119,12 +130,12 @@ std::shared_ptr<DisplayVk::DisplayBufferInfo> DisplayVk::createDisplayBuffer(
         new DisplayBufferInfo(m_vk, m_vkDevice, width, height, format, image));
 }
 
-void DisplayVk::post(
+bool DisplayVk::post(
     const std::shared_ptr<DisplayBufferInfo> &displayBufferPtr) {
     if (!displayBufferPtr) {
         fprintf(stderr, "%s: warning: null ptr passed to post buffer\n",
                 __func__);
-        return;
+        return true;
     }
     ComposeLayer composeLayer = {
         0,
@@ -140,11 +151,11 @@ void DisplayVk::post(
     };
     // Use the size of the buffer as the dstWidth and dstHeight to fill the
     // entire render target with the buffer.
-    compose(1, &composeLayer, {std::move(displayBufferPtr)},
-            displayBufferPtr->m_width, displayBufferPtr->m_height);
+    return compose(1, &composeLayer, {std::move(displayBufferPtr)},
+                   displayBufferPtr->m_width, displayBufferPtr->m_height);
 }
 
-void DisplayVk::compose(
+bool DisplayVk::compose(
     uint32_t numLayers, const ComposeLayer layers[],
     const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers,
     uint32_t dstWidth, uint32_t dstHeight) {
@@ -152,7 +163,9 @@ void DisplayVk::compose(
         ERR("%s(%s:%d): Haven't bound to a surface, can't compose color "
             "buffer.\n",
             __FUNCTION__, __FILE__, static_cast<int>(__LINE__));
-        return;
+        // The surface hasn't been created yet, hence we don't return false to
+        // request rebinding.
+        return true;
     }
 
     std::vector<std::unique_ptr<ComposeLayerVk>> composeLayers;
@@ -181,15 +194,19 @@ void DisplayVk::compose(
     }
 
     if (composeLayers.empty()) {
-        return;
+        return true;
     }
 
     VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &m_frameDrawCompleteFence,
                                   VK_TRUE, UINT64_MAX));
     uint32_t imageIndex;
-    VK_CHECK(m_vk.vkAcquireNextImageKHR(
+    VkResult acquireRes = m_vk.vkAcquireNextImageKHR(
         m_vkDevice, m_swapChainStateVk->getSwapChain(), UINT64_MAX,
-        m_imageReadySem, VK_NULL_HANDLE, &imageIndex));
+        m_imageReadySem, VK_NULL_HANDLE, &imageIndex);
+    if (shouldRecreateSwapchain(acquireRes)) {
+        return false;
+    }
+    VK_CHECK(acquireRes);
 
     if (compareAndSaveComposition(imageIndex, numLayers, layers,
                                   composeBuffers)) {
@@ -226,10 +243,16 @@ void DisplayVk::compose(
                                     .pImageIndices = &imageIndex};
     {
         android::base::AutoLock lock(*m_swapChainVkQueueLock);
-        VK_CHECK(m_vk.vkQueuePresentKHR(m_swapChainVkQueue, &presentInfo));
+        VkResult presentRes =
+            m_vk.vkQueuePresentKHR(m_swapChainVkQueue, &presentInfo);
+        if (shouldRecreateSwapchain(presentRes)) {
+            return false;
+        }
+        VK_CHECK(presentRes);
         VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &m_frameDrawCompleteFence,
                                       VK_TRUE, UINT64_MAX));
     }
+    return true;
 }
 
 bool DisplayVk::canComposite(VkFormat format) {
