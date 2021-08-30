@@ -228,7 +228,7 @@ void PostWorker::clearImpl() {
 #endif
 }
 
-void PostWorker::composeImpl(ComposeDevice* p) {
+void PostWorker::composeImpl(const ComposeDevice* p) {
     if (m_displayVk) {
         POST_ERROR("PostWorker with Vulkan doesn't support ComposeV1.");
         ::std::abort();
@@ -286,7 +286,7 @@ void PostWorker::composeImpl(ComposeDevice* p) {
     mFb->getTextureDraw()->cleanupForDrawLayer();
 }
 
-void PostWorker::composev2Impl(ComposeDevice_v2* p) {
+void PostWorker::composev2Impl(const ComposeDevice_v2* p) {
     // bind the subwindow eglSurface
     if (!m_mainThreadPostingOnly && m_needsToRebindWindow) {
         m_needsToRebindWindow = !mBindSubwin();
@@ -451,114 +451,49 @@ PostWorker::~PostWorker() {
 }
 
 void PostWorker::post(ColorBuffer* cb) {
-    if (m_mainThreadPostingOnly) {
-        PostArgs args = {
-            .postCb = cb,
-        };
-
-        m_toUiThread.send(args);
-
-        m_runOnUiThread([](void* data) {
-            PostWorker* p = (PostWorker*)data;
-            PostArgs uiThreadArgs;
-            p->m_toUiThread.receive(&uiThreadArgs);
-            p->bind();
-            p->postImpl(uiThreadArgs.postCb);
-        },
-        this,
-        false /* no wait */);
-    } else {
-        postImpl(cb);
-    }
+    runTask(std::packaged_task<void()>([cb, this] { postImpl(cb); }));
 }
 
 void PostWorker::viewport(int width, int height) {
-    if (m_mainThreadPostingOnly) {
-        PostArgs args = {
-            .width = width,
-            .height = height,
-        };
-
-        m_toUiThread.send(args);
-
-        m_runOnUiThread([](void* data) {
-            PostWorker* p = (PostWorker*)data;
-            PostArgs uiThreadArgs;
-            p->m_toUiThread.receive(&uiThreadArgs);
-            p->bind();
-            p->viewportImpl(uiThreadArgs.width, uiThreadArgs.height);
-        },
-        this,
-        false /* no wait */);
-    } else {
-        viewportImpl(width, height);
-    }
+    runTask(std::packaged_task<void()>(
+        [width, height, this] { viewportImpl(width, height); }));
 }
 
 void PostWorker::compose(ComposeDevice* p, uint32_t bufferSize) {
-    if (m_mainThreadPostingOnly) {
-        PostArgs args;
-        std::vector<char> buffer(bufferSize, 0);
-        memcpy(buffer.data(), p, bufferSize);
-        args.composeBuffer = buffer;
-
-        m_toUiThread.send(args);
-
-        m_runOnUiThread([](void* data) {
-            PostWorker* p = (PostWorker*)data;
-            PostArgs uiThreadArgs;
-            p->m_toUiThread.receive(&uiThreadArgs);
-            p->bind();
-            p->composeImpl((ComposeDevice*)uiThreadArgs.composeBuffer.data());
-        },
-        this,
-        false /* no wait */);
-    } else {
-        composeImpl(p);
-    }
+    std::vector<char> buffer(bufferSize, 0);
+    memcpy(buffer.data(), p, bufferSize);
+    runTask(std::packaged_task<void()>([buffer = std::move(buffer), this] {
+        auto composeDevice =
+            reinterpret_cast<const ComposeDevice*>(buffer.data());
+        composeImpl(composeDevice);
+    }));
 }
 
 void PostWorker::compose(ComposeDevice_v2* p, uint32_t bufferSize) {
-    if (m_mainThreadPostingOnly) {
-        PostArgs args;
-        std::vector<char> buffer(bufferSize, 0);
-        memcpy(buffer.data(), p, bufferSize);
-        args.composeBuffer = buffer;
-
-        m_toUiThread.send(args);
-
-        m_runOnUiThread([](void* data) {
-            PostWorker* p = (PostWorker*)data;
-            PostArgs uiThreadArgs;
-            p->m_toUiThread.receive(&uiThreadArgs);
-            p->bind();
-            p->composev2Impl((ComposeDevice_v2*)uiThreadArgs.composeBuffer.data());
-        },
-        this,
-        false /* no wait */);
-    } else {
-        composev2Impl(p);
-    }
+    std::vector<char> buffer(bufferSize, 0);
+    memcpy(buffer.data(), p, bufferSize);
+    runTask(std::packaged_task<void()>([buffer = std::move(buffer), this] {
+        auto composeDevice =
+            reinterpret_cast<const ComposeDevice_v2*>(buffer.data());
+        composev2Impl(composeDevice);
+    }));
 }
 
 void PostWorker::clear() {
+    runTask(std::packaged_task<void()>([this] { clearImpl(); }));
+}
+
+void PostWorker::runTask(std::packaged_task<void()> task) {
+    using Task = std::packaged_task<void()>;
+    auto taskPtr = std::make_unique<Task>(std::move(task));
     if (m_mainThreadPostingOnly) {
-        PostArgs args = {
-            .postCb = 0,
-        };
-
-        m_toUiThread.send(args);
-
-        m_runOnUiThread([](void* data) {
-            PostWorker* p = (PostWorker*)data;
-            PostArgs uiThreadArgs;
-            p->m_toUiThread.receive(&uiThreadArgs);
-            p->bind();
-            p->clearImpl();
-        },
-        this,
-        false /* no wait */);
+        m_runOnUiThread(
+            [](void* data) {
+                std::unique_ptr<Task> taskPtr(reinterpret_cast<Task*>(data));
+                (*taskPtr)();
+            },
+            taskPtr.release(), false);
     } else {
-        clearImpl();
+        (*taskPtr)();
     }
 }

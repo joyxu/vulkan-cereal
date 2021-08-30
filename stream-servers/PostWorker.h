@@ -21,6 +21,7 @@
 #include <vulkan/vulkan.h>
 
 #include <functional>
+#include <future>
 #include <vector>
 
 #include "DisplayVk.h"
@@ -70,8 +71,8 @@ class PostWorker {
     // Impl versions of the above, so we can run it from separate threads
     void postImpl(ColorBuffer* cb);
     void viewportImpl(int width, int height);
-    void composeImpl(ComposeDevice* p);
-    void composev2Impl(ComposeDevice_v2* p);
+    void composeImpl(const ComposeDevice* p);
+    void composev2Impl(const ComposeDevice_v2* p);
     void clearImpl();
 
     // Subwindow binding
@@ -82,6 +83,10 @@ class PostWorker {
     void fillMultiDisplayPostStruct(ComposeLayer* l, hwc_rect_t displayArea,
                                     hwc_frect_t cropArea,
                                     hwc_transform_t transform);
+
+    // If m_mainThreadPostingOnly is true, schedule the task to UI thread by
+    // using m_runOnUiThread. Otherwise, execute the task on the current thread.
+    void runTask(std::packaged_task<void()>);
 
    private:
     using UiThreadRunner = std::function<void(UiUpdateFunc, void*, bool)>;
@@ -103,7 +108,6 @@ class PostWorker {
 
     bool m_mainThreadPostingOnly = false;
     UiThreadRunner m_runOnUiThread = 0;
-    android::base::MessageChannel<PostArgs, 1> m_toUiThread;
     EGLContext mContext = EGL_NO_CONTEXT;
 
     // The implementation for Vulkan native swapchain. Only initialized when
