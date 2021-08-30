@@ -26,6 +26,7 @@
 
 #include "DisplayVk.h"
 #include "Hwc2.h"
+#include "PostCommands.h"
 #include "base/Compiler.h"
 #include "base/Lock.h"
 #include "base/MessageChannel.h"
@@ -54,13 +55,18 @@ class PostWorker {
     // (FrameBuffer::setupSubWindow).
     void viewport(int width, int height);
 
-    // compose: compse the layers into final framebuffer
+    // compose: compse the layers into final framebuffer. The callback will be
+    // called when the CPU side job completes. The passed in future in the
+    // callback will be completed when the GPU opereation completes.
     void compose(ComposeDevice* p, uint32_t bufferSize,
-                 std::shared_ptr<std::function<void()>> callback);
+                 std::shared_ptr<Post::ComposeCallback>);
 
-    // compose: compse the layers into final framebuffer, version 2
+    // compose: compse the layers into final framebuffer, version 2. The
+    // callback will be called when the CPU side job completes. The passed in
+    // future in the callback will be completed when the GPU opereation
+    // completes.
     void compose(ComposeDevice_v2* p, uint32_t bufferSize,
-                 std::shared_ptr<std::function<void()>> callback);
+                 std::shared_ptr<Post::ComposeCallback>);
 
     // clear: blanks out emulator display when refreshing the subwindow
     // if there is no last posted color buffer to show yet.
@@ -74,7 +80,7 @@ class PostWorker {
     void postImpl(ColorBuffer* cb);
     void viewportImpl(int width, int height);
     void composeImpl(const ComposeDevice* p);
-    void composev2Impl(const ComposeDevice_v2* p);
+    std::shared_future<void> composev2Impl(const ComposeDevice_v2* p);
     void clearImpl();
 
     // Subwindow binding
