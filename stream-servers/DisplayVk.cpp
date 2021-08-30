@@ -76,6 +76,14 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk,
 }
 
 DisplayVk::~DisplayVk() {
+    {
+        android::base::AutoLock lock(*m_swapChainVkQueueLock);
+        VK_CHECK(m_vk.vkQueueWaitIdle(m_swapChainVkQueue));
+    }
+    {
+        android::base::AutoLock lock(*m_compositorVkQueueLock);
+        VK_CHECK(m_vk.vkQueueWaitIdle(m_compositorVkQueue));
+    }
     m_vk.vkDestroySampler(m_vkDevice, m_compositionVkSampler, nullptr);
     m_vk.vkDestroySemaphore(m_vkDevice, m_imageReadySem, nullptr);
     m_vk.vkDestroySemaphore(m_vkDevice, m_frameDrawCompleteSem, nullptr);
@@ -130,12 +138,13 @@ std::shared_ptr<DisplayVk::DisplayBufferInfo> DisplayVk::createDisplayBuffer(
         new DisplayBufferInfo(m_vk, m_vkDevice, width, height, format, image));
 }
 
-bool DisplayVk::post(
+std::tuple<bool, std::shared_future<void>> DisplayVk::post(
     const std::shared_ptr<DisplayBufferInfo> &displayBufferPtr) {
     if (!displayBufferPtr) {
         fprintf(stderr, "%s: warning: null ptr passed to post buffer\n",
                 __func__);
-        return true;
+        auto completedFuture = std::async(std::launch::deferred, [] {}).share();
+        return std::make_tuple(true, std::move(completedFuture));
     }
     ComposeLayer composeLayer = {
         0,
@@ -155,17 +164,21 @@ bool DisplayVk::post(
                    displayBufferPtr->m_width, displayBufferPtr->m_height);
 }
 
-bool DisplayVk::compose(
+std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
     uint32_t numLayers, const ComposeLayer layers[],
     const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers,
     uint32_t dstWidth, uint32_t dstHeight) {
+    std::shared_future<void> completedFuture =
+        std::async(std::launch::deferred, [] {}).share();
+    completedFuture.wait();
+
     if (!m_swapChainStateVk || !m_compositorVk) {
         ERR("%s(%s:%d): Haven't bound to a surface, can't compose color "
             "buffer.\n",
             __FUNCTION__, __FILE__, static_cast<int>(__LINE__));
-        // The surface hasn't been created yet, hence we don't return false to
-        // request rebinding.
-        return true;
+        // The surface hasn't been created yet, hence we don't return
+        // std::nullopt to request rebinding.
+        return std::make_tuple(true, std::move(completedFuture));
     }
 
     std::vector<std::unique_ptr<ComposeLayerVk>> composeLayers;
@@ -194,7 +207,7 @@ bool DisplayVk::compose(
     }
 
     if (composeLayers.empty()) {
-        return true;
+        return std::make_tuple(true, std::move(completedFuture));
     }
 
     VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &m_frameDrawCompleteFence,
@@ -204,7 +217,7 @@ bool DisplayVk::compose(
         m_vkDevice, m_swapChainStateVk->getSwapChain(), UINT64_MAX,
         m_imageReadySem, VK_NULL_HANDLE, &imageIndex);
     if (shouldRecreateSwapchain(acquireRes)) {
-        return false;
+        return std::make_tuple(false, std::shared_future<void>());
     }
     VK_CHECK(acquireRes);
 
@@ -217,6 +230,14 @@ bool DisplayVk::compose(
 
     auto cmdBuff = m_compositorVk->getCommandBuffer(imageIndex);
 
+    // We share the VkFences for different frames, but we don't share futures on
+    // different frames. We call a wait here to make sure that all references to
+    // the future of this frame are marked as completed. If we don't wait on the
+    // future here and we wait for the future somewhere else, we may wait for a
+    // later frame that shares the same VkFence.
+    if (m_frameDrawCompleteFuture.valid()) {
+        m_frameDrawCompleteFuture.wait();
+    }
     VK_CHECK(m_vk.vkResetFences(m_vkDevice, 1, &m_frameDrawCompleteFence));
     VkPipelineStageFlags waitStages[] = {
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -233,6 +254,11 @@ bool DisplayVk::compose(
         VK_CHECK(m_vk.vkQueueSubmit(m_compositorVkQueue, 1, &submitInfo,
                                     m_frameDrawCompleteFence));
     }
+    m_frameDrawCompleteFuture =
+        std::async(std::launch::deferred, [this] {
+            VK_CHECK(m_vk.vkWaitForFences(
+                m_vkDevice, 1, &m_frameDrawCompleteFence, VK_TRUE, UINT64_MAX));
+        }).share();
 
     auto swapChain = m_swapChainStateVk->getSwapChain();
     VkPresentInfoKHR presentInfo = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -241,18 +267,17 @@ bool DisplayVk::compose(
                                     .swapchainCount = 1,
                                     .pSwapchains = &swapChain,
                                     .pImageIndices = &imageIndex};
+    VkResult presentRes;
     {
         android::base::AutoLock lock(*m_swapChainVkQueueLock);
-        VkResult presentRes =
-            m_vk.vkQueuePresentKHR(m_swapChainVkQueue, &presentInfo);
-        if (shouldRecreateSwapchain(presentRes)) {
-            return false;
-        }
-        VK_CHECK(presentRes);
-        VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &m_frameDrawCompleteFence,
-                                      VK_TRUE, UINT64_MAX));
+        presentRes = m_vk.vkQueuePresentKHR(m_swapChainVkQueue, &presentInfo);
     }
-    return true;
+    if (shouldRecreateSwapchain(presentRes)) {
+        m_frameDrawCompleteFuture.wait();
+        return std::make_tuple(false, std::shared_future<void>());
+    }
+    VK_CHECK(presentRes);
+    return std::make_tuple(true, m_frameDrawCompleteFuture);
 }
 
 bool DisplayVk::canComposite(VkFormat format) {

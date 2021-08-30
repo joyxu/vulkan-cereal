@@ -489,7 +489,7 @@ class FrameBuffer {
     // When false is returned, the callback won't be called. The callback will
     // be called on the PostWorker thread without blocking the current thread.
     bool composeWithCallback(uint32_t bufferSize, void* buffer,
-                             std::function<void()> callback);
+                             Post::ComposeCallback callback);
 
     ~FrameBuffer();
 
