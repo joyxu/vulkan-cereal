@@ -968,15 +968,12 @@ void FrameBuffer::sendPostWorkerCmd(Post post) {
             post.screenshot.type,
             post.screenshot.rotation,
             post.screenshot.pixels);
-    }
-    else {
-        m_postThread.enqueue(Post(post));
-        if (!postOnlyOnMainThread) {
-            m_postThread.waitQueuedItems();
-        }
-        else if (postOnlyOnMainThread && (PostCmd::Screenshot == post.cmd) &&
-            !emugl::get_emugl_window_operations().isRunningInUiThread()) {
-            m_postThread.waitQueuedItems();
+    } else {
+        std::future<void> completeFuture = m_postThread.enqueue(Post(post));
+        if (!postOnlyOnMainThread ||
+            (PostCmd::Screenshot == post.cmd &&
+             !emugl::get_emugl_window_operations().isRunningInUiThread())) {
+            completeFuture.wait();
         }
     }
 }
@@ -1014,11 +1011,13 @@ void FrameBuffer::setPostCallback(
             m_readbackThread.start();
             m_readbackThread.enqueue({ ReadbackCmd::Init });
         }
-        m_readbackThread.enqueue({ ReadbackCmd::AddRecordDisplay, displayId, 0, nullptr, 0, w, h });
-        m_readbackThread.waitQueuedItems();
+        std::future<void> completeFuture = m_readbackThread.enqueue(
+            {ReadbackCmd::AddRecordDisplay, displayId, 0, nullptr, 0, w, h});
+        completeFuture.wait();
     } else {
-        m_readbackThread.enqueue({ ReadbackCmd::DelRecordDisplay, displayId });
-        m_readbackThread.waitQueuedItems();
+        std::future<void> completeFuture = m_readbackThread.enqueue(
+            {ReadbackCmd::DelRecordDisplay, displayId});
+        completeFuture.wait();
         m_onPost.erase(displayId);
     }
 }
@@ -2650,9 +2649,9 @@ void FrameBuffer::getPixels(void* pixels, uint32_t bytes, uint32_t displayId) {
         ERR("Display %d not configured for recording yet", displayId);
         return;
     }
-    m_readbackThread.enqueue({ ReadbackCmd::GetPixels, displayId,
-                                           0, pixels, bytes });
-    m_readbackThread.waitQueuedItems();
+    std::future<void> completeFuture = m_readbackThread.enqueue(
+        {ReadbackCmd::GetPixels, displayId, 0, pixels, bytes});
+    completeFuture.wait();
 }
 
 void FrameBuffer::flushReadPipeline(int displayId) {
