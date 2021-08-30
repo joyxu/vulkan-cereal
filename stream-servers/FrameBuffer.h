@@ -625,6 +625,12 @@ class FrameBuffer {
     void setDisplayPoseInSkinUI(int totalHeight);
     void sweepColorBuffersLocked();
 
+    void bindDisplayVkToSurface();
+    // Invokes displayOperation. If it returns false, rebind to the surface and
+    // invoke it again.
+    void displayAndRebindIfNeeded(
+        const std::function<bool(void)>& displayOperation);
+
    private:
     static FrameBuffer* s_theFrameBuffer;
     static HandleType s_nextHandle;
