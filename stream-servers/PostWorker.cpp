@@ -86,7 +86,13 @@ void PostWorker::postImpl(ColorBuffer* cb) {
             m_justVkComposed = false;
             return;
         }
-        m_needsToRebindWindow = !m_displayVk->post(cb->getDisplayBufferVk());
+        auto [success, waitForGpu] =
+            m_displayVk->post(cb->getDisplayBufferVk());
+        if (success) {
+            waitForGpu.wait();
+        } else {
+            m_needsToRebindWindow = true;
+        }
         return;
     }
 
@@ -286,13 +292,16 @@ void PostWorker::composeImpl(const ComposeDevice* p) {
     mFb->getTextureDraw()->cleanupForDrawLayer();
 }
 
-void PostWorker::composev2Impl(const ComposeDevice_v2* p) {
+std::shared_future<void> PostWorker::composev2Impl(const ComposeDevice_v2* p) {
+    std::shared_future<void> completedFuture =
+        std::async(std::launch::deferred, [] {}).share();
+    completedFuture.wait();
     // bind the subwindow eglSurface
     if (!m_mainThreadPostingOnly && m_needsToRebindWindow) {
         m_needsToRebindWindow = !mBindSubwin();
         if (m_needsToRebindWindow) {
             // Do not proceed if fail to bind to the window.
-            return;
+            return completedFuture;
         }
     }
     ComposeLayer* l = (ComposeLayer*)p->layer;
@@ -329,10 +338,14 @@ void PostWorker::composev2Impl(const ComposeDevice_v2* p) {
             composeBuffers.push_back(db);
         }
 
-        m_needsToRebindWindow = !m_displayVk->compose(
+        auto [success, waitForGpu] = m_displayVk->compose(
             p->numLayers, l, composeBuffers, dstWidth, dstHeight);
+        if (!success) {
+            m_needsToRebindWindow = true;
+            waitForGpu = completedFuture;
+        }
         m_justVkComposed = true;
-        return;
+        return waitForGpu;
     }
 
     GLint vport[4] = { 0, };
@@ -355,7 +368,7 @@ void PostWorker::composev2Impl(const ComposeDevice_v2* p) {
     if (!targetColorBufferPtr) {
         s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, 0);
         s_gles2.glViewport(vport[0], vport[1], vport[2], vport[3]);
-        return;
+        return completedFuture;
     }
 
     s_gles2.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_OES,
@@ -381,6 +394,7 @@ void PostWorker::composev2Impl(const ComposeDevice_v2* p) {
     s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, 0);
     s_gles2.glViewport(vport[0], vport[1], vport[2], vport[3]);
     mFb->getTextureDraw()->cleanupForDrawLayer();
+    return completedFuture;
 }
 
 void PostWorker::bind() {
@@ -460,28 +474,28 @@ void PostWorker::viewport(int width, int height) {
 }
 
 void PostWorker::compose(ComposeDevice* p, uint32_t bufferSize,
-                         std::shared_ptr<std::function<void()>> callback) {
+                         std::shared_ptr<Post::ComposeCallback> callback) {
     std::vector<char> buffer(bufferSize, 0);
     memcpy(buffer.data(), p, bufferSize);
     runTask(std::packaged_task<void()>([buffer = std::move(buffer),
                                         callback = std::move(callback), this] {
+        auto completedFuture = std::async(std::launch::deferred, [] {}).share();
         auto composeDevice =
             reinterpret_cast<const ComposeDevice*>(buffer.data());
         composeImpl(composeDevice);
-        (*callback)();
+        (*callback)(completedFuture);
     }));
 }
 
 void PostWorker::compose(ComposeDevice_v2* p, uint32_t bufferSize,
-                         std::shared_ptr<std::function<void()>> callback) {
+                         std::shared_ptr<Post::ComposeCallback> callback) {
     std::vector<char> buffer(bufferSize, 0);
     memcpy(buffer.data(), p, bufferSize);
     runTask(std::packaged_task<void()>([buffer = std::move(buffer),
                                         callback = std::move(callback), this] {
         auto composeDevice =
             reinterpret_cast<const ComposeDevice_v2*>(buffer.data());
-        composev2Impl(composeDevice);
-        (*callback)();
+        (*callback)(composev2Impl(composeDevice));
     }));
 }
 

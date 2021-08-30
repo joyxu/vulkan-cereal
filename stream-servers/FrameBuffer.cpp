@@ -896,6 +896,7 @@ WorkerProcessingResult FrameBuffer::postWorkerFunc(Post& post) {
                                    post.viewport.height);
             break;
         case PostCmd::Compose: {
+            std::shared_future<void> waitForGpu;
             if (post.composeVersion <= 1) {
                 m_postWorker->compose((ComposeDevice*)post.composeBuffer.data(),
                                       post.composeBuffer.size(),
@@ -2837,8 +2838,10 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
     std::promise<void> promise;
     std::future<void> completeFuture = promise.get_future();
     auto composeRes = composeWithCallback(
-        bufferSize, buffer,
-        [&] { promise.set_value(); });
+        bufferSize, buffer, [&](std::shared_future<void> waitForGpu) {
+            waitForGpu.wait();
+            promise.set_value();
+        });
     if (!composeRes) {
         return false;
     }
@@ -2869,7 +2872,7 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
 }
 
 bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
-                                      std::function<void()> callback) {
+                                      Post::ComposeCallback callback) {
     ComposeDevice* p = (ComposeDevice*)buffer;
     AutoLock mutex(m_lock);
 
@@ -2880,7 +2883,7 @@ bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
         composeCmd.composeBuffer.resize(bufferSize);
         memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
         composeCmd.composeCallback =
-            std::make_shared<std::function<void()>>(callback);
+            std::make_shared<Post::ComposeCallback>(callback);
         composeCmd.cmd = PostCmd::Compose;
         sendPostWorkerCmd(std::move(composeCmd));
         return true;
@@ -2899,7 +2902,7 @@ bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
         composeCmd.composeBuffer.resize(bufferSize);
         memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
         composeCmd.composeCallback =
-            std::make_shared<std::function<void()>>(callback);
+            std::make_shared<Post::ComposeCallback>(callback);
         composeCmd.cmd = PostCmd::Compose;
         // Composition without holding the FrameBuffer lock here can lead to a
         // race condition, because it is possible to access
