@@ -369,7 +369,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         goldfish_vk::setUseDeferredCommands(vkEmu, useDeferredCommands);
         goldfish_vk::setUseCreateResourcesWithRequirements(vkEmu, useCreateResourcesWithRequirements);
         if (feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
-            fb->m_displayVk = std::make_unique<DisplayVk>(
+            fb->m_displayVk = std::make_shared<DisplayVk>(
                 *dispatch, vkEmu->physdev, vkEmu->queueFamilyIndex,
                 vkEmu->queueFamilyIndex, vkEmu->device, vkEmu->queue,
                 vkEmu->queueLock, vkEmu->queue, vkEmu->queueLock);
@@ -944,6 +944,12 @@ std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
         m_postWorker.reset(new PostWorker(
             [this]() {
                 if (m_displayVk) {
+                    if (m_vkSurface == VK_NULL_HANDLE) {
+                        return false;
+                    }
+                    m_displayVk->bindToSurface(
+                        m_vkSurface, static_cast<uint32_t>(m_windowWidth),
+                        static_cast<uint32_t>(m_windowHeight));
                     return true;
                 }
                 if (m_subWin) {
@@ -952,7 +958,7 @@ std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
                     return bindFakeWindow_locked();
                 }
             },
-            postOnlyOnMainThread, m_eglContext, m_eglSurface));
+            postOnlyOnMainThread, m_eglContext, m_eglSurface, m_displayVk));
         m_postThread.start();
     }
 
@@ -1133,7 +1139,6 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
                              ->vkCreateWin32SurfaceKHR(m_vkInstance, &surfaceCi,
                                                        nullptr, &m_vkSurface));
 #endif
-                bindDisplayVkToSurface();
             } else {
                 // create EGLSurface from the generated subwindow
                 m_eglSurface = s_egl.eglCreateWindowSurface(
@@ -1171,10 +1176,9 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
 
             success = ::moveSubWindow(m_nativeWindow, m_subWin, m_x, m_y,
                                       m_windowWidth, m_windowHeight);
-            bindDisplayVkToSurface();
         }
 
-        if (m_displayVk == nullptr && success && redrawSubwindow) {
+        if (success && redrawSubwindow) {
             // Subwin creation or movement was successful,
             // update viewport and z rotation and draw
             // the last posted color buffer.
@@ -1187,17 +1191,19 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
             std::future<void> completeFuture = sendPostWorkerCmd(postCmd);
             completeFuture.wait();
 
-            bool posted = false;
+            if (m_displayVk == nullptr) {
+                bool posted = false;
 
-            if (m_lastPostedColorBuffer) {
-                GL_LOG("setupSubwindow: draw last posted cb");
-                posted = postImpl(m_lastPostedColorBuffer, false);
-            }
+                if (m_lastPostedColorBuffer) {
+                    GL_LOG("setupSubwindow: draw last posted cb");
+                    posted = postImpl(m_lastPostedColorBuffer, false);
+                }
 
-            if (!posted) {
-                postCmd.cmd = PostCmd::Clear;
-                std::future<void> completeFuture = sendPostWorkerCmd(postCmd);
-                completeFuture.wait();
+                if (!posted) {
+                    postCmd.cmd = PostCmd::Clear;
+                    std::future<void> completeFuture = sendPostWorkerCmd(postCmd);
+                    completeFuture.wait();
+                }
             }
         }
     }
@@ -2547,19 +2553,6 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
         goto EXIT;
     }
 
-    // TODO(kaiyili, b/179481815): make DisplayVk::post asynchronous.
-    if (m_displayVk != nullptr) {
-        if (m_justVkComposed) {
-            m_justVkComposed = false;
-            goto EXIT;
-        }
-        displayAndRebindIfNeeded([&]() {
-            return m_displayVk->post(c->second.cb->getDisplayBufferVk());
-        });
-        m_lastPostedColorBuffer = p_colorbuffer;
-        goto EXIT;
-    }
-
     m_lastPostedColorBuffer = p_colorbuffer;
 
     ret = true;
@@ -2858,59 +2851,27 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
            setDisplayColorBuffer(p2->displayId, p2->targetHandle);
            mutex.lock();
        }
-       if (m_displayVk) {
-           auto targetBufferIter = m_colorbuffers.find(p2->targetHandle);
-           if (targetBufferIter == m_colorbuffers.end()) {
-               ERR("failed to retrieve the composition target buffer\n");
-               std::abort();
-           }
-           uint32_t dstWidth =
-               static_cast<uint32_t>(targetBufferIter->second.cb->getWidth());
-           uint32_t dstHeight =
-               static_cast<uint32_t>(targetBufferIter->second.cb->getHeight());
-           // We don't copy the render result to the targetHandle color buffer
-           // when using the Vulkan native host swapchain, because we directly
-           // render to the swapchain image instead of rendering onto a
-           // ColorBuffer, and we don't readback from the ColorBuffer so far.
-           ColorBufferMap::iterator c;
-
-           std::vector<ColorBufferPtr> cbs; // Keep ColorBuffers alive
-           std::vector<std::shared_ptr<DisplayVk::DisplayBufferInfo>> composeBuffers;
-           ComposeDevice_v2* const composeDevice = p2;
-           const ComposeLayer* const l = (ComposeLayer*)composeDevice->layer;
-           for (int i = 0; i < composeDevice->numLayers; ++i) {
-               c = m_colorbuffers.find(l[i].cbHandle);
-               if (c == m_colorbuffers.end()) {
-                   composeBuffers.push_back(nullptr);
-                   continue;
-               }
-               cbs.push_back(c->second.cb);
-               auto db = c->second.cb->getDisplayBufferVk();
-               if (!db) {
-                   mutex.unlock();
-                   goldfish_vk::setupVkColorBuffer(l[i].cbHandle);
-                   mutex.lock();
-                   db = c->second.cb->getDisplayBufferVk();
-               }
-               composeBuffers.push_back(db);
-           }
-
-           displayAndRebindIfNeeded([&]() {
-               return m_displayVk->compose(composeDevice->numLayers, l,
-                                           composeBuffers, dstWidth, dstHeight);
-           });
-           m_justVkComposed = true;
-       } else {
-           Post composeCmd;
-           composeCmd.composeVersion = 2;
-           composeCmd.composeBuffer.resize(bufferSize);
-           memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
-           composeCmd.cmd = PostCmd::Compose;
-           std::future<void> completeFuture = sendPostWorkerCmd(composeCmd);
-           completeFuture.wait();
-           if (p2->displayId == 0 && needPost) {
-               post(p2->targetHandle, false);
-           }
+       Post composeCmd;
+       composeCmd.composeVersion = 2;
+       composeCmd.composeBuffer.resize(bufferSize);
+       memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
+       composeCmd.cmd = PostCmd::Compose;
+       std::future<void> completeFuture = sendPostWorkerCmd(composeCmd);
+       // The Vulkan composer may grab the sVkEmulationLock, if we don't unlock
+       // the FrameBuffer lock, we may first grab FrameBuffer lock, then grab
+       // the sVkEmulationLock, while when calling setupVkColorBuffer, we may
+       // first grab the sVkEmulationLock, then grab the FrameBuffer lock, which
+       // could result in a dead lock. To prevent the dead lock, we release the
+       // FrameBuffer lock here. Releasing the lock here does make it possible
+       // to access FrameBuffer::m_colorbuffers, which is a std::unordered_map,
+       // at the same time from different threads, which may cause undefined
+       // behaviour.
+       // TODO: Fix the potential data race on FrameBuffer::m_colorbuffers here.
+       mutex.unlock();
+       completeFuture.wait();
+       mutex.lock();
+       if (p2->displayId == 0 && needPost) {
+           post(p2->targetHandle, false);
        }
        return true;
     }
@@ -3378,22 +3339,6 @@ VkImageLayout FrameBuffer::getVkImageLayoutForCompose() const {
         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
     return VK_IMAGE_LAYOUT_GENERAL;
-}
-
-void FrameBuffer::bindDisplayVkToSurface() {
-    if (m_displayVk) {
-        m_displayVk->bindToSurface(
-                m_vkSurface, static_cast<uint32_t>(m_windowWidth),
-                static_cast<uint32_t>(m_windowHeight));
-    }
-}
-
-void FrameBuffer::displayAndRebindIfNeeded(
-    const std::function<bool(void)>& displayOperation) {
-    if (!displayOperation()) {
-        bindDisplayVkToSurface();
-        displayOperation();
-    }
 }
 
 bool FrameBuffer::platformImportResource(uint32_t handle, uint32_t type, void* resource) {

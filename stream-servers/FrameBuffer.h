@@ -625,12 +625,6 @@ class FrameBuffer {
     void setDisplayPoseInSkinUI(int totalHeight);
     void sweepColorBuffersLocked();
 
-    void bindDisplayVkToSurface();
-    // Invokes displayOperation. If it returns false, rebind to the surface and
-    // invoke it again.
-    void displayAndRebindIfNeeded(
-        const std::function<bool(void)>& displayOperation);
-
    private:
     static FrameBuffer* s_theFrameBuffer;
     static HandleType s_nextHandle;
@@ -697,9 +691,6 @@ class FrameBuffer {
     TextureDraw* m_textureDraw = nullptr;
     EGLConfig m_eglConfig = nullptr;
     HandleType m_lastPostedColorBuffer = 0;
-    // With Vulkan swapchain, compose also means to post to the WSI surface.
-    // In this case, don't do anything in the subsequent resource flush.
-    bool m_justVkComposed = false;
     float m_zRot = 0;
     float m_px = 0;
     float m_py = 0;
@@ -792,7 +783,7 @@ class FrameBuffer {
 
     // The implementation for Vulkan native swapchain. Only initialized when
     // useVulkan is set when calling FrameBuffer::initialize().
-    std::unique_ptr<DisplayVk> m_displayVk;
+    std::shared_ptr<DisplayVk> m_displayVk;
     VkInstance m_vkInstance = VK_NULL_HANDLE;
     VkSurfaceKHR m_vkSurface = VK_NULL_HANDLE;
 
