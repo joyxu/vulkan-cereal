@@ -55,10 +55,12 @@ class PostWorker {
     void viewport(int width, int height);
 
     // compose: compse the layers into final framebuffer
-    void compose(ComposeDevice* p, uint32_t bufferSize);
+    void compose(ComposeDevice* p, uint32_t bufferSize,
+                 std::shared_ptr<std::function<void()>> callback);
 
     // compose: compse the layers into final framebuffer, version 2
-    void compose(ComposeDevice_v2* p, uint32_t bufferSize);
+    void compose(ComposeDevice_v2* p, uint32_t bufferSize,
+                 std::shared_ptr<std::function<void()>> callback);
 
     // clear: blanks out emulator display when refreshing the subwindow
     // if there is no last posted color buffer to show yet.

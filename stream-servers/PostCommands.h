@@ -1,8 +1,10 @@
 #pragma once
 
-#include <vector>
-
 #include <GLES2/gl2.h>
+
+#include <functional>
+#include <memory>
+#include <vector>
 
 class ColorBuffer;
 
@@ -20,6 +22,7 @@ struct Post {
     PostCmd cmd;
     int composeVersion;
     std::vector<char> composeBuffer;
+    std::shared_ptr<std::function<void()>> composeCallback = nullptr;
     union {
         ColorBuffer* cb;
         struct {
@@ -37,4 +40,3 @@ struct Post {
         } screenshot;
     };
 };
-
