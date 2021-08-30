@@ -504,6 +504,9 @@ const uint32_t kVirtioGpuNativeSyncVulkanCreateExportFd = 0xa000;
 const uint32_t kVirtioGpuNativeSyncVulkanCreateImportFd = 0xa001;
 
 const uint32_t kVirtioGpuNativeSyncVulkanQsriExport = 0xa002;
+// Reserved for internal use. Do not reuse the same opcode for other execbuf
+// commands.
+const uint32_t kVirtioGpuReserved = 0xa003;
 
 class PipeVirglRenderer {
 public:
