@@ -459,23 +459,29 @@ void PostWorker::viewport(int width, int height) {
         [width, height, this] { viewportImpl(width, height); }));
 }
 
-void PostWorker::compose(ComposeDevice* p, uint32_t bufferSize) {
+void PostWorker::compose(ComposeDevice* p, uint32_t bufferSize,
+                         std::shared_ptr<std::function<void()>> callback) {
     std::vector<char> buffer(bufferSize, 0);
     memcpy(buffer.data(), p, bufferSize);
-    runTask(std::packaged_task<void()>([buffer = std::move(buffer), this] {
+    runTask(std::packaged_task<void()>([buffer = std::move(buffer),
+                                        callback = std::move(callback), this] {
         auto composeDevice =
             reinterpret_cast<const ComposeDevice*>(buffer.data());
         composeImpl(composeDevice);
+        (*callback)();
     }));
 }
 
-void PostWorker::compose(ComposeDevice_v2* p, uint32_t bufferSize) {
+void PostWorker::compose(ComposeDevice_v2* p, uint32_t bufferSize,
+                         std::shared_ptr<std::function<void()>> callback) {
     std::vector<char> buffer(bufferSize, 0);
     memcpy(buffer.data(), p, bufferSize);
-    runTask(std::packaged_task<void()>([buffer = std::move(buffer), this] {
+    runTask(std::packaged_task<void()>([buffer = std::move(buffer),
+                                        callback = std::move(callback), this] {
         auto composeDevice =
             reinterpret_cast<const ComposeDevice_v2*>(buffer.data());
         composev2Impl(composeDevice);
+        (*callback)();
     }));
 }
 
