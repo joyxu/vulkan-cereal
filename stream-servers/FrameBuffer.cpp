@@ -1128,9 +1128,7 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
                              ->vkCreateWin32SurfaceKHR(m_vkInstance, &surfaceCi,
                                                        nullptr, &m_vkSurface));
 #endif
-                m_displayVk->bindToSurface(
-                    m_vkSurface, static_cast<uint32_t>(m_windowWidth),
-                    static_cast<uint32_t>(m_windowHeight));
+                bindDisplayVkToSurface();
             } else {
                 // create EGLSurface from the generated subwindow
                 m_eglSurface = s_egl.eglCreateWindowSurface(
@@ -1168,6 +1166,7 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
 
             success = ::moveSubWindow(m_nativeWindow, m_subWin, m_x, m_y,
                                       m_windowWidth, m_windowHeight);
+            bindDisplayVkToSurface();
         }
 
         if (m_displayVk == nullptr && success && redrawSubwindow) {
@@ -2547,7 +2546,9 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
             m_justVkComposed = false;
             goto EXIT;
         }
-        m_displayVk->post(c->second.cb->getDisplayBufferVk());
+        displayAndRebindIfNeeded([&]() {
+            return m_displayVk->post(c->second.cb->getDisplayBufferVk());
+        });
         m_lastPostedColorBuffer = p_colorbuffer;
         goto EXIT;
     }
@@ -2884,8 +2885,10 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
                composeBuffers.push_back(db);
            }
 
-           m_displayVk->compose(composeDevice->numLayers, l, composeBuffers,
-                                dstWidth, dstHeight);
+           displayAndRebindIfNeeded([&]() {
+               return m_displayVk->compose(composeDevice->numLayers, l,
+                                           composeBuffers, dstWidth, dstHeight);
+           });
            m_justVkComposed = true;
        } else {
            Post composeCmd;
@@ -3364,6 +3367,22 @@ VkImageLayout FrameBuffer::getVkImageLayoutForCompose() const {
         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
     return VK_IMAGE_LAYOUT_GENERAL;
+}
+
+void FrameBuffer::bindDisplayVkToSurface() {
+    if (m_displayVk) {
+        m_displayVk->bindToSurface(
+                m_vkSurface, static_cast<uint32_t>(m_windowWidth),
+                static_cast<uint32_t>(m_windowHeight));
+    }
+}
+
+void FrameBuffer::displayAndRebindIfNeeded(
+    const std::function<bool(void)>& displayOperation) {
+    if (!displayOperation()) {
+        bindDisplayVkToSurface();
+        displayOperation();
+    }
 }
 
 bool FrameBuffer::platformImportResource(uint32_t handle, uint32_t type, void* resource) {
