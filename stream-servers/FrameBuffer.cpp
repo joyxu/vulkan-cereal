@@ -925,7 +925,7 @@ FrameBuffer::postWorkerFunc(const Post& post) {
     return WorkerProcessingResult::Continue;
 }
 
-void FrameBuffer::sendPostWorkerCmd(Post post) {
+std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
 #ifdef __APPLE__
     bool postOnlyOnMainThread = m_subWin && (emugl::getRenderer() == SELECTED_RENDERER_HOST);
 #else
@@ -943,7 +943,10 @@ void FrameBuffer::sendPostWorkerCmd(Post post) {
         }
         m_postWorker.reset(new PostWorker(
             [this]() {
-                if (m_subWin && m_displayVk == nullptr) {
+                if (m_displayVk) {
+                    return true;
+                }
+                if (m_subWin) {
                     return bindSubwin_locked();
                 } else {
                     return bindFakeWindow_locked();
@@ -959,6 +962,8 @@ void FrameBuffer::sendPostWorkerCmd(Post post) {
     // transfer ownership of the thread to PostWorker.
     // TODO(lfy): do that refactor
     // For now, this fixes a screenshot issue on macOS.
+    std::future<void> res = std::async(std::launch::deferred, [] {});
+    res.wait();
     if (postOnlyOnMainThread && (PostCmd::Screenshot == post.cmd) &&
         emugl::get_emugl_window_operations().isRunningInUiThread()) {
         post.cb->readPixelsScaled(
@@ -973,9 +978,10 @@ void FrameBuffer::sendPostWorkerCmd(Post post) {
         if (!postOnlyOnMainThread ||
             (PostCmd::Screenshot == post.cmd &&
              !emugl::get_emugl_window_operations().isRunningInUiThread())) {
-            completeFuture.wait();
+            res = std::move(completeFuture);
         }
     }
+    return res;
 }
 
 void FrameBuffer::setPostCallback(
@@ -1178,7 +1184,8 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
             postCmd.cmd = PostCmd::Viewport;
             postCmd.viewport.width = fbw;
             postCmd.viewport.height = fbh;
-            sendPostWorkerCmd(postCmd);
+            std::future<void> completeFuture = sendPostWorkerCmd(postCmd);
+            completeFuture.wait();
 
             bool posted = false;
 
@@ -1189,7 +1196,8 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
 
             if (!posted) {
                 postCmd.cmd = PostCmd::Clear;
-                sendPostWorkerCmd(postCmd);
+                std::future<void> completeFuture = sendPostWorkerCmd(postCmd);
+                completeFuture.wait();
             }
         }
     }
@@ -2563,7 +2571,8 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
         Post postCmd;
         postCmd.cmd = PostCmd::Post;
         postCmd.cb = c->second.cb.get();
-        sendPostWorkerCmd(postCmd);
+        std::future<void> completeFuture = sendPostWorkerCmd(postCmd);
+        completeFuture.wait();
     } else {
         markOpened(&c->second);
         c->second.cb->touch();
@@ -2796,7 +2805,8 @@ void FrameBuffer::getScreenshot(unsigned int nChannels, unsigned int* width,
     scrCmd.screenshot.rotation = desiredRotation;
     scrCmd.screenshot.pixels = pixels.data();
 
-    sendPostWorkerCmd(scrCmd);
+    std::future<void> completeFuture = sendPostWorkerCmd(scrCmd);
+    completeFuture.wait();
 }
 
 void FrameBuffer::onLastColorBufferRef(uint32_t handle) {
@@ -2832,7 +2842,8 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
         composeCmd.composeBuffer.resize(bufferSize);
         memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
         composeCmd.cmd = PostCmd::Compose;
-        sendPostWorkerCmd(composeCmd);
+        std::future<void> completeFuture = sendPostWorkerCmd(composeCmd);
+        completeFuture.wait();
         if(needPost) {
             post(p->targetHandle, false);
         }
@@ -2895,7 +2906,8 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
            composeCmd.composeBuffer.resize(bufferSize);
            memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
            composeCmd.cmd = PostCmd::Compose;
-           sendPostWorkerCmd(composeCmd);
+           std::future<void> completeFuture = sendPostWorkerCmd(composeCmd);
+           completeFuture.wait();
            if (p2->displayId == 0 && needPost) {
                post(p2->targetHandle, false);
            }
