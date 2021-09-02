@@ -369,7 +369,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         goldfish_vk::setUseDeferredCommands(vkEmu, useDeferredCommands);
         goldfish_vk::setUseCreateResourcesWithRequirements(vkEmu, useCreateResourcesWithRequirements);
         if (feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
-            fb->m_displayVk = std::make_unique<DisplayVk>(
+            fb->m_displayVk = std::make_shared<DisplayVk>(
                 *dispatch, vkEmu->physdev, vkEmu->queueFamilyIndex,
                 vkEmu->queueFamilyIndex, vkEmu->device, vkEmu->queue,
                 vkEmu->queueLock, vkEmu->queue, vkEmu->queueLock);
@@ -387,7 +387,11 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     }
 
     if (s_egl.eglUseOsEglApi) {
-        s_egl.eglUseOsEglApi(egl2egl, (feature_is_enabled(kFeature_VulkanNativeSwapchain) ? EGL_TRUE : EGL_FALSE));
+        auto useNullBackend = EGL_FALSE;
+        if (egl2egl && feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
+            useNullBackend = EGL_TRUE;
+        }
+        s_egl.eglUseOsEglApi(egl2egl, useNullBackend);
     }
     //
     // Initialize backend EGL display
@@ -882,8 +886,7 @@ FrameBuffer::sendReadbackWorkerCmd(const Readback& readback) {
     return WorkerProcessingResult::Stop;
 }
 
-WorkerProcessingResult
-FrameBuffer::postWorkerFunc(const Post& post) {
+WorkerProcessingResult FrameBuffer::postWorkerFunc(Post& post) {
     switch (post.cmd) {
         case PostCmd::Post:
             m_postWorker->post(post.cb);
@@ -893,10 +896,15 @@ FrameBuffer::postWorkerFunc(const Post& post) {
                                    post.viewport.height);
             break;
         case PostCmd::Compose: {
+            std::shared_future<void> waitForGpu;
             if (post.composeVersion <= 1) {
-                m_postWorker->compose((ComposeDevice*)post.composeBuffer.data(), post.composeBuffer.size());
+                m_postWorker->compose((ComposeDevice*)post.composeBuffer.data(),
+                                      post.composeBuffer.size(),
+                                      std::move(post.composeCallback));
             } else {
-                m_postWorker->compose((ComposeDevice_v2*)post.composeBuffer.data(), post.composeBuffer.size());
+                m_postWorker->compose(
+                    (ComposeDevice_v2*)post.composeBuffer.data(),
+                    post.composeBuffer.size(), std::move(post.composeCallback));
             }
             break;
         }
@@ -921,7 +929,7 @@ FrameBuffer::postWorkerFunc(const Post& post) {
     return WorkerProcessingResult::Continue;
 }
 
-void FrameBuffer::sendPostWorkerCmd(Post post) {
+std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
 #ifdef __APPLE__
     bool postOnlyOnMainThread = m_subWin && (emugl::getRenderer() == SELECTED_RENDERER_HOST);
 #else
@@ -939,13 +947,22 @@ void FrameBuffer::sendPostWorkerCmd(Post post) {
         }
         m_postWorker.reset(new PostWorker(
             [this]() {
-                if (m_subWin && m_displayVk == nullptr) {
+                if (m_displayVk) {
+                    if (m_vkSurface == VK_NULL_HANDLE) {
+                        return false;
+                    }
+                    m_displayVk->bindToSurface(
+                        m_vkSurface, static_cast<uint32_t>(m_windowWidth),
+                        static_cast<uint32_t>(m_windowHeight));
+                    return true;
+                }
+                if (m_subWin) {
                     return bindSubwin_locked();
                 } else {
                     return bindFakeWindow_locked();
                 }
             },
-            postOnlyOnMainThread, m_eglContext, m_eglSurface));
+            postOnlyOnMainThread, m_eglContext, m_eglSurface, m_displayVk));
         m_postThread.start();
     }
 
@@ -955,6 +972,9 @@ void FrameBuffer::sendPostWorkerCmd(Post post) {
     // transfer ownership of the thread to PostWorker.
     // TODO(lfy): do that refactor
     // For now, this fixes a screenshot issue on macOS.
+    std::future<void> res = std::async(std::launch::deferred, [] {});
+    res.wait();
+    PostCmd postCmd = post.cmd;
     if (postOnlyOnMainThread && (PostCmd::Screenshot == post.cmd) &&
         emugl::get_emugl_window_operations().isRunningInUiThread()) {
         post.cb->readPixelsScaled(
@@ -964,17 +984,16 @@ void FrameBuffer::sendPostWorkerCmd(Post post) {
             post.screenshot.type,
             post.screenshot.rotation,
             post.screenshot.pixels);
-    }
-    else {
-        m_postThread.enqueue(Post(post));
-        if (!postOnlyOnMainThread) {
-            m_postThread.waitQueuedItems();
-        }
-        else if (postOnlyOnMainThread && (PostCmd::Screenshot == post.cmd) &&
-            !emugl::get_emugl_window_operations().isRunningInUiThread()) {
-            m_postThread.waitQueuedItems();
+    } else {
+        std::future<void> completeFuture =
+            m_postThread.enqueue(Post(std::move(post)));
+        if (!postOnlyOnMainThread ||
+            (PostCmd::Screenshot == post.cmd &&
+             !emugl::get_emugl_window_operations().isRunningInUiThread())) {
+            res = std::move(completeFuture);
         }
     }
+    return res;
 }
 
 void FrameBuffer::setPostCallback(
@@ -1010,11 +1029,13 @@ void FrameBuffer::setPostCallback(
             m_readbackThread.start();
             m_readbackThread.enqueue({ ReadbackCmd::Init });
         }
-        m_readbackThread.enqueue({ ReadbackCmd::AddRecordDisplay, displayId, 0, nullptr, 0, w, h });
-        m_readbackThread.waitQueuedItems();
+        std::future<void> completeFuture = m_readbackThread.enqueue(
+            {ReadbackCmd::AddRecordDisplay, displayId, 0, nullptr, 0, w, h});
+        completeFuture.wait();
     } else {
-        m_readbackThread.enqueue({ ReadbackCmd::DelRecordDisplay, displayId });
-        m_readbackThread.waitQueuedItems();
+        std::future<void> completeFuture = m_readbackThread.enqueue(
+            {ReadbackCmd::DelRecordDisplay, displayId});
+        completeFuture.wait();
         m_onPost.erase(displayId);
     }
 }
@@ -1124,9 +1145,6 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
                              ->vkCreateWin32SurfaceKHR(m_vkInstance, &surfaceCi,
                                                        nullptr, &m_vkSurface));
 #endif
-                m_displayVk->bindToSurface(
-                    m_vkSurface, static_cast<uint32_t>(m_windowWidth),
-                    static_cast<uint32_t>(m_windowHeight));
             } else {
                 // create EGLSurface from the generated subwindow
                 m_eglSurface = s_egl.eglCreateWindowSurface(
@@ -1166,7 +1184,7 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
                                       m_windowWidth, m_windowHeight);
         }
 
-        if (m_displayVk == nullptr && success && redrawSubwindow) {
+        if (success && redrawSubwindow) {
             // Subwin creation or movement was successful,
             // update viewport and z rotation and draw
             // the last posted color buffer.
@@ -1176,18 +1194,25 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
             postCmd.cmd = PostCmd::Viewport;
             postCmd.viewport.width = fbw;
             postCmd.viewport.height = fbh;
-            sendPostWorkerCmd(postCmd);
+            std::future<void> completeFuture =
+                sendPostWorkerCmd(std::move(postCmd));
+            completeFuture.wait();
 
-            bool posted = false;
+            if (m_displayVk == nullptr) {
+                bool posted = false;
 
-            if (m_lastPostedColorBuffer) {
-                GL_LOG("setupSubwindow: draw last posted cb");
-                posted = postImpl(m_lastPostedColorBuffer, false);
-            }
+                if (m_lastPostedColorBuffer) {
+                    GL_LOG("setupSubwindow: draw last posted cb");
+                    posted = postImpl(m_lastPostedColorBuffer, false);
+                }
 
-            if (!posted) {
-                postCmd.cmd = PostCmd::Clear;
-                sendPostWorkerCmd(postCmd);
+                if (!posted) {
+                    Post postCmd;
+                    postCmd.cmd = PostCmd::Clear;
+                    std::future<void> completeFuture =
+                        sendPostWorkerCmd(std::move(postCmd));
+                    completeFuture.wait();
+                }
             }
         }
     }
@@ -2537,17 +2562,6 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
         goto EXIT;
     }
 
-    // TODO(kaiyili, b/179481815): make DisplayVk::post asynchronous.
-    if (m_displayVk != nullptr) {
-        if (m_justVkComposed) {
-            m_justVkComposed = false;
-            goto EXIT;
-        }
-        m_displayVk->post(c->second.cb->getDisplayBufferVk());
-        m_lastPostedColorBuffer = p_colorbuffer;
-        goto EXIT;
-    }
-
     m_lastPostedColorBuffer = p_colorbuffer;
 
     ret = true;
@@ -2559,7 +2573,9 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
         Post postCmd;
         postCmd.cmd = PostCmd::Post;
         postCmd.cb = c->second.cb.get();
-        sendPostWorkerCmd(postCmd);
+        std::future<void> completeFuture =
+            sendPostWorkerCmd(std::move(postCmd));
+        completeFuture.wait();
     } else {
         markOpened(&c->second);
         c->second.cb->touch();
@@ -2645,9 +2661,9 @@ void FrameBuffer::getPixels(void* pixels, uint32_t bytes, uint32_t displayId) {
         ERR("Display %d not configured for recording yet", displayId);
         return;
     }
-    m_readbackThread.enqueue({ ReadbackCmd::GetPixels, displayId,
-                                           0, pixels, bytes });
-    m_readbackThread.waitQueuedItems();
+    std::future<void> completeFuture = m_readbackThread.enqueue(
+        {ReadbackCmd::GetPixels, displayId, 0, pixels, bytes});
+    completeFuture.wait();
 }
 
 void FrameBuffer::flushReadPipeline(int displayId) {
@@ -2792,7 +2808,8 @@ void FrameBuffer::getScreenshot(unsigned int nChannels, unsigned int* width,
     scrCmd.screenshot.rotation = desiredRotation;
     scrCmd.screenshot.pixels = pixels.data();
 
-    sendPostWorkerCmd(scrCmd);
+    std::future<void> completeFuture = sendPostWorkerCmd(std::move(scrCmd));
+    completeFuture.wait();
 }
 
 void FrameBuffer::onLastColorBufferRef(uint32_t handle) {
@@ -2818,6 +2835,44 @@ bool FrameBuffer::decColorBufferRefCountLocked(HandleType p_colorbuffer) {
 }
 
 bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
+    std::promise<void> promise;
+    std::future<void> completeFuture = promise.get_future();
+    auto composeRes = composeWithCallback(
+        bufferSize, buffer, [&](std::shared_future<void> waitForGpu) {
+            waitForGpu.wait();
+            promise.set_value();
+        });
+    if (!composeRes) {
+        return false;
+    }
+    completeFuture.wait();
+
+    if (needPost) {
+        ComposeDevice* composeDevice = (ComposeDevice*)buffer;
+        AutoLock mutex(m_lock);
+
+        switch (composeDevice->version) {
+            case 1: {
+                post(composeDevice->targetHandle, false);
+                break;
+            }
+            case 2: {
+                ComposeDevice_v2* composeDeviceV2 = (ComposeDevice_v2*)buffer;
+                if (composeDeviceV2->displayId == 0) {
+                    post(composeDeviceV2->targetHandle, false);
+                }
+                break;
+            }
+            default: {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
+                                      Post::ComposeCallback callback) {
     ComposeDevice* p = (ComposeDevice*)buffer;
     AutoLock mutex(m_lock);
 
@@ -2827,74 +2882,35 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
         composeCmd.composeVersion = 1;
         composeCmd.composeBuffer.resize(bufferSize);
         memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
+        composeCmd.composeCallback =
+            std::make_shared<Post::ComposeCallback>(callback);
         composeCmd.cmd = PostCmd::Compose;
-        sendPostWorkerCmd(composeCmd);
-        if(needPost) {
-            post(p->targetHandle, false);
-        }
+        sendPostWorkerCmd(std::move(composeCmd));
         return true;
     }
 
     case 2: {
-       // support for multi-display
-       ComposeDevice_v2* p2 = (ComposeDevice_v2*)buffer;
-       if (p2->displayId != 0) {
-           mutex.unlock();
-           setDisplayColorBuffer(p2->displayId, p2->targetHandle);
-           mutex.lock();
-       }
-       if (m_displayVk) {
-           auto targetBufferIter = m_colorbuffers.find(p2->targetHandle);
-           if (targetBufferIter == m_colorbuffers.end()) {
-               ERR("failed to retrieve the composition target buffer\n");
-               std::abort();
-           }
-           uint32_t dstWidth =
-               static_cast<uint32_t>(targetBufferIter->second.cb->getWidth());
-           uint32_t dstHeight =
-               static_cast<uint32_t>(targetBufferIter->second.cb->getHeight());
-           // We don't copy the render result to the targetHandle color buffer
-           // when using the Vulkan native host swapchain, because we directly
-           // render to the swapchain image instead of rendering onto a
-           // ColorBuffer, and we don't readback from the ColorBuffer so far.
-           ColorBufferMap::iterator c;
-
-           std::vector<ColorBufferPtr> cbs; // Keep ColorBuffers alive
-           std::vector<std::shared_ptr<DisplayVk::DisplayBufferInfo>> composeBuffers;
-           ComposeDevice_v2* const composeDevice = p2;
-           const ComposeLayer* const l = (ComposeLayer*)composeDevice->layer;
-           for (int i = 0; i < composeDevice->numLayers; ++i) {
-               c = m_colorbuffers.find(l[i].cbHandle);
-               if (c == m_colorbuffers.end()) {
-                   composeBuffers.push_back(nullptr);
-                   continue;
-               }
-               cbs.push_back(c->second.cb);
-               auto db = c->second.cb->getDisplayBufferVk();
-               if (!db) {
-                   mutex.unlock();
-                   goldfish_vk::setupVkColorBuffer(l[i].cbHandle);
-                   mutex.lock();
-                   db = c->second.cb->getDisplayBufferVk();
-               }
-               composeBuffers.push_back(db);
-           }
-
-           m_displayVk->compose(composeDevice->numLayers, l, composeBuffers,
-                                dstWidth, dstHeight);
-           m_justVkComposed = true;
-       } else {
-           Post composeCmd;
-           composeCmd.composeVersion = 2;
-           composeCmd.composeBuffer.resize(bufferSize);
-           memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
-           composeCmd.cmd = PostCmd::Compose;
-           sendPostWorkerCmd(composeCmd);
-           if (p2->displayId == 0 && needPost) {
-               post(p2->targetHandle, false);
-           }
-       }
-       return true;
+        // support for multi-display
+        ComposeDevice_v2* p2 = (ComposeDevice_v2*)buffer;
+        if (p2->displayId != 0) {
+            mutex.unlock();
+            setDisplayColorBuffer(p2->displayId, p2->targetHandle);
+            mutex.lock();
+        }
+        Post composeCmd;
+        composeCmd.composeVersion = 2;
+        composeCmd.composeBuffer.resize(bufferSize);
+        memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
+        composeCmd.composeCallback =
+            std::make_shared<Post::ComposeCallback>(callback);
+        composeCmd.cmd = PostCmd::Compose;
+        // Composition without holding the FrameBuffer lock here can lead to a
+        // race condition, because it is possible to access
+        // FrameBuffer::m_colorbuffers, which is a std::unordered_map, at the
+        // same time from different threads, which may cause undefined behaviour.
+        // TODO: Fix the potential data race on FrameBuffer::m_colorbuffers here.
+        sendPostWorkerCmd(std::move(composeCmd));
+        return true;
     }
 
     default:

@@ -11,19 +11,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "base/AlignedBuf.h"
-#include "base/Lock.h"
-#include "host-common/AddressSpaceService.h"
-#include "host-common/address_space_device.h"
-#include "host-common/android_pipe_common.h"
-#include "host-common/HostmemIdMapping.h"
-#include "host-common/opengles.h"
-#include "host-common/vm_operations.h"
+#include <vulkan/vulkan.h>
 
 #include <deque>
-#include <string>
 #include <unordered_map>
-#include <map>
+
+#include "VirtioGpuTimelines.h"
+#include "base/AlignedBuf.h"
+#include "base/Lock.h"
+#include "base/Tracing.h"
+#include "host-common/AddressSpaceService.h"
+#include "host-common/HostmemIdMapping.h"
+#include "host-common/address_space_device.h"
+#include "host-common/android_pipe_common.h"
+#include "host-common/opengles.h"
+#include "host-common/vm_operations.h"
 
 extern "C" {
 #include "virtio-gpu-gfxstream-renderer.h"
@@ -155,7 +157,6 @@ using android::base::AutoLock;
 using android::base::Lock;
 using android::emulation::HostmemIdMapping;
 
-using VirglCtxId = uint32_t;
 using VirglResId = uint32_t;
 
 static constexpr int kPipeTryAgain = -2;
@@ -503,6 +504,9 @@ const uint32_t kVirtioGpuNativeSyncVulkanCreateExportFd = 0xa000;
 const uint32_t kVirtioGpuNativeSyncVulkanCreateImportFd = 0xa001;
 
 const uint32_t kVirtioGpuNativeSyncVulkanQsriExport = 0xa002;
+// Reserved for internal use. Do not reuse the same opcode for other execbuf
+// commands.
+const uint32_t kVirtioGpuReserved = 0xa003;
 
 class PipeVirglRenderer {
 public:
@@ -526,10 +530,10 @@ public:
         }
         if (flags & GFXSTREAM_RENDERER_FLAGS_ASYNC_FENCE_CB) {
             VGPLOG("Using async fence cb.");
-            mUseAsyncFenceCb = true;
+            mVirtioGpuTimelines = std::make_unique<VirtioGpuTimelines>();
         } else {
             VGPLOG("Not using async fence cb.");
-            mUseAsyncFenceCb = false;
+            mVirtioGpuTimelines = nullptr;
         }
         VGPLOG("done");
         return 0;
@@ -816,12 +820,13 @@ public:
                 uint64_t sync_handle = convert32to64(sync_handle_lo, sync_handle_hi);
 
                 VGPLOG("wait for gpu ctx id %u", ctxId);
-                if (mUseAsyncFenceCb) {
-                    AutoLock lock(mCtxPendingFencesLock);
-                    mCtxNeededFencingTypes[ctxId] = CtxSyncingType::AsyncSignal;
-                    mVirtioGpuOps->async_wait_for_gpu_with_cb(sync_handle, [this, ctxId] {
-                        this->completionCallback(ctxId);
-                    });
+                if (mVirtioGpuTimelines) {
+                    auto taskId = mVirtioGpuTimelines->enqueueTask(
+                        static_cast<VirtioGpuTimelines::CtxId>(ctxId));
+                    mVirtioGpuOps->async_wait_for_gpu_with_cb(
+                        sync_handle, [this, ctxId, taskId] {
+                            mVirtioGpuTimelines->notifyTaskCompletion(taskId);
+                        });
                 } else {
                     mVirtioGpuOps->wait_for_gpu(sync_handle);
                 }
@@ -838,12 +843,13 @@ public:
                 uint64_t fence_handle = convert32to64(fence_handle_lo, fence_handle_hi);
 
                 VGPLOG("wait for gpu vk ctx id %u", ctxId);
-                if (mUseAsyncFenceCb) {
-                    AutoLock lock(mCtxPendingFencesLock);
-                    mCtxNeededFencingTypes[ctxId] = CtxSyncingType::AsyncSignal;
-                    mVirtioGpuOps->async_wait_for_gpu_vulkan_with_cb(device_handle, fence_handle, [this, ctxId] {
-                        this->completionCallback(ctxId);
-                    });
+                if (mVirtioGpuTimelines) {
+                    auto taskId = mVirtioGpuTimelines->enqueueTask(
+                        static_cast<VirtioGpuTimelines::CtxId>(ctxId));
+                    mVirtioGpuOps->async_wait_for_gpu_vulkan_with_cb(
+                        device_handle, fence_handle, [this, ctxId, taskId] {
+                            mVirtioGpuTimelines->notifyTaskCompletion(taskId);
+                        });
                 } else {
                     mVirtioGpuOps->wait_for_gpu_vulkan(device_handle, fence_handle);
                 }
@@ -854,12 +860,13 @@ public:
                 uint64_t image_handle_hi = dwords[2];
                 uint64_t image_handle = convert32to64(image_handle_lo, image_handle_hi);
                 VGPLOG("wait for gpu vk qsri id %u image 0x%llx", ctxId, (unsigned long long)image_handle);
-                if (mUseAsyncFenceCb) {
-                    AutoLock lock(mCtxPendingFencesLock);
-                    mCtxNeededFencingTypes[ctxId] = CtxSyncingType::AsyncSignal;
-                    mVirtioGpuOps->async_wait_for_gpu_vulkan_qsri_with_cb(image_handle, [this, ctxId] {
-                        this->completionCallback(ctxId);
-                    });
+                if (mVirtioGpuTimelines) {
+                    auto taskId = mVirtioGpuTimelines->enqueueTask(
+                        static_cast<VirtioGpuTimelines::CtxId>(ctxId));
+                    mVirtioGpuOps->async_wait_for_gpu_vulkan_qsri_with_cb(
+                        image_handle, [this, ctxId, taskId] {
+                            mVirtioGpuTimelines->notifyTaskCompletion(taskId);
+                        });
                 } else {
                     mVirtioGpuOps->wait_for_gpu_vulkan_qsri(image_handle);
                 }
@@ -869,8 +876,6 @@ public:
                 return -1;
         }
 
-        mLastSubmitCmdCtxExists = true;
-        mLastSubmitCmdCtx = ctxId;
         return 0;
     }
 
@@ -893,32 +898,20 @@ public:
     int createFence(int client_fence_id, uint32_t ctx_id) {
         AutoLock lock(mLock);
         VGPLOG("fenceid: %u cmdtype: %u", client_fence_id, ctx_id);
-        if (mUseAsyncFenceCb) {
+        if (mVirtioGpuTimelines) {
             VGPLOG("create fence using async fence cb");
             if (0 == ctx_id) {
                 VGPLOG("is 0 ctx id, signal right away as everything's serialized to this point");
                 mVirglRendererCallbacks.write_fence(mCookie, (uint32_t)client_fence_id);
             } else {
-                // Check what fencing type was needed.
-                AutoLock lock(mCtxPendingFencesLock);
-                {
-                    if (mCtxNeededFencingTypes.find(ctx_id) == mCtxNeededFencingTypes.end()) {
-                        VGPLOG("init new fencing type for ctx %u as sync signaled", ctx_id);
-                        mCtxNeededFencingTypes[ctx_id] = CtxSyncingType::SyncSignal;
-                    } else {
-                        VGPLOG("this ctx had signal type of 0x%x",
-                               (uint32_t)(mCtxNeededFencingTypes[ctx_id]));
-                    }
-                }
-
                 VGPLOG("is Not 0 ctx id (%u), do not signal right away if async signal on top.. the client fence id was %d", ctx_id, client_fence_id);
-                enqueueFenceLocked(VirtioGpuFenceType::Global, ctx_id, (uint64_t)client_fence_id, mCtxNeededFencingTypes[ctx_id]);
-
-                // Regardless of what fencing type was needed, set it back to sync signal after enqueue.
-                mCtxNeededFencingTypes[ctx_id] = CtxSyncingType::SyncSignal;
-
-                // Process any sync-signaled fences.
-                signalOutstandingSyncSignaledFencesLocked(ctx_id);
+                mVirtioGpuTimelines->enqueueFence(
+                    0,
+                    static_cast<VirtioGpuTimelines::FenceId>(client_fence_id),
+                    [this, client_fence_id]() {
+                        mVirglRendererCallbacks.write_fence(
+                            mCookie, static_cast<uint32_t>(client_fence_id));
+                    });
             }
         } else {
             VGPLOG("create fence without async fence cb");
@@ -930,33 +923,21 @@ public:
     int contextCreateFence(uint64_t fence_id, uint32_t ctx_id, uint32_t fence_ctx_idx) {
         AutoLock lock(mLock);
         VGPLOG("fenceid: %llu cmdtype: %u fence_ctx_idx: %u", (unsigned long long)fence_id, ctx_id, fence_ctx_idx);
-        if (mUseAsyncFenceCb) {
+        if (mVirtioGpuTimelines) {
             VGPLOG("create fence using async fence cb");
             if (0 == ctx_id) {
                 VGPLOG("is 0 ctx id, signal right away as everything's serialized to this point");
                 mVirglRendererCallbacks.write_fence(mCookie, (uint32_t)fence_id);
             } else {
-                // Check what fencing type was needed.
-                AutoLock lock(mCtxPendingFencesLock);
-                {
-                    if (mCtxNeededFencingTypes.find(ctx_id) == mCtxNeededFencingTypes.end()) {
-                        fprintf(stderr, "%s: init new fencing type for ctx %u as sync signaled\n", __func__, ctx_id);
-                        mCtxNeededFencingTypes[ctx_id] = CtxSyncingType::SyncSignal;
-                    } else {
-                        fprintf(stderr, "%s: this ctx had signal type of 0x%x\n", __func__,
-                                (uint32_t)(mCtxNeededFencingTypes[ctx_id]));
-                    }
-                }
-
                 VGPLOG("is Not 0 ctx id (%u), do not signal right away if async signal on top.. the client fence id was %llu",
                        ctx_id, (unsigned long long)fence_id);
-                enqueueFenceLocked(VirtioGpuFenceType::ContextFence, ctx_id, fence_id, mCtxNeededFencingTypes[ctx_id]);
-
-                // Regardless of what fencing type was needed, set it back to sync signal after enqueue.
-                mCtxNeededFencingTypes[ctx_id] = CtxSyncingType::SyncSignal;
-
-                // Process any sync-signaled fences.
-                signalOutstandingSyncSignaledFencesLocked(ctx_id);
+                mVirtioGpuTimelines->enqueueFence(
+                    static_cast<VirtioGpuTimelines::CtxId>(ctx_id),
+                    static_cast<VirtioGpuTimelines::FenceId>(fence_id),
+                    [this, fence_id, ctx_id, fence_ctx_idx]() {
+                        mVirglRendererCallbacks.write_context_fence(
+                            mCookie, fence_id, ctx_id, fence_ctx_idx);
+                    });
             }
         } else {
             fprintf(stderr, "%s: create fence without async fence cb\n", __func__);
@@ -1270,9 +1251,6 @@ public:
                 sync_iov(&entry, offset, box, LINEAR_TO_IOV);
         }
 
-        mLastSubmitCmdCtxExists = true;
-        mLastSubmitCmdCtx = entry.ctxId;
-
         VGPLOG("done");
 
         return syncRes;
@@ -1339,9 +1317,6 @@ public:
                 }
             }
         }
-
-        mLastSubmitCmdCtxExists = true;
-        mLastSubmitCmdCtx = entry.ctxId;
 
         VGPLOG("done");
         return syncRes;
@@ -1638,123 +1613,6 @@ private:
         return mServiceOps;
     }
 
-    void enqueueFenceLocked(VirtioGpuFenceType fenceType, int ctx_id, uint64_t fence_value, CtxSyncingType neededSyncingType) {
-        VGPLOG("enqueue fence for ctx %u fence val %llu sigtype 0x%x",
-               ctx_id, (uint64_t)fence_value, (uint32_t)neededSyncingType);
-        if (ctx_id < 0) {
-            VGP_FATAL("invalid ctx id of %d\n", ctx_id);
-        }
-
-        CtxPendingFence pendingFence = {
-            fenceType,
-            neededSyncingType,
-            fence_value,
-        };
-
-        mCtxPendingFences[ctx_id][fence_value] = pendingFence;
-    }
-
-    // Signals all fences of type 'sync' (as our other commands are all synchronous, up to but not including async signaled fence type
-    void signalOutstandingSyncSignaledFences(int ctx_id) {
-        AutoLock lock(mCtxPendingFencesLock);
-        signalOutstandingSyncSignaledFencesLocked(ctx_id);
-    }
-
-    // Signals the earliest fence if it's of async type, then processes outstanding sync signaled fences.
-    void signalEarliestAsyncFenceThenSignalOutstandingSyncSignaledFencesLocked(int ctx_id) {
-        if (ctx_id < 0) {
-            VGP_FATAL("invalid ctx id of %d\n", ctx_id);
-        }
-
-        VGPLOG("for ctx %d", ctx_id);
-
-        auto& pendingFencesThisCtx = mCtxPendingFences[ctx_id];
-        auto it = pendingFencesThisCtx.begin();
-        auto end = pendingFencesThisCtx.end();
-
-        // std::map sorts by fence value
-        while (it != end) {
-            const auto& pendingState = it->second;
-            uint64_t fence_value = it->first;
-            if (fence_value != pendingState.fence_value) {
-                VGP_FATAL("Inconsistent fence value: %llu vs %llu",
-                          (unsigned long long)fence_value,
-                          (unsigned long long)pendingState.fence_value);
-            }
-
-            VGPLOG("found a pending fence with val %llu type 0x%x",
-                   (unsigned long long)fence_value, (uint32_t)pendingState.syncType);
-
-            if (pendingState.syncType == CtxSyncingType::AsyncSignal) {
-                VGPLOG("This was an async signal, write fence, erase it and continue");
-                if (pendingState.fenceType == VirtioGpuFenceType::Global) {
-                    mVirglRendererCallbacks.write_fence(mCookie, (uint32_t)fence_value);
-                } else {
-                    mVirglRendererCallbacks.write_context_fence(mCookie, fence_value, ctx_id, 0 /* ring idx */);
-                }
-                it = pendingFencesThisCtx.erase(it);
-                break;
-            } else {
-                VGPLOG("This was Not an async signal, quit and process them in subsequent call to signalOutstandingSyncSignaledFences");
-                break;
-            }
-        }
-
-        // Then signal the rest
-        signalOutstandingSyncSignaledFencesLocked(ctx_id);
-    }
-
-    void signalOutstandingSyncSignaledFencesLocked(int ctx_id) {
-        VGPLOG("for ctx %d", ctx_id);
-        if (ctx_id < 0) {
-            VGP_FATAL("invalid ctx id of %d\n", ctx_id);
-        }
-
-        auto& pendingFencesThisCtx = mCtxPendingFences[ctx_id];
-        auto it = pendingFencesThisCtx.begin();
-        auto end = pendingFencesThisCtx.end();
-        // std::map sorts by fence value
-        while (it != end) {
-            const auto& pendingState = it->second;
-            uint64_t fence_value = it->first;
-            if (fence_value != pendingState.fence_value) {
-                VGP_FATAL("Inconsistent fence value: %llu vs %llu",
-                          (unsigned long long)fence_value,
-                          (unsigned long long)pendingState.fence_value);
-            }
-
-            VGPLOG("found a pending fence with val %llu type 0x%x",
-                   (unsigned long long)fence_value, (uint32_t)pendingState.syncType);
-
-            if (pendingState.syncType == CtxSyncingType::SyncSignal) {
-                VGPLOG("This was a sync signal, write fence, erase it and continue");
-                if (pendingState.fenceType == VirtioGpuFenceType::Global) {
-                    mVirglRendererCallbacks.write_fence(mCookie, (uint32_t)fence_value);
-                } else {
-                    mVirglRendererCallbacks.write_context_fence(mCookie, fence_value, ctx_id, 0 /* ring_idx */);
-                }
-                it = pendingFencesThisCtx.erase(it);
-            } else {
-                if (CtxSyncingType::AsyncSignal != pendingState.syncType) {
-                    VGP_FATAL("Inconstent fence signal type: 0x%x (expected async, 0x%x)", (uint32_t)(pendingState.syncType), (uint32_t)(CtxSyncingType::AsyncSignal));
-                }
-
-                VGPLOG("This was Not a sync signal, don't write fence yet. Quit.");
-                // Stop here because this fence was async signaled.
-                return;
-            }
-        }
-    }
-
-    // The callback to call after egl/vk signaled on the host.
-    void completionCallback(int32_t ctxId) {
-        VGPLOG("After egl or vk signaled");
-        AutoLock lock(this->mCtxPendingFencesLock);
-        this->signalEarliestAsyncFenceThenSignalOutstandingSyncSignaledFencesLocked(ctxId);
-        // Account for the case where callback runs before createFence gets to run
-        mCtxNeededFencingTypes[ctxId] = CtxSyncingType::SyncSignal;
-    }
-
     Lock mLock;
 
     void* mCookie = nullptr;
@@ -1770,23 +1628,12 @@ private:
     std::unordered_map<VirglResId, PipeResEntry> mResources;
     std::unordered_map<VirglCtxId, std::vector<VirglResId>> mContextResources;
     std::unordered_map<VirglResId, std::vector<VirglCtxId>> mResourceContexts;
-    bool mUseAsyncFenceCb = false;
-    bool mLastSubmitCmdCtxExists = false;
-    uint32_t mLastSubmitCmdCtx = 0;
+
     // For use with the async fence cb.
-    // When we wait for gpu or wait for gpu vulkan,
-    // the next (and subsequent) fences created for that context
-    // should not be signaled immediately. Rather,
-    // they should get in line.
-
-    // Needs to be operated on under mCtxPendingFencesLock.
-    std::unordered_map<int, std::map<int, CtxPendingFence>> mCtxPendingFences;
-
-    // We need to parse and track the last kind of fence that we needed for
-    // each context, to be parsed by createFence.
-    std::unordered_map<int, CtxSyncingType> mCtxNeededFencingTypes;
-
-    Lock mCtxPendingFencesLock;
+    // When we wait for gpu or wait for gpu vulkan, the next (and subsequent)
+    // fences created for that context should not be signaled immediately.
+    // Rather, they should get in line.
+    std::unique_ptr<VirtioGpuTimelines> mVirtioGpuTimelines = nullptr;
 
     // For use without the async fence cb.
     std::deque<uint64_t> mFenceDeque;
