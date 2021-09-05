@@ -486,6 +486,10 @@ class FrameBuffer {
     void setShuttingDown() { m_shuttingDown = true; }
     bool isShuttingDown() const { return m_shuttingDown; }
     bool compose(uint32_t bufferSize, void* buffer, bool post = true);
+    // When false is returned, the callback won't be called. The callback will
+    // be called on the PostWorker thread without blocking the current thread.
+    bool composeWithCallback(uint32_t bufferSize, void* buffer,
+                             Post::ComposeCallback callback);
 
     ~FrameBuffer();
 
@@ -691,9 +695,6 @@ class FrameBuffer {
     TextureDraw* m_textureDraw = nullptr;
     EGLConfig m_eglConfig = nullptr;
     HandleType m_lastPostedColorBuffer = 0;
-    // With Vulkan swapchain, compose also means to post to the WSI surface.
-    // In this case, don't do anything in the subsequent resource flush.
-    bool m_justVkComposed = false;
     float m_zRot = 0;
     float m_px = 0;
     float m_py = 0;
@@ -771,8 +772,8 @@ class FrameBuffer {
 
     std::unique_ptr<PostWorker> m_postWorker = {};
     android::base::WorkerThread<Post> m_postThread;
-    android::base::WorkerProcessingResult postWorkerFunc(const Post& post);
-    void sendPostWorkerCmd(Post post);
+    android::base::WorkerProcessingResult postWorkerFunc(Post& post);
+    std::future<void> sendPostWorkerCmd(Post post);
 
     bool m_fastBlitSupported = false;
     bool m_vulkanInteropSupported = false;
@@ -786,7 +787,7 @@ class FrameBuffer {
 
     // The implementation for Vulkan native swapchain. Only initialized when
     // useVulkan is set when calling FrameBuffer::initialize().
-    std::unique_ptr<DisplayVk> m_displayVk;
+    std::shared_ptr<DisplayVk> m_displayVk;
     VkInstance m_vkInstance = VK_NULL_HANDLE;
     VkSurfaceKHR m_vkSurface = VK_NULL_HANDLE;
 
