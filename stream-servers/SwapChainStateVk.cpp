@@ -1,6 +1,16 @@
 #include "SwapChainStateVk.h"
 
+#include <cinttypes>
+#include <unordered_set>
+
 #include "vulkan/vk_util.h"
+
+#define SWAPCHAINSTATE_VK_ERROR(fmt, ...)                                     \
+    do {                                                                      \
+        fprintf(stderr, "%s(%s:%d): " fmt "\n", __func__, __FILE__, __LINE__, \
+                ##__VA_ARGS__);                                               \
+        fflush(stderr);                                                       \
+    } while (0)
 
 SwapChainStateVk::SwapChainStateVk(const goldfish_vk::VulkanDispatch &vk,
                                    VkDevice vkDevice,
@@ -94,6 +104,11 @@ SwapChainStateVk::createSwapChainCi(
                    format.colorSpace == k_vkColorSpace;
         });
     if (iSurfaceFormat == formats.end()) {
+        SWAPCHAINSTATE_VK_ERROR("Fail to create swapchain: the format(%#" PRIx64
+                                ") with color space(%#" PRIx64
+                                ") not supported.",
+                                static_cast<uint64_t>(k_vkFormat),
+                                static_cast<uint64_t>(k_vkColorSpace));
         return nullptr;
     }
 
@@ -109,6 +124,8 @@ SwapChainStateVk::createSwapChainCi(
                          return presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR;
                      });
     if (iPresentMode == presentModes.end()) {
+        SWAPCHAINSTATE_VK_ERROR(
+            "Fail to create swapchain: immediate present mode not supported.");
         return nullptr;
     }
     VkSurfaceCapabilitiesKHR surfaceCaps;
@@ -126,6 +143,10 @@ SwapChainStateVk::createSwapChainCi(
         maybeExtent = VkExtent2D({width, height});
     }
     if (!maybeExtent.has_value()) {
+        SWAPCHAINSTATE_VK_ERROR("Fail to create swapchain: extent(%" PRIu64
+                                "x%" PRIu64 ") not supported.",
+                                static_cast<uint64_t>(width),
+                                static_cast<uint64_t>(height));
         return nullptr;
     }
     auto extent = maybeExtent.value();
@@ -155,6 +176,8 @@ SwapChainStateVk::createSwapChainCi(
             }
         });
     if (queueFamilyIndices.empty()) {
+        SWAPCHAINSTATE_VK_ERROR(
+            "Fail to create swapchain: no Vulkan queue family specified.");
         return nullptr;
     }
     if (queueFamilyIndices.size() == 1) {
