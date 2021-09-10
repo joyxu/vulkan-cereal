@@ -56,8 +56,8 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk,
 
     VkSamplerCreateInfo samplerCi = {
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-        .magFilter = VK_FILTER_NEAREST,
-        .minFilter = VK_FILTER_NEAREST,
+        .magFilter = VK_FILTER_LINEAR,
+        .minFilter = VK_FILTER_LINEAR,
         .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
         .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
         .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
