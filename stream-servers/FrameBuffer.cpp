@@ -717,12 +717,10 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     fprintf(stderr, "%s: glvk interop final: %d\n", __func__, fb->m_vulkanInteropSupported);
     goldfish_vk::setGlInteropSupported(fb->m_vulkanInteropSupported);
 
-    // Start up the single sync thread if GLAsyncSwap enabled
-    if (feature_is_enabled(kFeature_GLAsyncSwap)) {
-        // If we are using Vulkan native swapchain, then don't initialize
-        // SyncThread worker threads with EGL contexts.
-        SyncThread::initialize(/* noGL */ fb->m_displayVk != nullptr);
-    }
+    // Start up the single sync thread. If we are using Vulkan native
+    // swapchain, then don't initialize SyncThread worker threads with EGL
+    // contexts.
+    SyncThread::initialize(/* noGL */ fb->m_displayVk != nullptr);
 
     //
     // Keep the singleton framebuffer pointer
@@ -902,9 +900,18 @@ WorkerProcessingResult FrameBuffer::postWorkerFunc(Post& post) {
                                       post.composeBuffer.size(),
                                       std::move(post.composeCallback));
             } else {
+                auto composeCallback =
+                    std::make_shared<Post::ComposeCallback>(
+                        [composeCallback = std::move(post.composeCallback)]
+                            (std::shared_future<void> waitForGpu) {
+                                SyncThread::get()->triggerGeneral(
+                                    [composeCallback = std::move(composeCallback), waitForGpu]{
+                                        (*composeCallback)(waitForGpu);
+                                    });
+                            });
                 m_postWorker->compose(
                     (ComposeDevice_v2*)post.composeBuffer.data(),
-                    post.composeBuffer.size(), std::move(post.composeCallback));
+                    post.composeBuffer.size(), std::move(composeCallback));
             }
             break;
         }
