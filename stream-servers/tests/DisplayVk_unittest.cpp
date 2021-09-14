@@ -3,6 +3,7 @@
 #include "DisplayVk.h"
 
 #include "Standalone.h"
+#include "base/Lock.h"
 #include "tests/VkTestUtils.h"
 #include "vulkan/VulkanDispatch.h"
 
@@ -24,8 +25,10 @@ class DisplayVkTest : public ::testing::Test {
         createLogicalDevice();
         k_vk->vkGetDeviceQueue(m_vkDevice, m_compositorQueueFamilyIndex, 0,
                                &m_compositorVkQueue);
+        m_compositorVkQueueLock = std::make_shared<android::base::Lock>();
         k_vk->vkGetDeviceQueue(m_vkDevice, m_swapChainQueueFamilyIndex, 0,
                                &m_swapChainVkQueue);
+        m_swapChainVkQueueLock = std::make_shared<android::base::Lock>();
         VkCommandPoolCreateInfo commandPoolCi = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .queueFamilyIndex = m_compositorQueueFamilyIndex};
@@ -35,7 +38,8 @@ class DisplayVkTest : public ::testing::Test {
         m_displayVk = std::make_unique<DisplayVk>(
             *k_vk, m_vkPhysicalDevice, m_swapChainQueueFamilyIndex,
             m_compositorQueueFamilyIndex, m_vkDevice, m_compositorVkQueue,
-            m_swapChainVkQueue);
+            m_compositorVkQueueLock, m_swapChainVkQueue,
+            m_swapChainVkQueueLock);
         m_displayVk->bindToSurface(m_vkSurface, k_width, k_height);
     }
 
@@ -66,7 +70,9 @@ class DisplayVkTest : public ::testing::Test {
     uint32_t m_compositorQueueFamilyIndex = 0;
     VkDevice m_vkDevice = VK_NULL_HANDLE;
     VkQueue m_compositorVkQueue = VK_NULL_HANDLE;
+    std::shared_ptr<android::base::Lock> m_compositorVkQueueLock;
     VkQueue m_swapChainVkQueue = VK_NULL_HANDLE;
+    std::shared_ptr<android::base::Lock> m_swapChainVkQueueLock;
     VkCommandPool m_vkCommandPool = VK_NULL_HANDLE;
     std::unique_ptr<DisplayVk> m_displayVk = nullptr;
 
@@ -218,7 +224,10 @@ TEST_F(DisplayVkTest, PostWithoutSurfaceShouldntCrash) {
     uint32_t textureHeight = 40;
     DisplayVk displayVk(*k_vk, m_vkPhysicalDevice, m_swapChainQueueFamilyIndex,
                         m_compositorQueueFamilyIndex, m_vkDevice,
-                        m_compositorVkQueue, m_swapChainVkQueue);
+                        m_compositorVkQueue,
+                        m_compositorVkQueueLock,
+                        m_swapChainVkQueue,
+                        m_swapChainVkQueueLock);
     auto texture = RenderTexture::create(*k_vk, m_vkDevice, m_vkPhysicalDevice,
                                          m_compositorVkQueue, m_vkCommandPool,
                                          textureWidth, textureHeight);
