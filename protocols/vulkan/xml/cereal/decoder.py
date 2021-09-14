@@ -630,6 +630,7 @@ custom_decodes = {
     "vkQueueSubmit" : emit_global_state_wrapped_decoding,
     "vkQueueWaitIdle" : emit_global_state_wrapped_decoding,
     "vkBeginCommandBuffer" : emit_global_state_wrapped_decoding,
+    "vkEndCommandBuffer" : emit_global_state_wrapped_decoding,
     "vkResetCommandBuffer" : emit_global_state_wrapped_decoding,
     "vkFreeCommandBuffers" : emit_global_state_wrapped_decoding,
     "vkCreateCommandPool" : emit_global_state_wrapped_decoding,
