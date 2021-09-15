@@ -36,6 +36,7 @@
 #include <string>
 
 #include <stdio.h>
+#include <string.h>
 
 #include "VulkanDispatch.h"
 #include "GfxStreamAgents.h"
