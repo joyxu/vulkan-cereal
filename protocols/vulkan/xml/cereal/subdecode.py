@@ -293,6 +293,7 @@ custom_decodes = {
     "vkCmdCopyImageToBuffer": emit_global_state_wrapped_decoding,
     "vkCmdExecuteCommands": emit_global_state_wrapped_decoding,
     "vkBeginCommandBuffer": emit_global_state_wrapped_decoding,
+    "vkEndCommandBuffer": emit_global_state_wrapped_decoding,
     "vkResetCommandBuffer": emit_global_state_wrapped_decoding,
     "vkCmdPipelineBarrier": emit_global_state_wrapped_decoding,
     "vkCmdBindPipeline": emit_global_state_wrapped_decoding,

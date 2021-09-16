@@ -659,6 +659,9 @@ public:
         android::base::BumpPool* pool,
         VkCommandBuffer commandBuffer,
         const VkCommandBufferBeginInfo* pBeginInfo);
+    VkResult on_vkEndCommandBuffer(
+        android::base::BumpPool* pool,
+        VkCommandBuffer commandBuffer);
     void on_vkEndCommandBufferAsyncGOOGLE(
         android::base::BumpPool* pool,
         VkCommandBuffer commandBuffer);

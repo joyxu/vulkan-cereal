@@ -89,6 +89,10 @@ public:
         return dispContext->nativeType()->getNative();
     }
 
+    EGLBoolean releaseThread() {
+        return nativeType()->releaseThread();
+    }
+
     // Write up to |config_size| EGLConfig values into the |configs| array.
     // Return the number if values written.
     int getConfigs(EGLConfig* configs,int config_size) const;
