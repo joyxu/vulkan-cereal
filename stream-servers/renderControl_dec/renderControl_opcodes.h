@@ -67,7 +67,8 @@
 #define OP_rcComposeAsyncWithoutPost 					10061
 #define OP_rcCreateDisplayById 					10062
 #define OP_rcSetDisplayPoseDpi 					10063
-#define OP_last 					10064
+#define OP_rcReadColorBufferDMA 					10064
+#define OP_last 					10065
 
 
 #endif

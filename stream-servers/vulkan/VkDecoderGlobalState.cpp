@@ -4183,14 +4183,19 @@ public:
             pool, boxed_commandBuffer, pBeginInfo);
     }
 
-    void on_vkEndCommandBufferAsyncGOOGLE(
+    VkResult on_vkEndCommandBuffer(
             android::base::BumpPool* pool,
             VkCommandBuffer boxed_commandBuffer) {
-
         auto commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
         auto vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
 
-        vk->vkEndCommandBuffer(commandBuffer);
+        return vk->vkEndCommandBuffer(commandBuffer);
+    }
+
+    void on_vkEndCommandBufferAsyncGOOGLE(
+            android::base::BumpPool* pool,
+            VkCommandBuffer boxed_commandBuffer) {
+        on_vkEndCommandBuffer(pool, boxed_commandBuffer);
     }
 
     void on_vkResetCommandBufferAsyncGOOGLE(
@@ -7589,6 +7594,13 @@ void VkDecoderGlobalState::on_vkBeginCommandBufferAsyncGOOGLE(
     VkCommandBuffer commandBuffer,
     const VkCommandBufferBeginInfo* pBeginInfo) {
     mImpl->on_vkBeginCommandBuffer(pool, commandBuffer, pBeginInfo);
+}
+
+VkResult VkDecoderGlobalState::on_vkEndCommandBuffer(
+    android::base::BumpPool* pool,
+    VkCommandBuffer commandBuffer) {
+    return mImpl->on_vkEndCommandBuffer(
+        pool, commandBuffer);
 }
 
 void VkDecoderGlobalState::on_vkEndCommandBufferAsyncGOOGLE(
