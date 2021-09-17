@@ -60,7 +60,7 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
             {
                 android::base::beginTrace("vkEndCommandBuffer subdecode");
                 VkResult vkEndCommandBuffer_VkResult_return = (VkResult)0;
-                vkEndCommandBuffer_VkResult_return = vk->vkEndCommandBuffer((VkCommandBuffer)dispatchHandle);
+                vkEndCommandBuffer_VkResult_return = this->on_vkEndCommandBuffer(pool, (VkCommandBuffer)(boxed_dispatchHandle));
                 android::base::endTrace();
                 break;
             }

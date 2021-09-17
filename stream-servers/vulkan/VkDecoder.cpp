@@ -5432,20 +5432,17 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
             {
                 android::base::beginTrace("vkEndCommandBuffer decode");
                 VkCommandBuffer commandBuffer;
-                // Begin non wrapped dispatchable handle unboxing for commandBuffer;
+                // Begin global wrapped dispatchable handle unboxing for commandBuffer;
                 uint64_t cgen_var_0;
                 memcpy((uint64_t*)&cgen_var_0, *readStreamPtrPtr, 1 * 8);
                 *readStreamPtrPtr += 1 * 8;
                 *(VkCommandBuffer*)&commandBuffer = (VkCommandBuffer)(VkCommandBuffer)((VkCommandBuffer)(*&cgen_var_0));
-                auto unboxed_commandBuffer = unbox_VkCommandBuffer(commandBuffer);
-                auto vk = dispatch_VkCommandBuffer(commandBuffer);
-                // End manual dispatchable handle unboxing for commandBuffer;
                 if (m_logCalls)
                 {
                     fprintf(stderr, "stream %p: call vkEndCommandBuffer 0x%llx \n", ioStream, (unsigned long long)commandBuffer);
                 }
                 VkResult vkEndCommandBuffer_VkResult_return = (VkResult)0;
-                vkEndCommandBuffer_VkResult_return = vk->vkEndCommandBuffer(unboxed_commandBuffer);
+                vkEndCommandBuffer_VkResult_return = m_state->on_vkEndCommandBuffer(&m_pool, commandBuffer);
                 vkStream->unsetHandleMapping();
                 vkStream->write(&vkEndCommandBuffer_VkResult_return, sizeof(VkResult));
                 vkStream->commitWrite();
