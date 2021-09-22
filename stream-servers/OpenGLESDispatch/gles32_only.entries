@@ -7,7 +7,9 @@ namespaces translator,gles2
 %#include <GLES3/gl3.h>
 %#include <GLES3/gl32.h>
 
-void glDebugMessageControl(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint* ids, GLboolean enabled);
-void glDebugMessageInsert(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* buf);
-void glDebugMessageCallback(GLDEBUGPROC callback, const void* userParam);
-GLuint glGetDebugMessageLog(GLuint count, GLsizei bufSize, GLenum* sources, GLenum* types, GLuint* ids, GLenum* severities, GLsizei* lengths, GLchar* messageLog);
+void glDebugMessageControl(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint *ids, GLboolean enabled);
+void glDebugMessageInsert(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *buf);
+void glDebugMessageCallback(GLDEBUGPROC callback, const void *userParam);
+GLuint glGetDebugMessageLog(GLuint count, GLsizei bufSize, GLenum *sources, GLenum *types, GLuint *ids, GLenum *severities, GLsizei *lengths, GLchar *messageLog);
+void glPushDebugGroup(GLenum source, GLuint id, GLsizei length, const GLchar* message);
+void glPopDebugGroup(void);
