@@ -36,6 +36,7 @@
 #include <string>
 
 #include <stdio.h>
+#include <string.h>
 
 #include "VulkanDispatch.h"
 #include "GfxStreamAgents.h"
@@ -358,7 +359,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     feature_set_enabled_override(
             kFeature_GLDMA, false);
     feature_set_enabled_override(
-            kFeature_GLAsyncSwap, true);
+            kFeature_GLAsyncSwap, false);
     feature_set_enabled_override(
             kFeature_RefCountPipe, false);
     feature_set_enabled_override(

@@ -5,8 +5,10 @@
 #include <algorithm>
 #include <array>
 #include <glm/gtx/matrix_transform_2d.hpp>
+#include <memory>
 #include <optional>
 
+#include "base/Lock.h"
 #include "tests/VkTestUtils.h"
 #include "vulkan/VulkanDispatch.h"
 #include "vulkan/vk_util.h"
@@ -56,6 +58,8 @@ class CompositorVkTest : public ::testing::Test {
                                &m_compositorVkQueue);
         ASSERT_TRUE(m_compositorVkQueue != VK_NULL_HANDLE);
 
+        m_compositorVkQueueLock = std::make_shared<android::base::Lock>();
+
         for (uint32_t i = 0; i < k_numOfRenderTargets; i++) {
             auto renderTarget = RenderTarget::create(
                 *k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
@@ -87,9 +91,10 @@ class CompositorVkTest : public ::testing::Test {
     std::unique_ptr<CompositorVk> createCompositor() {
         return CompositorVk::create(
             *k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
-            RenderTarget::k_vkFormat, RenderTarget::k_vkImageLayout,
-            RenderTarget::k_vkImageLayout, k_renderTargetWidth,
-            k_renderTargetHeight, m_renderTargetImageViews, m_vkCommandPool);
+            m_compositorVkQueueLock, RenderTarget::k_vkFormat,
+            RenderTarget::k_vkImageLayout, RenderTarget::k_vkImageLayout,
+            k_renderTargetWidth, k_renderTargetHeight,
+            m_renderTargetImageViews, m_vkCommandPool);
     }
 
     VkSampler createSampler() {
@@ -124,6 +129,7 @@ class CompositorVkTest : public ::testing::Test {
     std::vector<VkImageView> m_renderTargetImageViews;
     VkCommandPool m_vkCommandPool = VK_NULL_HANDLE;
     VkQueue m_compositorVkQueue = VK_NULL_HANDLE;
+    std::shared_ptr<android::base::Lock> m_compositorVkQueueLock;
 
    private:
     void createInstance() {

@@ -1265,6 +1265,36 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			android::base::endTrace();
 			break;
 		}
+		case OP_rcReadColorBufferDMA: {
+			android::base::beginTrace("rcReadColorBufferDMA decode");
+			uint32_t var_colorbuffer = Unpack<uint32_t,uint32_t>(ptr + 8);
+			GLint var_x = Unpack<GLint,uint32_t>(ptr + 8 + 4);
+			GLint var_y = Unpack<GLint,uint32_t>(ptr + 8 + 4 + 4);
+			GLint var_width = Unpack<GLint,uint32_t>(ptr + 8 + 4 + 4 + 4);
+			GLint var_height = Unpack<GLint,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
+			GLenum var_format = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4);
+			GLenum var_type = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4);
+			uint64_t var_pixels_guest_paddr = Unpack<uint64_t,uint64_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4);
+			void* var_pixels = stream->getDmaForReading(var_pixels_guest_paddr);
+			uint32_t size_pixels __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 8);
+			uint32_t var_pixels_size = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 8);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 8 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 8 + 4, checksumSize, 
+					"renderControl_decoder_context_t::decode, OP_rcReadColorBufferDMA: GL checksumCalculator failure\n");
+			}
+			size_t totalTmpSize = sizeof(int);
+			totalTmpSize += checksumSize;
+			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			*(int *)(&tmpBuf[0]) = 			this->rcReadColorBufferDMA(var_colorbuffer, var_x, var_y, var_width, var_height, var_format, var_type, var_pixels, var_pixels_size);
+			stream->unlockDma(var_pixels_guest_paddr);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
+			}
+			stream->flush();
+			SET_LASTCALL("rcReadColorBufferDMA");
+			android::base::endTrace();
+			break;
+		}
 		default:
 			return ptr - (unsigned char*)buf;
 		} //switch
