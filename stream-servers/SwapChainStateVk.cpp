@@ -107,14 +107,12 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
     uint32_t presentModeCount = 0;
     VK_CHECK(vk.vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface,
                                                           &presentModeCount, nullptr));
-    std::vector<VkPresentModeKHR> presentModes(presentModeCount);
+    std::vector<VkPresentModeKHR> presentModes_(presentModeCount);
     VK_CHECK(vk.vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface,
-                                                          &presentModeCount, presentModes.data()));
-    auto iPresentMode = std::find_if(presentModes.begin(), presentModes.end(),
-                                     [](const VkPresentModeKHR &presentMode) {
-                                         return presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR;
-                                     });
-    if (iPresentMode == presentModes.end()) {
+                                                          &presentModeCount, presentModes_.data()));
+    std::unordered_set<VkPresentModeKHR> presentModes(presentModes_.begin(), presentModes_.end());
+    VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    if (!presentModes.count(VK_PRESENT_MODE_FIFO_KHR)) {
         SWAPCHAINSTATE_VK_ERROR("Fail to create swapchain: immediate present mode not supported.");
         return nullptr;
     }
@@ -152,7 +150,7 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
                                      .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                                      .preTransform = surfaceCaps.currentTransform,
                                      .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-                                     .presentMode = *iPresentMode,
+                                     .presentMode = presentMode,
                                      .clipped = VK_TRUE,
                                      .oldSwapchain = VK_NULL_HANDLE},
         [](VkSwapchainCreateInfoKHR *p) {
