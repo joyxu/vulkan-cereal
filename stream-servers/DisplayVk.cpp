@@ -183,6 +183,11 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
 
     std::vector<std::unique_ptr<ComposeLayerVk>> composeLayers;
     for (int i = 0; i < numLayers; ++i) {
+        if (layers[i].cbHandle == 0) {
+            // When ColorBuffer handle is 0, it's expected that no ColorBuffer
+            // is not found.
+            continue;
+        }
         if (!composeBuffers[i]) {
             fprintf(
                 stderr,
