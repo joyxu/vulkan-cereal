@@ -245,13 +245,13 @@ VkResult prepareAndroidNativeBufferImage(
             out->stagingMemoryTypeIndex,
         };
 
-        if (VK_SUCCESS !=
-            vk->vkAllocateMemory(
-                device, &allocInfo, nullptr,
-                &out->stagingMemory)) {
+        VkResult res = vk->vkAllocateMemory(device, &allocInfo, nullptr,
+                                            &out->stagingMemory);
+        if (VK_SUCCESS != res) {
             VK_ANB_ERR(
-                "VK_ANDROID_native_buffer: could not allocate "
-                "staging memory. requested size: %zu", (size_t)(out->memReqs.size));
+                "VK_ANDROID_native_buffer: could not allocate staging memory. "
+                "res = %d. requested size: %zu",
+                (int)res, (size_t)(out->memReqs.size));
             teardownAndroidNativeBufferImage(vk, out);
             return VK_ERROR_OUT_OF_HOST_MEMORY;
         }
