@@ -129,7 +129,9 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
     m_compositorVk = CompositorVk::create(
         m_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue, m_compositorVkQueueLock,
         m_swapChainStateVk->getFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-        width, height, m_swapChainStateVk->getVkImageViews(), m_vkCommandPool);
+        width, height, m_swapChainStateVk->getVkImageViews(), m_vkCommandPool,
+        m_compositionVkSampler);
+
     int numSwapChainImages = m_swapChainStateVk->getVkImages().size();
 
     m_vkCommandBuffers.resize(numSwapChainImages, VK_NULL_HANDLE);
