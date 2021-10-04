@@ -115,15 +115,6 @@ class DisplayVkTest : public ::testing::Test {
                                                    physicalDevices.data()),
                   VK_SUCCESS);
         for (const auto &device : physicalDevices) {
-            VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndexingFeatures = {
-                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT};
-            VkPhysicalDeviceFeatures2 features = {
-                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-                .pNext = &descIndexingFeatures};
-            k_vk->vkGetPhysicalDeviceFeatures2(device, &features);
-            if (!CompositorVk::validatePhysicalDeviceFeatures(features)) {
-                continue;
-            }
             uint32_t queueFamilyCount = 0;
             k_vk->vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
             ASSERT_GT(queueFamilyCount, 0);
@@ -169,15 +160,9 @@ class DisplayVkTest : public ::testing::Test {
                                                .pQueuePriorities = &queuePriority};
             queueCis.push_back(queueCi);
         }
-        VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndexingFeatures = {
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT};
         VkPhysicalDeviceFeatures2 features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-                                              .pNext = &descIndexingFeatures};
-        ASSERT_TRUE(CompositorVk::enablePhysicalDeviceFeatures(features));
+                                              .pNext = nullptr};
         auto extensions = SwapChainStateVk::getRequiredDeviceExtensions();
-        const auto compositorExtensions = CompositorVk::getRequiredDeviceExtensions();
-        extensions.insert(extensions.end(), compositorExtensions.begin(),
-                          compositorExtensions.end());
         VkDeviceCreateInfo deviceCi = {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = &features,
@@ -230,8 +215,14 @@ TEST_F(DisplayVkTest, SimplePost) {
     ASSERT_TRUE(texture->write(pixels));
     auto cbvk = m_displayVk->createDisplayBuffer(texture->m_vkImage, texture->k_vkFormat,
                                                  texture->m_width, texture->m_height);
+    std::vector<std::shared_future<void>> waitForGpuFutures;
     for (uint32_t i = 0; i < 10; i++) {
-        m_displayVk->post(cbvk);
+        auto [success, waitForGpuFuture] = m_displayVk->post(cbvk);
+        ASSERT_TRUE(success);
+        waitForGpuFutures.emplace_back(std::move(waitForGpuFuture));
+    }
+    for (auto &waitForGpuFuture : waitForGpuFutures) {
+        waitForGpuFuture.wait();
     }
 }
 
@@ -255,8 +246,16 @@ TEST_F(DisplayVkTest, PostTwoColorBuffers) {
     auto greenCbvk =
         m_displayVk->createDisplayBuffer(greenTexture->m_vkImage, greenTexture->k_vkFormat,
                                          greenTexture->m_width, greenTexture->m_height);
+    std::vector<std::shared_future<void>> waitForGpuFutures;
     for (uint32_t i = 0; i < 10; i++) {
-        ASSERT_TRUE(std::get<0>(m_displayVk->post(redCbvk)));
-        ASSERT_TRUE(std::get<0>(m_displayVk->post(greenCbvk)));
+        auto [success, waitForGpuFuture] = m_displayVk->post(redCbvk);
+        ASSERT_TRUE(success);
+        waitForGpuFutures.emplace_back(std::move(waitForGpuFuture));
+        std::tie(success, waitForGpuFuture) = m_displayVk->post(greenCbvk);
+        ASSERT_TRUE(success);
+        waitForGpuFutures.emplace_back(std::move(waitForGpuFuture));
+    }
+    for (auto &waitForGpuFuture : waitForGpuFutures) {
+        waitForGpuFuture.wait();
     }
 }
