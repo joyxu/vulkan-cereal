@@ -71,7 +71,8 @@ def banner_command(argv):
 
     def makeRelative(someArg):
         if os.path.exists(someArg):
-            return os.path.relpath(someArg)
+            # replace '\' with '/' to ensure the same output when running on Windows
+            return os.path.relpath(someArg).replace("\\", "/")
         return someArg
 
     return ' '.join(map(makeRelative, argv))
