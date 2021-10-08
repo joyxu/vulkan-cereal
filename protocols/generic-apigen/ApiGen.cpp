@@ -1013,7 +1013,7 @@ R"(    const size_t checksumSize = checksumCalc->checksumByteSize();
     fprintf(fp,
 "\twhile (end - ptr >= 8) {\n\
 \t\tuint32_t opcode = *(uint32_t *)ptr;   \n\
-\t\tint32_t packetLen = *(int32_t *)(ptr + 4);\n\
+\t\tuint32_t packetLen = *(uint32_t *)(ptr + 4);\n\
 \t\tif (end - ptr < packetLen) return ptr - (unsigned char*)buf;\n");
     if (changesChecksum) {
         fprintf(fp,
