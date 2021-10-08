@@ -34,7 +34,7 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
     const bool useChecksum = checksumSize > 0;
 	while (end - ptr >= 8) {
 		uint32_t opcode = *(uint32_t *)ptr;   
-		int32_t packetLen = *(int32_t *)(ptr + 4);
+		uint32_t packetLen = *(uint32_t *)(ptr + 4);
 		if (end - ptr < packetLen) return ptr - (unsigned char*)buf;
 		switch(opcode) {
 		case OP_glAlphaFunc: {

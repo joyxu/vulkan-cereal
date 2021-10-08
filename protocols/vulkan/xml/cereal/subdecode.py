@@ -333,7 +333,7 @@ class VulkanSubDecoder(VulkanWrapperGenerator):
         self.cgen.beginBlock()  # while loop
 
         self.cgen.stmt("uint32_t opcode = *(uint32_t *)ptr")
-        self.cgen.stmt("int32_t packetLen = *(int32_t *)(ptr + 4)")
+        self.cgen.stmt("uint32_t packetLen = *(uint32_t *)(ptr + 4)")
         self.cgen.stmt(
             "if (end - ptr < packetLen) return ptr - (unsigned char*)buf")
 
