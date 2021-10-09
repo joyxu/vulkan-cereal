@@ -33,7 +33,7 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
     while (end - ptr >= 8)
     {
         uint32_t opcode = *(uint32_t *)ptr;
-        int32_t packetLen = *(int32_t *)(ptr + 4);
+        uint32_t packetLen = *(uint32_t *)(ptr + 4);
         if (end - ptr < packetLen) return ptr - (unsigned char*)buf;
         readStream->setBuf((uint8_t*)(ptr + 8));
         uint8_t* readStreamPtr = readStream->getBuf(); uint8_t** readStreamPtrPtr = &readStreamPtr;
