@@ -334,12 +334,12 @@ intptr_t RenderThread::main() {
 
     uint32_t* seqnoPtr = nullptr;
 
-    while (1) {
+    while (true) {
         // Let's make sure we read enough data for at least some processing.
-        int packetSize;
+        uint32_t packetSize;
         if (readBuf.validData() >= 8) {
             // We know that packet size is the second int32_t from the start.
-            packetSize = *(const int32_t*)(readBuf.buf() + 4);
+            packetSize = *(uint32_t*)(readBuf.buf() + 4);
             if (!packetSize) {
                 // Emulator will get live-stuck here if packet size is read to be zero;
                 // crash right away so we can see these events.
@@ -353,7 +353,7 @@ intptr_t RenderThread::main() {
         }
 
         int stat = 0;
-        if (packetSize > (int)readBuf.validData()) {
+        if (packetSize > readBuf.validData()) {
             stat = readBuf.getData(ioStream, packetSize);
             if (stat <= 0) {
                 if (doSnapshotOperation(snapshotObjects, SnapshotState::StartSaving)) {
@@ -380,9 +380,9 @@ intptr_t RenderThread::main() {
             }
         }
 
-        DD("render thread read %d bytes, op %d, packet size %d",
-           (int)readBuf.validData(), *(int32_t*)readBuf.buf(),
-           *(int32_t*)(readBuf.buf() + 4));
+        DD("render thread read %i bytes, op %i, packet size %i",
+           readBuf.validData(), *(uint32_t*)readBuf.buf(),
+           *(uint32_t*)(readBuf.buf() + 4));
 
         //
         // log received bandwidth statistics
