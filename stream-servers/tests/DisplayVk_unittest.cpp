@@ -178,7 +178,7 @@ class DisplayVkTest : public ::testing::Test {
     void createLogicalDevice() {
         const float queuePriority = 1.0f;
         std::vector<VkDeviceQueueCreateInfo> queueCis(0);
-        for (auto queueFamilyIndex : std::unordered_set(
+        for (auto queueFamilyIndex : std::unordered_set<uint32_t>(
                  {m_swapChainQueueFamilyIndex, m_compositorQueueFamilyIndex})) {
             VkDeviceQueueCreateInfo queueCi = {
                 .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,

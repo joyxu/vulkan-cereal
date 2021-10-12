@@ -47,7 +47,7 @@ class Module(object):
             return self.basename + ".cpp \\\n"
         dirName = self.directory
         baseName = self.basename
-        joined = os.path.join(dirName, baseName)
+        joined = os.path.join(dirName, baseName).replace("\\", "/")
         return "    " + joined + ".cpp \\\n"
 
     def getCMakeSrcEntry(self):
@@ -55,7 +55,7 @@ class Module(object):
             return self.basename + ".cpp "
         dirName = self.directory
         baseName = self.basename
-        joined = os.path.join(dirName, baseName)
+        joined = os.path.join(dirName, baseName).replace("\\", "/")
         return "    " + joined + ".cpp "
 
     def begin(self, globalDir):
