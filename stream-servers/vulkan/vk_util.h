@@ -351,7 +351,7 @@ class RecordImageLayoutTransformCommands : public U {
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = image,
-            .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                               .baseMipLevel = 0,
                               .levelCount = 1,
                               .baseArrayLayer = 0,
