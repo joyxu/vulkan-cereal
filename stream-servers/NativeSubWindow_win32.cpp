@@ -21,18 +21,16 @@ struct SubWindowUserData {
 };
 
 static LRESULT CALLBACK subWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-    switch (uMsg)
-    {
-    case WM_PAINT:
-        ValidateRect(hwnd, nullptr);
-        return 0;
-    case WM_NCDESTROY:
-        {
-            SubWindowUserData* user_data =
-                (SubWindowUserData*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-            delete user_data;
+    if (uMsg == WM_PAINT) {
+        auto user_data =
+            (SubWindowUserData*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+        if (user_data && user_data->repaint_callback) {
+            user_data->repaint_callback(user_data->repaint_callback_param);
         }
-        break;
+    } else if (uMsg == WM_NCDESTROY) {
+        SubWindowUserData* user_data =
+            (SubWindowUserData*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+        delete user_data;
     }
     return DefWindowProcA(hwnd, uMsg, wParam, lParam);
 }
