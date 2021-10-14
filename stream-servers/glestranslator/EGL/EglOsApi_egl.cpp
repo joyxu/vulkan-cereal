@@ -18,9 +18,9 @@
 
 #include "base/System.h"
 #include "base/SharedLibrary.h"
+#include "host-common/logging.h"
 #include "host-common/misc.h"
 #include "GLcommon/GLLibrary.h"
-#include "apigen-codec-common/ErrorLog.h"
 #include "ShaderCache.h"
 
 #ifdef ANDROID
