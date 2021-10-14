@@ -107,6 +107,7 @@ class DisplayVk {
         uint32_t m_width = 0;
         uint32_t m_height = 0;
         std::unordered_map<uint32_t, std::vector<std::unique_ptr<Layer>>> m_prevCompositions;
+        std::vector<std::unique_ptr<CompositorVkRenderTarget>> m_renderTargets;
     };
     std::unique_ptr<SurfaceState> m_surfaceState;
     std::unordered_map<VkFormat, bool> m_canComposite;

@@ -83,6 +83,7 @@ DisplayVk::~DisplayVk() {
     m_vk.vkDestroySemaphore(m_vkDevice, m_imageReadySem, nullptr);
     m_vk.vkDestroySemaphore(m_vkDevice, m_frameDrawCompleteSem, nullptr);
     m_vk.vkDestroyFence(m_vkDevice, m_frameDrawCompleteFence, nullptr);
+    m_surfaceState.reset();
     m_compositorVk.reset();
     m_swapChainStateVk.reset();
     m_vk.vkDestroyCommandPool(m_vkDevice, m_vkCommandPool, nullptr);
@@ -129,8 +130,7 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
     m_compositorVk = CompositorVk::create(
         m_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue, m_compositorVkQueueLock,
         m_swapChainStateVk->getFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-        width, height, m_swapChainStateVk->getVkImageViews(), m_vkCommandPool,
-        m_compositionVkSampler);
+        m_swapChainStateVk->getVkImageViews().size(), m_vkCommandPool, m_compositionVkSampler);
 
     int numSwapChainImages = m_swapChainStateVk->getVkImages().size();
 
@@ -146,6 +146,10 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
     auto surfaceState = std::make_unique<SurfaceState>();
     surfaceState->m_height = height;
     surfaceState->m_width = width;
+    for (VkImageView imageView : m_swapChainStateVk->getVkImageViews()) {
+        surfaceState->m_renderTargets.emplace_back(
+            m_compositorVk->createRenderTarget(imageView, width, height));
+    }
     m_surfaceState = std::move(surfaceState);
 }
 
@@ -262,7 +266,8 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
     VK_CHECK(m_vk.vkBeginCommandBuffer(cmdBuff, &beginInfo));
-    m_compositorVk->recordCommandBuffers(imageIndex, cmdBuff);
+    m_compositorVk->recordCommandBuffers(imageIndex, cmdBuff,
+                                         *m_surfaceState->m_renderTargets[imageIndex]);
     VK_CHECK(m_vk.vkEndCommandBuffer(cmdBuff));
 
     VK_CHECK(m_vk.vkResetFences(m_vkDevice, 1, &m_frameDrawCompleteFence));
