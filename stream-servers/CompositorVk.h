@@ -106,8 +106,8 @@ class CompositorVk : protected CompositorVkBase {
     explicit CompositorVk(const goldfish_vk::VulkanDispatch &, VkDevice, VkPhysicalDevice, VkQueue,
                           std::shared_ptr<android::base::Lock> queueLock, VkCommandPool,
                           uint32_t renderTargetWidth, uint32_t renderTargetHeight);
-    void setUpGraphicsPipeline(uint32_t width, uint32_t height, VkFormat renderTargetFormat,
-                               VkImageLayout initialLayout, VkImageLayout finalLayout, VkSampler);
+    void setUpGraphicsPipeline(VkFormat renderTargetFormat, VkImageLayout initialLayout,
+                               VkImageLayout finalLayout, VkSampler);
     void setUpVertexBuffers();
     void setUpFramebuffers(const std::vector<VkImageView> &, uint32_t width, uint32_t height);
     void setUpDescriptorSets();

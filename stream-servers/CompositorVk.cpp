@@ -130,7 +130,7 @@ std::unique_ptr<CompositorVk> CompositorVk::create(
     const std::vector<VkImageView> &renderTargets, VkCommandPool commandPool, VkSampler sampler) {
     auto res = std::unique_ptr<CompositorVk>(new CompositorVk(
         vk, vkDevice, vkPhysicalDevice, vkQueue, queueLock, commandPool, width, height));
-    res->setUpGraphicsPipeline(width, height, format, initialLayout, finalLayout, sampler);
+    res->setUpGraphicsPipeline(format, initialLayout, finalLayout, sampler);
     res->m_vkSampler = sampler;
     res->setUpVertexBuffers();
     res->setUpFramebuffers(renderTargets, width, height);
@@ -182,8 +182,7 @@ CompositorVk::~CompositorVk() {
     m_vk.vkDestroyDescriptorSetLayout(m_vkDevice, m_vkDescriptorSetLayout, nullptr);
 }
 
-void CompositorVk::setUpGraphicsPipeline(uint32_t width, uint32_t height,
-                                         VkFormat renderTargetFormat, VkImageLayout initialLayout,
+void CompositorVk::setUpGraphicsPipeline(VkFormat renderTargetFormat, VkImageLayout initialLayout,
                                          VkImageLayout finalLayout, VkSampler sampler) {
     const std::vector<uint32_t> vertSpvBuff(CompositorVkShader::compositorVertexShader,
                                             std::end(CompositorVkShader::compositorVertexShader));
@@ -216,21 +215,15 @@ void CompositorVk::setUpGraphicsPipeline(uint32_t width, uint32_t height,
         .primitiveRestartEnable = VK_FALSE,
     };
 
-    VkViewport viewport = {.x = 0.0f,
-                           .y = 0.0f,
-                           .width = static_cast<float>(width),
-                           .height = static_cast<float>(height),
-                           .minDepth = 0.0f,
-                           .maxDepth = 1.0f};
-
-    VkRect2D scissor = {.offset = {0, 0}, .extent = {width, height}};
-
     VkPipelineViewportStateCreateInfo viewportStateCi = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         .viewportCount = 1,
-        .pViewports = &viewport,
+        // The viewport state is dynamic.
+        .pViewports = nullptr,
         .scissorCount = 1,
-        .pScissors = &scissor};
+        // The scissor state is dynamic.
+        .pScissors = nullptr,
+    };
 
     VkPipelineRasterizationStateCreateInfo rasterizerStateCi = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
@@ -270,6 +263,13 @@ void CompositorVk::setUpGraphicsPipeline(uint32_t width, uint32_t height,
         .logicOpEnable = VK_FALSE,
         .attachmentCount = 1,
         .pAttachments = &colorBlendAttachment};
+
+    VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo dynamicStateCi = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .dynamicStateCount = std::size(dynamicStates),
+        .pDynamicStates = dynamicStates,
+    };
 
     VkDescriptorSetLayoutBinding layoutBindings[2] = {
         {.binding = 0,
@@ -350,7 +350,7 @@ void CompositorVk::setUpGraphicsPipeline(uint32_t width, uint32_t height,
         .pMultisampleState = &multisampleStateCi,
         .pDepthStencilState = nullptr,
         .pColorBlendState = &colorBlendStateCi,
-        .pDynamicState = nullptr,
+        .pDynamicState = &dynamicStateCi,
         .layout = m_vkPipelineLayout,
         .renderPass = m_vkRenderPass,
         .subpass = 0,
@@ -517,6 +517,24 @@ void CompositorVk::recordCommandBuffers(uint32_t renderTargetIndex, VkCommandBuf
         .pClearValues = &clearColor};
     m_vk.vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
     m_vk.vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsVkPipeline);
+    VkRect2D scissor = {
+        .offset = {0, 0},
+        .extent =
+            {
+                .width = m_renderTargetWidth,
+                .height = m_renderTargetHeight,
+            },
+    };
+    m_vk.vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
+    VkViewport viewport = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = static_cast<float>(m_renderTargetWidth),
+        .height = static_cast<float>(m_renderTargetHeight),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+    m_vk.vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
     VkDeviceSize offsets[] = {0};
     m_vk.vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &m_vertexVkBuffer, offsets);
     m_vk.vkCmdBindIndexBuffer(cmdBuffer, m_indexVkBuffer, 0, VK_INDEX_TYPE_UINT16);
