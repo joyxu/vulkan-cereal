@@ -19,6 +19,7 @@
 #include "base/Compiler.h"
 
 #include <EGL/egl.h>
+#include <EGL/eglext.h>
 
 #include <memory>
 
@@ -228,11 +229,18 @@ public:
     // Return to engine-specific implementation of eglGetProcAddress.
     virtual void* eglGetProcAddress(const char*) = 0;
 
+    // Return to engine-specific implementation of eglDebugMessageControlKHR.
+    virtual EGLint eglDebugMessageControlKHR(EGLDEBUGPROCKHR callback,
+                                             const EGLAttrib* attribs) {
+        return EGL_BAD_ATTRIBUTE;
+    }
+
     // Create a new window surface. |wnd| is a host-specific window handle
     // (e.g. a Windows HWND). A software renderer would always return NULL
     // here.
     virtual Surface* createWindowSurface(PixelFormat* cfg,
                                          EGLNativeWindowType wnd) = 0;
+
 
     // Retrieve the implementation for the current host. This can be called
     // multiple times, and will initialize the engine on first call.
