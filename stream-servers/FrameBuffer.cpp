@@ -52,6 +52,25 @@ using android::base::WorkerProcessingResult;
 
 namespace {
 
+static void EGLAPIENTRY EglDebugCallback(EGLenum error,
+                                         const char *command,
+                                         EGLint messageType,
+                                         EGLLabelKHR threadLabel,
+                                         EGLLabelKHR objectLabel,
+                                         const char *message) {
+    GL_LOG("command:%s message:%s", command, message);
+}
+
+static void GL_APIENTRY GlDebugCallback(GLenum source,
+                                        GLenum type,
+                                        GLuint id,
+                                        GLenum severity,
+                                        GLsizei length,
+                                        const GLchar *message,
+                                        const void *userParam) {
+    GL_LOG("message:%s", message);
+}
+
 // Helper class to call the bind_locked() / unbind_locked() properly.
 typedef ColorBuffer::RecursiveScopedHelperContext ScopedBind;
 
@@ -141,7 +160,8 @@ FrameBuffer* FrameBuffer::s_theFrameBuffer = NULL;
 HandleType FrameBuffer::s_nextHandle = 0;
 
 static const GLint gles2ContextAttribsESOrGLCompat[] =
-   { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
+   { EGL_CONTEXT_CLIENT_VERSION, 2,
+     EGL_NONE };
 
 static const GLint gles2ContextAttribsCoreGL[] =
    { EGL_CONTEXT_CLIENT_VERSION, 2,
@@ -150,7 +170,8 @@ static const GLint gles2ContextAttribsCoreGL[] =
      EGL_NONE };
 
 static const GLint gles3ContextAttribsESOrGLCompat[] =
-   { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE };
+   { EGL_CONTEXT_CLIENT_VERSION, 3,
+     EGL_NONE };
 
 static const GLint gles3ContextAttribsCoreGL[] =
    { EGL_CONTEXT_CLIENT_VERSION, 3,
@@ -407,6 +428,32 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     GL_LOG("egl: %d %d", fb->m_caps.eglMajor, fb->m_caps.eglMinor);
     s_egl.eglBindAPI(EGL_OPENGL_ES_API);
 
+
+#ifdef ENABLE_GL_LOG
+    if (s_egl.eglDebugMessageControlKHR) {
+        const EGLAttrib controls[] = {
+            EGL_DEBUG_MSG_CRITICAL_KHR,
+            EGL_TRUE,
+            EGL_DEBUG_MSG_ERROR_KHR,
+            EGL_TRUE,
+            EGL_DEBUG_MSG_WARN_KHR,
+            EGL_TRUE,
+            EGL_DEBUG_MSG_INFO_KHR,
+            EGL_FALSE,
+            EGL_NONE,
+            EGL_NONE,
+        };
+
+        if (s_egl.eglDebugMessageControlKHR(&EglDebugCallback, controls) == EGL_SUCCESS) {
+            GL_LOG("Successfully set eglDebugMessageControlKHR");
+        } else {
+            GL_LOG("Failed to eglDebugMessageControlKHR");
+        }
+    } else {
+        GL_LOG("eglDebugMessageControlKHR not available");
+    }
+#endif
+
     GLESDispatchMaxVersion dispatchMaxVersion =
             calcMaxVersionFromDispatch(fb->m_eglDisplay);
 
@@ -524,6 +571,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     }
 
     GL_LOG("context creation successful");
+
     //
     // create a 1x1 pbuffer surface which will be used for binding
     // the FB context.
@@ -616,6 +664,54 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     }
 
     GL_LOG("There are sufficient EGLconfigs available");
+
+#ifdef ENABLE_GL_LOG
+    bool debugSetup = false;
+    if (s_gles2.glDebugMessageCallback) {
+        s_gles2.glEnable(GL_DEBUG_OUTPUT);
+        s_gles2.glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        s_gles2.glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
+                                      GL_DEBUG_SEVERITY_HIGH, 0, nullptr, GL_TRUE);
+        s_gles2.glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
+                                      GL_DEBUG_SEVERITY_MEDIUM, 0, nullptr, GL_TRUE);
+        s_gles2.glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
+                                      GL_DEBUG_SEVERITY_LOW, 0, nullptr, GL_TRUE);
+        s_gles2.glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
+                                      GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr,
+                                      GL_TRUE);
+        s_gles2.glDebugMessageCallback(&GlDebugCallback, nullptr);
+        debugSetup = s_gles2.glGetError() == GL_NO_ERROR;
+        if (!debugSetup) {
+            ERR("Failed to set up glDebugMessageCallback");
+        } else {
+            GL_LOG("Successfully set up glDebugMessageCallback");
+        }
+    }
+    if (s_gles2.glDebugMessageCallbackKHR && !debugSetup) {
+        s_gles2.glDebugMessageControlKHR(GL_DONT_CARE, GL_DONT_CARE,
+                                         GL_DEBUG_SEVERITY_HIGH_KHR, 0, nullptr,
+                                         GL_TRUE);
+        s_gles2.glDebugMessageControlKHR(GL_DONT_CARE, GL_DONT_CARE,
+                                         GL_DEBUG_SEVERITY_MEDIUM_KHR, 0, nullptr,
+                                         GL_TRUE);
+        s_gles2.glDebugMessageControlKHR(GL_DONT_CARE, GL_DONT_CARE,
+                                         GL_DEBUG_SEVERITY_LOW_KHR, 0, nullptr,
+                                         GL_TRUE);
+        s_gles2.glDebugMessageControlKHR(GL_DONT_CARE, GL_DONT_CARE,
+                                         GL_DEBUG_SEVERITY_NOTIFICATION_KHR, 0, nullptr,
+                                         GL_TRUE);
+        s_gles2.glDebugMessageCallbackKHR(&GlDebugCallback, nullptr);
+        debugSetup = s_gles2.glGetError() == GL_NO_ERROR;
+        if (!debugSetup) {
+            ERR("Failed to set up glDebugMessageCallbackKHR");
+        } else {
+            GL_LOG("Successfully set up glDebugMessageCallbackKHR");
+        }
+    }
+    if (!debugSetup) {
+        GL_LOG("glDebugMessageCallback and glDebugMessageCallbackKHR not available");
+    }
+#endif
 
     //
     // Cache the GL strings so we don't have to think about threading or
