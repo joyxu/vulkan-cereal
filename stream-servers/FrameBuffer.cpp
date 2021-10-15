@@ -720,6 +720,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     fb->m_glVendor = std::string((const char*)s_gles2.glGetString(GL_VENDOR));
     fb->m_glRenderer = std::string((const char*)s_gles2.glGetString(GL_RENDERER));
     fb->m_glVersion = std::string((const char*)s_gles2.glGetString(GL_VERSION));
+    fb->m_glExtensions = std::string((const char*)s_gles2.glGetString(GL_EXTENSIONS));
 
     // Attempt to get the device UUID of the gles and match with Vulkan. If
     // they match, interop is possible. If they don't, then don't trust the
@@ -762,7 +763,8 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
 
     GL_LOG("GL Vendor %s", fb->m_glVendor.c_str());
     GL_LOG("GL Renderer %s", fb->m_glRenderer.c_str());
-    GL_LOG("GL Extensions %s", fb->m_glVersion.c_str());
+    GL_LOG("GL Version %s", fb->m_glVersion.c_str());
+    GL_LOG("GL Extensions %s", fb->m_glExtensions.c_str());
 
     fb->m_textureDraw = new TextureDraw();
     if (!fb->m_textureDraw) {
