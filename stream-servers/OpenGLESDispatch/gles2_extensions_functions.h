@@ -22,6 +22,8 @@
   X(void, glDebugMessageInsertKHR, (GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar * buf), (source, type, id, severity, length, buf)) \
   X(void, glDebugMessageCallbackKHR, (GLDEBUGPROCKHR callback, const void * userParam), (callback, userParam)) \
   X(GLuint, glGetDebugMessageLogKHR, (GLuint count, GLsizei bufSize, GLenum * sources, GLenum * types, GLuint * ids, GLenum * severities, GLsizei * lengths, GLchar * messageLog), (count, bufSize, sources, types, ids, severities, lengths, messageLog)) \
+  X(void, glPushDebugGroupKHR, (GLenum source, GLuint id, GLsizei length, const GLchar* message), (source, id, length, message)) \
+  X(void, glPopDebugGroupKHR, (), ()) \
 
 
 #endif  // GLES2_EXTENSIONS_FUNCTIONS_H
