@@ -196,11 +196,16 @@ GL_APICALL void GL_APIENTRY glDebugMessageControlKHR(GLenum source, GLenum type,
 GL_APICALL void GL_APIENTRY glDebugMessageInsertKHR(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* buf);
 GL_APICALL void GL_APIENTRY glDebugMessageCallbackKHR(GLDEBUGPROCKHR callback, const void* userdata);
 GL_APICALL GLuint GL_APIENTRY glGetDebugMessageLogKHR(GLuint count, GLsizei size, GLenum* sources, GLenum* types, GLuint* ids, GLenum* severities, GLsizei* lengths, GLchar* log);
+GL_APICALL void GL_APIENTRY glPushDebugGroupKHR(GLenum source, GLuint id, GLsizei length, const GLchar* message);
+GL_APICALL void GL_APIENTRY glPopDebugGroupKHR(void);
 
 GL_APICALL void GL_APIENTRY glDebugMessageControl(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint* ids, GLboolean enabled);
 GL_APICALL void GL_APIENTRY glDebugMessageInsert(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* buf);
 GL_APICALL void GL_APIENTRY glDebugMessageCallback(GLDEBUGPROC callback, const void* userdata);
 GL_APICALL GLuint GL_APIENTRY glGetDebugMessageLog(GLuint count, GLsizei size, GLenum* sources, GLenum* types, GLuint* ids, GLenum* severities, GLsizei* lengths, GLchar* log);
+GL_APICALL void GL_APIENTRY glPushDebugGroup(GLenum source, GLuint id, GLsizei length, const GLchar* message);
+GL_APICALL void GL_APIENTRY glPopDebugGroup(void);
+
 
 } // namespace gles2
 } // namespace translator
@@ -306,10 +311,14 @@ static __translatorMustCastToProperFunctionPointerType getProcAddressGles2(const
         (*s_gles2Extensions)["glDebugMessageInsertKHR"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glDebugMessageInsertKHR);
         (*s_gles2Extensions)["glDebugMessageCallbackKHR"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glDebugMessageCallbackKHR);
         (*s_gles2Extensions)["glGetDebugMessageLogKHR"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glGetDebugMessageLogKHR);
+        (*s_gles2Extensions)["glPushDebugGroupKHR"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glPushDebugGroupKHR);
+        (*s_gles2Extensions)["glPopDebugGroupKHR"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glPopDebugGroupKHR);
         (*s_gles2Extensions)["glDebugMessageControl"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glDebugMessageControl);
         (*s_gles2Extensions)["glDebugMessageCallback"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glDebugMessageCallback);
         (*s_gles2Extensions)["glDebugMessageInsert"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glDebugMessageInsert);
         (*s_gles2Extensions)["glGetDebugMessageLog"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glGetDebugMessageLog);
+        (*s_gles2Extensions)["glPushDebugGroup"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glPushDebugGroup);
+        (*s_gles2Extensions)["glPopDebugGroup"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glPopDebugGroup);
     }
     __translatorMustCastToProperFunctionPointerType ret=NULL;
     ProcTableMap::iterator val = s_gles2Extensions->find(procName);
@@ -3795,6 +3804,16 @@ GL_APICALL void GL_APIENTRY glDebugMessageCallbackKHR(GLDEBUGPROCKHR callback, c
 GL_APICALL GLuint GL_APIENTRY glGetDebugMessageLogKHR(GLuint count, GLsizei size, GLenum* sources, GLenum* types, GLuint* ids, GLenum* severities, GLsizei* lengths, GLchar* log) {
     GET_CTX_V2_RET(0);
     return ctx->dispatcher().glGetDebugMessageLogKHR(count, size, sources, types, ids, severities, lengths, log);
+}
+
+GL_APICALL void GL_APIENTRY glPushDebugGroupKHR(GLenum source, GLuint id, GLsizei length, const GLchar* message) {
+    GET_CTX_V2();
+    ctx->dispatcher().glPushDebugGroupKHR(source, id, length, message);
+}
+
+GL_APICALL void GL_APIENTRY glPopDebugGroupKHR(void) {
+    GET_CTX_V2();
+    ctx->dispatcher().glPopDebugGroupKHR();
 }
 
 GL_APICALL void  GL_APIENTRY glTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid* pixels){
