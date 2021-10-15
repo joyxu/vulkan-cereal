@@ -51,16 +51,14 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
                 {
                     transform_tohost_VkCommandBufferBeginInfo(globalstate, (VkCommandBufferBeginInfo*)(pBeginInfo));
                 }
-                VkResult vkBeginCommandBuffer_VkResult_return = (VkResult)0;
-                vkBeginCommandBuffer_VkResult_return = this->on_vkBeginCommandBuffer(pool, (VkCommandBuffer)(boxed_dispatchHandle), pBeginInfo);
+                this->on_vkBeginCommandBuffer(pool, (VkCommandBuffer)(boxed_dispatchHandle), pBeginInfo);
                 android::base::endTrace();
                 break;
             }
             case OP_vkEndCommandBuffer:
             {
                 android::base::beginTrace("vkEndCommandBuffer subdecode");
-                VkResult vkEndCommandBuffer_VkResult_return = (VkResult)0;
-                vkEndCommandBuffer_VkResult_return = this->on_vkEndCommandBuffer(pool, (VkCommandBuffer)(boxed_dispatchHandle));
+                this->on_vkEndCommandBuffer(pool, (VkCommandBuffer)(boxed_dispatchHandle));
                 android::base::endTrace();
                 break;
             }
@@ -70,8 +68,7 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
                 VkCommandBufferResetFlags flags;
                 memcpy((VkCommandBufferResetFlags*)&flags, *readStreamPtrPtr, sizeof(VkCommandBufferResetFlags));
                 *readStreamPtrPtr += sizeof(VkCommandBufferResetFlags);
-                VkResult vkResetCommandBuffer_VkResult_return = (VkResult)0;
-                vkResetCommandBuffer_VkResult_return = this->on_vkResetCommandBuffer(pool, (VkCommandBuffer)(boxed_dispatchHandle), flags);
+                this->on_vkResetCommandBuffer(pool, (VkCommandBuffer)(boxed_dispatchHandle), flags);
                 android::base::endTrace();
                 break;
             }
@@ -3093,8 +3090,7 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
                 {
                     transform_tohost_VkPerformanceMarkerInfoINTEL(globalstate, (VkPerformanceMarkerInfoINTEL*)(pMarkerInfo));
                 }
-                VkResult vkCmdSetPerformanceMarkerINTEL_VkResult_return = (VkResult)0;
-                vkCmdSetPerformanceMarkerINTEL_VkResult_return = vk->vkCmdSetPerformanceMarkerINTEL((VkCommandBuffer)dispatchHandle, pMarkerInfo);
+                vk->vkCmdSetPerformanceMarkerINTEL((VkCommandBuffer)dispatchHandle, pMarkerInfo);
                 android::base::endTrace();
                 break;
             }
@@ -3109,8 +3105,7 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
                 {
                     transform_tohost_VkPerformanceStreamMarkerInfoINTEL(globalstate, (VkPerformanceStreamMarkerInfoINTEL*)(pMarkerInfo));
                 }
-                VkResult vkCmdSetPerformanceStreamMarkerINTEL_VkResult_return = (VkResult)0;
-                vkCmdSetPerformanceStreamMarkerINTEL_VkResult_return = vk->vkCmdSetPerformanceStreamMarkerINTEL((VkCommandBuffer)dispatchHandle, pMarkerInfo);
+                vk->vkCmdSetPerformanceStreamMarkerINTEL((VkCommandBuffer)dispatchHandle, pMarkerInfo);
                 android::base::endTrace();
                 break;
             }
@@ -3125,8 +3120,7 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
                 {
                     transform_tohost_VkPerformanceOverrideInfoINTEL(globalstate, (VkPerformanceOverrideInfoINTEL*)(pOverrideInfo));
                 }
-                VkResult vkCmdSetPerformanceOverrideINTEL_VkResult_return = (VkResult)0;
-                vkCmdSetPerformanceOverrideINTEL_VkResult_return = vk->vkCmdSetPerformanceOverrideINTEL((VkCommandBuffer)dispatchHandle, pOverrideInfo);
+                vk->vkCmdSetPerformanceOverrideINTEL((VkCommandBuffer)dispatchHandle, pOverrideInfo);
                 android::base::endTrace();
                 break;
             }
