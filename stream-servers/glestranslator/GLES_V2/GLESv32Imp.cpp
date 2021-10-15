@@ -27,3 +27,14 @@ GL_APICALL GLuint GL_APIENTRY glGetDebugMessageLog(GLuint count, GLsizei bufSize
     return glGetDebugMessageLogRET;
 }
 
+GL_APICALL void GL_APIENTRY glPushDebugGroup(GLenum source, GLuint id, GLsizei length, const GLchar* message) {
+    GET_CTX_V2();
+    SET_ERROR_IF_DISPATCHER_NOT_SUPPORT(glPushDebugGroup);
+    ctx->dispatcher().glPushDebugGroup(source, id, length, message);
+}
+
+GL_APICALL void GL_APIENTRY glPopDebugGroup() {
+    GET_CTX_V2();
+    SET_ERROR_IF_DISPATCHER_NOT_SUPPORT(glPopDebugGroup);
+    ctx->dispatcher().glPopDebugGroup();
+}
