@@ -25,12 +25,12 @@
 #include "GLcommon/TextureData.h"
 #include "GLcommon/TextureUtils.h"
 #include "GLcommon/TranslatorIfaces.h"
-#include "apigen-codec-common/ErrorLog.h"
 #include "ThreadInfo.h"
 #include "base/Lock.h"
 #include "base/Stream.h"
 #include "base/System.h"
 #include "base/SharedLibrary.h"
+#include "host-common/logging.h"
 
 #include "EglWindowSurface.h"
 #include "EglPbufferSurface.h"
@@ -101,7 +101,7 @@ static const EGLiface s_eglIface = {
 static void initGLESx(GLESVersion version) {
     const GLESiface* iface = g_eglInfo->getIface(version);
     if (!iface) {
-        DBG("EGL failed to initialize GLESv%d; incompatible interface\n", version);
+        ERR("EGL failed to initialize GLESv%d; incompatible interface", version);
         return;
     }
     iface->initGLESx(EglGlobalInfo::isEgl2Egl());
