@@ -26,6 +26,7 @@
   X(EGLImage, eglGetNativeImageANDROID, (EGLDisplay display, EGLImage image)) \
   X(EGLBoolean, eglSetImageInfoANDROID, (EGLDisplay display, EGLImage image, EGLint width, EGLint height, EGLint internalformat)) \
   X(EGLImage, eglImportImageANDROID, (EGLDisplay display, EGLImage image)) \
+  X(EGLint, eglDebugMessageControlKHR, (EGLDEBUGPROCKHR callback, const EGLAttrib * attrib_list)) \
 
 EGLAPI EGLint EGLAPIENTRY eglGetMaxGLESVersion(EGLDisplay display);
 EGLAPI void EGLAPIENTRY eglBlitFromCurrentReadBufferANDROID(EGLDisplay display, EGLImageKHR image);
