@@ -743,6 +743,7 @@ class FrameBuffer {
     std::string m_glVendor;
     std::string m_glRenderer;
     std::string m_glVersion;
+    std::string m_glExtensions;
 
     // The host associates color buffers with guest processes for memory
     // cleanup. Guest processes are identified with a host generated unique ID.
