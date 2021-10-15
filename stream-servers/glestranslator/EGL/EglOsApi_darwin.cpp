@@ -21,8 +21,8 @@
 
 #include "emugl/common/lazy_instance.h"
 #include "emugl/common/shared_library.h"
+#include "host-common/logging.h"
 #include "GLcommon/GLLibrary.h"
-#include "OpenglCodecCommon/ErrorLog.h"
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>

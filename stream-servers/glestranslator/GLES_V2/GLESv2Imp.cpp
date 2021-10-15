@@ -27,7 +27,8 @@
 #include <GLES3/gl31.h>
 
 #include "base/System.h"
-#include "ErrorLog.h"
+#include "host-common/logging.h"
+
 #include "GLESv2Context.h"
 #include "GLESv2Validate.h"
 #include "GLcommon/FramebufferData.h"
