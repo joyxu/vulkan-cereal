@@ -264,7 +264,8 @@ def emit_dispatch_call(api, cgen):
     if api.name in driver_workarounds_global_lock_apis:
         cgen.stmt("lock()")
 
-    cgen.vkApiCall(api, customPrefix="vk->", customParameters=customParams)
+    cgen.vkApiCall(api, customPrefix="vk->", customParameters=customParams,
+                   retVarDecl=False, retVarAssign=False)
 
     if api.name in driver_workarounds_global_lock_apis:
         cgen.stmt("unlock()")
@@ -274,7 +275,7 @@ def emit_global_state_wrapped_call(api, cgen):
     customParams = ["pool", "(VkCommandBuffer)(boxed_dispatchHandle)"] + \
         list(map(lambda p: p.paramName, api.parameters[1:]))
     cgen.vkApiCall(api, customPrefix="this->on_",
-                   customParameters=customParams)
+                   customParameters=customParams, retVarDecl=False, retVarAssign=False)
 
 
 def emit_default_decoding(typeInfo, api, cgen):
