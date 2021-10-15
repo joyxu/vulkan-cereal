@@ -15,5 +15,9 @@ GL_APICALL void GL_APIENTRY glBindVertexArrayOES(GLuint array);
 GL_APICALL void GL_APIENTRY glDeleteVertexArraysOES(GLsizei n, const GLuint * arrays);
 GL_APICALL void GL_APIENTRY glGenVertexArraysOES(GLsizei n, GLuint * arrays);
 GL_APICALL GLboolean GL_APIENTRY glIsVertexArrayOES(GLuint array);
+GL_APICALL void GL_APIENTRY glDebugMessageControlKHR(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint * ids, GLboolean enabled);
+GL_APICALL void GL_APIENTRY glDebugMessageInsertKHR(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar * buf);
+GL_APICALL void GL_APIENTRY glDebugMessageCallbackKHR(GLDEBUGPROCKHR callback, const void * userParam);
+GL_APICALL GLuint GL_APIENTRY glGetDebugMessageLogKHR(GLuint count, GLsizei bufSize, GLenum * sources, GLenum * types, GLuint * ids, GLenum * severities, GLsizei * lengths, GLchar * messageLog);
 } // namespace translator
 } // namespace gles2
