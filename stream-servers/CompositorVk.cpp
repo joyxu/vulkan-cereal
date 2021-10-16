@@ -6,7 +6,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <optional>
 
-#include "ErrorLog.h"
+#include "host-common/logging.h"
 #include "vulkan/vk_util.h"
 
 namespace CompositorVkShader {

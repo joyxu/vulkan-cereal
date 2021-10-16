@@ -15,7 +15,7 @@
 */
 #include "ReadBuffer.h"
 
-#include "ErrorLog.h"
+#include "host-common/logging.h"
 
 #include <algorithm>
 
