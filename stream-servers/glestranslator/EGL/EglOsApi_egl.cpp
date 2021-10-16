@@ -18,9 +18,9 @@
 
 #include "base/System.h"
 #include "base/SharedLibrary.h"
+#include "host-common/logging.h"
 #include "host-common/misc.h"
 #include "GLcommon/GLLibrary.h"
-#include "apigen-codec-common/ErrorLog.h"
 #include "ShaderCache.h"
 
 #ifdef ANDROID
@@ -125,6 +125,8 @@ static const char* kGLES2LibName = "libGLESv2.dylib";
       const EGLint *attrib_list))                                              \
     X(EGLBoolean, eglDestroyImage, (EGLDisplay dpy, EGLImage image))           \
     X(EGLBoolean, eglReleaseThread, (void))                                    \
+    X(EGLint, eglDebugMessageControlKHR,                                       \
+      (EGLDEBUGPROCKHR callback, const EGLAttrib * attrib_list))               \
 
 namespace {
 using namespace EglOS;
@@ -304,6 +306,10 @@ public:
                                      unsigned int* height);
     void* eglGetProcAddress(const char* func) {
         return mDispatcher.eglGetProcAddress(func);
+    }
+
+    EGLint eglDebugMessageControlKHR(EGLDEBUGPROCKHR callback, const EGLAttrib* attribs) {
+        return mDispatcher.eglDebugMessageControlKHR(callback, attribs);
     }
 
 private:
@@ -740,9 +746,7 @@ static EglOsEglDisplay* sHostDisplay(bool nullEgl = false) {
 
 class EglEngine : public EglOS::Engine {
 public:
-    EglEngine(bool nullEgl) :
-        EglOS::Engine(),
-        mUseNullEgl(nullEgl) {}
+    EglEngine(bool nullEgl) : EglOS::Engine(), mUseNullEgl(nullEgl) {}
     ~EglEngine() = default;
 
     EglOS::Display* getDefaultDisplay() {
@@ -760,6 +764,10 @@ public:
                                                 EGLNativeWindowType wnd) {
         D("%s\n", __FUNCTION__);
         return sHostDisplay()->createWindowSurface(pf, wnd);
+    }
+
+    EGLint eglDebugMessageControlKHR(EGLDEBUGPROCKHR callback, const EGLAttrib* attribs) override {
+        return sHostDisplay()->eglDebugMessageControlKHR(callback, attribs);
     }
 
 private:

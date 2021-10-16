@@ -22,8 +22,6 @@
 #include "host-common/logging.h"
 #include "GLcommon/GLLibrary.h"
 
-#include "apigen-codec-common/ErrorLog.h"
-
 #include <windows.h>
 #include <wingdi.h>
 

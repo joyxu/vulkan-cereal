@@ -25,7 +25,6 @@
 #include "GLEScmValidate.h"
 #include "GLEScmUtils.h"
 #include <GLcommon/TextureUtils.h>
-#include "apigen-codec-common/ErrorLog.h"
 
 #include <GLcommon/GLDispatch.h>
 #include <GLcommon/GLconversion_macros.h>
@@ -34,6 +33,7 @@
 #include <GLcommon/FramebufferData.h>
 
 #include "host-common/crash_reporter.h"
+#include "host-common/logging.h"
 
 #include <cmath>
 #include <unordered_map>

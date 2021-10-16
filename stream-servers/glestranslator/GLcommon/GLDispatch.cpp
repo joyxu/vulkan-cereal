@@ -19,11 +19,8 @@
 
 #include "base/Lock.h"
 #include "base/SharedLibrary.h"
+#include "host-common/logging.h"
 
-#include "ErrorLog.h"
-
-// #define GL_LOG(fmt,...) fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
-#define GL_LOG(fmt,...)
 
 #ifdef __linux__
 #include <GL/glx.h>
