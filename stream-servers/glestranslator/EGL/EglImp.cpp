@@ -25,12 +25,12 @@
 #include "GLcommon/TextureData.h"
 #include "GLcommon/TextureUtils.h"
 #include "GLcommon/TranslatorIfaces.h"
-#include "apigen-codec-common/ErrorLog.h"
 #include "ThreadInfo.h"
 #include "base/Lock.h"
 #include "base/Stream.h"
 #include "base/System.h"
 #include "base/SharedLibrary.h"
+#include "host-common/logging.h"
 
 #include "EglWindowSurface.h"
 #include "EglPbufferSurface.h"
@@ -101,7 +101,7 @@ static const EGLiface s_eglIface = {
 static void initGLESx(GLESVersion version) {
     const GLESiface* iface = g_eglInfo->getIface(version);
     if (!iface) {
-        DBG("EGL failed to initialize GLESv%d; incompatible interface\n", version);
+        ERR("EGL failed to initialize GLESv%d; incompatible interface", version);
         return;
     }
     iface->initGLESx(EglGlobalInfo::isEgl2Egl());
@@ -150,6 +150,8 @@ EGLAPI EGLContext EGLAPIENTRY eglGetNativeContextANDROID(EGLDisplay, EGLContext)
 EGLAPI EGLImage EGLAPIENTRY eglGetNativeImageANDROID(EGLDisplay, EGLImage);
 EGLAPI EGLBoolean EGLAPIENTRY eglSetImageInfoANDROID(EGLDisplay, EGLImage, EGLint, EGLint, EGLint);
 EGLAPI EGLImage EGLAPIENTRY eglImportImageANDROID(EGLDisplay, EGLImage);
+
+EGLint eglDebugMessageControlKHR(EGLDEBUGPROCKHR callback, const EGLAttrib * attrib_list);
 
 } // namespace translator
 } // namespace egl
@@ -1836,6 +1838,10 @@ EGLImage eglImportImageANDROID(EGLDisplay display, EGLImage nativeImage) {
 	img->isImported = true;
 	img->nativeImage = nativeImage;
     return dpy->addImageKHR(img);
+}
+
+EGLint eglDebugMessageControlKHR(EGLDEBUGPROCKHR callback, const EGLAttrib* attribs) {
+    return EglGlobalInfo::getInstance()->getOsEngine()->eglDebugMessageControlKHR(callback, attribs);
 }
 
 static const GLint kAuxiliaryContextAttribsCompat[] = {

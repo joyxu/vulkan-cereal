@@ -3,7 +3,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/matrix_transform_2d.hpp>
 
-#include "ErrorLog.h"
+#include "host-common/logging.h"
 
 namespace {
 
