@@ -2,7 +2,7 @@
 
 #include <cstdio>
 
-#define ENABLE_GL_LOG 1
+//#define ENABLE_GL_LOG 1
 #if defined(ENABLE_GL_LOG)
 #define GL_LOG(fmt, args ...) fprintf(stderr, "%s:%d:%s: " fmt "\n", __FILE__, __LINE__, __func__, ## args)
 #else
