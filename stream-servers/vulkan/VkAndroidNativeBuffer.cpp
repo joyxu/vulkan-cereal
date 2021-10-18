@@ -125,6 +125,7 @@ VkResult prepareAndroidNativeBufferImage(
     if (colorBufferVulkanCompatible && externalMemoryCompatible &&
         setupVkColorBuffer(out->colorBufferHandle, false /* not Vulkan only */,
                            0u /* memoryProperty */, &out->useVulkanNativeImage)) {
+        releaseColorBufferFromHostComposingSync({out->colorBufferHandle});
         out->externallyBacked = true;
     }
 
@@ -519,25 +520,27 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
 
             vk->vkBeginCommandBuffer(queueState.cb2, &beginInfo);
 
-            VkImageMemoryBarrier backToPresentSrc = {
-                VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, 0,
-                VK_ACCESS_HOST_READ_BIT, 0,
-                fb->getVkImageLayoutForCompose(),
-                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                VK_QUEUE_FAMILY_EXTERNAL,
-                anbInfo->lastUsedQueueFamilyIndex,
-                anbInfo->image,
-                {
-                    VK_IMAGE_ASPECT_COLOR_BIT,
-                    0, 1, 0, 1,
-                },
+            VkImageMemoryBarrier queueTransferBarrier = {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+                .oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL,
+                .dstQueueFamilyIndex = anbInfo->lastUsedQueueFamilyIndex,
+                .image = anbInfo->image,
+                .subresourceRange =
+                    {
+                        VK_IMAGE_ASPECT_COLOR_BIT,
+                        0,
+                        1,
+                        0,
+                        1,
+                    },
             };
-
-            vk->vkCmdPipelineBarrier(queueState.cb2,
-                    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0,
-                    nullptr, 0, nullptr, 1, &backToPresentSrc);
-
+            vk->vkCmdPipelineBarrier(queueState.cb2, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                     VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr,
+                                     1, &queueTransferBarrier);
             vk->vkEndCommandBuffer(queueState.cb2);
 
             VkSubmitInfo submitInfo = {
@@ -622,28 +625,27 @@ VkResult syncImageToColorBuffer(
     // If using the Vulkan image directly (rather than copying it back to
     // the CPU), change its layout for that use.
     if (anbInfo->useVulkanNativeImage) {
-        VkImageMemoryBarrier present2GeneralBarrier = {
-            VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, 0,
-            VK_ACCESS_HOST_READ_BIT, 0,
-            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            fb->getVkImageLayoutForCompose(),
-            queueFamilyIndex,
-            VK_QUEUE_FAMILY_EXTERNAL,
-            anbInfo->image,
-            {
-                VK_IMAGE_ASPECT_COLOR_BIT,
-                0, 1, 0, 1,
-            },
+        VkImageMemoryBarrier queueTransferBarrier = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            .srcQueueFamilyIndex = queueFamilyIndex,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL,
+            .image = anbInfo->image,
+            .subresourceRange =
+                {
+                    VK_IMAGE_ASPECT_COLOR_BIT,
+                    0,
+                    1,
+                    0,
+                    1,
+                },
         };
-
-        vk->vkCmdPipelineBarrier(
-            queueState.cb,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-            0,
-            0, nullptr,
-            0, nullptr,
-            1, &present2GeneralBarrier);
+        vk->vkCmdPipelineBarrier(queueState.cb, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                                 &queueTransferBarrier);
 
     } else {
         // Not a GL texture. Read it back and put it back in present layout.

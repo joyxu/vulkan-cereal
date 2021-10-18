@@ -324,23 +324,26 @@ std::shared_future<void> PostWorker::composev2Impl(const ComposeDevice_v2* p) {
         cbs.emplace_back(targetColorBufferPtr);
         std::vector<std::shared_ptr<DisplayVk::DisplayBufferInfo>>
             composeBuffers;
+        std::vector<uint32_t> colorBufferHandles;
         for (int i = 0; i < p->numLayers; ++i) {
             auto colorBufferPtr = mFb->findColorBuffer(l[i].cbHandle);
             if (!colorBufferPtr) {
                 composeBuffers.push_back(nullptr);
                 continue;
             }
-            cbs.push_back(colorBufferPtr);
             auto db = colorBufferPtr->getDisplayBufferVk();
-            if (!db) {
-                goldfish_vk::setupVkColorBuffer(l[i].cbHandle);
-                db = colorBufferPtr->getDisplayBufferVk();
-            }
             composeBuffers.push_back(db);
+            if (!db) {
+                continue;
+            }
+            cbs.push_back(colorBufferPtr);
+            colorBufferHandles.emplace_back(l[i].cbHandle);
         }
 
+        goldfish_vk::acquireColorBuffersForHostComposing(colorBufferHandles);
         auto [success, waitForGpu] = m_displayVk->compose(
-            p->numLayers, l, std::move(composeBuffers), targetColorBufferPtr->getDisplayBufferVk());
+            p->numLayers, l, composeBuffers, targetColorBufferPtr->getDisplayBufferVk());
+        goldfish_vk::releaseColorBufferFromHostComposing(colorBufferHandles);
         if (!success) {
             m_needsToRebindWindow = true;
             waitForGpu = completedFuture;
