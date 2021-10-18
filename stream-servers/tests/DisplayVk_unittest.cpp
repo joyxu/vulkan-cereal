@@ -209,7 +209,7 @@ TEST_F(DisplayVkTest, PostWithoutSurfaceShouldntCrash) {
     ASSERT_TRUE(texture->write(pixels));
     auto cbvk = displayVk.createDisplayBuffer(texture->m_vkImage, RenderTexture::k_vkFormat,
                                               textureWidth, textureHeight);
-    displayVk.post(cbvk);
+    ASSERT_TRUE(std::get<0>(displayVk.post(cbvk)));
 }
 
 TEST_F(DisplayVkTest, SimplePost) {
@@ -256,7 +256,7 @@ TEST_F(DisplayVkTest, PostTwoColorBuffers) {
         m_displayVk->createDisplayBuffer(greenTexture->m_vkImage, greenTexture->k_vkFormat,
                                          greenTexture->m_width, greenTexture->m_height);
     for (uint32_t i = 0; i < 10; i++) {
-        m_displayVk->post(redCbvk);
-        m_displayVk->post(greenCbvk);
+        ASSERT_TRUE(std::get<0>(m_displayVk->post(redCbvk)));
+        ASSERT_TRUE(std::get<0>(m_displayVk->post(greenCbvk)));
     }
 }
