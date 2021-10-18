@@ -217,7 +217,9 @@ TEST_F(CompositorVkTest, ValidatePhysicalDeviceFeatures) {
     ASSERT_FALSE(CompositorVk::validatePhysicalDeviceFeatures(features));
     VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndexingFeatures = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT,
-        .pNext = &descIndexingFeatures};
+        .pNext = nullptr};
+    descIndexingFeatures.descriptorBindingSampledImageUpdateAfterBind = VK_FALSE;
+    features.pNext = &descIndexingFeatures;
     ASSERT_FALSE(CompositorVk::validatePhysicalDeviceFeatures(features));
     descIndexingFeatures.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
     ASSERT_TRUE(CompositorVk::validatePhysicalDeviceFeatures(features));
@@ -235,8 +237,8 @@ TEST_F(CompositorVkTest, EnablePhysicalDeviceFeatures) {
     VkPhysicalDeviceFeatures2 features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
     ASSERT_FALSE(CompositorVk::enablePhysicalDeviceFeatures(features));
     VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndexingFeatures = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT,
-        .pNext = &descIndexingFeatures};
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT};
+    features.pNext = &descIndexingFeatures;
     ASSERT_TRUE(CompositorVk::enablePhysicalDeviceFeatures(features));
     ASSERT_EQ(descIndexingFeatures.descriptorBindingSampledImageUpdateAfterBind, VK_TRUE);
 }
