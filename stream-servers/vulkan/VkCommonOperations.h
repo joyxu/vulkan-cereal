@@ -413,10 +413,13 @@ transformExternalMemoryProperties_fromhost(
     VkExternalMemoryProperties props,
     VkExternalMemoryHandleTypeFlags wantedGuestHandleType);
 
-void acquireColorBuffersForHostComposing(const std::vector<uint32_t>& colorBufferHandles);
+void acquireColorBuffersForHostComposing(const std::vector<uint32_t>& layerColorBuffers,
+                                         uint32_t renderTargetColorBuffer);
 
 void releaseColorBufferFromHostComposing(const std::vector<uint32_t>& colorBufferHandles);
 
 void releaseColorBufferFromHostComposingSync(const std::vector<uint32_t>& colorBufferHandles);
+
+void setColorBufferCurrentLayout(uint32_t colorBufferHandle, VkImageLayout);
 
 } // namespace goldfish_vk

@@ -590,7 +590,7 @@ class FrameBuffer {
 
     void setGuestManagedColorBufferLifetime(bool guestManaged);
 
-    VkImageLayout getVkImageLayoutForCompose() const;
+    VkImageLayout getVkImageLayoutForComposeLayer() const;
 
    private:
     FrameBuffer(int p_width, int p_height, bool useSubWindow);

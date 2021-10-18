@@ -3454,9 +3454,8 @@ void FrameBuffer::setGuestManagedColorBufferLifetime(bool guestManaged) {
     m_guestManagedColorBufferLifetime = guestManaged;
 }
 
-VkImageLayout FrameBuffer::getVkImageLayoutForCompose() const {
-    // TODO(segal): This is backwards. Correct it.
-    if (m_displayVk == nullptr) {
+VkImageLayout FrameBuffer::getVkImageLayoutForComposeLayer() const {
+    if (m_displayVk) {
         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
     return VK_IMAGE_LAYOUT_GENERAL;

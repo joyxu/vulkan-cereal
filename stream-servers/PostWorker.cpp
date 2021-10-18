@@ -87,8 +87,11 @@ void PostWorker::postImpl(ColorBuffer* cb) {
             m_justVkComposed = false;
             return;
         }
-        auto [success, waitForGpu] =
-            m_displayVk->post(cb->getDisplayBufferVk());
+        goldfish_vk::acquireColorBuffersForHostComposing({}, cb->getHndl());
+        auto [success, waitForGpu] = m_displayVk->post(cb->getDisplayBufferVk());
+        goldfish_vk::setColorBufferCurrentLayout(cb->getHndl(),
+                                                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        goldfish_vk::releaseColorBufferFromHostComposing({cb->getHndl()});
         if (success) {
             waitForGpu.wait();
         } else {
@@ -324,7 +327,7 @@ std::shared_future<void> PostWorker::composev2Impl(const ComposeDevice_v2* p) {
         cbs.emplace_back(targetColorBufferPtr);
         std::vector<std::shared_ptr<DisplayVk::DisplayBufferInfo>>
             composeBuffers;
-        std::vector<uint32_t> colorBufferHandles;
+        std::vector<uint32_t> layerColorBufferHandles;
         for (int i = 0; i < p->numLayers; ++i) {
             auto colorBufferPtr = mFb->findColorBuffer(l[i].cbHandle);
             if (!colorBufferPtr) {
@@ -337,12 +340,16 @@ std::shared_future<void> PostWorker::composev2Impl(const ComposeDevice_v2* p) {
                 continue;
             }
             cbs.push_back(colorBufferPtr);
-            colorBufferHandles.emplace_back(l[i].cbHandle);
+            layerColorBufferHandles.emplace_back(l[i].cbHandle);
         }
-
-        goldfish_vk::acquireColorBuffersForHostComposing(colorBufferHandles);
+        goldfish_vk::acquireColorBuffersForHostComposing(layerColorBufferHandles, p->targetHandle);
         auto [success, waitForGpu] = m_displayVk->compose(
             p->numLayers, l, composeBuffers, targetColorBufferPtr->getDisplayBufferVk());
+        goldfish_vk::setColorBufferCurrentLayout(p->targetHandle,
+                                                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        std::vector<uint32_t> colorBufferHandles(layerColorBufferHandles.begin(),
+                                                 layerColorBufferHandles.end());
+        colorBufferHandles.emplace_back(p->targetHandle);
         goldfish_vk::releaseColorBufferFromHostComposing(colorBufferHandles);
         if (!success) {
             m_needsToRebindWindow = true;
