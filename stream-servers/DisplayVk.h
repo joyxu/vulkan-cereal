@@ -24,8 +24,8 @@ class DisplayVk {
         ~DisplayBufferInfo();
 
        private:
-        DisplayBufferInfo(const goldfish_vk::VulkanDispatch &, VkDevice,
-                          uint32_t width, uint32_t height, VkFormat, VkImage);
+        DisplayBufferInfo(const goldfish_vk::VulkanDispatch &, VkDevice, uint32_t width,
+                          uint32_t height, VkFormat, VkImage);
 
         const goldfish_vk::VulkanDispatch &m_vk;
         VkDevice m_vkDevice;
@@ -38,12 +38,9 @@ class DisplayVk {
         friend class DisplayVk;
     };
     DisplayVk(const goldfish_vk::VulkanDispatch &, VkPhysicalDevice,
-              uint32_t swapChainQueueFamilyIndex,
-              uint32_t compositorQueueFamilyIndex, VkDevice,
-              VkQueue compositorVkQueue,
-              std::shared_ptr<android::base::Lock> compositorVkQueueLock,
-              VkQueue swapChainVkQueue,
-              std::shared_ptr<android::base::Lock> swapChainVkQueueLock);
+              uint32_t swapChainQueueFamilyIndex, uint32_t compositorQueueFamilyIndex, VkDevice,
+              VkQueue compositorVkQueue, std::shared_ptr<android::base::Lock> compositorVkQueueLock,
+              VkQueue swapChainVkQueue, std::shared_ptr<android::base::Lock> swapChainVkQueueLock);
     ~DisplayVk();
     void bindToSurface(VkSurfaceKHR, uint32_t width, uint32_t height);
     // The caller is responsible to make sure the VkImage lives longer than the
@@ -51,15 +48,13 @@ class DisplayVk {
     // lives in a shared_ptr, the potential lifetime of DisplayBufferInfo is
     // aligned to DisplayVk when DisplayVk::m_surfaceState::m_prevDisplayBuffer
     // is locked and upgraded to a shared_ptr in DisplayVk::post.
-    std::shared_ptr<DisplayBufferInfo> createDisplayBuffer(VkImage, VkFormat,
-                                                           uint32_t width,
+    std::shared_ptr<DisplayBufferInfo> createDisplayBuffer(VkImage, VkFormat, uint32_t width,
                                                            uint32_t height);
     // The first component of the returned tuple is false when the swapchain is
     // no longer valid and bindToSurface() needs to be called again. When the
     // first component is true, the second component of the returned tuple is a
     // future that will complete when the GPU side of work completes.
-    std::tuple<bool, std::shared_future<void>> post(
-        const std::shared_ptr<DisplayBufferInfo> &);
+    std::tuple<bool, std::shared_future<void>> post(const std::shared_ptr<DisplayBufferInfo> &);
 
     // dstWidth and dstHeight describe the size of the render target the guest
     // "thinks" it composes to, essentially, the virtual display size. Note that
@@ -70,8 +65,8 @@ class DisplayVk {
     // complete when the GPU side of work completes.
     std::tuple<bool, std::shared_future<void>> compose(
         uint32_t numLayers, const ComposeLayer layers[],
-        const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers,
-        uint32_t dstWidth, uint32_t dstHeight);
+        const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers, uint32_t dstWidth,
+        uint32_t dstHeight);
 
    private:
     bool canComposite(VkFormat);
@@ -80,8 +75,7 @@ class DisplayVk {
     // previous composition stored in m_surfaceState. Must be called after
     // bindToSurface() is called.
     bool compareAndSaveComposition(
-        uint32_t renderTargetIndex, uint32_t numLayers,
-        const ComposeLayer layers[],
+        uint32_t renderTargetIndex, uint32_t numLayers, const ComposeLayer layers[],
         const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers);
 
     const goldfish_vk::VulkanDispatch &m_vk;
@@ -110,8 +104,7 @@ class DisplayVk {
 
         uint32_t m_width = 0;
         uint32_t m_height = 0;
-        std::unordered_map<uint32_t, std::vector<std::unique_ptr<Layer>>>
-            m_prevCompositions;
+        std::unordered_map<uint32_t, std::vector<std::unique_ptr<Layer>>> m_prevCompositions;
     };
     std::unique_ptr<SurfaceState> m_surfaceState;
     std::unordered_map<VkFormat, bool> m_canComposite;
