@@ -83,8 +83,9 @@ void PostWorker::postImpl(ColorBuffer* cb) {
     }
 
     if (m_displayVk) {
-        if (m_justVkComposed) {
-            m_justVkComposed = false;
+        bool shouldSkip = m_lastVkComposeColorBuffer == cb->getHndl();
+        m_lastVkComposeColorBuffer = std::nullopt;
+        if (shouldSkip) {
             return;
         }
         goldfish_vk::acquireColorBuffersForHostComposing({}, cb->getHndl());
@@ -355,7 +356,7 @@ std::shared_future<void> PostWorker::composev2Impl(const ComposeDevice_v2* p) {
             m_needsToRebindWindow = true;
             waitForGpu = completedFuture;
         }
-        m_justVkComposed = true;
+        m_lastVkComposeColorBuffer = p->targetHandle;
         return waitForGpu;
     }
 
