@@ -50,6 +50,16 @@ class CompositorVkTest : public ::testing::Test {
             .queueFamilyIndex = m_compositorQueueFamilyIndex};
         ASSERT_EQ(k_vk->vkCreateCommandPool(m_vkDevice, &commandPoolCi, nullptr, &m_vkCommandPool),
                   VK_SUCCESS);
+
+        VkCommandBufferAllocateInfo cmdBuffAllocInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandPool = m_vkCommandPool,
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = k_numOfRenderTargets};
+        m_vkCommandBuffers.resize(k_numOfRenderTargets);
+        VK_CHECK(k_vk->vkAllocateCommandBuffers(m_vkDevice, &cmdBuffAllocInfo,
+                                                m_vkCommandBuffers.data()));
+
         k_vk->vkGetDeviceQueue(m_vkDevice, m_compositorQueueFamilyIndex, 0, &m_compositorVkQueue);
         ASSERT_TRUE(m_compositorVkQueue != VK_NULL_HANDLE);
 
@@ -73,6 +83,9 @@ class CompositorVkTest : public ::testing::Test {
     }
 
     void TearDown() override {
+        k_vk->vkFreeCommandBuffers(m_vkDevice, m_vkCommandPool, m_vkCommandBuffers.size(),
+                                   m_vkCommandBuffers.data());
+        m_vkCommandBuffers.clear();
         m_renderTargets.clear();
         k_vk->vkDestroyCommandPool(m_vkDevice, m_vkCommandPool, nullptr);
         k_vk->vkDestroyDevice(m_vkDevice, nullptr);
@@ -120,6 +133,7 @@ class CompositorVkTest : public ::testing::Test {
     VkCommandPool m_vkCommandPool = VK_NULL_HANDLE;
     VkQueue m_compositorVkQueue = VK_NULL_HANDLE;
     std::shared_ptr<android::base::Lock> m_compositorVkQueueLock;
+    std::vector<VkCommandBuffer> m_vkCommandBuffers;
 
    private:
     void createInstance() {
@@ -268,8 +282,15 @@ TEST_F(CompositorVkTest, EmptyCompositionShouldDrawABlackFrame) {
     // render to render targets with event index
     std::vector<VkCommandBuffer> cmdBuffs = {};
     for (uint32_t i = 0; i < k_numOfRenderTargets; i++) {
+        VkCommandBufferBeginInfo beginInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        };
+        VK_CHECK(k_vk->vkBeginCommandBuffer(m_vkCommandBuffers[i], &beginInfo));
+        compositor->recordCommandBuffers(i, m_vkCommandBuffers[i]);
+        VK_CHECK(k_vk->vkEndCommandBuffer(m_vkCommandBuffers[i]));
         if (i % 2 == 0) {
-            cmdBuffs.emplace_back(compositor->getCommandBuffer(i));
+            cmdBuffs.emplace_back(m_vkCommandBuffers[i]);
         }
     }
     VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -350,7 +371,16 @@ TEST_F(CompositorVkTest, SimpleComposition) {
 
     auto composition = std::make_unique<Composition>(std::move(layers));
     compositor->setComposition(0, std::move(composition));
-    VkCommandBuffer cmdBuff = compositor->getCommandBuffer(0);
+
+    VkCommandBuffer cmdBuff = m_vkCommandBuffers[0];
+    VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+    VK_CHECK(k_vk->vkBeginCommandBuffer(cmdBuff, &beginInfo));
+    compositor->recordCommandBuffers(0, cmdBuff);
+    VK_CHECK(k_vk->vkEndCommandBuffer(cmdBuff));
+
     VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
                                .commandBufferCount = 1,
                                .pCommandBuffers = &cmdBuff};
@@ -444,7 +474,16 @@ TEST_F(CompositorVkTest, CompositingWithDifferentCompositionOnMultipleTargets) {
 
         auto composition = std::make_unique<Composition>(std::move(layers));
         compositor->setComposition(i, std::move(composition));
-        VkCommandBuffer cmdBuff = compositor->getCommandBuffer(i);
+
+        VkCommandBuffer cmdBuff = m_vkCommandBuffers[i];
+        VkCommandBufferBeginInfo beginInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        };
+        VK_CHECK(k_vk->vkBeginCommandBuffer(cmdBuff, &beginInfo));
+        compositor->recordCommandBuffers(i, cmdBuff);
+        VK_CHECK(k_vk->vkEndCommandBuffer(cmdBuff));
+
         VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
                                    .commandBufferCount = 1,
                                    .pCommandBuffers = &cmdBuff};
