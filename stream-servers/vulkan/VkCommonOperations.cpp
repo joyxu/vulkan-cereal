@@ -1931,7 +1931,7 @@ bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
     VkImageMemoryBarrier presentToTransferSrc = {
         VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, 0,
         0,
-        VK_ACCESS_HOST_READ_BIT,
+        VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
         infoPtr->currentLayout,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         VK_QUEUE_FAMILY_IGNORED,
