@@ -49,8 +49,15 @@ add_library(
     ${gfxstream-base-common-sources}
     ${gfxstream-platform-sources})
 
+if (WIN32)
+    set(gfxstream-base-platform-deps "")
+else()
+    set(gfxstream-base-platform-deps dl)
+endif()
+
 target_link_libraries(
-    gfxstream-base PRIVATE lz4 perfetto-tracing-only dl)
+    gfxstream-base
+    PRIVATE lz4 perfetto-tracing-only ${gfxstream-base-platform-deps})
 target_include_directories(
     gfxstream-base PUBLIC ${GFXSTREAM_REPO_ROOT})
 if (NOT MSVC)
