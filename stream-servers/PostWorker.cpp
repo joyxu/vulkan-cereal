@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "ColorBuffer.h"
+#include "Debug.h"
 #include "DispatchTables.h"
 #include "FrameBuffer.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
@@ -247,23 +248,26 @@ void PostWorker::composeImpl(const ComposeDevice* p) {
             return;
         }
     }
-    ComposeLayer* l = (ComposeLayer*)p->layer;
+
     GLint vport[4] = { 0, };
-    s_gles2.glGetIntegerv(GL_VIEWPORT, vport);
-    s_gles2.glViewport(0, 0, mFb->getWidth(),mFb->getHeight());
-    if (!m_composeFbo) {
-        s_gles2.glGenFramebuffers(1, &m_composeFbo);
-    }
-    s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, m_composeFbo);
 
     auto cbPtr = mFb->findColorBuffer(p->targetHandle);
-
     if (!cbPtr) {
         s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, 0);
         s_gles2.glViewport(vport[0], vport[1], vport[2], vport[3]);
         return;
     }
 
+    GL_SCOPED_DEBUG_GROUP("PostWorker::composeImpl(into ColorBuffer{hndl:%d tex:%d})", cbPtr->getHndl(), cbPtr->getTexture());
+
+    ComposeLayer* l = (ComposeLayer*)p->layer;
+
+    s_gles2.glGetIntegerv(GL_VIEWPORT, vport);
+    s_gles2.glViewport(0, 0, mFb->getWidth(),mFb->getHeight());
+    if (!m_composeFbo) {
+        s_gles2.glGenFramebuffers(1, &m_composeFbo);
+    }
+    s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, m_composeFbo);
     s_gles2.glFramebufferTexture2D(GL_FRAMEBUFFER,
                                    GL_COLOR_ATTACHMENT0_OES,
                                    GL_TEXTURE_2D,
@@ -432,6 +436,8 @@ void PostWorker::glesComposeLayer(ComposeLayer* l, uint32_t w, uint32_t h) {
             // ERR("%s: fail to find colorbuffer %d\n", __FUNCTION__, l->cbHandle);
             return;
         }
+
+        GL_SCOPED_DEBUG_GROUP("PostWorker::glesComposeLayer(layer ColorBuffer{hndl:%d tex:%d})", cb->getHndl(), cb->getTexture());
         cb->postLayer(l, w, h);
     }
     else {

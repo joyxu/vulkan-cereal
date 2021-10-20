@@ -577,7 +577,7 @@ class CodeGen(object):
     def generalLengthAccessGuard(self, vulkanType, parentVarName="parent"):
         return self.makeLengthAccess(vulkanType, parentVarName)[1]
 
-    def vkApiCall(self, api, customPrefix="", customParameters=None, retVarDecl=True):
+    def vkApiCall(self, api, customPrefix="", customParameters=None, retVarDecl=True, retVarAssign=True):
         callLhs = None
 
         retTypeName = api.getRetTypeExpr()
@@ -587,7 +587,8 @@ class CodeGen(object):
             retVar = api.getRetVarExpr()
             if retVarDecl:
                 self.stmt("%s %s = (%s)0" % (retTypeName, retVar, retTypeName))
-            callLhs = retVar
+            if retVarAssign:
+                callLhs = retVar
 
         if customParameters is None:
             self.funcCall(

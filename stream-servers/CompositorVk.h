@@ -24,8 +24,8 @@ class ComposeLayerVk {
     } m_layerTransform;
 
     static std::unique_ptr<ComposeLayerVk> createFromHwc2ComposeLayer(
-        VkSampler, VkImageView, const ComposeLayer &, uint32_t cbWidth,
-        uint32_t cbHeight, uint32_t dstWidth, uint32_t dstHeight);
+        VkSampler, VkImageView, const ComposeLayer &, uint32_t cbWidth, uint32_t cbHeight,
+        uint32_t dstWidth, uint32_t dstHeight);
 
    private:
     ComposeLayerVk() = delete;
@@ -39,16 +39,14 @@ class Composition {
     std::vector<std::unique_ptr<ComposeLayerVk>> m_composeLayers;
 
     Composition() = delete;
-    explicit Composition(
-        std::vector<std::unique_ptr<ComposeLayerVk>> composeLayers);
+    explicit Composition(std::vector<std::unique_ptr<ComposeLayerVk>> composeLayers);
 };
 
 struct CompositorVkBase
     : public vk_util::RunSingleTimeCommand<
           CompositorVkBase,
-          vk_util::FindMemoryType<
-              CompositorVkBase,
-              vk_util::RecordImageLayoutTransformCommands<CompositorVkBase>>> {
+          vk_util::FindMemoryType<CompositorVkBase,
+                                  vk_util::RecordImageLayoutTransformCommands<CompositorVkBase>>> {
     const goldfish_vk::VulkanDispatch &m_vk;
     const VkDevice m_vkDevice;
     const VkPhysicalDevice m_vkPhysicalDevice;
@@ -69,9 +67,8 @@ struct CompositorVkBase
 
     VkCommandPool m_vkCommandPool;
 
-    explicit CompositorVkBase(const goldfish_vk::VulkanDispatch &vk,
-                              VkDevice device, VkPhysicalDevice physicalDevice,
-                              VkQueue queue,
+    explicit CompositorVkBase(const goldfish_vk::VulkanDispatch &vk, VkDevice device,
+                              VkPhysicalDevice physicalDevice, VkQueue queue,
                               std::shared_ptr<android::base::Lock> queueLock,
                               VkCommandPool commandPool)
         : m_vk(vk),
@@ -97,17 +94,13 @@ struct CompositorVkBase
 class CompositorVk : protected CompositorVkBase {
    public:
     static std::unique_ptr<CompositorVk> create(
-        const goldfish_vk::VulkanDispatch &vk, VkDevice, VkPhysicalDevice,
-        VkQueue, std::shared_ptr<android::base::Lock> queueLock, VkFormat,
-        VkImageLayout initialLayout, VkImageLayout finalLayout, uint32_t width,
-        uint32_t height, const std::vector<VkImageView> &renderTargets,
-        VkCommandPool);
-    static bool validatePhysicalDeviceFeatures(
-        const VkPhysicalDeviceFeatures2 &features);
-    static bool validateQueueFamilyProperties(
-        const VkQueueFamilyProperties &properties);
-    static bool enablePhysicalDeviceFeatures(
-        VkPhysicalDeviceFeatures2 &features);
+        const goldfish_vk::VulkanDispatch &vk, VkDevice, VkPhysicalDevice, VkQueue,
+        std::shared_ptr<android::base::Lock> queueLock, VkFormat, VkImageLayout initialLayout,
+        VkImageLayout finalLayout, uint32_t width, uint32_t height,
+        const std::vector<VkImageView> &renderTargets, VkCommandPool);
+    static bool validatePhysicalDeviceFeatures(const VkPhysicalDeviceFeatures2 &features);
+    static bool validateQueueFamilyProperties(const VkQueueFamilyProperties &properties);
+    static bool enablePhysicalDeviceFeatures(VkPhysicalDeviceFeatures2 &features);
     static std::vector<const char *> getRequiredDeviceExtensions();
 
     ~CompositorVk();
@@ -115,26 +108,22 @@ class CompositorVk : protected CompositorVkBase {
     void setComposition(uint32_t i, std::unique_ptr<Composition> &&composition);
 
    private:
-    explicit CompositorVk(const goldfish_vk::VulkanDispatch &, VkDevice,
-                          VkPhysicalDevice, VkQueue,
-                          std::shared_ptr<android::base::Lock> queueLock,
-                          VkCommandPool);
-    void setUpGraphicsPipeline(uint32_t width, uint32_t height,
-                               VkFormat renderTargetFormat,
-                               VkImageLayout initialLayout,
-                               VkImageLayout finalLayout);
+    explicit CompositorVk(const goldfish_vk::VulkanDispatch &, VkDevice, VkPhysicalDevice, VkQueue,
+                          std::shared_ptr<android::base::Lock> queueLock, VkCommandPool);
+    void setUpGraphicsPipeline(uint32_t width, uint32_t height, VkFormat renderTargetFormat,
+                               VkImageLayout initialLayout, VkImageLayout finalLayout);
     void setUpVertexBuffers();
-    void setUpFramebuffers(const std::vector<VkImageView> &, uint32_t width,
-                           uint32_t height);
+    void setUpFramebuffers(const std::vector<VkImageView> &, uint32_t width, uint32_t height);
     void setUpDescriptorSets();
     void setUpCommandBuffers(uint32_t width, uint32_t height);
     void setUpEmptyComposition(VkFormat);
     void setUpUniformBuffers();
 
-    std::optional<std::tuple<VkBuffer, VkDeviceMemory>> createBuffer(
-        VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags) const;
-    std::tuple<VkBuffer, VkDeviceMemory> createStagingBufferWithData(
-        const void *data, VkDeviceSize size) const;
+    std::optional<std::tuple<VkBuffer, VkDeviceMemory>> createBuffer(VkDeviceSize,
+                                                                     VkBufferUsageFlags,
+                                                                     VkMemoryPropertyFlags) const;
+    std::tuple<VkBuffer, VkDeviceMemory> createStagingBufferWithData(const void *data,
+                                                                     VkDeviceSize size) const;
     void copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize) const;
 
     struct UniformBufferObject {
@@ -147,8 +136,7 @@ class CompositorVk : protected CompositorVkBase {
         alignas(8) glm::vec2 texPos;
 
         static VkVertexInputBindingDescription getBindingDescription();
-        static std::array<VkVertexInputAttributeDescription, 2>
-        getAttributeDescription();
+        static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescription();
     };
 
     static const std::vector<Vertex> k_vertices;

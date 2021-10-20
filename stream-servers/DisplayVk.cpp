@@ -3,7 +3,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/matrix_transform_2d.hpp>
 
-#include "ErrorLog.h"
+#include "host-common/logging.h"
 
 namespace {
 
@@ -13,11 +13,9 @@ bool shouldRecreateSwapchain(VkResult result) {
 
 }  // namespace
 
-DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk,
-                     VkPhysicalDevice vkPhysicalDevice,
-                     uint32_t swapChainQueueFamilyIndex,
-                     uint32_t compositorQueueFamilyIndex, VkDevice vkDevice,
-                     VkQueue compositorVkQueue,
+DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk, VkPhysicalDevice vkPhysicalDevice,
+                     uint32_t swapChainQueueFamilyIndex, uint32_t compositorQueueFamilyIndex,
+                     VkDevice vkDevice, VkQueue compositorVkQueue,
                      std::shared_ptr<android::base::Lock> compositorVkQueueLock,
                      VkQueue swapChainVkqueue,
                      std::shared_ptr<android::base::Lock> swapChainVkQueueLock)
@@ -41,38 +39,31 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk,
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .queueFamilyIndex = m_compositorQueueFamilyIndex,
     };
-    VK_CHECK(m_vk.vkCreateCommandPool(m_vkDevice, &commandPoolCi, nullptr,
-                                      &m_vkCommandPool));
+    VK_CHECK(m_vk.vkCreateCommandPool(m_vkDevice, &commandPoolCi, nullptr, &m_vkCommandPool));
     VkFenceCreateInfo fenceCi = {.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
                                  .flags = VK_FENCE_CREATE_SIGNALED_BIT};
-    VK_CHECK(m_vk.vkCreateFence(m_vkDevice, &fenceCi, nullptr,
-                                &m_frameDrawCompleteFence));
-    VkSemaphoreCreateInfo semaphoreCi = {
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-    VK_CHECK(m_vk.vkCreateSemaphore(m_vkDevice, &semaphoreCi, nullptr,
-                                    &m_imageReadySem));
-    VK_CHECK(m_vk.vkCreateSemaphore(m_vkDevice, &semaphoreCi, nullptr,
-                                    &m_frameDrawCompleteSem));
+    VK_CHECK(m_vk.vkCreateFence(m_vkDevice, &fenceCi, nullptr, &m_frameDrawCompleteFence));
+    VkSemaphoreCreateInfo semaphoreCi = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+    VK_CHECK(m_vk.vkCreateSemaphore(m_vkDevice, &semaphoreCi, nullptr, &m_imageReadySem));
+    VK_CHECK(m_vk.vkCreateSemaphore(m_vkDevice, &semaphoreCi, nullptr, &m_frameDrawCompleteSem));
 
-    VkSamplerCreateInfo samplerCi = {
-        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-        .magFilter = VK_FILTER_LINEAR,
-        .minFilter = VK_FILTER_LINEAR,
-        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-        .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-        .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-        .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-        .mipLodBias = 0.0f,
-        .anisotropyEnable = VK_FALSE,
-        .maxAnisotropy = 1.0f,
-        .compareEnable = VK_FALSE,
-        .compareOp = VK_COMPARE_OP_ALWAYS,
-        .minLod = 0.0f,
-        .maxLod = 0.0f,
-        .borderColor = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK,
-        .unnormalizedCoordinates = VK_FALSE};
-    VK_CHECK(m_vk.vkCreateSampler(m_vkDevice, &samplerCi, nullptr,
-                                  &m_compositionVkSampler));
+    VkSamplerCreateInfo samplerCi = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+                                     .magFilter = VK_FILTER_LINEAR,
+                                     .minFilter = VK_FILTER_LINEAR,
+                                     .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+                                     .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                                     .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                                     .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                                     .mipLodBias = 0.0f,
+                                     .anisotropyEnable = VK_FALSE,
+                                     .maxAnisotropy = 1.0f,
+                                     .compareEnable = VK_FALSE,
+                                     .compareOp = VK_COMPARE_OP_ALWAYS,
+                                     .minLod = 0.0f,
+                                     .maxLod = 0.0f,
+                                     .borderColor = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK,
+                                     .unnormalizedCoordinates = VK_FALSE};
+    VK_CHECK(m_vk.vkCreateSampler(m_vkDevice, &samplerCi, nullptr, &m_compositionVkSampler));
 }
 
 DisplayVk::~DisplayVk() {
@@ -93,13 +84,12 @@ DisplayVk::~DisplayVk() {
     m_vk.vkDestroyCommandPool(m_vkDevice, m_vkCommandPool, nullptr);
 }
 
-void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width,
-                              uint32_t height) {
+void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t height) {
     m_compositorVk.reset();
     m_swapChainStateVk.reset();
 
-    if (!SwapChainStateVk::validateQueueFamilyProperties(
-            m_vk, m_vkPhysicalDevice, surface, m_swapChainQueueFamilyIndex)) {
+    if (!SwapChainStateVk::validateQueueFamilyProperties(m_vk, m_vkPhysicalDevice, surface,
+                                                         m_swapChainQueueFamilyIndex)) {
         ERR("%s(%s:%d): DisplayVk can't create VkSwapchainKHR with given "
             "VkDevice and VkSurfaceKHR.\n",
             __FUNCTION__, __FILE__, static_cast<int>(__LINE__));
@@ -109,31 +99,30 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width,
         m_vk, surface, m_vkPhysicalDevice, width, height,
         {m_swapChainQueueFamilyIndex, m_compositorQueueFamilyIndex});
     VkFormatProperties formatProps;
-    m_vk.vkGetPhysicalDeviceFormatProperties(
-        m_vkPhysicalDevice, swapChainCi->imageFormat, &formatProps);
-    if (!(formatProps.optimalTilingFeatures &
-          VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT)) {
+    m_vk.vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, swapChainCi->imageFormat,
+                                             &formatProps);
+    if (!(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT)) {
         ERR("%s(%s:%d): DisplayVk: The image format chosen for present VkImage "
             "can't be used as the color attachment, and therefore can't be "
             "used as the render target of CompositorVk.\n",
             __FUNCTION__, __FILE__, static_cast<int>(__LINE__));
         ::abort();
     }
-    m_swapChainStateVk =
-        std::make_unique<SwapChainStateVk>(m_vk, m_vkDevice, *swapChainCi);
+    m_swapChainStateVk = std::make_unique<SwapChainStateVk>(m_vk, m_vkDevice, *swapChainCi);
     m_compositorVk = CompositorVk::create(
-        m_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
-        m_compositorVkQueueLock, m_swapChainStateVk->getFormat(),
-        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, width,
-        height, m_swapChainStateVk->getVkImageViews(), m_vkCommandPool);
+        m_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue, m_compositorVkQueueLock,
+        m_swapChainStateVk->getFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        width, height, m_swapChainStateVk->getVkImageViews(), m_vkCommandPool);
     auto surfaceState = std::make_unique<SurfaceState>();
     surfaceState->m_height = height;
     surfaceState->m_width = width;
     m_surfaceState = std::move(surfaceState);
 }
 
-std::shared_ptr<DisplayVk::DisplayBufferInfo> DisplayVk::createDisplayBuffer(
-    VkImage image, VkFormat format, uint32_t width, uint32_t height) {
+std::shared_ptr<DisplayVk::DisplayBufferInfo> DisplayVk::createDisplayBuffer(VkImage image,
+                                                                             VkFormat format,
+                                                                             uint32_t width,
+                                                                             uint32_t height) {
     return std::shared_ptr<DisplayBufferInfo>(
         new DisplayBufferInfo(m_vk, m_vkDevice, width, height, format, image));
 }
@@ -141,8 +130,7 @@ std::shared_ptr<DisplayVk::DisplayBufferInfo> DisplayVk::createDisplayBuffer(
 std::tuple<bool, std::shared_future<void>> DisplayVk::post(
     const std::shared_ptr<DisplayBufferInfo> &displayBufferPtr) {
     if (!displayBufferPtr) {
-        fprintf(stderr, "%s: warning: null ptr passed to post buffer\n",
-                __func__);
+        fprintf(stderr, "%s: warning: null ptr passed to post buffer\n", __func__);
         auto completedFuture = std::async(std::launch::deferred, [] {}).share();
         return std::make_tuple(true, std::move(completedFuture));
     }
@@ -160,16 +148,15 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
     };
     // Use the size of the buffer as the dstWidth and dstHeight to fill the
     // entire render target with the buffer.
-    return compose(1, &composeLayer, {std::move(displayBufferPtr)},
-                   displayBufferPtr->m_width, displayBufferPtr->m_height);
+    return compose(1, &composeLayer, {std::move(displayBufferPtr)}, displayBufferPtr->m_width,
+                   displayBufferPtr->m_height);
 }
 
 std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
     uint32_t numLayers, const ComposeLayer layers[],
-    const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers,
-    uint32_t dstWidth, uint32_t dstHeight) {
-    std::shared_future<void> completedFuture =
-        std::async(std::launch::deferred, [] {}).share();
+    const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers, uint32_t dstWidth,
+    uint32_t dstHeight) {
+    std::shared_future<void> completedFuture = std::async(std::launch::deferred, [] {}).share();
     completedFuture.wait();
 
     if (!m_swapChainStateVk || !m_compositorVk) {
@@ -189,10 +176,8 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
             continue;
         }
         if (!composeBuffers[i]) {
-            fprintf(
-                stderr,
-                "%s: warning: null ptr passed to compose buffer for layer %d\n",
-                __func__, i);
+            fprintf(stderr, "%s: warning: null ptr passed to compose buffer for layer %d\n",
+                    __func__, i);
             continue;
         }
         const auto &db = *composeBuffers[i];
@@ -200,14 +185,12 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
             ERR("%s(%s:%d): Can't composite the DisplayBuffer(0x%" PRIxPTR
                 "). The image(VkFormat = %" PRIu64 ") can't be sampled from.\n",
                 __FUNCTION__, __FILE__, static_cast<int>(__LINE__),
-                reinterpret_cast<uintptr_t>(&db),
-                static_cast<uint64_t>(db.m_vkFormat));
+                reinterpret_cast<uintptr_t>(&db), static_cast<uint64_t>(db.m_vkFormat));
             continue;
         }
         auto layer = ComposeLayerVk::createFromHwc2ComposeLayer(
             m_compositionVkSampler, composeBuffers[i]->m_vkImageView, layers[i],
-            composeBuffers[i]->m_width, composeBuffers[i]->m_height, dstWidth,
-            dstHeight);
+            composeBuffers[i]->m_width, composeBuffers[i]->m_height, dstWidth, dstHeight);
         composeLayers.emplace_back(std::move(layer));
     }
 
@@ -215,21 +198,18 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
         return std::make_tuple(true, std::move(completedFuture));
     }
 
-    VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &m_frameDrawCompleteFence,
-                                  VK_TRUE, UINT64_MAX));
+    VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &m_frameDrawCompleteFence, VK_TRUE, UINT64_MAX));
     uint32_t imageIndex;
-    VkResult acquireRes = m_vk.vkAcquireNextImageKHR(
-        m_vkDevice, m_swapChainStateVk->getSwapChain(), UINT64_MAX,
-        m_imageReadySem, VK_NULL_HANDLE, &imageIndex);
+    VkResult acquireRes =
+        m_vk.vkAcquireNextImageKHR(m_vkDevice, m_swapChainStateVk->getSwapChain(), UINT64_MAX,
+                                   m_imageReadySem, VK_NULL_HANDLE, &imageIndex);
     if (shouldRecreateSwapchain(acquireRes)) {
         return std::make_tuple(false, std::shared_future<void>());
     }
     VK_CHECK(acquireRes);
 
-    if (compareAndSaveComposition(imageIndex, numLayers, layers,
-                                  composeBuffers)) {
-        auto composition =
-            std::make_unique<Composition>(std::move(composeLayers));
+    if (compareAndSaveComposition(imageIndex, numLayers, layers, composeBuffers)) {
+        auto composition = std::make_unique<Composition>(std::move(composeLayers));
         m_compositorVk->setComposition(imageIndex, std::move(composition));
     }
 
@@ -244,8 +224,7 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
         m_frameDrawCompleteFuture.wait();
     }
     VK_CHECK(m_vk.vkResetFences(m_vkDevice, 1, &m_frameDrawCompleteFence));
-    VkPipelineStageFlags waitStages[] = {
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
                                .waitSemaphoreCount = 1,
                                .pWaitSemaphores = &m_imageReadySem,
@@ -256,13 +235,12 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
                                .pSignalSemaphores = &m_frameDrawCompleteSem};
     {
         android::base::AutoLock lock(*m_compositorVkQueueLock);
-        VK_CHECK(m_vk.vkQueueSubmit(m_compositorVkQueue, 1, &submitInfo,
-                                    m_frameDrawCompleteFence));
+        VK_CHECK(m_vk.vkQueueSubmit(m_compositorVkQueue, 1, &submitInfo, m_frameDrawCompleteFence));
     }
     m_frameDrawCompleteFuture =
         std::async(std::launch::deferred, [this] {
-            VK_CHECK(m_vk.vkWaitForFences(
-                m_vkDevice, 1, &m_frameDrawCompleteFence, VK_TRUE, UINT64_MAX));
+            VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &m_frameDrawCompleteFence, VK_TRUE,
+                                          UINT64_MAX));
         }).share();
 
     auto swapChain = m_swapChainStateVk->getSwapChain();
@@ -291,10 +269,8 @@ bool DisplayVk::canComposite(VkFormat format) {
         return it->second;
     }
     VkFormatProperties formatProps = {};
-    m_vk.vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, format,
-                                             &formatProps);
-    bool res =
-        formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
+    m_vk.vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, format, &formatProps);
+    bool res = formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
     m_canComposite.emplace(format, res);
     return res;
 }
@@ -341,8 +317,7 @@ bool DisplayVk::compareAndSaveComposition(
             // If prevDisplayBufferPtr exists and it points to the same display
             // buffer as the input composeBuffers[i] we consider the composition
             // not changed.
-            if (!prevDisplayBufferPtr ||
-                prevDisplayBufferPtr != composeBuffers[i]) {
+            if (!prevDisplayBufferPtr || prevDisplayBufferPtr != composeBuffers[i]) {
                 compositionChanged = true;
                 break;
             }
@@ -351,14 +326,10 @@ bool DisplayVk::compareAndSaveComposition(
             compositionChanged =
                 (prevHwc2Layer.cbHandle != hwc2Layer.cbHandle) ||
                 (prevHwc2Layer.composeMode != hwc2Layer.composeMode) ||
-                (prevHwc2Layer.displayFrame.left !=
-                 hwc2Layer.displayFrame.left) ||
-                (prevHwc2Layer.displayFrame.top !=
-                 hwc2Layer.displayFrame.top) ||
-                (prevHwc2Layer.displayFrame.right !=
-                 hwc2Layer.displayFrame.right) ||
-                (prevHwc2Layer.displayFrame.bottom !=
-                 hwc2Layer.displayFrame.bottom) ||
+                (prevHwc2Layer.displayFrame.left != hwc2Layer.displayFrame.left) ||
+                (prevHwc2Layer.displayFrame.top != hwc2Layer.displayFrame.top) ||
+                (prevHwc2Layer.displayFrame.right != hwc2Layer.displayFrame.right) ||
+                (prevHwc2Layer.displayFrame.bottom != hwc2Layer.displayFrame.bottom) ||
                 (prevHwc2Layer.crop.left != hwc2Layer.crop.left) ||
                 (prevHwc2Layer.crop.top != hwc2Layer.crop.top) ||
                 (prevHwc2Layer.crop.right != hwc2Layer.crop.right) ||
@@ -394,9 +365,9 @@ bool DisplayVk::compareAndSaveComposition(
     return needsSave;
 }
 
-DisplayVk::DisplayBufferInfo::DisplayBufferInfo(
-    const goldfish_vk::VulkanDispatch &vk, VkDevice vkDevice, uint32_t width,
-    uint32_t height, VkFormat format, VkImage image)
+DisplayVk::DisplayBufferInfo::DisplayBufferInfo(const goldfish_vk::VulkanDispatch &vk,
+                                                VkDevice vkDevice, uint32_t width, uint32_t height,
+                                                VkFormat format, VkImage image)
     : m_vk(vk),
       m_vkDevice(vkDevice),
       m_width(width),
@@ -417,8 +388,7 @@ DisplayVk::DisplayBufferInfo::DisplayBufferInfo(
                              .levelCount = 1,
                              .baseArrayLayer = 0,
                              .layerCount = 1}};
-    VK_CHECK(m_vk.vkCreateImageView(m_vkDevice, &imageViewCi, nullptr,
-                                    &m_vkImageView));
+    VK_CHECK(m_vk.vkCreateImageView(m_vkDevice, &imageViewCi, nullptr, &m_vkImageView));
 }
 
 DisplayVk::DisplayBufferInfo::~DisplayBufferInfo() {

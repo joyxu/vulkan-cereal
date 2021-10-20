@@ -15,6 +15,7 @@
 */
 #include "ColorBuffer.h"
 
+#include "Debug.h"
 #include "DispatchTables.h"
 #include "glestranslator/include/GLcommon/GLutils.h"
 #include "RenderThreadInfo.h"
@@ -239,6 +240,8 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
         return NULL;
     }
 
+    GL_SCOPED_DEBUG_GROUP("ColorBuffer::create(handle:%d)", hndl);
+
     ColorBuffer* cb = new ColorBuffer(p_display, hndl, helper);
 
     GLint prevUnpackAlignment;
@@ -373,6 +376,9 @@ void ColorBuffer::readPixels(int x,
     if (!context.isOk()) {
         return;
     }
+
+    GL_SCOPED_DEBUG_GROUP("ColorBuffer::readPixels(handle:%d fbo:%d tex:%d)", mHndl, m_fbo, m_tex);
+
     p_format = sGetUnsizedColorBufferFormat(p_format);
     touch();
     waitSync();
@@ -520,10 +526,11 @@ void ColorBuffer::subUpdate(int x,
                             void* pixels) {
     const GLenum p_unsizedFormat = sGetUnsizedColorBufferFormat(p_format);
     RecursiveScopedHelperContext context(m_helper);
-
     if (!context.isOk()) {
         return;
     }
+
+    GL_SCOPED_DEBUG_GROUP("ColorBuffer::subUpdate(handle:%d fbo:%d tex:%d)", mHndl, m_fbo, m_tex);
 
     touch();
 
