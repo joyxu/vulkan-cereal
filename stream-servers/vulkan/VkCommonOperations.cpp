@@ -828,16 +828,8 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
         1, &priority,
     };
 
-    VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndexingFeatures = {};
-    descIndexingFeatures.sType =
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
     VkPhysicalDeviceFeatures2 features = {};
     features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    features.pNext = &descIndexingFeatures;
-    if (!CompositorVk::enablePhysicalDeviceFeatures(features)) {
-        VK_COMMON_ERROR(
-            "Fail to enable physical device features for CompositorVk.\n");
-    }
 
     std::unordered_set<const char*> selectedDeviceExtensionNames_;
 
@@ -845,9 +837,6 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
         for (auto extension : externalMemoryDeviceExtNames) {
             selectedDeviceExtensionNames_.emplace(extension);
         }
-    }
-    for (auto extension : CompositorVk::getRequiredDeviceExtensions()) {
-        selectedDeviceExtensionNames_.emplace(extension);
     }
     for (auto extension : SwapChainStateVk::getRequiredDeviceExtensions()) {
         selectedDeviceExtensionNames_.emplace(extension);
