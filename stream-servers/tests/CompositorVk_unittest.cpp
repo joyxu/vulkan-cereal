@@ -164,15 +164,6 @@ class CompositorVkTest : public ::testing::Test {
                                                    physicalDevices.data()),
                   VK_SUCCESS);
         for (const auto &device : physicalDevices) {
-            VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndexingFeatures = {
-                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT};
-            VkPhysicalDeviceFeatures2 features = {
-                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-                .pNext = &descIndexingFeatures};
-            k_vk->vkGetPhysicalDeviceFeatures2(device, &features);
-            if (!CompositorVk::validatePhysicalDeviceFeatures(features)) {
-                continue;
-            }
             uint32_t queueFamilyCount = 0;
             k_vk->vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
             ASSERT_GT(queueFamilyCount, 0);
@@ -203,21 +194,15 @@ class CompositorVkTest : public ::testing::Test {
                                            .queueFamilyIndex = m_compositorQueueFamilyIndex,
                                            .queueCount = 1,
                                            .pQueuePriorities = &queuePriority};
-        VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndexingFeatures = {
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT};
         VkPhysicalDeviceFeatures2 features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-                                              .pNext = &descIndexingFeatures};
-        ASSERT_TRUE(CompositorVk::enablePhysicalDeviceFeatures(features));
-        const std::vector<const char *> enabledDeviceExtensions =
-            CompositorVk::getRequiredDeviceExtensions();
-        VkDeviceCreateInfo deviceCi = {
-            .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-            .pNext = &features,
-            .queueCreateInfoCount = 1,
-            .pQueueCreateInfos = &queueCi,
-            .enabledLayerCount = 0,
-            .enabledExtensionCount = static_cast<uint32_t>(enabledDeviceExtensions.size()),
-            .ppEnabledExtensionNames = enabledDeviceExtensions.data()};
+                                              .pNext = nullptr};
+        VkDeviceCreateInfo deviceCi = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+                                       .pNext = &features,
+                                       .queueCreateInfoCount = 1,
+                                       .pQueueCreateInfos = &queueCi,
+                                       .enabledLayerCount = 0,
+                                       .enabledExtensionCount = 0,
+                                       .ppEnabledExtensionNames = nullptr};
         ASSERT_EQ(k_vk->vkCreateDevice(m_vkPhysicalDevice, &deviceCi, nullptr, &m_vkDevice),
                   VK_SUCCESS);
         ASSERT_TRUE(m_vkDevice != VK_NULL_HANDLE);
@@ -228,35 +213,12 @@ const goldfish_vk::VulkanDispatch *CompositorVkTest::k_vk = nullptr;
 
 TEST_F(CompositorVkTest, Init) { ASSERT_NE(createCompositor(), nullptr); }
 
-TEST_F(CompositorVkTest, ValidatePhysicalDeviceFeatures) {
-    VkPhysicalDeviceFeatures2 features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-    ASSERT_FALSE(CompositorVk::validatePhysicalDeviceFeatures(features));
-    VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndexingFeatures = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT,
-        .pNext = nullptr};
-    descIndexingFeatures.descriptorBindingSampledImageUpdateAfterBind = VK_FALSE;
-    features.pNext = &descIndexingFeatures;
-    ASSERT_FALSE(CompositorVk::validatePhysicalDeviceFeatures(features));
-    descIndexingFeatures.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
-    ASSERT_TRUE(CompositorVk::validatePhysicalDeviceFeatures(features));
-}
-
 TEST_F(CompositorVkTest, ValidateQueueFamilyProperties) {
     VkQueueFamilyProperties properties = {};
     properties.queueFlags &= ~VK_QUEUE_GRAPHICS_BIT;
     ASSERT_FALSE(CompositorVk::validateQueueFamilyProperties(properties));
     properties.queueFlags |= VK_QUEUE_GRAPHICS_BIT;
     ASSERT_TRUE(CompositorVk::validateQueueFamilyProperties(properties));
-}
-
-TEST_F(CompositorVkTest, EnablePhysicalDeviceFeatures) {
-    VkPhysicalDeviceFeatures2 features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-    ASSERT_FALSE(CompositorVk::enablePhysicalDeviceFeatures(features));
-    VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndexingFeatures = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT};
-    features.pNext = &descIndexingFeatures;
-    ASSERT_TRUE(CompositorVk::enablePhysicalDeviceFeatures(features));
-    ASSERT_EQ(descIndexingFeatures.descriptorBindingSampledImageUpdateAfterBind, VK_TRUE);
 }
 
 TEST_F(CompositorVkTest, EmptyCompositionShouldDrawABlackFrame) {
