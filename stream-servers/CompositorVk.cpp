@@ -7,6 +7,7 @@
 #include <optional>
 
 #include "host-common/logging.h"
+#include "vulkan/VkCommonOperations.h"
 #include "vulkan/vk_util.h"
 
 namespace CompositorVkShader {
@@ -123,14 +124,13 @@ std::unique_ptr<CompositorVk> CompositorVk::create(
     VkQueue vkQueue, std::shared_ptr<android::base::Lock> queueLock, VkFormat format,
     VkImageLayout initialLayout, VkImageLayout finalLayout, uint32_t width, uint32_t height,
     const std::vector<VkImageView> &renderTargets, VkCommandPool commandPool) {
-    auto res = std::unique_ptr<CompositorVk>(
-        new CompositorVk(vk, vkDevice, vkPhysicalDevice, vkQueue, queueLock, commandPool));
+    auto res = std::unique_ptr<CompositorVk>(new CompositorVk(
+        vk, vkDevice, vkPhysicalDevice, vkQueue, queueLock, commandPool, width, height));
     res->setUpGraphicsPipeline(width, height, format, initialLayout, finalLayout);
     res->setUpVertexBuffers();
     res->setUpFramebuffers(renderTargets, width, height);
     res->setUpUniformBuffers();
     res->setUpDescriptorSets();
-    res->setUpCommandBuffers(width, height);
     res->setUpEmptyComposition(format);
     res->m_currentCompositions.resize(renderTargets.size());
     for (auto i = 0; i < renderTargets.size(); i++) {
@@ -143,8 +143,11 @@ std::unique_ptr<CompositorVk> CompositorVk::create(
 CompositorVk::CompositorVk(const goldfish_vk::VulkanDispatch &vk, VkDevice vkDevice,
                            VkPhysicalDevice vkPhysicalDevice, VkQueue vkQueue,
                            std::shared_ptr<android::base::Lock> queueLock,
-                           VkCommandPool vkCommandPool)
-    : CompositorVkBase(vk, vkDevice, vkPhysicalDevice, vkQueue, queueLock, vkCommandPool),
+                           VkCommandPool commandPool, uint32_t renderTargetWidth,
+                           uint32_t renderTargetHeight)
+    : CompositorVkBase(vk, vkDevice, vkPhysicalDevice, vkQueue, queueLock, commandPool),
+      m_renderTargetWidth(renderTargetWidth),
+      m_renderTargetHeight(renderTargetHeight),
       m_emptyCompositionVkImage(VK_NULL_HANDLE),
       m_emptyCompositionVkDeviceMemory(VK_NULL_HANDLE),
       m_emptyCompositionVkImageView(VK_NULL_HANDLE),
@@ -163,9 +166,6 @@ CompositorVk::~CompositorVk() {
     m_vk.vkFreeMemory(m_vkDevice, m_emptyCompositionVkDeviceMemory, nullptr);
     m_vk.vkDestroyImage(m_vkDevice, m_emptyCompositionVkImage, nullptr);
     m_vk.vkDestroyDescriptorPool(m_vkDevice, m_vkDescriptorPool, nullptr);
-    m_vk.vkFreeCommandBuffers(m_vkDevice, m_vkCommandPool,
-                              static_cast<uint32_t>(m_vkCommandBuffers.size()),
-                              m_vkCommandBuffers.data());
     if (m_uniformStorage.m_vkDeviceMemory != VK_NULL_HANDLE) {
         m_vk.vkUnmapMemory(m_vkDevice, m_uniformStorage.m_vkDeviceMemory);
     }
@@ -516,45 +516,28 @@ void CompositorVk::setUpDescriptorSets() {
     }
 }
 
-void CompositorVk::setUpCommandBuffers(uint32_t width, uint32_t height) {
-    VkCommandBufferAllocateInfo cmdBuffAllocInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = m_vkCommandPool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = static_cast<uint32_t>(m_renderTargetVkFrameBuffers.size())};
-    m_vkCommandBuffers.resize(m_renderTargetVkFrameBuffers.size());
-    VK_CHECK(
-        m_vk.vkAllocateCommandBuffers(m_vkDevice, &cmdBuffAllocInfo, m_vkCommandBuffers.data()));
-
-    for (size_t i = 0; i < m_vkCommandBuffers.size(); i++) {
-        VkCommandBufferBeginInfo beginInfo = {beginInfo.sType =
-                                                  VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        const auto &cmdBuffer = m_vkCommandBuffers[i];
-        VK_CHECK(m_vk.vkBeginCommandBuffer(cmdBuffer, &beginInfo));
-
-        VkClearValue clearColor = {.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}};
-        VkRenderPassBeginInfo renderPassBeginInfo = {
-            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-            .renderPass = m_vkRenderPass,
-            .framebuffer = m_renderTargetVkFrameBuffers[i],
-            .renderArea = {.offset = {0, 0}, .extent = {width, height}},
-            .clearValueCount = 1,
-            .pClearValues = &clearColor};
-        m_vk.vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-        m_vk.vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsVkPipeline);
-        VkDeviceSize offsets[] = {0};
-        m_vk.vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &m_vertexVkBuffer, offsets);
-        m_vk.vkCmdBindIndexBuffer(cmdBuffer, m_indexVkBuffer, 0, VK_INDEX_TYPE_UINT16);
-        for (uint32_t j = 0; j < kMaxLayersPerFrame; ++j) {
-            m_vk.vkCmdBindDescriptorSets(
-                cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vkPipelineLayout, 0, 1,
-                &m_vkDescriptorSets[i * kMaxLayersPerFrame + j], 0, nullptr);
-            m_vk.vkCmdDrawIndexed(cmdBuffer, static_cast<uint32_t>(k_indices.size()), 1, 0, 0, 0);
-        }
-        m_vk.vkCmdEndRenderPass(cmdBuffer);
-
-        VK_CHECK(m_vk.vkEndCommandBuffer(cmdBuffer));
+void CompositorVk::recordCommandBuffers(uint32_t renderTargetIndex, VkCommandBuffer cmdBuffer) {
+    VkClearValue clearColor = {.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}};
+    VkRenderPassBeginInfo renderPassBeginInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .renderPass = m_vkRenderPass,
+        .framebuffer = m_renderTargetVkFrameBuffers[renderTargetIndex],
+        .renderArea = {.offset = {0, 0}, .extent = {m_renderTargetWidth, m_renderTargetHeight}},
+        .clearValueCount = 1,
+        .pClearValues = &clearColor};
+    m_vk.vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    m_vk.vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsVkPipeline);
+    VkDeviceSize offsets[] = {0};
+    m_vk.vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &m_vertexVkBuffer, offsets);
+    m_vk.vkCmdBindIndexBuffer(cmdBuffer, m_indexVkBuffer, 0, VK_INDEX_TYPE_UINT16);
+    for (uint32_t j = 0; j < m_currentCompositions[renderTargetIndex]->m_composeLayers.size();
+         ++j) {
+        m_vk.vkCmdBindDescriptorSets(
+            cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vkPipelineLayout, 0, 1,
+            &m_vkDescriptorSets[renderTargetIndex * kMaxLayersPerFrame + j], 0, nullptr);
+        m_vk.vkCmdDrawIndexed(cmdBuffer, static_cast<uint32_t>(k_indices.size()), 1, 0, 0, 0);
     }
+    m_vk.vkCmdEndRenderPass(cmdBuffer);
 }
 
 void CompositorVk::setUpEmptyComposition(VkFormat format) {
@@ -687,8 +670,6 @@ bool CompositorVk::enablePhysicalDeviceFeatures(VkPhysicalDeviceFeatures2 &featu
 std::vector<const char *> CompositorVk::getRequiredDeviceExtensions() {
     return {VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME};
 }
-
-VkCommandBuffer CompositorVk::getCommandBuffer(uint32_t i) const { return m_vkCommandBuffers[i]; }
 
 void CompositorVk::setComposition(uint32_t rtIndex, std::unique_ptr<Composition> &&composition) {
     m_currentCompositions[rtIndex] = std::move(composition);
