@@ -95,7 +95,7 @@ class CompositorVk : protected CompositorVkBase {
         const goldfish_vk::VulkanDispatch &vk, VkDevice, VkPhysicalDevice, VkQueue,
         std::shared_ptr<android::base::Lock> queueLock, VkFormat, VkImageLayout initialLayout,
         VkImageLayout finalLayout, uint32_t width, uint32_t height,
-        const std::vector<VkImageView> &renderTargets, VkCommandPool);
+        const std::vector<VkImageView> &renderTargets, VkCommandPool, VkSampler);
     static bool validatePhysicalDeviceFeatures(const VkPhysicalDeviceFeatures2 &features);
     static bool validateQueueFamilyProperties(const VkQueueFamilyProperties &properties);
     static bool enablePhysicalDeviceFeatures(VkPhysicalDeviceFeatures2 &features);
@@ -110,7 +110,7 @@ class CompositorVk : protected CompositorVkBase {
                           std::shared_ptr<android::base::Lock> queueLock, VkCommandPool,
                           uint32_t renderTargetWidth, uint32_t renderTargetHeight);
     void setUpGraphicsPipeline(uint32_t width, uint32_t height, VkFormat renderTargetFormat,
-                               VkImageLayout initialLayout, VkImageLayout finalLayout);
+                               VkImageLayout initialLayout, VkImageLayout finalLayout, VkSampler);
     void setUpVertexBuffers();
     void setUpFramebuffers(const std::vector<VkImageView> &, uint32_t width, uint32_t height);
     void setUpDescriptorSets();
@@ -139,14 +139,10 @@ class CompositorVk : protected CompositorVkBase {
 
     static const std::vector<Vertex> k_vertices;
     static const std::vector<uint16_t> k_indices;
-    static const VkExtent2D k_emptyCompositionExtent;
 
     uint32_t m_renderTargetWidth;
     uint32_t m_renderTargetHeight;
-    VkImage m_emptyCompositionVkImage;
-    VkDeviceMemory m_emptyCompositionVkDeviceMemory;
-    VkImageView m_emptyCompositionVkImageView;
-    VkSampler m_emptyCompositionVkSampler;
+    VkSampler m_vkSampler;
 
     std::vector<std::unique_ptr<Composition>> m_currentCompositions;
     struct UniformStorage {

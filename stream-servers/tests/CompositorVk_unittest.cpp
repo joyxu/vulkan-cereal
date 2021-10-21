@@ -80,9 +80,11 @@ class CompositorVkTest : public ::testing::Test {
                                      return renderTarget->m_vkImageView;
                                  }),
                   m_renderTargetImageViews.end());
+        setUpRGBASampler();
     }
 
     void TearDown() override {
+        k_vk->vkDestroySampler(m_vkDevice, m_rgbaVkSampler, nullptr);
         k_vk->vkFreeCommandBuffers(m_vkDevice, m_vkCommandPool, m_vkCommandBuffers.size(),
                                    m_vkCommandBuffers.data());
         m_vkCommandBuffers.clear();
@@ -95,13 +97,14 @@ class CompositorVkTest : public ::testing::Test {
     }
 
     std::unique_ptr<CompositorVk> createCompositor() {
-        return CompositorVk::create(
-            *k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue, m_compositorVkQueueLock,
-            RenderTarget::k_vkFormat, RenderTarget::k_vkImageLayout, RenderTarget::k_vkImageLayout,
-            k_renderTargetWidth, k_renderTargetHeight, m_renderTargetImageViews, m_vkCommandPool);
+        return CompositorVk::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
+                                    m_compositorVkQueueLock, RenderTarget::k_vkFormat,
+                                    RenderTarget::k_vkImageLayout, RenderTarget::k_vkImageLayout,
+                                    k_renderTargetWidth, k_renderTargetHeight,
+                                    m_renderTargetImageViews, m_vkCommandPool, m_rgbaVkSampler);
     }
 
-    VkSampler createSampler() {
+    void setUpRGBASampler() {
         VkSamplerCreateInfo samplerCi = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
                                          .magFilter = VK_FILTER_NEAREST,
                                          .minFilter = VK_FILTER_NEAREST,
@@ -118,9 +121,7 @@ class CompositorVkTest : public ::testing::Test {
                                          .maxLod = 0.0f,
                                          .borderColor = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK,
                                          .unnormalizedCoordinates = VK_FALSE};
-        VkSampler res;
-        VK_CHECK(k_vk->vkCreateSampler(m_vkDevice, &samplerCi, nullptr, &res));
-        return res;
+        VK_CHECK(k_vk->vkCreateSampler(m_vkDevice, &samplerCi, nullptr, &m_rgbaVkSampler));
     }
 
     static const goldfish_vk::VulkanDispatch *k_vk;
@@ -134,6 +135,7 @@ class CompositorVkTest : public ::testing::Test {
     VkQueue m_compositorVkQueue = VK_NULL_HANDLE;
     std::shared_ptr<android::base::Lock> m_compositorVkQueueLock;
     std::vector<VkCommandBuffer> m_vkCommandBuffers;
+    VkSampler m_rgbaVkSampler = VK_NULL_HANDLE;
 
    private:
     void createInstance() {
@@ -325,7 +327,6 @@ TEST_F(CompositorVkTest, SimpleComposition) {
     constexpr uint32_t textureBottom = 40;
     constexpr uint32_t textureWidth = textureRight - textureLeft;
     constexpr uint32_t textureHeight = textureBottom - textureTop;
-    auto sampler = createSampler();
     auto texture = RenderTexture::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
                                          m_vkCommandPool, textureWidth, textureHeight);
     uint32_t textureColor;
@@ -363,7 +364,7 @@ TEST_F(CompositorVkTest, SimpleComposition) {
     };
 
     std::unique_ptr<ComposeLayerVk> composeLayerVkPtr = ComposeLayerVk::createFromHwc2ComposeLayer(
-        sampler, texture->m_vkImageView, composeLayer, textureWidth, textureHeight,
+        m_rgbaVkSampler, texture->m_vkImageView, composeLayer, textureWidth, textureHeight,
         k_renderTargetWidth, k_renderTargetHeight);
 
     std::vector<std::unique_ptr<ComposeLayerVk>> layers;
@@ -405,7 +406,6 @@ TEST_F(CompositorVkTest, SimpleComposition) {
             }
         }
     }
-    k_vk->vkDestroySampler(m_vkDevice, sampler, nullptr);
 }
 
 TEST_F(CompositorVkTest, CompositingWithDifferentCompositionOnMultipleTargets) {
@@ -450,7 +450,6 @@ TEST_F(CompositorVkTest, CompositingWithDifferentCompositionOnMultipleTargets) {
         };
     }
 
-    auto sampler = createSampler();
     auto texture = RenderTexture::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
                                          m_vkCommandPool, textureWidth, textureHeight);
     uint32_t textureColor;
@@ -466,8 +465,8 @@ TEST_F(CompositorVkTest, CompositingWithDifferentCompositionOnMultipleTargets) {
     for (int i = 0; i < k_numOfRenderTargets; i++) {
         std::unique_ptr<ComposeLayerVk> composeLayerVkPtr =
             ComposeLayerVk::createFromHwc2ComposeLayer(
-                sampler, texture->m_vkImageView, composeLayers[i], textureWidth, textureHeight,
-                k_renderTargetWidth, k_renderTargetHeight);
+                m_rgbaVkSampler, texture->m_vkImageView, composeLayers[i], textureWidth,
+                textureHeight, k_renderTargetWidth, k_renderTargetHeight);
 
         std::vector<std::unique_ptr<ComposeLayerVk>> layers;
         layers.emplace_back(std::move(composeLayerVkPtr));
@@ -513,5 +512,4 @@ TEST_F(CompositorVkTest, CompositingWithDifferentCompositionOnMultipleTargets) {
             }
         }
     }
-    k_vk->vkDestroySampler(m_vkDevice, sampler, nullptr);
 }
