@@ -96,10 +96,7 @@ class CompositorVk : protected CompositorVkBase {
         std::shared_ptr<android::base::Lock> queueLock, VkFormat, VkImageLayout initialLayout,
         VkImageLayout finalLayout, uint32_t width, uint32_t height,
         const std::vector<VkImageView> &renderTargets, VkCommandPool, VkSampler);
-    static bool validatePhysicalDeviceFeatures(const VkPhysicalDeviceFeatures2 &features);
     static bool validateQueueFamilyProperties(const VkQueueFamilyProperties &properties);
-    static bool enablePhysicalDeviceFeatures(VkPhysicalDeviceFeatures2 &features);
-    static std::vector<const char *> getRequiredDeviceExtensions();
 
     ~CompositorVk();
     void recordCommandBuffers(uint32_t renderTargetIndex, VkCommandBuffer);

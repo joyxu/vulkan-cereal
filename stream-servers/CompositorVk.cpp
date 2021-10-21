@@ -283,17 +283,10 @@ void CompositorVk::setUpGraphicsPipeline(uint32_t width, uint32_t height,
          .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
          .pImmutableSamplers = nullptr}};
 
-    VkDescriptorBindingFlagsEXT bindingFlags[] = {VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT,
-                                                  0};
-    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT bindingFlagsCi = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT,
-        .bindingCount = static_cast<uint32_t>(std::size(bindingFlags)),
-        .pBindingFlags = bindingFlags,
-    };
     VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCi = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .pNext = &bindingFlagsCi,
-        .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT,
+        .pNext = nullptr,
+        .flags = 0,
         .bindingCount = static_cast<uint32_t>(std::size(layoutBindings)),
         .pBindings = layoutBindings};
     VK_CHECK(m_vk.vkCreateDescriptorSetLayout(m_vkDevice, &descriptorSetLayoutCi, nullptr,
@@ -482,7 +475,7 @@ void CompositorVk::setUpDescriptorSets() {
 
     VkDescriptorPoolCreateInfo descriptorPoolCi = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT,
+        .flags = 0,
         .maxSets = static_cast<uint32_t>(setsPerDescriptorType),
         .poolSizeCount = static_cast<uint32_t>(std::size(descriptorPoolSizes)),
         .pPoolSizes = descriptorPoolSizes};
@@ -558,31 +551,8 @@ void CompositorVk::setUpUniformBuffers() {
                               reinterpret_cast<void **>(&m_uniformStorage.m_data)));
 }
 
-bool CompositorVk::validatePhysicalDeviceFeatures(const VkPhysicalDeviceFeatures2 &features) {
-    auto descIndexingFeatures =
-        vk_find_struct<VkPhysicalDeviceDescriptorIndexingFeaturesEXT>(&features);
-    if (descIndexingFeatures == nullptr) {
-        return false;
-    }
-    return descIndexingFeatures->descriptorBindingSampledImageUpdateAfterBind == VK_TRUE;
-}
-
 bool CompositorVk::validateQueueFamilyProperties(const VkQueueFamilyProperties &properties) {
     return properties.queueFlags & VK_QUEUE_GRAPHICS_BIT;
-}
-
-bool CompositorVk::enablePhysicalDeviceFeatures(VkPhysicalDeviceFeatures2 &features) {
-    auto descIndexingFeatures =
-        vk_find_struct<VkPhysicalDeviceDescriptorIndexingFeaturesEXT>(&features);
-    if (descIndexingFeatures == nullptr) {
-        return false;
-    }
-    descIndexingFeatures->descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
-    return true;
-}
-
-std::vector<const char *> CompositorVk::getRequiredDeviceExtensions() {
-    return {VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME};
 }
 
 void CompositorVk::setComposition(uint32_t rtIndex, std::unique_ptr<Composition> &&composition) {
