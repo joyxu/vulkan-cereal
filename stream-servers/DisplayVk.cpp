@@ -29,6 +29,7 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk, VkPhysicalDevice vkP
       m_swapChainVkQueue(swapChainVkqueue),
       m_swapChainVkQueueLock(swapChainVkQueueLock),
       m_vkCommandPool(VK_NULL_HANDLE),
+      m_vkCommandBuffers(0),
       m_swapChainStateVk(nullptr),
       m_compositorVk(nullptr),
       m_surfaceState(nullptr),
@@ -37,6 +38,7 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk, VkPhysicalDevice vkP
     // components.
     VkCommandPoolCreateInfo commandPoolCi = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
         .queueFamilyIndex = m_compositorQueueFamilyIndex,
     };
     VK_CHECK(m_vk.vkCreateCommandPool(m_vkDevice, &commandPoolCi, nullptr, &m_vkCommandPool));
@@ -75,6 +77,8 @@ DisplayVk::~DisplayVk() {
         android::base::AutoLock lock(*m_compositorVkQueueLock);
         VK_CHECK(m_vk.vkQueueWaitIdle(m_compositorVkQueue));
     }
+    m_vk.vkFreeCommandBuffers(m_vkDevice, m_vkCommandPool, m_vkCommandBuffers.size(),
+                              m_vkCommandBuffers.data());
     m_vk.vkDestroySampler(m_vkDevice, m_compositionVkSampler, nullptr);
     m_vk.vkDestroySemaphore(m_vkDevice, m_imageReadySem, nullptr);
     m_vk.vkDestroySemaphore(m_vkDevice, m_frameDrawCompleteSem, nullptr);
@@ -85,6 +89,19 @@ DisplayVk::~DisplayVk() {
 }
 
 void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t height) {
+    {
+        android::base::AutoLock lock(*m_compositorVkQueueLock);
+        VK_CHECK(m_vk.vkQueueWaitIdle(m_compositorVkQueue));
+    }
+    {
+        android::base::AutoLock lock(*m_swapChainVkQueueLock);
+        VK_CHECK(m_vk.vkQueueWaitIdle(m_swapChainVkQueue));
+    }
+    if (!m_vkCommandBuffers.empty()) {
+        m_vk.vkFreeCommandBuffers(m_vkDevice, m_vkCommandPool, m_vkCommandBuffers.size(),
+                                  m_vkCommandBuffers.data());
+        m_vkCommandBuffers.clear();
+    }
     m_compositorVk.reset();
     m_swapChainStateVk.reset();
 
@@ -113,6 +130,17 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
         m_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue, m_compositorVkQueueLock,
         m_swapChainStateVk->getFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
         width, height, m_swapChainStateVk->getVkImageViews(), m_vkCommandPool);
+    int numSwapChainImages = m_swapChainStateVk->getVkImages().size();
+
+    m_vkCommandBuffers.resize(numSwapChainImages, VK_NULL_HANDLE);
+    VkCommandBufferAllocateInfo cmdBuffAllocInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = m_vkCommandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = static_cast<uint32_t>(numSwapChainImages)};
+    VK_CHECK(
+        m_vk.vkAllocateCommandBuffers(m_vkDevice, &cmdBuffAllocInfo, m_vkCommandBuffers.data()));
+
     auto surfaceState = std::make_unique<SurfaceState>();
     surfaceState->m_height = height;
     surfaceState->m_width = width;
@@ -213,8 +241,7 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
         m_compositorVk->setComposition(imageIndex, std::move(composition));
     }
 
-    auto cmdBuff = m_compositorVk->getCommandBuffer(imageIndex);
-
+    VkCommandBuffer cmdBuff = m_vkCommandBuffers[imageIndex];
     // We share the VkFences for different frames, but we don't share futures on
     // different frames. We call a wait here to make sure that all references to
     // the future of this frame are marked as completed. If we don't wait on the
@@ -223,6 +250,19 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
     if (m_frameDrawCompleteFuture.valid()) {
         m_frameDrawCompleteFuture.wait();
     }
+    // We can't reset the command buffer in the complete future, because there is no guarantee on
+    // which thread that function will be called. But the caller of CompositorVk is required to
+    // guarantee the thread safety. In fact, CompositorVk is only called on the post worker thread.
+    VK_CHECK(m_vk.vkResetCommandBuffer(cmdBuff, 0));
+
+    VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+    VK_CHECK(m_vk.vkBeginCommandBuffer(cmdBuff, &beginInfo));
+    m_compositorVk->recordCommandBuffers(imageIndex, cmdBuff);
+    VK_CHECK(m_vk.vkEndCommandBuffer(cmdBuff));
+
     VK_CHECK(m_vk.vkResetFences(m_vkDevice, 1, &m_frameDrawCompleteFence));
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,

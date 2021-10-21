@@ -6,6 +6,7 @@
 #include <memory>
 #include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "CompositorVk.h"
 #include "Hwc2.h"
@@ -88,6 +89,7 @@ class DisplayVk {
     VkQueue m_swapChainVkQueue;
     std::shared_ptr<android::base::Lock> m_swapChainVkQueueLock;
     VkCommandPool m_vkCommandPool;
+    std::vector<VkCommandBuffer> m_vkCommandBuffers;
     VkSampler m_compositionVkSampler;
     VkFence m_frameDrawCompleteFence;
     VkSemaphore m_imageReadySem;
