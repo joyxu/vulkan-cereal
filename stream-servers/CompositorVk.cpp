@@ -7,12 +7,19 @@
 #include <optional>
 
 #include "host-common/logging.h"
+#include "vulkan/VkCommonOperations.h"
 #include "vulkan/vk_util.h"
 
 namespace CompositorVkShader {
 #include "vulkan/CompositorFragmentShader.h"
 #include "vulkan/CompositorVertexShader.h"
 }  // namespace CompositorVkShader
+
+#define COMPOSITOR_VK_ERROR(fmt, ...)                                                         \
+    do {                                                                                      \
+        fprintf(stderr, "%s(%s:%d): " fmt "\n", __func__, __FILE__, __LINE__, ##__VA_ARGS__); \
+        fflush(stderr);                                                                       \
+    } while (0)
 
 static VkShaderModule createShaderModule(const goldfish_vk::VulkanDispatch &vk, VkDevice device,
                                          const std::vector<uint32_t> &code) {
@@ -116,22 +123,19 @@ const std::vector<CompositorVk::Vertex> CompositorVk::k_vertices = {
 
 const std::vector<uint16_t> CompositorVk::k_indices = {0, 1, 2, 2, 3, 0};
 
-const VkExtent2D CompositorVk::k_emptyCompositionExtent = {1, 1};
-
 std::unique_ptr<CompositorVk> CompositorVk::create(
     const goldfish_vk::VulkanDispatch &vk, VkDevice vkDevice, VkPhysicalDevice vkPhysicalDevice,
     VkQueue vkQueue, std::shared_ptr<android::base::Lock> queueLock, VkFormat format,
     VkImageLayout initialLayout, VkImageLayout finalLayout, uint32_t width, uint32_t height,
-    const std::vector<VkImageView> &renderTargets, VkCommandPool commandPool) {
-    auto res = std::unique_ptr<CompositorVk>(
-        new CompositorVk(vk, vkDevice, vkPhysicalDevice, vkQueue, queueLock, commandPool));
-    res->setUpGraphicsPipeline(width, height, format, initialLayout, finalLayout);
+    const std::vector<VkImageView> &renderTargets, VkCommandPool commandPool, VkSampler sampler) {
+    auto res = std::unique_ptr<CompositorVk>(new CompositorVk(
+        vk, vkDevice, vkPhysicalDevice, vkQueue, queueLock, commandPool, width, height));
+    res->setUpGraphicsPipeline(width, height, format, initialLayout, finalLayout, sampler);
+    res->m_vkSampler = sampler;
     res->setUpVertexBuffers();
     res->setUpFramebuffers(renderTargets, width, height);
     res->setUpUniformBuffers();
     res->setUpDescriptorSets();
-    res->setUpCommandBuffers(width, height);
-    res->setUpEmptyComposition(format);
     res->m_currentCompositions.resize(renderTargets.size());
     for (auto i = 0; i < renderTargets.size(); i++) {
         std::vector<std::unique_ptr<ComposeLayerVk>> emptyCompositionLayers;
@@ -143,12 +147,12 @@ std::unique_ptr<CompositorVk> CompositorVk::create(
 CompositorVk::CompositorVk(const goldfish_vk::VulkanDispatch &vk, VkDevice vkDevice,
                            VkPhysicalDevice vkPhysicalDevice, VkQueue vkQueue,
                            std::shared_ptr<android::base::Lock> queueLock,
-                           VkCommandPool vkCommandPool)
-    : CompositorVkBase(vk, vkDevice, vkPhysicalDevice, vkQueue, queueLock, vkCommandPool),
-      m_emptyCompositionVkImage(VK_NULL_HANDLE),
-      m_emptyCompositionVkDeviceMemory(VK_NULL_HANDLE),
-      m_emptyCompositionVkImageView(VK_NULL_HANDLE),
-      m_emptyCompositionVkSampler(VK_NULL_HANDLE),
+                           VkCommandPool commandPool, uint32_t renderTargetWidth,
+                           uint32_t renderTargetHeight)
+    : CompositorVkBase(vk, vkDevice, vkPhysicalDevice, vkQueue, queueLock, commandPool),
+      m_renderTargetWidth(renderTargetWidth),
+      m_renderTargetHeight(renderTargetHeight),
+      m_vkSampler(VK_NULL_HANDLE),
       m_currentCompositions(0),
       m_uniformStorage({VK_NULL_HANDLE, VK_NULL_HANDLE, nullptr, 0}) {
     VkPhysicalDeviceProperties physicalDeviceProperties;
@@ -158,14 +162,7 @@ CompositorVk::CompositorVk(const goldfish_vk::VulkanDispatch &vk, VkDevice vkDev
 }
 
 CompositorVk::~CompositorVk() {
-    m_vk.vkDestroySampler(m_vkDevice, m_emptyCompositionVkSampler, nullptr);
-    m_vk.vkDestroyImageView(m_vkDevice, m_emptyCompositionVkImageView, nullptr);
-    m_vk.vkFreeMemory(m_vkDevice, m_emptyCompositionVkDeviceMemory, nullptr);
-    m_vk.vkDestroyImage(m_vkDevice, m_emptyCompositionVkImage, nullptr);
     m_vk.vkDestroyDescriptorPool(m_vkDevice, m_vkDescriptorPool, nullptr);
-    m_vk.vkFreeCommandBuffers(m_vkDevice, m_vkCommandPool,
-                              static_cast<uint32_t>(m_vkCommandBuffers.size()),
-                              m_vkCommandBuffers.data());
     if (m_uniformStorage.m_vkDeviceMemory != VK_NULL_HANDLE) {
         m_vk.vkUnmapMemory(m_vkDevice, m_uniformStorage.m_vkDeviceMemory);
     }
@@ -187,7 +184,7 @@ CompositorVk::~CompositorVk() {
 
 void CompositorVk::setUpGraphicsPipeline(uint32_t width, uint32_t height,
                                          VkFormat renderTargetFormat, VkImageLayout initialLayout,
-                                         VkImageLayout finalLayout) {
+                                         VkImageLayout finalLayout, VkSampler sampler) {
     const std::vector<uint32_t> vertSpvBuff(CompositorVkShader::compositorVertexShader,
                                             std::end(CompositorVkShader::compositorVertexShader));
     const std::vector<uint32_t> fragSpvBuff(CompositorVkShader::compositorFragmentShader,
@@ -279,24 +276,17 @@ void CompositorVk::setUpGraphicsPipeline(uint32_t width, uint32_t height,
          .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
          .descriptorCount = 1,
          .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-         .pImmutableSamplers = nullptr},
+         .pImmutableSamplers = &sampler},
         {.binding = 1,
          .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
          .descriptorCount = 1,
          .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
          .pImmutableSamplers = nullptr}};
 
-    VkDescriptorBindingFlagsEXT bindingFlags[] = {VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT,
-                                                  0};
-    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT bindingFlagsCi = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT,
-        .bindingCount = static_cast<uint32_t>(std::size(bindingFlags)),
-        .pBindingFlags = bindingFlags,
-    };
     VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCi = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .pNext = &bindingFlagsCi,
-        .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT,
+        .pNext = nullptr,
+        .flags = 0,
         .bindingCount = static_cast<uint32_t>(std::size(layoutBindings)),
         .pBindings = layoutBindings};
     VK_CHECK(m_vk.vkCreateDescriptorSetLayout(m_vkDevice, &descriptorSetLayoutCi, nullptr,
@@ -485,7 +475,7 @@ void CompositorVk::setUpDescriptorSets() {
 
     VkDescriptorPoolCreateInfo descriptorPoolCi = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT,
+        .flags = 0,
         .maxSets = static_cast<uint32_t>(setsPerDescriptorType),
         .poolSizeCount = static_cast<uint32_t>(std::size(descriptorPoolSizes)),
         .pPoolSizes = descriptorPoolSizes};
@@ -516,128 +506,28 @@ void CompositorVk::setUpDescriptorSets() {
     }
 }
 
-void CompositorVk::setUpCommandBuffers(uint32_t width, uint32_t height) {
-    VkCommandBufferAllocateInfo cmdBuffAllocInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = m_vkCommandPool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = static_cast<uint32_t>(m_renderTargetVkFrameBuffers.size())};
-    m_vkCommandBuffers.resize(m_renderTargetVkFrameBuffers.size());
-    VK_CHECK(
-        m_vk.vkAllocateCommandBuffers(m_vkDevice, &cmdBuffAllocInfo, m_vkCommandBuffers.data()));
-
-    for (size_t i = 0; i < m_vkCommandBuffers.size(); i++) {
-        VkCommandBufferBeginInfo beginInfo = {beginInfo.sType =
-                                                  VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        const auto &cmdBuffer = m_vkCommandBuffers[i];
-        VK_CHECK(m_vk.vkBeginCommandBuffer(cmdBuffer, &beginInfo));
-
-        VkClearValue clearColor = {.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}};
-        VkRenderPassBeginInfo renderPassBeginInfo = {
-            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-            .renderPass = m_vkRenderPass,
-            .framebuffer = m_renderTargetVkFrameBuffers[i],
-            .renderArea = {.offset = {0, 0}, .extent = {width, height}},
-            .clearValueCount = 1,
-            .pClearValues = &clearColor};
-        m_vk.vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-        m_vk.vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsVkPipeline);
-        VkDeviceSize offsets[] = {0};
-        m_vk.vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &m_vertexVkBuffer, offsets);
-        m_vk.vkCmdBindIndexBuffer(cmdBuffer, m_indexVkBuffer, 0, VK_INDEX_TYPE_UINT16);
-        for (uint32_t j = 0; j < kMaxLayersPerFrame; ++j) {
-            m_vk.vkCmdBindDescriptorSets(
-                cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vkPipelineLayout, 0, 1,
-                &m_vkDescriptorSets[i * kMaxLayersPerFrame + j], 0, nullptr);
-            m_vk.vkCmdDrawIndexed(cmdBuffer, static_cast<uint32_t>(k_indices.size()), 1, 0, 0, 0);
-        }
-        m_vk.vkCmdEndRenderPass(cmdBuffer);
-
-        VK_CHECK(m_vk.vkEndCommandBuffer(cmdBuffer));
+void CompositorVk::recordCommandBuffers(uint32_t renderTargetIndex, VkCommandBuffer cmdBuffer) {
+    VkClearValue clearColor = {.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}};
+    VkRenderPassBeginInfo renderPassBeginInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .renderPass = m_vkRenderPass,
+        .framebuffer = m_renderTargetVkFrameBuffers[renderTargetIndex],
+        .renderArea = {.offset = {0, 0}, .extent = {m_renderTargetWidth, m_renderTargetHeight}},
+        .clearValueCount = 1,
+        .pClearValues = &clearColor};
+    m_vk.vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    m_vk.vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsVkPipeline);
+    VkDeviceSize offsets[] = {0};
+    m_vk.vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &m_vertexVkBuffer, offsets);
+    m_vk.vkCmdBindIndexBuffer(cmdBuffer, m_indexVkBuffer, 0, VK_INDEX_TYPE_UINT16);
+    for (uint32_t j = 0; j < m_currentCompositions[renderTargetIndex]->m_composeLayers.size();
+         ++j) {
+        m_vk.vkCmdBindDescriptorSets(
+            cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vkPipelineLayout, 0, 1,
+            &m_vkDescriptorSets[renderTargetIndex * kMaxLayersPerFrame + j], 0, nullptr);
+        m_vk.vkCmdDrawIndexed(cmdBuffer, static_cast<uint32_t>(k_indices.size()), 1, 0, 0, 0);
     }
-}
-
-void CompositorVk::setUpEmptyComposition(VkFormat format) {
-    VkImageCreateInfo imageCi = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-        .flags = 0,
-        .imageType = VK_IMAGE_TYPE_2D,
-        .format = format,
-        .extent = {.width = k_emptyCompositionExtent.width,
-                   .height = k_emptyCompositionExtent.height,
-                   .depth = 1},
-        .mipLevels = 1,
-        .arrayLayers = 1,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-        .tiling = VK_IMAGE_TILING_OPTIMAL,
-        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED};
-    VK_CHECK(m_vk.vkCreateImage(m_vkDevice, &imageCi, nullptr, &m_emptyCompositionVkImage));
-
-    VkMemoryRequirements memRequirements;
-    m_vk.vkGetImageMemoryRequirements(m_vkDevice, m_emptyCompositionVkImage, &memRequirements);
-    VkMemoryAllocateInfo allocInfo = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = memRequirements.size,
-        .memoryTypeIndex =
-            findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
-                .value()};
-    VK_CHECK(
-        m_vk.vkAllocateMemory(m_vkDevice, &allocInfo, nullptr, &m_emptyCompositionVkDeviceMemory));
-    VK_CHECK(m_vk.vkBindImageMemory(m_vkDevice, m_emptyCompositionVkImage,
-                                    m_emptyCompositionVkDeviceMemory, 0));
-    runSingleTimeCommands(m_vkQueue, m_vkQueueLock, [&, this](const auto &cmdBuff) {
-        recordImageLayoutTransformCommands(cmdBuff, m_emptyCompositionVkImage,
-                                           VK_IMAGE_LAYOUT_UNDEFINED,
-                                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        VkClearColorValue clearColor = {.float32 = {0.0, 0.0, 0.0, 1.0}};
-        VkImageSubresourceRange range = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                         .baseMipLevel = 0,
-                                         .levelCount = 1,
-                                         .baseArrayLayer = 0,
-                                         .layerCount = 1};
-        m_vk.vkCmdClearColorImage(cmdBuff, m_emptyCompositionVkImage,
-                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1, &range);
-        recordImageLayoutTransformCommands(cmdBuff, m_emptyCompositionVkImage,
-                                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    });
-
-    VkImageViewCreateInfo imageViewCi = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .image = m_emptyCompositionVkImage,
-        .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        .format = format,
-        .components = {.r = VK_COMPONENT_SWIZZLE_IDENTITY,
-                       .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-                       .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-                       .a = VK_COMPONENT_SWIZZLE_IDENTITY},
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                             .baseMipLevel = 0,
-                             .levelCount = 1,
-                             .baseArrayLayer = 0,
-                             .layerCount = 1}};
-    VK_CHECK(
-        m_vk.vkCreateImageView(m_vkDevice, &imageViewCi, nullptr, &m_emptyCompositionVkImageView));
-
-    VkSamplerCreateInfo samplerCi = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-                                     .magFilter = VK_FILTER_LINEAR,
-                                     .minFilter = VK_FILTER_LINEAR,
-                                     .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-                                     .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                                     .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                                     .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                                     .mipLodBias = 0.0f,
-                                     .anisotropyEnable = VK_FALSE,
-                                     .maxAnisotropy = 1.0f,
-                                     .compareEnable = VK_FALSE,
-                                     .compareOp = VK_COMPARE_OP_ALWAYS,
-                                     .minLod = 0.0f,
-                                     .maxLod = 0.0f,
-                                     .borderColor = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK,
-                                     .unnormalizedCoordinates = VK_FALSE};
-    VK_CHECK(m_vk.vkCreateSampler(m_vkDevice, &samplerCi, nullptr, &m_emptyCompositionVkSampler));
+    m_vk.vkCmdEndRenderPass(cmdBuffer);
 }
 
 void CompositorVk::setUpUniformBuffers() {
@@ -661,34 +551,9 @@ void CompositorVk::setUpUniformBuffers() {
                               reinterpret_cast<void **>(&m_uniformStorage.m_data)));
 }
 
-bool CompositorVk::validatePhysicalDeviceFeatures(const VkPhysicalDeviceFeatures2 &features) {
-    auto descIndexingFeatures =
-        vk_find_struct<VkPhysicalDeviceDescriptorIndexingFeaturesEXT>(&features);
-    if (descIndexingFeatures == nullptr) {
-        return false;
-    }
-    return descIndexingFeatures->descriptorBindingSampledImageUpdateAfterBind == VK_TRUE;
-}
-
 bool CompositorVk::validateQueueFamilyProperties(const VkQueueFamilyProperties &properties) {
     return properties.queueFlags & VK_QUEUE_GRAPHICS_BIT;
 }
-
-bool CompositorVk::enablePhysicalDeviceFeatures(VkPhysicalDeviceFeatures2 &features) {
-    auto descIndexingFeatures =
-        vk_find_struct<VkPhysicalDeviceDescriptorIndexingFeaturesEXT>(&features);
-    if (descIndexingFeatures == nullptr) {
-        return false;
-    }
-    descIndexingFeatures->descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
-    return true;
-}
-
-std::vector<const char *> CompositorVk::getRequiredDeviceExtensions() {
-    return {VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME};
-}
-
-VkCommandBuffer CompositorVk::getCommandBuffer(uint32_t i) const { return m_vkCommandBuffers[i]; }
 
 void CompositorVk::setComposition(uint32_t rtIndex, std::unique_ptr<Composition> &&composition) {
     m_currentCompositions[rtIndex] = std::move(composition);
@@ -708,8 +573,13 @@ void CompositorVk::setComposition(uint32_t rtIndex, std::unique_ptr<Composition>
     std::vector<VkWriteDescriptorSet> descriptorWrites;
     for (size_t i = 0; i < currentComposition.m_composeLayers.size(); ++i) {
         const auto &layer = currentComposition.m_composeLayers[i];
+        if (m_vkSampler != layer->m_vkSampler) {
+            COMPOSITOR_VK_ERROR("Unsupported sampler(%#" PRIxPTR ").",
+                                reinterpret_cast<uintptr_t>(layer->m_vkSampler));
+            std::abort();
+        }
         imageInfos[i] =
-            VkDescriptorImageInfo({.sampler = layer->m_vkSampler,
+            VkDescriptorImageInfo({.sampler = VK_NULL_HANDLE,
                                    .imageView = layer->m_vkImageView,
                                    .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
         const VkDescriptorImageInfo &imageInfo = imageInfos[i];
@@ -727,21 +597,6 @@ void CompositorVk::setComposition(uint32_t rtIndex, std::unique_ptr<Composition>
     }
     m_vk.vkUpdateDescriptorSets(m_vkDevice, descriptorWrites.size(), descriptorWrites.data(), 0,
                                 nullptr);
-
-    for (size_t i = currentComposition.m_composeLayers.size(); i < kMaxLayersPerFrame; ++i) {
-        VkDescriptorImageInfo imageInfo = {.sampler = m_emptyCompositionVkSampler,
-                                           .imageView = m_emptyCompositionVkImageView,
-                                           .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-        VkWriteDescriptorSet descriptorSetWrite = {
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = m_vkDescriptorSets[rtIndex * kMaxLayersPerFrame + i],
-            .dstBinding = 0,
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .pImageInfo = &imageInfo};
-        m_vk.vkUpdateDescriptorSets(m_vkDevice, 1, &descriptorSetWrite, 0, nullptr);
-    }
 }
 
 VkVertexInputBindingDescription CompositorVk::Vertex::getBindingDescription() {
