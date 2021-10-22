@@ -60,7 +60,6 @@ struct CompositorVkBase
     VkDeviceMemory m_vertexVkDeviceMemory;
     VkBuffer m_indexVkBuffer;
     VkDeviceMemory m_indexVkDeviceMemory;
-    std::vector<VkCommandBuffer> m_vkCommandBuffers;
     VkDescriptorPool m_vkDescriptorPool;
     std::vector<VkDescriptorSet> m_vkDescriptorSets;
     std::vector<VkFramebuffer> m_renderTargetVkFrameBuffers;
@@ -84,7 +83,6 @@ struct CompositorVkBase
           m_vertexVkDeviceMemory(VK_NULL_HANDLE),
           m_indexVkBuffer(VK_NULL_HANDLE),
           m_indexVkDeviceMemory(VK_NULL_HANDLE),
-          m_vkCommandBuffers(0),
           m_vkDescriptorPool(VK_NULL_HANDLE),
           m_vkDescriptorSets(0),
           m_renderTargetVkFrameBuffers(0),
@@ -97,25 +95,22 @@ class CompositorVk : protected CompositorVkBase {
         const goldfish_vk::VulkanDispatch &vk, VkDevice, VkPhysicalDevice, VkQueue,
         std::shared_ptr<android::base::Lock> queueLock, VkFormat, VkImageLayout initialLayout,
         VkImageLayout finalLayout, uint32_t width, uint32_t height,
-        const std::vector<VkImageView> &renderTargets, VkCommandPool);
-    static bool validatePhysicalDeviceFeatures(const VkPhysicalDeviceFeatures2 &features);
+        const std::vector<VkImageView> &renderTargets, VkCommandPool, VkSampler);
     static bool validateQueueFamilyProperties(const VkQueueFamilyProperties &properties);
-    static bool enablePhysicalDeviceFeatures(VkPhysicalDeviceFeatures2 &features);
-    static std::vector<const char *> getRequiredDeviceExtensions();
 
     ~CompositorVk();
-    VkCommandBuffer getCommandBuffer(uint32_t i) const;
+    void recordCommandBuffers(uint32_t renderTargetIndex, VkCommandBuffer);
     void setComposition(uint32_t i, std::unique_ptr<Composition> &&composition);
 
    private:
     explicit CompositorVk(const goldfish_vk::VulkanDispatch &, VkDevice, VkPhysicalDevice, VkQueue,
-                          std::shared_ptr<android::base::Lock> queueLock, VkCommandPool);
+                          std::shared_ptr<android::base::Lock> queueLock, VkCommandPool,
+                          uint32_t renderTargetWidth, uint32_t renderTargetHeight);
     void setUpGraphicsPipeline(uint32_t width, uint32_t height, VkFormat renderTargetFormat,
-                               VkImageLayout initialLayout, VkImageLayout finalLayout);
+                               VkImageLayout initialLayout, VkImageLayout finalLayout, VkSampler);
     void setUpVertexBuffers();
     void setUpFramebuffers(const std::vector<VkImageView> &, uint32_t width, uint32_t height);
     void setUpDescriptorSets();
-    void setUpCommandBuffers(uint32_t width, uint32_t height);
     void setUpEmptyComposition(VkFormat);
     void setUpUniformBuffers();
 
@@ -141,14 +136,10 @@ class CompositorVk : protected CompositorVkBase {
 
     static const std::vector<Vertex> k_vertices;
     static const std::vector<uint16_t> k_indices;
-    static const VkExtent2D k_emptyCompositionExtent;
 
     uint32_t m_renderTargetWidth;
     uint32_t m_renderTargetHeight;
-    VkImage m_emptyCompositionVkImage;
-    VkDeviceMemory m_emptyCompositionVkDeviceMemory;
-    VkImageView m_emptyCompositionVkImageView;
-    VkSampler m_emptyCompositionVkSampler;
+    VkSampler m_vkSampler;
 
     std::vector<std::unique_ptr<Composition>> m_currentCompositions;
     struct UniformStorage {
