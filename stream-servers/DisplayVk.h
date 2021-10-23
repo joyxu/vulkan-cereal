@@ -1,9 +1,11 @@
 #ifndef DISPLAY_VK_H
 #define DISPLAY_VK_H
 
+#include <deque>
 #include <functional>
 #include <future>
 #include <memory>
+#include <optional>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
@@ -89,12 +91,29 @@ class DisplayVk {
     VkQueue m_swapChainVkQueue;
     std::shared_ptr<android::base::Lock> m_swapChainVkQueueLock;
     VkCommandPool m_vkCommandPool;
-    std::vector<VkCommandBuffer> m_vkCommandBuffers;
     VkSampler m_compositionVkSampler;
-    VkFence m_frameDrawCompleteFence;
-    VkSemaphore m_imageReadySem;
-    VkSemaphore m_frameDrawCompleteSem;
-    std::shared_future<void> m_frameDrawCompleteFuture;
+
+    class ComposeResource {
+       public:
+        const VkFence m_swapchainImageReleaseFence;
+        const VkSemaphore m_swapchainImageAcquireSemaphore;
+        const VkSemaphore m_swapchainImageReleaseSemaphore;
+        const VkCommandBuffer m_vkCommandBuffer;
+        static std::shared_ptr<DisplayVk::ComposeResource> create(
+            const goldfish_vk::VulkanDispatch &, VkDevice, VkCommandPool);
+        ~ComposeResource();
+        DISALLOW_COPY_ASSIGN_AND_MOVE(ComposeResource);
+
+       private:
+        ComposeResource(const goldfish_vk::VulkanDispatch &, VkDevice, VkCommandPool,
+                        VkFence swapchainImageReleaseFence,
+                        VkSemaphore swapchainImageAcquireSemaphore,
+                        VkSemaphore swapchainImageReleaseSemaphore, VkCommandBuffer);
+        const goldfish_vk::VulkanDispatch &m_vk;
+        const VkDevice m_vkDevice;
+        const VkCommandPool m_vkCommandPool;
+    };
+    std::optional<std::shared_future<std::shared_ptr<ComposeResource>>> m_composeResourceFuture;
 
     std::unique_ptr<SwapChainStateVk> m_swapChainStateVk;
     std::unique_ptr<CompositorVk> m_compositorVk;

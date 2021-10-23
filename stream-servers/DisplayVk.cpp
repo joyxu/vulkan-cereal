@@ -1,5 +1,7 @@
 #include "DisplayVk.h"
 
+#include <algorithm>
+#include <chrono>
 #include <glm/glm.hpp>
 #include <glm/gtx/matrix_transform_2d.hpp>
 
@@ -29,7 +31,6 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk, VkPhysicalDevice vkP
       m_swapChainVkQueue(swapChainVkqueue),
       m_swapChainVkQueueLock(swapChainVkQueueLock),
       m_vkCommandPool(VK_NULL_HANDLE),
-      m_vkCommandBuffers(0),
       m_swapChainStateVk(nullptr),
       m_compositorVk(nullptr),
       m_surfaceState(nullptr),
@@ -42,12 +43,6 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk, VkPhysicalDevice vkP
         .queueFamilyIndex = m_compositorQueueFamilyIndex,
     };
     VK_CHECK(m_vk.vkCreateCommandPool(m_vkDevice, &commandPoolCi, nullptr, &m_vkCommandPool));
-    VkFenceCreateInfo fenceCi = {.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-                                 .flags = VK_FENCE_CREATE_SIGNALED_BIT};
-    VK_CHECK(m_vk.vkCreateFence(m_vkDevice, &fenceCi, nullptr, &m_frameDrawCompleteFence));
-    VkSemaphoreCreateInfo semaphoreCi = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-    VK_CHECK(m_vk.vkCreateSemaphore(m_vkDevice, &semaphoreCi, nullptr, &m_imageReadySem));
-    VK_CHECK(m_vk.vkCreateSemaphore(m_vkDevice, &semaphoreCi, nullptr, &m_frameDrawCompleteSem));
 
     VkSamplerCreateInfo samplerCi = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
                                      .magFilter = VK_FILTER_LINEAR,
@@ -77,12 +72,8 @@ DisplayVk::~DisplayVk() {
         android::base::AutoLock lock(*m_compositorVkQueueLock);
         VK_CHECK(m_vk.vkQueueWaitIdle(m_compositorVkQueue));
     }
-    m_vk.vkFreeCommandBuffers(m_vkDevice, m_vkCommandPool, m_vkCommandBuffers.size(),
-                              m_vkCommandBuffers.data());
+    m_composeResourceFuture = std::nullopt;
     m_vk.vkDestroySampler(m_vkDevice, m_compositionVkSampler, nullptr);
-    m_vk.vkDestroySemaphore(m_vkDevice, m_imageReadySem, nullptr);
-    m_vk.vkDestroySemaphore(m_vkDevice, m_frameDrawCompleteSem, nullptr);
-    m_vk.vkDestroyFence(m_vkDevice, m_frameDrawCompleteFence, nullptr);
     m_surfaceState.reset();
     m_compositorVk.reset();
     m_swapChainStateVk.reset();
@@ -98,11 +89,7 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
         android::base::AutoLock lock(*m_swapChainVkQueueLock);
         VK_CHECK(m_vk.vkQueueWaitIdle(m_swapChainVkQueue));
     }
-    if (!m_vkCommandBuffers.empty()) {
-        m_vk.vkFreeCommandBuffers(m_vkDevice, m_vkCommandPool, m_vkCommandBuffers.size(),
-                                  m_vkCommandBuffers.data());
-        m_vkCommandBuffers.clear();
-    }
+    m_composeResourceFuture = std::nullopt;
     m_compositorVk.reset();
     m_swapChainStateVk.reset();
 
@@ -132,16 +119,10 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
         m_swapChainStateVk->getFormat(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
         m_swapChainStateVk->getVkImageViews().size(), m_vkCommandPool, m_compositionVkSampler);
 
-    int numSwapChainImages = m_swapChainStateVk->getVkImages().size();
-
-    m_vkCommandBuffers.resize(numSwapChainImages, VK_NULL_HANDLE);
-    VkCommandBufferAllocateInfo cmdBuffAllocInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = m_vkCommandPool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = static_cast<uint32_t>(numSwapChainImages)};
-    VK_CHECK(
-        m_vk.vkAllocateCommandBuffers(m_vkDevice, &cmdBuffAllocInfo, m_vkCommandBuffers.data()));
+    m_composeResourceFuture = std::async(std::launch::deferred, [this] {
+                                  return ComposeResource::create(m_vk, m_vkDevice, m_vkCommandPool);
+                              }).share();
+    m_composeResourceFuture.value().wait();
 
     auto surfaceState = std::make_unique<SurfaceState>();
     surfaceState->m_height = height;
@@ -232,33 +213,27 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
         return std::make_tuple(true, std::move(completedFuture));
     }
 
-    VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &m_frameDrawCompleteFence, VK_TRUE, UINT64_MAX));
+    std::shared_ptr<ComposeResource> composeResource = m_composeResourceFuture.value().get();
+
+    VkSemaphore imageReadySem = composeResource->m_swapchainImageAcquireSemaphore;
+    VkSemaphore frameDrawCompleteSem = composeResource->m_swapchainImageReleaseSemaphore;
+
     uint32_t imageIndex;
     VkResult acquireRes =
         m_vk.vkAcquireNextImageKHR(m_vkDevice, m_swapChainStateVk->getSwapChain(), UINT64_MAX,
-                                   m_imageReadySem, VK_NULL_HANDLE, &imageIndex);
+                                   imageReadySem, VK_NULL_HANDLE, &imageIndex);
     if (shouldRecreateSwapchain(acquireRes)) {
         return std::make_tuple(false, std::shared_future<void>());
     }
     VK_CHECK(acquireRes);
 
+    VkFence frameDrawCompleteFence = composeResource->m_swapchainImageReleaseFence;
     if (compareAndSaveComposition(imageIndex, numLayers, layers, composeBuffers)) {
         auto composition = std::make_unique<Composition>(std::move(composeLayers));
         m_compositorVk->setComposition(imageIndex, std::move(composition));
     }
 
-    VkCommandBuffer cmdBuff = m_vkCommandBuffers[imageIndex];
-    // We share the VkFences for different frames, but we don't share futures on
-    // different frames. We call a wait here to make sure that all references to
-    // the future of this frame are marked as completed. If we don't wait on the
-    // future here and we wait for the future somewhere else, we may wait for a
-    // later frame that shares the same VkFence.
-    if (m_frameDrawCompleteFuture.valid()) {
-        m_frameDrawCompleteFuture.wait();
-    }
-    // We can't reset the command buffer in the complete future, because there is no guarantee on
-    // which thread that function will be called. But the caller of CompositorVk is required to
-    // guarantee the thread safety. In fact, CompositorVk is only called on the post worker thread.
+    VkCommandBuffer cmdBuff = composeResource->m_vkCommandBuffer;
     VK_CHECK(m_vk.vkResetCommandBuffer(cmdBuff, 0));
 
     VkCommandBufferBeginInfo beginInfo = {
@@ -270,30 +245,42 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
                                          *m_surfaceState->m_renderTargets[imageIndex]);
     VK_CHECK(m_vk.vkEndCommandBuffer(cmdBuff));
 
-    VK_CHECK(m_vk.vkResetFences(m_vkDevice, 1, &m_frameDrawCompleteFence));
+    VK_CHECK(m_vk.vkResetFences(m_vkDevice, 1, &frameDrawCompleteFence));
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
                                .waitSemaphoreCount = 1,
-                               .pWaitSemaphores = &m_imageReadySem,
+                               .pWaitSemaphores = &imageReadySem,
                                .pWaitDstStageMask = waitStages,
                                .commandBufferCount = 1,
                                .pCommandBuffers = &cmdBuff,
                                .signalSemaphoreCount = 1,
-                               .pSignalSemaphores = &m_frameDrawCompleteSem};
+                               .pSignalSemaphores = &frameDrawCompleteSem};
     {
         android::base::AutoLock lock(*m_compositorVkQueueLock);
-        VK_CHECK(m_vk.vkQueueSubmit(m_compositorVkQueue, 1, &submitInfo, m_frameDrawCompleteFence));
+        VK_CHECK(m_vk.vkQueueSubmit(m_compositorVkQueue, 1, &submitInfo, frameDrawCompleteFence));
     }
-    m_frameDrawCompleteFuture =
-        std::async(std::launch::deferred, [this] {
-            VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &m_frameDrawCompleteFence, VK_TRUE,
-                                          UINT64_MAX));
+
+    std::shared_future<std::shared_ptr<ComposeResource>> composeResourceFuture =
+        std::async(std::launch::deferred, [frameDrawCompleteFence, composeResource, this] {
+            VK_CHECK(
+                m_vk.vkWaitForFences(m_vkDevice, 1, &frameDrawCompleteFence, VK_TRUE, UINT64_MAX));
+            return composeResource;
         }).share();
+
+    std::shared_future<void> frameDrawCompleteFuture =
+        std::async(std::launch::deferred, [composeResourceFuture] {
+            // We can't directly wait for the VkFence here, because we share the VkFences on
+            // different frames, but we don't share the future on different frames. If we directly
+            // wait for the VkFence here, we may wait for a different frame if a new frame starts to
+            // be drawn before this future is waited.
+            composeResourceFuture.wait();
+        }).share();
+    m_composeResourceFuture = composeResourceFuture;
 
     auto swapChain = m_swapChainStateVk->getSwapChain();
     VkPresentInfoKHR presentInfo = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
                                     .waitSemaphoreCount = 1,
-                                    .pWaitSemaphores = &m_frameDrawCompleteSem,
+                                    .pWaitSemaphores = &frameDrawCompleteSem,
                                     .swapchainCount = 1,
                                     .pSwapchains = &swapChain,
                                     .pImageIndices = &imageIndex};
@@ -303,11 +290,11 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
         presentRes = m_vk.vkQueuePresentKHR(m_swapChainVkQueue, &presentInfo);
     }
     if (shouldRecreateSwapchain(presentRes)) {
-        m_frameDrawCompleteFuture.wait();
+        frameDrawCompleteFuture.wait();
         return std::make_tuple(false, std::shared_future<void>());
     }
     VK_CHECK(presentRes);
-    return std::make_tuple(true, m_frameDrawCompleteFuture);
+    return std::make_tuple(true, frameDrawCompleteFuture);
 }
 
 bool DisplayVk::canComposite(VkFormat format) {
@@ -441,3 +428,50 @@ DisplayVk::DisplayBufferInfo::DisplayBufferInfo(const goldfish_vk::VulkanDispatc
 DisplayVk::DisplayBufferInfo::~DisplayBufferInfo() {
     m_vk.vkDestroyImageView(m_vkDevice, m_vkImageView, nullptr);
 }
+
+std::shared_ptr<DisplayVk::ComposeResource> DisplayVk::ComposeResource::create(
+    const goldfish_vk::VulkanDispatch &vk, VkDevice vkDevice, VkCommandPool vkCommandPool) {
+    VkFenceCreateInfo fenceCi = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+    };
+    VkFence fence;
+    VK_CHECK(vk.vkCreateFence(vkDevice, &fenceCi, nullptr, &fence));
+    VkSemaphore semaphores[2];
+    for (uint32_t i = 0; i < std::size(semaphores); i++) {
+        VkSemaphoreCreateInfo semaphoreCi = {
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+        };
+        VK_CHECK(vk.vkCreateSemaphore(vkDevice, &semaphoreCi, nullptr, &semaphores[i]));
+    }
+    VkCommandBuffer commandBuffer;
+    VkCommandBufferAllocateInfo commandBufferAllocInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = vkCommandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+    VK_CHECK(vk.vkAllocateCommandBuffers(vkDevice, &commandBufferAllocInfo, &commandBuffer));
+    return std::shared_ptr<ComposeResource>(new ComposeResource(
+        vk, vkDevice, vkCommandPool, fence, semaphores[0], semaphores[1], commandBuffer));
+}
+
+DisplayVk::ComposeResource::~ComposeResource() {
+    m_vk.vkFreeCommandBuffers(m_vkDevice, m_vkCommandPool, 1, &m_vkCommandBuffer);
+    m_vk.vkDestroyFence(m_vkDevice, m_swapchainImageReleaseFence, nullptr);
+    m_vk.vkDestroySemaphore(m_vkDevice, m_swapchainImageAcquireSemaphore, nullptr);
+    m_vk.vkDestroySemaphore(m_vkDevice, m_swapchainImageReleaseSemaphore, nullptr);
+}
+
+DisplayVk::ComposeResource::ComposeResource(const goldfish_vk::VulkanDispatch &vk,
+                                            VkDevice vkDevice, VkCommandPool vkCommandPool,
+                                            VkFence swapchainImageReleaseFence,
+                                            VkSemaphore swapchainImageAcquireSemaphore,
+                                            VkSemaphore swapchainImageReleaseSemaphore,
+                                            VkCommandBuffer vkCommandBuffer)
+    : m_swapchainImageReleaseFence(swapchainImageReleaseFence),
+      m_swapchainImageAcquireSemaphore(swapchainImageAcquireSemaphore),
+      m_swapchainImageReleaseSemaphore(swapchainImageReleaseSemaphore),
+      m_vkCommandBuffer(vkCommandBuffer),
+      m_vk(vk),
+      m_vkDevice(vkDevice),
+      m_vkCommandPool(vkCommandPool) {}
