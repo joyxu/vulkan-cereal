@@ -5,7 +5,11 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/matrix_transform_2d.hpp>
 
-#include "host-common/logging.h"
+#define DISPLAY_VK_ERROR(fmt, ...)                                                            \
+    do {                                                                                      \
+        fprintf(stderr, "%s(%s:%d): " fmt "\n", __func__, __FILE__, __LINE__, ##__VA_ARGS__); \
+        fflush(stderr);                                                                       \
+    } while (0)
 
 namespace {
 
@@ -95,9 +99,8 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
 
     if (!SwapChainStateVk::validateQueueFamilyProperties(m_vk, m_vkPhysicalDevice, surface,
                                                          m_swapChainQueueFamilyIndex)) {
-        ERR("%s(%s:%d): DisplayVk can't create VkSwapchainKHR with given "
-            "VkDevice and VkSurfaceKHR.\n",
-            __FUNCTION__, __FILE__, static_cast<int>(__LINE__));
+        DISPLAY_VK_ERROR(
+            "DisplayVk can't create VkSwapchainKHR with given VkDevice and VkSurfaceKHR.");
         ::abort();
     }
     auto swapChainCi = SwapChainStateVk::createSwapChainCi(
@@ -107,10 +110,9 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
     m_vk.vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, swapChainCi->imageFormat,
                                              &formatProps);
     if (!(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT)) {
-        ERR("%s(%s:%d): DisplayVk: The image format chosen for present VkImage "
-            "can't be used as the color attachment, and therefore can't be "
-            "used as the render target of CompositorVk.\n",
-            __FUNCTION__, __FILE__, static_cast<int>(__LINE__));
+        DISPLAY_VK_ERROR(
+            "DisplayVk: The image format chosen for present VkImage can't be used as the color "
+            "attachment, and therefore can't be used as the render target of CompositorVk.");
         ::abort();
     }
     m_swapChainStateVk = std::make_unique<SwapChainStateVk>(m_vk, m_vkDevice, *swapChainCi);
@@ -144,27 +146,156 @@ std::shared_ptr<DisplayVk::DisplayBufferInfo> DisplayVk::createDisplayBuffer(VkI
 
 std::tuple<bool, std::shared_future<void>> DisplayVk::post(
     const std::shared_ptr<DisplayBufferInfo> &displayBufferPtr) {
+    auto completedFuture = std::async(std::launch::deferred, [] {}).share();
+    completedFuture.wait();
     if (!displayBufferPtr) {
         fprintf(stderr, "%s: warning: null ptr passed to post buffer\n", __func__);
-        auto completedFuture = std::async(std::launch::deferred, [] {}).share();
         return std::make_tuple(true, std::move(completedFuture));
     }
-    ComposeLayer composeLayer = {
-        0,
-        HWC2_COMPOSITION_DEVICE,
-        {0, 0, static_cast<int>(displayBufferPtr->m_width),
-         static_cast<int>(displayBufferPtr->m_height)},
-        {0.0f, 0.0f, static_cast<float>(displayBufferPtr->m_width),
-         static_cast<float>(displayBufferPtr->m_height)},
-        HWC2_BLEND_MODE_PREMULTIPLIED,
-        1.0f,
-        {0, 0, 0, 0},
-        static_cast<hwc_transform_t>(0) /* transform */
+    // TODO(kaiyili): According to VUID-vkCmdBlitImage-srcImage-01999, check if the format feature
+    // of displayBufferPtr->m_vkImage contains VK_FORMAT_FEATURE_BLIT_SRC_BIT.
+    // TODO(kaiyili): According to VUID-vkCmdBlitImage-srcImage-06421, check if the format of
+    // displayBufferPtr->m_vkImage requires a sampler Ycbcr sampler.
+    // TODO(kaiyili): According to VUID-vkCmdBlitImage-srcImage-00219, check if
+    // displayBufferPtr->m_vkImage is created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT usage flag.
+    // TODO(kaiyili): According to VUID-vkCmdBlitImage-srcImage-00229,
+    // VUID-vkCmdBlitImage-srcImage-00230, check if the signedness of the formats of
+    // displayBufferPtr->m_vkImage and the presentable images are consistent.
+    // TODO(kaiyili): According to VUID-vkCmdBlitImage-srcImage-00233, check if
+    // displayBufferPtr->m_vkImage is created with a samples value of VK_SAMPLE_COUNT_1_BIT.
+    // TODO(kaiyili): According to VUID-vkCmdBlitImage-dstImage-02545, check if
+    // displayBufferPtr->m_vkImage is created iwth flags containing
+    // VK_IMAGE_CREATE_SUBSAMPLED_BIT_EXT.
+    if (!m_swapChainStateVk || !m_surfaceState) {
+        DISPLAY_VK_ERROR("Haven't bound to a surface, can't post ColorBuffer.");
+        return std::make_tuple(true, std::move(completedFuture));
+    }
+
+    std::shared_ptr<ComposeResource> composeResource = m_composeResourceFuture.value().get();
+
+    VkSemaphore imageReadySem = composeResource->m_swapchainImageAcquireSemaphore;
+
+    uint32_t imageIndex;
+    VkResult acquireRes =
+        m_vk.vkAcquireNextImageKHR(m_vkDevice, m_swapChainStateVk->getSwapChain(), UINT64_MAX,
+                                   imageReadySem, VK_NULL_HANDLE, &imageIndex);
+    if (shouldRecreateSwapchain(acquireRes)) {
+        return std::make_tuple(false, std::shared_future<void>());
+    }
+    VK_CHECK(acquireRes);
+
+    VkCommandBuffer cmdBuff = composeResource->m_vkCommandBuffer;
+    VK_CHECK(m_vk.vkResetCommandBuffer(cmdBuff, 0));
+    VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
-    // Use the size of the buffer as the dstWidth and dstHeight to fill the
-    // entire render target with the buffer.
-    return compose(1, &composeLayer, {std::move(displayBufferPtr)}, displayBufferPtr->m_width,
-                   displayBufferPtr->m_height);
+    VK_CHECK(m_vk.vkBeginCommandBuffer(cmdBuff, &beginInfo));
+    VkImageMemoryBarrier presentToXferDstBarrier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = m_swapChainStateVk->getVkImages()[imageIndex],
+        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                             .baseMipLevel = 0,
+                             .levelCount = 1,
+                             .baseArrayLayer = 0,
+                             .layerCount = 1}};
+    m_vk.vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                              VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                              &presentToXferDstBarrier);
+    VkImageBlit region = {
+        .srcSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                           .mipLevel = 0,
+                           .baseArrayLayer = 0,
+                           .layerCount = 1},
+        .srcOffsets = {{0, 0, 0},
+                       {static_cast<int32_t>(displayBufferPtr->m_width),
+                        static_cast<int32_t>(displayBufferPtr->m_height), 1}},
+        .dstSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                           .mipLevel = 0,
+                           .baseArrayLayer = 0,
+                           .layerCount = 1},
+        .dstOffsets = {{0, 0, 0},
+                       {static_cast<int32_t>(m_surfaceState->m_width),
+                        static_cast<int32_t>(m_surfaceState->m_height), 1}},
+    };
+    // TODO(kaiyili), use VK_FILTER_LINEAR if the format features of displayBufferPtr->m_vkImage
+    // contain VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT.
+    m_vk.vkCmdBlitImage(cmdBuff, displayBufferPtr->m_vkImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                        m_swapChainStateVk->getVkImages()[imageIndex],
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_NEAREST);
+    VkImageMemoryBarrier xferDstToPresentBarrier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = m_swapChainStateVk->getVkImages()[imageIndex],
+        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                             .baseMipLevel = 0,
+                             .levelCount = 1,
+                             .baseArrayLayer = 0,
+                             .layerCount = 1}};
+    m_vk.vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                              VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                              &xferDstToPresentBarrier);
+    VK_CHECK(m_vk.vkEndCommandBuffer(cmdBuff));
+
+    VkFence postCompleteFence = composeResource->m_swapchainImageReleaseFence;
+    VK_CHECK(m_vk.vkResetFences(m_vkDevice, 1, &postCompleteFence));
+    VkSemaphore postCompleteSemaphore = composeResource->m_swapchainImageReleaseSemaphore;
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_TRANSFER_BIT};
+    VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+                               .waitSemaphoreCount = 1,
+                               .pWaitSemaphores = &imageReadySem,
+                               .pWaitDstStageMask = waitStages,
+                               .commandBufferCount = 1,
+                               .pCommandBuffers = &cmdBuff,
+                               .signalSemaphoreCount = 1,
+                               .pSignalSemaphores = &postCompleteSemaphore};
+    {
+        android::base::AutoLock lock(*m_compositorVkQueueLock);
+        VK_CHECK(m_vk.vkQueueSubmit(m_compositorVkQueue, 1, &submitInfo, postCompleteFence));
+    }
+    std::shared_future<std::shared_ptr<ComposeResource>> composeResourceFuture =
+        std::async(std::launch::deferred, [postCompleteFence, composeResource, this] {
+            VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &postCompleteFence, VK_TRUE, UINT64_MAX));
+            return composeResource;
+        }).share();
+    m_composeResourceFuture = composeResourceFuture;
+
+    auto swapChain = m_swapChainStateVk->getSwapChain();
+    VkPresentInfoKHR presentInfo = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+                                    .waitSemaphoreCount = 1,
+                                    .pWaitSemaphores = &postCompleteSemaphore,
+                                    .swapchainCount = 1,
+                                    .pSwapchains = &swapChain,
+                                    .pImageIndices = &imageIndex};
+    VkResult presentRes;
+    {
+        android::base::AutoLock lock(*m_swapChainVkQueueLock);
+        presentRes = m_vk.vkQueuePresentKHR(m_swapChainVkQueue, &presentInfo);
+    }
+    if (shouldRecreateSwapchain(presentRes)) {
+        composeResourceFuture.wait();
+        return std::make_tuple(false, std::shared_future<void>());
+    }
+    VK_CHECK(presentRes);
+    return std::make_tuple(true, std::async(std::launch::deferred, [composeResourceFuture] {
+                                     // We can't directly wait for the VkFence here, because we
+                                     // share the VkFences on different frames, but we don't share
+                                     // the future on different frames. If we directly wait for the
+                                     // VkFence here, we may wait for a different frame if a new
+                                     // frame starts to be drawn before this future is waited.
+                                     composeResourceFuture.wait();
+                                 }).share());
 }
 
 std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
@@ -175,9 +306,7 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
     completedFuture.wait();
 
     if (!m_swapChainStateVk || !m_compositorVk) {
-        ERR("%s(%s:%d): Haven't bound to a surface, can't compose color "
-            "buffer.\n",
-            __FUNCTION__, __FILE__, static_cast<int>(__LINE__));
+        DISPLAY_VK_ERROR("Haven't bound to a surface, can't compose color buffer.");
         // The surface hasn't been created yet, hence we don't return
         // std::nullopt to request rebinding.
         return std::make_tuple(true, std::move(completedFuture));
@@ -197,10 +326,10 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
         }
         const auto &db = *composeBuffers[i];
         if (!canComposite(db.m_vkFormat)) {
-            ERR("%s(%s:%d): Can't composite the DisplayBuffer(0x%" PRIxPTR
-                "). The image(VkFormat = %" PRIu64 ") can't be sampled from.\n",
-                __FUNCTION__, __FILE__, static_cast<int>(__LINE__),
-                reinterpret_cast<uintptr_t>(&db), static_cast<uint64_t>(db.m_vkFormat));
+            DISPLAY_VK_ERROR("Can't composite the DisplayBuffer(0x%" PRIxPTR
+                             "). The image(VkFormat = %" PRIu64 ") can't be sampled from.",
+                             reinterpret_cast<uintptr_t>(&db),
+                             static_cast<uint64_t>(db.m_vkFormat));
             continue;
         }
         auto layer = ComposeLayerVk::createFromHwc2ComposeLayer(
@@ -313,9 +442,7 @@ bool DisplayVk::compareAndSaveComposition(
     uint32_t renderTargetIndex, uint32_t numLayers, const ComposeLayer layers[],
     const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers) {
     if (!m_surfaceState) {
-        ERR("%s(%s:%d): Haven't bound to a surface, can't compare and save "
-            "composition\n",
-            __FUNCTION__, __FILE__, static_cast<int>(__LINE__));
+        DISPLAY_VK_ERROR("Haven't bound to a surface, can't compare and save composition.");
         ::abort();
     }
     auto [iPrevComposition, compositionNotFound] =
@@ -407,6 +534,7 @@ DisplayVk::DisplayBufferInfo::DisplayBufferInfo(const goldfish_vk::VulkanDispatc
       m_width(width),
       m_height(height),
       m_vkFormat(format),
+      m_vkImage(image),
       m_vkImageView(VK_NULL_HANDLE) {
     VkImageViewCreateInfo imageViewCi = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,

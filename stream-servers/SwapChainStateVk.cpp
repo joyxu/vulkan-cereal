@@ -3,6 +3,7 @@
 #include <cinttypes>
 #include <unordered_set>
 
+#include "vulkan/vk_enum_string_helper.h"
 #include "vulkan/vk_util.h"
 
 #define SWAPCHAINSTATE_VK_ERROR(fmt, ...)                                                     \
@@ -116,8 +117,17 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
         SWAPCHAINSTATE_VK_ERROR("Fail to create swapchain: immediate present mode not supported.");
         return nullptr;
     }
+    // TODO(kaiyili): According to VUID-vkCmdBlitImage-dstImage-02000, check if the format features
+    // of k_vkFormat contain VK_FORMAT_FEATURE_BLIT_DST_BIT.
     VkSurfaceCapabilitiesKHR surfaceCaps;
     VK_CHECK(vk.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCaps));
+    if (!(surfaceCaps.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT)) {
+        SWAPCHAINSTATE_VK_ERROR(
+            "The supported usage flags of the presentable images is %s, and don't contain "
+            "VK_IMAGE_USAGE_TRANSFER_DST_BIT.",
+            string_VkImageUsageFlags(surfaceCaps.supportedUsageFlags).c_str());
+        return nullptr;
+    }
     std::optional<VkExtent2D> maybeExtent = std::nullopt;
     if (surfaceCaps.currentExtent.width != UINT32_MAX && surfaceCaps.currentExtent.width == width &&
         surfaceCaps.currentExtent.height == height) {
@@ -140,19 +150,20 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
         imageCount = surfaceCaps.maxImageCount;
     }
     VkSwapchainCreateInfoKHRPtr swapChainCi(
-        new VkSwapchainCreateInfoKHR{.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-                                     .surface = surface,
-                                     .minImageCount = imageCount,
-                                     .imageFormat = iSurfaceFormat->format,
-                                     .imageColorSpace = iSurfaceFormat->colorSpace,
-                                     .imageExtent = extent,
-                                     .imageArrayLayers = 1,
-                                     .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                     .preTransform = surfaceCaps.currentTransform,
-                                     .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-                                     .presentMode = presentMode,
-                                     .clipped = VK_TRUE,
-                                     .oldSwapchain = VK_NULL_HANDLE},
+        new VkSwapchainCreateInfoKHR{
+            .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+            .surface = surface,
+            .minImageCount = imageCount,
+            .imageFormat = iSurfaceFormat->format,
+            .imageColorSpace = iSurfaceFormat->colorSpace,
+            .imageExtent = extent,
+            .imageArrayLayers = 1,
+            .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            .preTransform = surfaceCaps.currentTransform,
+            .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+            .presentMode = presentMode,
+            .clipped = VK_TRUE,
+            .oldSwapchain = VK_NULL_HANDLE},
         [](VkSwapchainCreateInfoKHR *p) {
             if (p->pQueueFamilyIndices != nullptr) {
                 delete[] p->pQueueFamilyIndices;

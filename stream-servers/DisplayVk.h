@@ -36,6 +36,7 @@ class DisplayVk {
         uint32_t m_height;
         VkFormat m_vkFormat;
 
+        VkImage m_vkImage;
         VkImageView m_vkImageView;
 
         friend class DisplayVk;
@@ -53,10 +54,11 @@ class DisplayVk {
     // is locked and upgraded to a shared_ptr in DisplayVk::post.
     std::shared_ptr<DisplayBufferInfo> createDisplayBuffer(VkImage, VkFormat, uint32_t width,
                                                            uint32_t height);
-    // The first component of the returned tuple is false when the swapchain is
-    // no longer valid and bindToSurface() needs to be called again. When the
-    // first component is true, the second component of the returned tuple is a
-    // future that will complete when the GPU side of work completes.
+    // The first component of the returned tuple is false when the swapchain is no longer valid and
+    // bindToSurface() needs to be called again. When the first component is true, the second
+    // component of the returned tuple is a/ future that will complete when the GPU side of work
+    // completes. The caller is responsible to guarantee the synchronization and the layout of
+    // DisplayBufferInfo::m_vkImage is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
     std::tuple<bool, std::shared_future<void>> post(const std::shared_ptr<DisplayBufferInfo> &);
 
     // dstWidth and dstHeight describe the size of the render target the guest
