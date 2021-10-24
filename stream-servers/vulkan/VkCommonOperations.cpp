@@ -828,16 +828,8 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
         1, &priority,
     };
 
-    VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndexingFeatures = {};
-    descIndexingFeatures.sType =
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
     VkPhysicalDeviceFeatures2 features = {};
     features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    features.pNext = &descIndexingFeatures;
-    if (!CompositorVk::enablePhysicalDeviceFeatures(features)) {
-        VK_COMMON_ERROR(
-            "Fail to enable physical device features for CompositorVk.\n");
-    }
 
     std::unordered_set<const char*> selectedDeviceExtensionNames_;
 
@@ -845,9 +837,6 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
         for (auto extension : externalMemoryDeviceExtNames) {
             selectedDeviceExtensionNames_.emplace(extension);
         }
-    }
-    for (auto extension : CompositorVk::getRequiredDeviceExtensions()) {
-        selectedDeviceExtensionNames_.emplace(extension);
     }
     for (auto extension : SwapChainStateVk::getRequiredDeviceExtensions()) {
         selectedDeviceExtensionNames_.emplace(extension);
@@ -1931,7 +1920,7 @@ bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
     VkImageMemoryBarrier presentToTransferSrc = {
         VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, 0,
         0,
-        VK_ACCESS_HOST_READ_BIT,
+        VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
         infoPtr->currentLayout,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         VK_QUEUE_FAMILY_IGNORED,
