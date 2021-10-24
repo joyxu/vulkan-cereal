@@ -520,8 +520,8 @@ class FrameBuffer {
 #else
         int handle,
 #endif
-        uint64_t size, bool dedicated, bool linearTiling, bool vulkanOnly,
-        uint32_t colorBufferHandle, VkImage, VkFormat);
+        uint64_t size, bool dedicated, bool vulkanOnly, uint32_t colorBufferHandle, VkImage,
+        const VkImageCreateInfo&);
     void setColorBufferInUse(uint32_t colorBufferHandle, bool inUse);
 
     // Used during tests to disable fast blit.

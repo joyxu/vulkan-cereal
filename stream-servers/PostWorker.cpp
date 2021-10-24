@@ -342,8 +342,8 @@ std::shared_future<void> PostWorker::composev2Impl(const ComposeDevice_v2* p) {
             composeBuffers.push_back(db);
         }
 
-        auto [success, waitForGpu] = m_displayVk->compose(
-            p->numLayers, l, composeBuffers, dstWidth, dstHeight);
+        auto [success, waitForGpu] =
+            m_displayVk->compose(p->numLayers, l, std::move(composeBuffers), dstWidth, dstHeight);
         if (!success) {
             m_needsToRebindWindow = true;
             waitForGpu = completedFuture;

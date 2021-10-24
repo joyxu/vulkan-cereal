@@ -817,8 +817,8 @@ bool FrameBuffer::importMemoryToColorBuffer(
 #else
     int handle,
 #endif
-    uint64_t size, bool dedicated, bool linearTiling, bool vulkanOnly,
-    uint32_t colorBufferHandle, VkImage image, VkFormat format) {
+    uint64_t size, bool dedicated, bool vulkanOnly, uint32_t colorBufferHandle, VkImage image,
+    const VkImageCreateInfo& imageCi) {
     AutoLock mutex(m_lock);
 
     ColorBufferMap::iterator c(m_colorbuffers.find(colorBufferHandle));
@@ -831,12 +831,10 @@ bool FrameBuffer::importMemoryToColorBuffer(
     auto& cb = *c->second.cb;
     std::shared_ptr<DisplayVk::DisplayBufferInfo> db = nullptr;
     if (m_displayVk != nullptr) {
-        db = m_displayVk->createDisplayBuffer(
-            image, format, static_cast<uint32_t>(cb.getWidth()),
-            static_cast<uint32_t>(cb.getHeight()));
+        db = m_displayVk->createDisplayBuffer(image, imageCi);
     }
-    return cb.importMemory(handle, size, dedicated, linearTiling, vulkanOnly,
-                           std::move(db));
+    return cb.importMemory(handle, size, dedicated, imageCi.tiling == VK_IMAGE_TILING_LINEAR,
+                           vulkanOnly, std::move(db));
 }
 
 void FrameBuffer::setColorBufferInUse(

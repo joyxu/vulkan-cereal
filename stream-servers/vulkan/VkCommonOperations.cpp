@@ -1525,6 +1525,7 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
                      VK_IMAGE_USAGE_TRANSFER_SRC_BIT},
                     {VK_FORMAT_FEATURE_TRANSFER_DST_BIT,
                      VK_IMAGE_USAGE_TRANSFER_DST_BIT},
+                    {VK_FORMAT_FEATURE_BLIT_SRC_BIT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT},
             };
     VkFormatFeatureFlags tilingFeatures =
             (res.tiling == VK_IMAGE_TILING_OPTIMAL)
@@ -1641,9 +1642,8 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
     if (sVkEmulation->deviceInfo.supportsExternalMemory &&
         glCompatible &&
         FrameBuffer::getFB()->importMemoryToColorBuffer(
-            dupExternalMemory(res.memory.exportedHandle), res.memory.size,
-            false /* dedicated */, res.tiling == VK_IMAGE_TILING_LINEAR,
-            vulkanOnly, colorBufferHandle, res.image, res.format)) {
+            dupExternalMemory(res.memory.exportedHandle), res.memory.size, false /* dedicated */,
+            vulkanOnly, colorBufferHandle, res.image, imageCi)) {
         res.glExported = true;
     }
 

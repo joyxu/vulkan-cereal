@@ -27,14 +27,12 @@ class DisplayVk {
         ~DisplayBufferInfo();
 
        private:
-        DisplayBufferInfo(const goldfish_vk::VulkanDispatch &, VkDevice, uint32_t width,
-                          uint32_t height, VkFormat, VkImage);
+        DisplayBufferInfo(const goldfish_vk::VulkanDispatch &, VkDevice, const VkImageCreateInfo &,
+                          VkImage);
 
         const goldfish_vk::VulkanDispatch &m_vk;
         VkDevice m_vkDevice;
-        uint32_t m_width;
-        uint32_t m_height;
-        VkFormat m_vkFormat;
+        VkImageCreateInfo m_vkImageCreateInfo;
 
         VkImage m_vkImage;
         VkImageView m_vkImageView;
@@ -47,19 +45,15 @@ class DisplayVk {
               VkQueue swapChainVkQueue, std::shared_ptr<android::base::Lock> swapChainVkQueueLock);
     ~DisplayVk();
     void bindToSurface(VkSurfaceKHR, uint32_t width, uint32_t height);
-    // The caller is responsible to make sure the VkImage lives longer than the
-    // DisplayBufferInfo created here. However, given that DisplayBufferInfo
-    // lives in a shared_ptr, the potential lifetime of DisplayBufferInfo is
-    // aligned to DisplayVk when DisplayVk::m_surfaceState::m_prevDisplayBuffer
-    // is locked and upgraded to a shared_ptr in DisplayVk::post.
-    std::shared_ptr<DisplayBufferInfo> createDisplayBuffer(VkImage, VkFormat, uint32_t width,
-                                                           uint32_t height);
+    // The caller is responsible to make sure the VkImage lives longer than the DisplayBufferInfo
+    // created here.
+    std::shared_ptr<DisplayBufferInfo> createDisplayBuffer(VkImage, const VkImageCreateInfo &);
     // The first component of the returned tuple is false when the swapchain is no longer valid and
     // bindToSurface() needs to be called again. When the first component is true, the second
     // component of the returned tuple is a/ future that will complete when the GPU side of work
     // completes. The caller is responsible to guarantee the synchronization and the layout of
     // DisplayBufferInfo::m_vkImage is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
-    std::tuple<bool, std::shared_future<void>> post(const std::shared_ptr<DisplayBufferInfo> &);
+    std::tuple<bool, std::shared_future<void>> post(std::shared_ptr<DisplayBufferInfo>);
 
     // dstWidth and dstHeight describe the size of the render target the guest
     // "thinks" it composes to, essentially, the virtual display size. Note that
@@ -70,11 +64,13 @@ class DisplayVk {
     // complete when the GPU side of work completes.
     std::tuple<bool, std::shared_future<void>> compose(
         uint32_t numLayers, const ComposeLayer layers[],
-        const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers, uint32_t dstWidth,
+        std::vector<std::shared_ptr<DisplayBufferInfo>> composeBuffers, uint32_t dstWidth,
         uint32_t dstHeight);
 
    private:
-    bool canComposite(VkFormat);
+    VkFormatFeatureFlags getFormatFeatures(VkFormat, VkImageTiling);
+    bool canPost(const VkImageCreateInfo &);
+    bool canComposite(const VkImageCreateInfo &);
     // Returns if the composition specified by the parameter is different from
     // the previous composition. If the composition is different, update the
     // previous composition stored in m_surfaceState. Must be called after
@@ -131,7 +127,8 @@ class DisplayVk {
         std::vector<std::unique_ptr<CompositorVkRenderTarget>> m_renderTargets;
     };
     std::unique_ptr<SurfaceState> m_surfaceState;
-    std::unordered_map<VkFormat, bool> m_canComposite;
+
+    std::unordered_map<VkFormat, VkFormatProperties> m_vkFormatProperties;
 };
 
 #endif

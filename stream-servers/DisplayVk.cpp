@@ -5,10 +5,24 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/matrix_transform_2d.hpp>
 
+#include "host-common/logging.h"
+#include "vulkan/VkCommonOperations.h"
+#include "vulkan/VkFormatUtils.h"
+#include "vulkan/vk_enum_string_helper.h"
+
 #define DISPLAY_VK_ERROR(fmt, ...)                                                            \
     do {                                                                                      \
         fprintf(stderr, "%s(%s:%d): " fmt "\n", __func__, __FILE__, __LINE__, ##__VA_ARGS__); \
         fflush(stderr);                                                                       \
+    } while (0)
+
+#define DISPLAY_VK_ERROR_ONCE(fmt, ...)              \
+    do {                                             \
+        static bool displayVkInternalLogged = false; \
+        if (!displayVkInternalLogged) {              \
+            DISPLAY_VK_ERROR(fmt, ##__VA_ARGS__);    \
+            displayVkInternalLogged = true;          \
+        }                                            \
     } while (0)
 
 namespace {
@@ -37,8 +51,7 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk, VkPhysicalDevice vkP
       m_vkCommandPool(VK_NULL_HANDLE),
       m_swapChainStateVk(nullptr),
       m_compositorVk(nullptr),
-      m_surfaceState(nullptr),
-      m_canComposite() {
+      m_surfaceState(nullptr) {
     // TODO(kaiyili): validate the capabilites of the passed in Vulkan
     // components.
     VkCommandPoolCreateInfo commandPoolCi = {
@@ -136,38 +149,26 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
     m_surfaceState = std::move(surfaceState);
 }
 
-std::shared_ptr<DisplayVk::DisplayBufferInfo> DisplayVk::createDisplayBuffer(VkImage image,
-                                                                             VkFormat format,
-                                                                             uint32_t width,
-                                                                             uint32_t height) {
+std::shared_ptr<DisplayVk::DisplayBufferInfo> DisplayVk::createDisplayBuffer(
+    VkImage image, const VkImageCreateInfo &vkImageCreateInfo) {
     return std::shared_ptr<DisplayBufferInfo>(
-        new DisplayBufferInfo(m_vk, m_vkDevice, width, height, format, image));
+        new DisplayBufferInfo(m_vk, m_vkDevice, vkImageCreateInfo, image));
 }
 
 std::tuple<bool, std::shared_future<void>> DisplayVk::post(
-    const std::shared_ptr<DisplayBufferInfo> &displayBufferPtr) {
+    std::shared_ptr<DisplayBufferInfo> displayBufferPtr) {
     auto completedFuture = std::async(std::launch::deferred, [] {}).share();
     completedFuture.wait();
     if (!displayBufferPtr) {
         fprintf(stderr, "%s: warning: null ptr passed to post buffer\n", __func__);
         return std::make_tuple(true, std::move(completedFuture));
     }
-    // TODO(kaiyili): According to VUID-vkCmdBlitImage-srcImage-01999, check if the format feature
-    // of displayBufferPtr->m_vkImage contains VK_FORMAT_FEATURE_BLIT_SRC_BIT.
-    // TODO(kaiyili): According to VUID-vkCmdBlitImage-srcImage-06421, check if the format of
-    // displayBufferPtr->m_vkImage requires a sampler Ycbcr sampler.
-    // TODO(kaiyili): According to VUID-vkCmdBlitImage-srcImage-00219, check if
-    // displayBufferPtr->m_vkImage is created with VK_IMAGE_USAGE_TRANSFER_SRC_BIT usage flag.
-    // TODO(kaiyili): According to VUID-vkCmdBlitImage-srcImage-00229,
-    // VUID-vkCmdBlitImage-srcImage-00230, check if the signedness of the formats of
-    // displayBufferPtr->m_vkImage and the presentable images are consistent.
-    // TODO(kaiyili): According to VUID-vkCmdBlitImage-srcImage-00233, check if
-    // displayBufferPtr->m_vkImage is created with a samples value of VK_SAMPLE_COUNT_1_BIT.
-    // TODO(kaiyili): According to VUID-vkCmdBlitImage-dstImage-02545, check if
-    // displayBufferPtr->m_vkImage is created iwth flags containing
-    // VK_IMAGE_CREATE_SUBSAMPLED_BIT_EXT.
     if (!m_swapChainStateVk || !m_surfaceState) {
         DISPLAY_VK_ERROR("Haven't bound to a surface, can't post ColorBuffer.");
+        return std::make_tuple(true, std::move(completedFuture));
+    }
+    if (!canPost(displayBufferPtr->m_vkImageCreateInfo)) {
+        DISPLAY_VK_ERROR("Can't post ColorBuffer.");
         return std::make_tuple(true, std::move(completedFuture));
     }
 
@@ -214,8 +215,9 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
                            .baseArrayLayer = 0,
                            .layerCount = 1},
         .srcOffsets = {{0, 0, 0},
-                       {static_cast<int32_t>(displayBufferPtr->m_width),
-                        static_cast<int32_t>(displayBufferPtr->m_height), 1}},
+                       {static_cast<int32_t>(displayBufferPtr->m_vkImageCreateInfo.extent.width),
+                        static_cast<int32_t>(displayBufferPtr->m_vkImageCreateInfo.extent.height),
+                        1}},
         .dstSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                            .mipLevel = 0,
                            .baseArrayLayer = 0,
@@ -224,11 +226,32 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
                        {static_cast<int32_t>(m_surfaceState->m_width),
                         static_cast<int32_t>(m_surfaceState->m_height), 1}},
     };
-    // TODO(kaiyili), use VK_FILTER_LINEAR if the format features of displayBufferPtr->m_vkImage
-    // contain VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT.
+    VkFormat displayBufferFormat = displayBufferPtr->m_vkImageCreateInfo.format;
+    VkImageTiling displayBufferTiling = displayBufferPtr->m_vkImageCreateInfo.tiling;
+    VkFilter filter = VK_FILTER_NEAREST;
+    VkFormatFeatureFlags displayBufferFormatFeatures =
+        getFormatFeatures(displayBufferFormat, displayBufferTiling);
+    if (formatIsDepthOrStencil(displayBufferFormat)) {
+        DISPLAY_VK_ERROR_ONCE(
+            "The format of the display buffer, %s, is a depth/stencil format, we can only use the "
+            "VK_FILTER_NEAREST filter according to VUID-vkCmdBlitImage-srcImage-00232.",
+            string_VkFormat(displayBufferFormat));
+        filter = VK_FILTER_NEAREST;
+    } else if (!(displayBufferFormatFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+        DISPLAY_VK_ERROR_ONCE(
+            "The format of the display buffer, %s, with the tiling, %s, doesn't support "
+            "VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT, so we can only use the "
+            "VK_FILTER_NEAREST filter according VUID-vkCmdBlitImage-filter-02001. The supported "
+            "features are %s.",
+            string_VkFormat(displayBufferFormat), string_VkImageTiling(displayBufferTiling),
+            string_VkFormatFeatureFlags(displayBufferFormatFeatures).c_str());
+        filter = VK_FILTER_NEAREST;
+    } else {
+        filter = VK_FILTER_LINEAR;
+    }
     m_vk.vkCmdBlitImage(cmdBuff, displayBufferPtr->m_vkImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                         m_swapChainStateVk->getVkImages()[imageIndex],
-                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_NEAREST);
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, filter);
     VkImageMemoryBarrier xferDstToPresentBarrier = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
@@ -265,8 +288,13 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
         VK_CHECK(m_vk.vkQueueSubmit(m_compositorVkQueue, 1, &submitInfo, postCompleteFence));
     }
     std::shared_future<std::shared_ptr<ComposeResource>> composeResourceFuture =
-        std::async(std::launch::deferred, [postCompleteFence, composeResource, this] {
+        std::async(std::launch::deferred, [postCompleteFence, composeResource, displayBufferPtr,
+                                           this]() mutable {
             VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &postCompleteFence, VK_TRUE, UINT64_MAX));
+            // Explicitly reset displayBufferPtr here to make sure the lambda actually capture
+            // displayBufferPtr to correctly extend the lifetime of displayBufferPtr until the
+            // rendering completes.
+            displayBufferPtr.reset();
             return composeResource;
         }).share();
     m_composeResourceFuture = composeResourceFuture;
@@ -300,7 +328,7 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
 
 std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
     uint32_t numLayers, const ComposeLayer layers[],
-    const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers, uint32_t dstWidth,
+    std::vector<std::shared_ptr<DisplayBufferInfo>> composeBuffers, uint32_t dstWidth,
     uint32_t dstHeight) {
     std::shared_future<void> completedFuture = std::async(std::launch::deferred, [] {}).share();
     completedFuture.wait();
@@ -325,16 +353,14 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
             continue;
         }
         const auto &db = *composeBuffers[i];
-        if (!canComposite(db.m_vkFormat)) {
-            DISPLAY_VK_ERROR("Can't composite the DisplayBuffer(0x%" PRIxPTR
-                             "). The image(VkFormat = %" PRIu64 ") can't be sampled from.",
-                             reinterpret_cast<uintptr_t>(&db),
-                             static_cast<uint64_t>(db.m_vkFormat));
+        if (!canComposite(db.m_vkImageCreateInfo)) {
+            DISPLAY_VK_ERROR("Can't composite from a display buffer. Skip the layer.");
             continue;
         }
         auto layer = ComposeLayerVk::createFromHwc2ComposeLayer(
             m_compositionVkSampler, composeBuffers[i]->m_vkImageView, layers[i],
-            composeBuffers[i]->m_width, composeBuffers[i]->m_height, dstWidth, dstHeight);
+            composeBuffers[i]->m_vkImageCreateInfo.extent.width,
+            composeBuffers[i]->m_vkImageCreateInfo.extent.height, dstWidth, dstHeight);
         composeLayers.emplace_back(std::move(layer));
     }
 
@@ -390,9 +416,15 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
     }
 
     std::shared_future<std::shared_ptr<ComposeResource>> composeResourceFuture =
-        std::async(std::launch::deferred, [frameDrawCompleteFence, composeResource, this] {
+        std::async(std::launch::deferred, [frameDrawCompleteFence, composeResource,
+                                           composeBuffers = std::move(composeBuffers),
+                                           this]() mutable {
             VK_CHECK(
                 m_vk.vkWaitForFences(m_vkDevice, 1, &frameDrawCompleteFence, VK_TRUE, UINT64_MAX));
+            // Explicitly clear the composeBuffers here to ensure the lambda does caputure
+            // composeBuffers and correctly extend the lifetime of related DisplayBufferInfo until
+            // the render completes.
+            composeBuffers.clear();
             return composeResource;
         }).share();
 
@@ -426,16 +458,127 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
     return std::make_tuple(true, frameDrawCompleteFuture);
 }
 
-bool DisplayVk::canComposite(VkFormat format) {
-    auto it = m_canComposite.find(format);
-    if (it != m_canComposite.end()) {
-        return it->second;
+VkFormatFeatureFlags DisplayVk::getFormatFeatures(VkFormat format, VkImageTiling tiling) {
+    auto i = m_vkFormatProperties.find(format);
+    if (i == m_vkFormatProperties.end()) {
+        VkFormatProperties formatProperties;
+        m_vk.vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, format, &formatProperties);
+        i = m_vkFormatProperties.emplace(format, formatProperties).first;
     }
-    VkFormatProperties formatProps = {};
-    m_vk.vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, format, &formatProps);
-    bool res = formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
-    m_canComposite.emplace(format, res);
-    return res;
+    const VkFormatProperties &formatProperties = i->second;
+    VkFormatFeatureFlags formatFeatures = 0;
+    if (tiling == VK_IMAGE_TILING_LINEAR) {
+        formatFeatures = formatProperties.linearTilingFeatures;
+    } else if (tiling == VK_IMAGE_TILING_OPTIMAL) {
+        formatFeatures = formatProperties.optimalTilingFeatures;
+    } else {
+        DISPLAY_VK_ERROR("Unknown tiling %#" PRIx64 ".", static_cast<uint64_t>(tiling));
+    }
+    return formatFeatures;
+}
+
+bool DisplayVk::canPost(const VkImageCreateInfo &postImageCi) {
+    // According to VUID-vkCmdBlitImage-srcImage-01999, the format features of srcImage must contain
+    // VK_FORMAT_FEATURE_BLIT_SRC_BIT.
+    VkFormatFeatureFlags formatFeatures = getFormatFeatures(postImageCi.format, postImageCi.tiling);
+    if (!(formatFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
+        DISPLAY_VK_ERROR(
+            "VK_FORMAT_FEATURE_BLIT_SRC_BLIT is not supported for VkImage with format %s, tilling "
+            "%s. Supported features are %s.",
+            string_VkFormat(postImageCi.format), string_VkImageTiling(postImageCi.tiling),
+            string_VkFormatFeatureFlags(formatFeatures).c_str());
+        return false;
+    }
+
+    // According to VUID-vkCmdBlitImage-srcImage-06421, srcImage must not use a format that requires
+    // a sampler Y’CBCR conversion.
+    if (formatRequiresSamplerYcbcrConversion(postImageCi.format)) {
+        DISPLAY_VK_ERROR("Format %s requires a sampler Y'CbCr conversion. Can't be used to post.",
+                         string_VkFormat(postImageCi.format));
+        return false;
+    }
+
+    if (!(postImageCi.usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) {
+        // According to VUID-vkCmdBlitImage-srcImage-00219, srcImage must have been created with
+        // VK_IMAGE_USAGE_TRANSFER_SRC_BIT usage flag.
+        DISPLAY_VK_ERROR(
+            "The VkImage is not created with the VK_IMAGE_USAGE_TRANSFER_SRC_BIT usage flag. The "
+            "usage flags are %s.",
+            string_VkImageUsageFlags(postImageCi.usage).c_str());
+        return false;
+    }
+
+    VkFormat swapChainFormat = m_swapChainStateVk->getFormat();
+    if (formatIsSInt(postImageCi.format) || formatIsSInt(swapChainFormat)) {
+        // According to VUID-vkCmdBlitImage-srcImage-00229, if either of srcImage or dstImage was
+        // created with a signed integer VkFormat, the other must also have been created with a
+        // signed integer VkFormat.
+        if (!(formatIsSInt(postImageCi.format) && formatIsSInt(m_swapChainStateVk->getFormat()))) {
+            DISPLAY_VK_ERROR(
+                "The format(%s) doesn't match with the format of the presentable image(%s): either "
+                "of the formats is a signed integer VkFormat, but the other is not.",
+                string_VkFormat(postImageCi.format), string_VkFormat(swapChainFormat));
+            return false;
+        }
+    }
+
+    if (formatIsUInt(postImageCi.format) || formatIsUInt(swapChainFormat)) {
+        // According to VUID-vkCmdBlitImage-srcImage-00230, if either of srcImage or dstImage was
+        // created with an unsigned integer VkFormat, the other must also have been created with an
+        // unsigned integer VkFormat.
+        if (!(formatIsUInt(postImageCi.format) && formatIsUInt(swapChainFormat))) {
+            DISPLAY_VK_ERROR(
+                "The format(%s) doesn't match with the format of the presentable image(%s): either "
+                "of the formats is an unsigned integer VkFormat, but the other is not.",
+                string_VkFormat(postImageCi.format), string_VkFormat(swapChainFormat));
+            return false;
+        }
+    }
+
+    if (formatIsDepthOrStencil(postImageCi.format) || formatIsDepthOrStencil(swapChainFormat)) {
+        // According to VUID-vkCmdBlitImage-srcImage-00231, if either of srcImage or dstImage was
+        // created with a depth/stencil format, the other must have exactly the same format.
+        if (postImageCi.format != swapChainFormat) {
+            DISPLAY_VK_ERROR(
+                "The format(%s) doesn't match with the format of the presentable image(%s): either "
+                "of the formats is a depth/stencil VkFormat, but the other is not the same format.",
+                string_VkFormat(postImageCi.format), string_VkFormat(swapChainFormat));
+            return false;
+        }
+    }
+
+    if (postImageCi.samples != VK_SAMPLE_COUNT_1_BIT) {
+        // According to VUID-vkCmdBlitImage-srcImage-00233, srcImage must have been created with a
+        // samples value of VK_SAMPLE_COUNT_1_BIT.
+        DISPLAY_VK_ERROR(
+            "The VkImage is not created with the VK_SAMPLE_COUNT_1_BIT samples value. The samples "
+            "value is %s.",
+            string_VkSampleCountFlagBits(postImageCi.samples));
+        return false;
+    }
+    if (postImageCi.flags & VK_IMAGE_CREATE_SUBSAMPLED_BIT_EXT) {
+        // According to VUID-vkCmdBlitImage-dstImage-02545, dstImage and srcImage must not have been
+        // created with flags containing VK_IMAGE_CREATE_SUBSAMPLED_BIT_EXT.
+        DISPLAY_VK_ERROR(
+            "The VkImage can't be created with flags containing "
+            "VK_IMAGE_CREATE_SUBSAMPLED_BIT_EXT. The flags are %s.",
+            string_VkImageCreateFlags(postImageCi.flags).c_str());
+        return false;
+    }
+    return true;
+}
+
+bool DisplayVk::canComposite(const VkImageCreateInfo &imageCi) {
+    VkFormatFeatureFlags formatFeatures = getFormatFeatures(imageCi.format, imageCi.tiling);
+    if (!(formatFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) {
+        DISPLAY_VK_ERROR(
+            "The format, %s, with tiling, %s, doesn't support the "
+            "VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT feature. All supported features are %s.",
+            string_VkFormat(imageCi.format), string_VkImageTiling(imageCi.tiling),
+            string_VkFormatFeatureFlags(formatFeatures).c_str());
+        return false;
+    }
+    return true;
 }
 
 bool DisplayVk::compareAndSaveComposition(
@@ -527,20 +670,19 @@ bool DisplayVk::compareAndSaveComposition(
 }
 
 DisplayVk::DisplayBufferInfo::DisplayBufferInfo(const goldfish_vk::VulkanDispatch &vk,
-                                                VkDevice vkDevice, uint32_t width, uint32_t height,
-                                                VkFormat format, VkImage image)
+                                                VkDevice vkDevice,
+                                                const VkImageCreateInfo &vkImageCreateInfo,
+                                                VkImage image)
     : m_vk(vk),
       m_vkDevice(vkDevice),
-      m_width(width),
-      m_height(height),
-      m_vkFormat(format),
+      m_vkImageCreateInfo(vk_make_orphan_copy(vkImageCreateInfo)),
       m_vkImage(image),
       m_vkImageView(VK_NULL_HANDLE) {
     VkImageViewCreateInfo imageViewCi = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .image = image,
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        .format = format,
+        .format = m_vkImageCreateInfo.format,
         .components = {.r = VK_COMPONENT_SWIZZLE_IDENTITY,
                        .g = VK_COMPONENT_SWIZZLE_IDENTITY,
                        .b = VK_COMPONENT_SWIZZLE_IDENTITY,

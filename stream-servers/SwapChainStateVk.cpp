@@ -117,8 +117,20 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
         SWAPCHAINSTATE_VK_ERROR("Fail to create swapchain: immediate present mode not supported.");
         return nullptr;
     }
-    // TODO(kaiyili): According to VUID-vkCmdBlitImage-dstImage-02000, check if the format features
-    // of k_vkFormat contain VK_FORMAT_FEATURE_BLIT_DST_BIT.
+    VkFormatProperties formatProperties = {};
+    vk.vkGetPhysicalDeviceFormatProperties(physicalDevice, k_vkFormat, &formatProperties);
+    // According to the spec, a presentable image is equivalent to a non-presentable image created
+    // with the VK_IMAGE_TILING_OPTIMAL tiling parameter.
+    VkFormatFeatureFlags formatFeatures = formatProperties.optimalTilingFeatures;
+    if (!(formatFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
+        // According to VUID-vkCmdBlitImage-dstImage-02000, the format features of dstImage must
+        // contain VK_FORMAT_FEATURE_BLIT_DST_BIT.
+        SWAPCHAINSTATE_VK_ERROR(
+            "The format %s with the optimal tiling doesn't support VK_FORMAT_FEATURE_BLIT_DST_BIT. "
+            "The supported features are %s.",
+            string_VkFormat(k_vkFormat), string_VkFormatFeatureFlags(formatFeatures).c_str());
+        return nullptr;
+    }
     VkSurfaceCapabilitiesKHR surfaceCaps;
     VK_CHECK(vk.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCaps));
     if (!(surfaceCaps.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT)) {
