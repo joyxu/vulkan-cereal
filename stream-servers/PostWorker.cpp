@@ -316,15 +316,12 @@ std::shared_future<void> PostWorker::composev2Impl(const ComposeDevice_v2* p) {
             ERR("failed to retrieve the composition target buffer\n");
             std::abort();
         }
-        uint32_t dstWidth =
-            static_cast<uint32_t>(targetColorBufferPtr->getWidth());
-        uint32_t dstHeight =
-            static_cast<uint32_t>(targetColorBufferPtr->getHeight());
         // We don't copy the render result to the targetHandle color buffer
         // when using the Vulkan native host swapchain, because we directly
         // render to the swapchain image instead of rendering onto a
         // ColorBuffer, and we don't readback from the ColorBuffer so far.
         std::vector<ColorBufferPtr> cbs;  // Keep ColorBuffers alive
+        cbs.emplace_back(targetColorBufferPtr);
         std::vector<std::shared_ptr<DisplayVk::DisplayBufferInfo>>
             composeBuffers;
         for (int i = 0; i < p->numLayers; ++i) {
@@ -342,8 +339,8 @@ std::shared_future<void> PostWorker::composev2Impl(const ComposeDevice_v2* p) {
             composeBuffers.push_back(db);
         }
 
-        auto [success, waitForGpu] =
-            m_displayVk->compose(p->numLayers, l, std::move(composeBuffers), dstWidth, dstHeight);
+        auto [success, waitForGpu] = m_displayVk->compose(
+            p->numLayers, l, std::move(composeBuffers), targetColorBufferPtr->getDisplayBufferVk());
         if (!success) {
             m_needsToRebindWindow = true;
             waitForGpu = completedFuture;

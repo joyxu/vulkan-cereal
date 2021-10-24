@@ -1381,19 +1381,30 @@ void FrameBuffer::createColorBufferWithHandle(
      FrameworkFormat p_frameworkFormat,
      HandleType handle) {
 
-    AutoLock mutex(m_lock);
+    HandleType resHandle;
+    {
+        AutoLock mutex(m_lock);
 
-    // Check for handle collision
-    if (m_colorbuffers.count(handle) != 0) {
-        // emugl::emugl_crash_reporter(
-        //     "FATAL: color buffer with handle %u already exists",
-        //     handle);
-        ::abort();
+        // Check for handle collision
+        if (m_colorbuffers.count(handle) != 0) {
+            // emugl::emugl_crash_reporter(
+            //     "FATAL: color buffer with handle %u already exists",
+            //     handle);
+            ::abort();
+        }
+
+        resHandle = createColorBufferWithHandleLocked(
+            p_width, p_height, p_internalFormat, p_frameworkFormat,
+            handle);
     }
 
-    createColorBufferWithHandleLocked(
-        p_width, p_height, p_internalFormat, p_frameworkFormat,
-        handle);
+    if (m_displayVk && resHandle == handle) {
+        goldfish_vk::setupVkColorBuffer(
+            handle,
+            false /* not vulkan only */,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT /* memory property */,
+            nullptr /* exported */);
+    }
 }
 
 HandleType FrameBuffer::createColorBufferLocked(int p_width,
@@ -2781,6 +2792,9 @@ emugl::Renderer::FlushReadPixelPipeline FrameBuffer::getFlushReadPixelPipeline()
 
 bool FrameBuffer::repost(bool needLockAndBind) {
     GL_LOG("Reposting framebuffer.");
+    if (m_displayVk) {
+        return true;
+    }
     if (m_lastPostedColorBuffer &&
         sInitialized.load(std::memory_order_relaxed)) {
         GL_LOG("Has last posted colorbuffer and is initialized; post.");

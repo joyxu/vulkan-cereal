@@ -36,6 +36,11 @@ class DisplayVk {
 
         VkImage m_vkImage;
         VkImageView m_vkImageView;
+        // m_compositorVkRenderTarget will be created when the first time the ColorBuffer is used as
+        // the render target of DisplayVk::compose. DisplayVk owns the m_compositorVkRenderTarget so
+        // that when the CompositorVk is recreated m_compositorVkRenderTarget can be restored to
+        // nullptr.
+        std::weak_ptr<CompositorVkRenderTarget> m_compositorVkRenderTarget;
 
         friend class DisplayVk;
     };
@@ -64,13 +69,16 @@ class DisplayVk {
     // complete when the GPU side of work completes.
     std::tuple<bool, std::shared_future<void>> compose(
         uint32_t numLayers, const ComposeLayer layers[],
-        std::vector<std::shared_ptr<DisplayBufferInfo>> composeBuffers, uint32_t dstWidth,
-        uint32_t dstHeight);
+        std::vector<std::shared_ptr<DisplayBufferInfo>> composeBuffers,
+        std::shared_ptr<DisplayBufferInfo> renderTarget);
 
    private:
     VkFormatFeatureFlags getFormatFeatures(VkFormat, VkImageTiling);
     bool canPost(const VkImageCreateInfo &);
-    bool canComposite(const VkImageCreateInfo &);
+    // Check if the VkImage can be used as the compose layer to be sampled from.
+    bool canCompositeFrom(const VkImageCreateInfo &);
+    // Check if the VkImage can be used as the render target of the composition.
+    bool canCompositeTo(const VkImageCreateInfo &);
     // Returns if the composition specified by the parameter is different from
     // the previous composition. If the composition is different, update the
     // previous composition stored in m_surfaceState. Must be called after
@@ -91,30 +99,54 @@ class DisplayVk {
     VkCommandPool m_vkCommandPool;
     VkSampler m_compositionVkSampler;
 
-    class ComposeResource {
+    class PostResource {
        public:
         const VkFence m_swapchainImageReleaseFence;
         const VkSemaphore m_swapchainImageAcquireSemaphore;
         const VkSemaphore m_swapchainImageReleaseSemaphore;
         const VkCommandBuffer m_vkCommandBuffer;
-        static std::shared_ptr<DisplayVk::ComposeResource> create(
-            const goldfish_vk::VulkanDispatch &, VkDevice, VkCommandPool);
-        ~ComposeResource();
-        DISALLOW_COPY_ASSIGN_AND_MOVE(ComposeResource);
+        static std::shared_ptr<PostResource> create(const goldfish_vk::VulkanDispatch &, VkDevice,
+                                                    VkCommandPool);
+        ~PostResource();
+        DISALLOW_COPY_ASSIGN_AND_MOVE(PostResource);
 
        private:
-        ComposeResource(const goldfish_vk::VulkanDispatch &, VkDevice, VkCommandPool,
-                        VkFence swapchainImageReleaseFence,
-                        VkSemaphore swapchainImageAcquireSemaphore,
-                        VkSemaphore swapchainImageReleaseSemaphore, VkCommandBuffer);
+        PostResource(const goldfish_vk::VulkanDispatch &, VkDevice, VkCommandPool,
+                     VkFence swapchainImageReleaseFence, VkSemaphore swapchainImageAcquireSemaphore,
+                     VkSemaphore swapchainImageReleaseSemaphore, VkCommandBuffer);
         const goldfish_vk::VulkanDispatch &m_vk;
         const VkDevice m_vkDevice;
         const VkCommandPool m_vkCommandPool;
     };
-    std::optional<std::shared_future<std::shared_ptr<ComposeResource>>> m_composeResourceFuture;
+
+    std::deque<std::shared_ptr<PostResource>> m_freePostResources;
+    std::optional<std::shared_future<std::shared_ptr<PostResource>>> m_postResourceFuture;
+
+    class ComposeResource {
+       public:
+        const VkFence m_composeCompleteFence;
+        const VkCommandBuffer m_vkCommandBuffer;
+        static std::unique_ptr<ComposeResource> create(const goldfish_vk::VulkanDispatch &,
+                                                       VkDevice, VkCommandPool);
+        ~ComposeResource();
+        DISALLOW_COPY_ASSIGN_AND_MOVE(ComposeResource);
+
+       private:
+        ComposeResource(const goldfish_vk::VulkanDispatch &, VkDevice, VkCommandPool, VkFence,
+                        VkCommandBuffer);
+        const goldfish_vk::VulkanDispatch &m_vk;
+        const VkDevice m_vkDevice;
+        const VkCommandPool m_vkCommandPool;
+    };
+
+    int m_inFlightFrameIndex;
+    std::optional<std::future<std::unique_ptr<ComposeResource>>> m_composeResourceFuture;
 
     std::unique_ptr<SwapChainStateVk> m_swapChainStateVk;
     std::unique_ptr<CompositorVk> m_compositorVk;
+    static constexpr uint32_t k_compositorVkRenderTargetCacheSize = 128;
+    std::deque<std::shared_ptr<CompositorVkRenderTarget>> m_compositorVkRenderTargets;
+    static constexpr VkFormat k_compositorVkRenderTargetFormat = VK_FORMAT_R8G8B8A8_UNORM;
     struct SurfaceState {
         struct Layer {
             ComposeLayer m_hwc2Layer;
@@ -124,7 +156,6 @@ class DisplayVk {
         uint32_t m_width = 0;
         uint32_t m_height = 0;
         std::unordered_map<uint32_t, std::vector<std::unique_ptr<Layer>>> m_prevCompositions;
-        std::vector<std::unique_ptr<CompositorVkRenderTarget>> m_renderTargets;
     };
     std::unique_ptr<SurfaceState> m_surfaceState;
 
