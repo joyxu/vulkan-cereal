@@ -2734,8 +2734,8 @@ GL_API void GL_APIENTRY  glReadPixels( GLint x, GLint y, GLsizei width, GLsizei 
         glGetIntegerv(GL_RENDERBUFFER_BINDING, &prev_bound_rbo);
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_bound_draw_fbo);
 
-        GLuint resolve_fbo;
-        GLuint resolve_rbo;
+        GLuint resolve_fbo = 0;
+        GLuint resolve_rbo = 0;
         glGenFramebuffersOES(1, &resolve_fbo);
         glGenRenderbuffersOES(1, &resolve_rbo);
 
