@@ -1288,7 +1288,6 @@ public:
                 if (mLogging) {
                     fprintf(stderr, "%s: get device queue (end)\n", __func__);
                 }
-
                 queues.push_back(queueOut);
                 mQueueInfo[queueOut].device = *pDevice;
                 mQueueInfo[queueOut].queueFamilyIndex = index;
@@ -3470,8 +3469,9 @@ public:
 
         VkQueue defaultQueue;
         uint32_t defaultQueueFamilyIndex;
-        if (!getDefaultQueueForDeviceLocked(
-                    device, &defaultQueue, &defaultQueueFamilyIndex)) {
+        Lock* defaultQueueLock;
+        if (!getDefaultQueueForDeviceLocked(device, &defaultQueue, &defaultQueueFamilyIndex,
+                                            &defaultQueueLock)) {
             fprintf(stderr, "%s: cant get the default q\n", __func__);
             return VK_ERROR_INITIALIZATION_FAILED;
         }
@@ -3481,7 +3481,7 @@ public:
         return
             setAndroidNativeImageSemaphoreSignaled(
                     vk, device,
-                    defaultQueue, defaultQueueFamilyIndex,
+                    defaultQueue, defaultQueueFamilyIndex, defaultQueueLock,
                     semaphore, fence, anbInfo);
     }
 
@@ -3498,9 +3498,9 @@ public:
 
         AutoLock lock(mLock);
 
-        auto queueFamilyIndex = queueFamilyIndexOfQueueLocked(queue);
+        auto queueInfo = android::base::find(mQueueInfo, queue);
 
-        if (!queueFamilyIndex) {
+        if (!queueInfo) {
             return VK_ERROR_INITIALIZATION_FAILED;
         }
 
@@ -3509,11 +3509,8 @@ public:
 
         return
             syncImageToColorBuffer(
-                    vk,
-                    *queueFamilyIndex,
-                    queue,
-                    waitSemaphoreCount, pWaitSemaphores,
-                    pNativeFenceFd, anbInfo);
+                    vk, queueInfo->queueFamilyIndex, queue, queueInfo->lock, waitSemaphoreCount,
+                    pWaitSemaphores, pNativeFenceFd, anbInfo);
     }
 
     VkResult on_vkMapMemoryIntoAddressSpaceGOOGLE(
@@ -5021,15 +5018,8 @@ private:
         return &physdevInfo->memoryProperties;
     }
 
-    Optional<uint32_t> queueFamilyIndexOfQueueLocked(VkQueue queue) {
-        auto info = android::base::find(mQueueInfo, queue);
-        if (!info) return {};
-
-        return info->queueFamilyIndex;
-    }
-
     bool getDefaultQueueForDeviceLocked(
-            VkDevice device, VkQueue* queue, uint32_t* queueFamilyIndex) {
+            VkDevice device, VkQueue* queue, uint32_t* queueFamilyIndex, Lock** queueLock) {
 
         auto deviceInfo = android::base::find(mDeviceInfo, device);
         if (!deviceInfo) return false;
@@ -5041,9 +5031,10 @@ private:
             // that does show up.
             for (auto it : deviceInfo->queues) {
                 auto index = it.first;
-                for (auto deviceQueue : it.second) {
+                for (auto& deviceQueue : it.second) {
                     *queue = deviceQueue;
                     *queueFamilyIndex = index;
+                    *queueLock = mQueueInfo.at(deviceQueue).lock;
                     return true;
                 }
             }
@@ -5053,6 +5044,7 @@ private:
             // Use queue family index 0.
             *queue = zeroIt->second[0];
             *queueFamilyIndex = 0;
+            *queueLock = mQueueInfo.at(zeroIt->second[0]).lock;
             return true;
         }
 
