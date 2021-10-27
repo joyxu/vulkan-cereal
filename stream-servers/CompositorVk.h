@@ -42,6 +42,8 @@ class Composition {
     explicit Composition(std::vector<std::unique_ptr<ComposeLayerVk>> composeLayers);
 };
 
+class CompositorVkRenderTarget;
+
 struct CompositorVkBase
     : public vk_util::RunSingleTimeCommand<
           CompositorVkBase,
@@ -62,7 +64,6 @@ struct CompositorVkBase
     VkDeviceMemory m_indexVkDeviceMemory;
     VkDescriptorPool m_vkDescriptorPool;
     std::vector<VkDescriptorSet> m_vkDescriptorSets;
-    std::vector<VkFramebuffer> m_renderTargetVkFrameBuffers;
 
     VkCommandPool m_vkCommandPool;
 
@@ -85,7 +86,6 @@ struct CompositorVkBase
           m_indexVkDeviceMemory(VK_NULL_HANDLE),
           m_vkDescriptorPool(VK_NULL_HANDLE),
           m_vkDescriptorSets(0),
-          m_renderTargetVkFrameBuffers(0),
           m_vkCommandPool(commandPool) {}
 };
 
@@ -94,22 +94,23 @@ class CompositorVk : protected CompositorVkBase {
     static std::unique_ptr<CompositorVk> create(
         const goldfish_vk::VulkanDispatch &vk, VkDevice, VkPhysicalDevice, VkQueue,
         std::shared_ptr<android::base::Lock> queueLock, VkFormat, VkImageLayout initialLayout,
-        VkImageLayout finalLayout, uint32_t width, uint32_t height,
-        const std::vector<VkImageView> &renderTargets, VkCommandPool, VkSampler);
+        VkImageLayout finalLayout, uint32_t maxFramesInFlight, VkCommandPool, VkSampler);
     static bool validateQueueFamilyProperties(const VkQueueFamilyProperties &properties);
 
     ~CompositorVk();
-    void recordCommandBuffers(uint32_t renderTargetIndex, VkCommandBuffer);
+    void recordCommandBuffers(uint32_t renderTargetIndex, VkCommandBuffer,
+                              const CompositorVkRenderTarget &);
     void setComposition(uint32_t i, std::unique_ptr<Composition> &&composition);
+    std::unique_ptr<CompositorVkRenderTarget> createRenderTarget(VkImageView, uint32_t width,
+                                                                 uint32_t height);
 
    private:
     explicit CompositorVk(const goldfish_vk::VulkanDispatch &, VkDevice, VkPhysicalDevice, VkQueue,
                           std::shared_ptr<android::base::Lock> queueLock, VkCommandPool,
-                          uint32_t renderTargetWidth, uint32_t renderTargetHeight);
-    void setUpGraphicsPipeline(uint32_t width, uint32_t height, VkFormat renderTargetFormat,
-                               VkImageLayout initialLayout, VkImageLayout finalLayout, VkSampler);
+                          uint32_t maxFramesInFlight);
+    void setUpGraphicsPipeline(VkFormat renderTargetFormat, VkImageLayout initialLayout,
+                               VkImageLayout finalLayout, VkSampler);
     void setUpVertexBuffers();
-    void setUpFramebuffers(const std::vector<VkImageView> &, uint32_t width, uint32_t height);
     void setUpDescriptorSets();
     void setUpEmptyComposition(VkFormat);
     void setUpUniformBuffers();
@@ -137,8 +138,7 @@ class CompositorVk : protected CompositorVkBase {
     static const std::vector<Vertex> k_vertices;
     static const std::vector<uint16_t> k_indices;
 
-    uint32_t m_renderTargetWidth;
-    uint32_t m_renderTargetHeight;
+    uint32_t m_maxFramesInFlight;
     VkSampler m_vkSampler;
 
     std::vector<std::unique_ptr<Composition>> m_currentCompositions;
@@ -148,6 +148,21 @@ class CompositorVk : protected CompositorVkBase {
         void *m_data;
         VkDeviceSize m_stride;
     } m_uniformStorage;
+};
+
+class CompositorVkRenderTarget {
+   public:
+    ~CompositorVkRenderTarget();
+
+   private:
+    const goldfish_vk::VulkanDispatch &m_vk;
+    VkDevice m_vkDevice;
+    VkFramebuffer m_vkFramebuffer;
+    uint32_t m_width;
+    uint32_t m_height;
+    CompositorVkRenderTarget(const goldfish_vk::VulkanDispatch &, VkDevice, VkImageView,
+                             uint32_t width, uint32_t height, VkRenderPass);
+    friend class CompositorVk;
 };
 
 #endif /* COMPOSITOR_VK_H */
