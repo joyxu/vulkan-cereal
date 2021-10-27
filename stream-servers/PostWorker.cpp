@@ -83,12 +83,16 @@ void PostWorker::postImpl(ColorBuffer* cb) {
     }
 
     if (m_displayVk) {
-        if (m_justVkComposed) {
-            m_justVkComposed = false;
+        bool shouldSkip = m_lastVkComposeColorBuffer == cb->getHndl();
+        m_lastVkComposeColorBuffer = std::nullopt;
+        if (shouldSkip) {
             return;
         }
-        auto [success, waitForGpu] =
-            m_displayVk->post(cb->getDisplayBufferVk());
+        goldfish_vk::acquireColorBuffersForHostComposing({}, cb->getHndl());
+        auto [success, waitForGpu] = m_displayVk->post(cb->getDisplayBufferVk());
+        goldfish_vk::setColorBufferCurrentLayout(cb->getHndl(),
+                                                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        goldfish_vk::releaseColorBufferFromHostComposing({cb->getHndl()});
         if (success) {
             waitForGpu.wait();
         } else {
@@ -316,39 +320,43 @@ std::shared_future<void> PostWorker::composev2Impl(const ComposeDevice_v2* p) {
             ERR("failed to retrieve the composition target buffer\n");
             std::abort();
         }
-        uint32_t dstWidth =
-            static_cast<uint32_t>(targetColorBufferPtr->getWidth());
-        uint32_t dstHeight =
-            static_cast<uint32_t>(targetColorBufferPtr->getHeight());
         // We don't copy the render result to the targetHandle color buffer
         // when using the Vulkan native host swapchain, because we directly
         // render to the swapchain image instead of rendering onto a
         // ColorBuffer, and we don't readback from the ColorBuffer so far.
         std::vector<ColorBufferPtr> cbs;  // Keep ColorBuffers alive
+        cbs.emplace_back(targetColorBufferPtr);
         std::vector<std::shared_ptr<DisplayVk::DisplayBufferInfo>>
             composeBuffers;
+        std::vector<uint32_t> layerColorBufferHandles;
         for (int i = 0; i < p->numLayers; ++i) {
             auto colorBufferPtr = mFb->findColorBuffer(l[i].cbHandle);
             if (!colorBufferPtr) {
                 composeBuffers.push_back(nullptr);
                 continue;
             }
-            cbs.push_back(colorBufferPtr);
             auto db = colorBufferPtr->getDisplayBufferVk();
-            if (!db) {
-                goldfish_vk::setupVkColorBuffer(l[i].cbHandle);
-                db = colorBufferPtr->getDisplayBufferVk();
-            }
             composeBuffers.push_back(db);
+            if (!db) {
+                continue;
+            }
+            cbs.push_back(colorBufferPtr);
+            layerColorBufferHandles.emplace_back(l[i].cbHandle);
         }
-
+        goldfish_vk::acquireColorBuffersForHostComposing(layerColorBufferHandles, p->targetHandle);
         auto [success, waitForGpu] = m_displayVk->compose(
-            p->numLayers, l, composeBuffers, dstWidth, dstHeight);
+            p->numLayers, l, composeBuffers, targetColorBufferPtr->getDisplayBufferVk());
+        goldfish_vk::setColorBufferCurrentLayout(p->targetHandle,
+                                                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        std::vector<uint32_t> colorBufferHandles(layerColorBufferHandles.begin(),
+                                                 layerColorBufferHandles.end());
+        colorBufferHandles.emplace_back(p->targetHandle);
+        goldfish_vk::releaseColorBufferFromHostComposing(colorBufferHandles);
         if (!success) {
             m_needsToRebindWindow = true;
             waitForGpu = completedFuture;
         }
-        m_justVkComposed = true;
+        m_lastVkComposeColorBuffer = p->targetHandle;
         return waitForGpu;
     }
 

@@ -261,6 +261,11 @@ struct VkEmulation {
         VulkanMode vulkanMode = VulkanMode::Default;
 
         MTLTextureRef mtlTexture = nullptr;
+        // shared_ptr is required so that ColorBufferInfo::ownedByHost can have
+        // an uninitialized default value that is neither true or false. The
+        // actual value will be set by setupVkColorBuffer when creating
+        // ColorBufferInfo.
+        std::shared_ptr<std::atomic_bool> ownedByHost = nullptr;
     };
 
     struct BufferInfo {
@@ -324,6 +329,10 @@ struct VkEmulation {
     // external backing?
     // TODO: try switching to this
     ExternalMemoryInfo virtualHostVisibleHeap;
+
+    // Every command buffer in the pool is associated with a VkFence which is
+    // signaled only if the command buffer completes.
+    std::vector<std::tuple<VkCommandBuffer, VkFence>> transferQueueCommandBufferPool;
 };
 
 VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk);
@@ -403,5 +412,14 @@ VkExternalMemoryProperties
 transformExternalMemoryProperties_fromhost(
     VkExternalMemoryProperties props,
     VkExternalMemoryHandleTypeFlags wantedGuestHandleType);
+
+void acquireColorBuffersForHostComposing(const std::vector<uint32_t>& layerColorBuffers,
+                                         uint32_t renderTargetColorBuffer);
+
+void releaseColorBufferFromHostComposing(const std::vector<uint32_t>& colorBufferHandles);
+
+void releaseColorBufferFromHostComposingSync(const std::vector<uint32_t>& colorBufferHandles);
+
+void setColorBufferCurrentLayout(uint32_t colorBufferHandle, VkImageLayout);
 
 } // namespace goldfish_vk
