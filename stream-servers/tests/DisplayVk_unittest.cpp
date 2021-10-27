@@ -192,8 +192,7 @@ TEST_F(DisplayVkTest, PostWithoutSurfaceShouldntCrash) {
                                          m_vkCommandPool, textureWidth, textureHeight);
     std::vector<uint32_t> pixels(textureWidth * textureHeight, 0);
     ASSERT_TRUE(texture->write(pixels));
-    auto cbvk = displayVk.createDisplayBuffer(texture->m_vkImage, RenderTexture::k_vkFormat,
-                                              textureWidth, textureHeight);
+    auto cbvk = displayVk.createDisplayBuffer(texture->m_vkImage, texture->m_vkImageCreateInfo);
     ASSERT_TRUE(std::get<0>(displayVk.post(cbvk)));
 }
 
@@ -213,8 +212,7 @@ TEST_F(DisplayVkTest, SimplePost) {
         }
     }
     ASSERT_TRUE(texture->write(pixels));
-    auto cbvk = m_displayVk->createDisplayBuffer(texture->m_vkImage, texture->k_vkFormat,
-                                                 texture->m_width, texture->m_height);
+    auto cbvk = m_displayVk->createDisplayBuffer(texture->m_vkImage, texture->m_vkImageCreateInfo);
     std::vector<std::shared_future<void>> waitForGpuFutures;
     for (uint32_t i = 0; i < 10; i++) {
         auto [success, waitForGpuFuture] = m_displayVk->post(cbvk);
@@ -241,11 +239,10 @@ TEST_F(DisplayVkTest, PostTwoColorBuffers) {
     std::vector<uint32_t> greenPixels(textureWidth * textureHeight, green);
     ASSERT_TRUE(redTexture->write(redPixels));
     ASSERT_TRUE(greenTexture->write(greenPixels));
-    auto redCbvk = m_displayVk->createDisplayBuffer(redTexture->m_vkImage, redTexture->k_vkFormat,
-                                                    redTexture->m_width, redTexture->m_height);
-    auto greenCbvk =
-        m_displayVk->createDisplayBuffer(greenTexture->m_vkImage, greenTexture->k_vkFormat,
-                                         greenTexture->m_width, greenTexture->m_height);
+    auto redCbvk =
+        m_displayVk->createDisplayBuffer(redTexture->m_vkImage, redTexture->m_vkImageCreateInfo);
+    auto greenCbvk = m_displayVk->createDisplayBuffer(greenTexture->m_vkImage,
+                                                      greenTexture->m_vkImageCreateInfo);
     std::vector<std::shared_future<void>> waitForGpuFutures;
     for (uint32_t i = 0; i < 10; i++) {
         auto [success, waitForGpuFuture] = m_displayVk->post(redCbvk);
