@@ -416,10 +416,12 @@ void AndroidNativeBufferInfo::QueueState::setup(
     VulkanDispatch* vk,
     VkDevice device,
     VkQueue queueIn,
-    uint32_t queueFamilyIndexIn) {
+    uint32_t queueFamilyIndexIn,
+    android::base::Lock* queueLockIn) {
 
     queue = queueIn;
     queueFamilyIndex = queueFamilyIndexIn;
+    lock = queueLockIn;
 
     VkCommandPoolCreateInfo poolCreateInfo = {
         VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, 0,
@@ -479,6 +481,7 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
     VkDevice device,
     VkQueue defaultQueue,
     uint32_t defaultQueueFamilyIndex,
+    Lock* defaultQueueLock,
     VkSemaphore semaphore,
     VkFence fence,
     AndroidNativeBufferInfo* anbInfo) {
@@ -499,7 +502,7 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
             (uint32_t)(semaphore == VK_NULL_HANDLE ? 0 : 1),
             semaphore == VK_NULL_HANDLE ? nullptr : &semaphore,
         };
-
+        AutoLock qlock(*defaultQueueLock);
         vk->vkQueueSubmit(defaultQueue, 1, &submitInfo, fence);
     } else {
 
@@ -555,6 +558,7 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
                 semaphore == VK_NULL_HANDLE ? nullptr : &semaphore,
             };
 
+            AutoLock qlock(*queueState.lock);
             // TODO(kaiyili): initiate ownership transfer from DisplayVk here
             vk->vkQueueSubmit(queueState.queue, 1, &submitInfo, fence);
         } else {
@@ -567,6 +571,7 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
                 (uint32_t)(semaphore == VK_NULL_HANDLE ? 0 : 1),
                 semaphore == VK_NULL_HANDLE ? nullptr : &semaphore,
             };
+            AutoLock qlock(*queueState.lock);
             vk->vkQueueSubmit(queueState.queue, 1, &submitInfo, fence);
         }
     }
@@ -580,6 +585,7 @@ VkResult syncImageToColorBuffer(
     VulkanDispatch* vk,
     uint32_t queueFamilyIndex,
     VkQueue queue,
+    Lock* queueLock,
     uint32_t waitSemaphoreCount,
     const VkSemaphore* pWaitSemaphores,
     int* pNativeFenceFd,
@@ -610,7 +616,7 @@ VkResult syncImageToColorBuffer(
 
     if (!queueState.queue) {
         queueState.setup(
-            vk, anbInfo->device, queue, queueFamilyIndex);
+            vk, anbInfo->device, queue, queueFamilyIndex, queueLock);
     }
 
     // Record our synchronization commands.
@@ -747,6 +753,7 @@ VkResult syncImageToColorBuffer(
         qsriFence = anbInfo->qsriWaitInfo.getFenceFromPoolLocked();
         VK_ANB_DEBUG_OBJ(anbInfoPtr, "got qsri fence %p", qsriFence);
     }
+    AutoLock qLock(*queueLock);
     vk->vkQueueSubmit(queueState.queue, 1, &submitInfo, qsriFence);
     fb->unlock();
 
