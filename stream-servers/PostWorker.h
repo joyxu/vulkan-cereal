@@ -22,6 +22,7 @@
 
 #include <functional>
 #include <future>
+#include <optional>
 #include <vector>
 
 #include "DisplayVk.h"
@@ -123,7 +124,7 @@ class PostWorker {
     std::shared_ptr<DisplayVk> m_displayVk;
     // With Vulkan swapchain, compose also means to post to the WSI surface.
     // In this case, don't do anything in the subsequent resource flush.
-    bool m_justVkComposed = false;
+    std::optional<uint32_t> m_lastVkComposeColorBuffer = std::nullopt;
 
     DISALLOW_COPY_AND_ASSIGN(PostWorker);
 };
