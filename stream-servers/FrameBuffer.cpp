@@ -287,6 +287,7 @@ void FrameBuffer::waitUntilInitialized() {
 
 void FrameBuffer::finalize() {
     AutoLock lock(sGlobals()->lock);
+    AutoLock fbLock(m_lock);
     m_perfStats = false;
     m_perfThread->wait(NULL);
     sInitialized.store(true, std::memory_order_relaxed);
@@ -1889,6 +1890,9 @@ void FrameBuffer::cleanupProcGLObjects(uint64_t puid) {
     } while (renderThreadWithThisPuidExists);
 
     AutoLock mutex(m_lock);
+    if (!m_eglDisplay) {
+        return;
+    }
     auto colorBuffersToCleanup = cleanupProcGLObjects_locked(puid);
 
     // Run other cleanup callbacks
