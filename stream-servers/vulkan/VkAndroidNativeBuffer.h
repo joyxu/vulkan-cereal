@@ -92,12 +92,14 @@ struct AndroidNativeBufferInfo {
         VkCommandBuffer cb = VK_NULL_HANDLE;
         VkCommandBuffer cb2 = VK_NULL_HANDLE;
         VkFence fence = VK_NULL_HANDLE;
+        android::base::Lock* lock = nullptr;
         uint32_t queueFamilyIndex = 0;
         void setup(
             VulkanDispatch* vk,
             VkDevice device,
             VkQueue queue,
-            uint32_t queueFamilyIndex);
+            uint32_t queueFamilyIndex,
+            android::base::Lock* queueLock);
         void teardown(VulkanDispatch* vk, VkDevice device);
     };
     // We keep one QueueState for each queue family index used by the guest
@@ -178,6 +180,7 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
     VkDevice device,
     VkQueue defaultQueue,
     uint32_t defaultQueueFamilyIndex,
+    android::base::Lock* defaultQueueLock,
     VkSemaphore semaphore,
     VkFence fence,
     AndroidNativeBufferInfo* anbInfo);
@@ -186,6 +189,7 @@ VkResult syncImageToColorBuffer(
     VulkanDispatch* vk,
     uint32_t queueFamilyIndex,
     VkQueue queue,
+    android::base::Lock* queueLock,
     uint32_t waitSemaphoreCount,
     const VkSemaphore* pWaitSemaphores,
     int* pNativeFenceFd,
