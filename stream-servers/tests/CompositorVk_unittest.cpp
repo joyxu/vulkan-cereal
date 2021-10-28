@@ -80,9 +80,11 @@ class CompositorVkTest : public ::testing::Test {
                                      return renderTarget->m_vkImageView;
                                  }),
                   m_renderTargetImageViews.end());
+        setUpRGBASampler();
     }
 
     void TearDown() override {
+        k_vk->vkDestroySampler(m_vkDevice, m_rgbaVkSampler, nullptr);
         k_vk->vkFreeCommandBuffers(m_vkDevice, m_vkCommandPool, m_vkCommandBuffers.size(),
                                    m_vkCommandBuffers.data());
         m_vkCommandBuffers.clear();
@@ -98,10 +100,20 @@ class CompositorVkTest : public ::testing::Test {
         return CompositorVk::create(
             *k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue, m_compositorVkQueueLock,
             RenderTarget::k_vkFormat, RenderTarget::k_vkImageLayout, RenderTarget::k_vkImageLayout,
-            k_renderTargetWidth, k_renderTargetHeight, m_renderTargetImageViews, m_vkCommandPool);
+            m_renderTargetImageViews.size(), m_vkCommandPool, m_rgbaVkSampler);
     }
 
-    VkSampler createSampler() {
+    std::vector<std::unique_ptr<CompositorVkRenderTarget>> createCompositorRenderTargets(
+        CompositorVk &compositor) {
+        std::vector<std::unique_ptr<CompositorVkRenderTarget>> res;
+        for (VkImageView imageView : m_renderTargetImageViews) {
+            res.emplace_back(compositor.createRenderTarget(imageView, k_renderTargetWidth,
+                                                           k_renderTargetHeight));
+        }
+        return res;
+    }
+
+    void setUpRGBASampler() {
         VkSamplerCreateInfo samplerCi = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
                                          .magFilter = VK_FILTER_NEAREST,
                                          .minFilter = VK_FILTER_NEAREST,
@@ -118,9 +130,7 @@ class CompositorVkTest : public ::testing::Test {
                                          .maxLod = 0.0f,
                                          .borderColor = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK,
                                          .unnormalizedCoordinates = VK_FALSE};
-        VkSampler res;
-        VK_CHECK(k_vk->vkCreateSampler(m_vkDevice, &samplerCi, nullptr, &res));
-        return res;
+        VK_CHECK(k_vk->vkCreateSampler(m_vkDevice, &samplerCi, nullptr, &m_rgbaVkSampler));
     }
 
     static const goldfish_vk::VulkanDispatch *k_vk;
@@ -134,6 +144,7 @@ class CompositorVkTest : public ::testing::Test {
     VkQueue m_compositorVkQueue = VK_NULL_HANDLE;
     std::shared_ptr<android::base::Lock> m_compositorVkQueueLock;
     std::vector<VkCommandBuffer> m_vkCommandBuffers;
+    VkSampler m_rgbaVkSampler = VK_NULL_HANDLE;
 
    private:
     void createInstance() {
@@ -162,15 +173,6 @@ class CompositorVkTest : public ::testing::Test {
                                                    physicalDevices.data()),
                   VK_SUCCESS);
         for (const auto &device : physicalDevices) {
-            VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndexingFeatures = {
-                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT};
-            VkPhysicalDeviceFeatures2 features = {
-                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-                .pNext = &descIndexingFeatures};
-            k_vk->vkGetPhysicalDeviceFeatures2(device, &features);
-            if (!CompositorVk::validatePhysicalDeviceFeatures(features)) {
-                continue;
-            }
             uint32_t queueFamilyCount = 0;
             k_vk->vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
             ASSERT_GT(queueFamilyCount, 0);
@@ -201,21 +203,15 @@ class CompositorVkTest : public ::testing::Test {
                                            .queueFamilyIndex = m_compositorQueueFamilyIndex,
                                            .queueCount = 1,
                                            .pQueuePriorities = &queuePriority};
-        VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndexingFeatures = {
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT};
         VkPhysicalDeviceFeatures2 features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-                                              .pNext = &descIndexingFeatures};
-        ASSERT_TRUE(CompositorVk::enablePhysicalDeviceFeatures(features));
-        const std::vector<const char *> enabledDeviceExtensions =
-            CompositorVk::getRequiredDeviceExtensions();
-        VkDeviceCreateInfo deviceCi = {
-            .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-            .pNext = &features,
-            .queueCreateInfoCount = 1,
-            .pQueueCreateInfos = &queueCi,
-            .enabledLayerCount = 0,
-            .enabledExtensionCount = static_cast<uint32_t>(enabledDeviceExtensions.size()),
-            .ppEnabledExtensionNames = enabledDeviceExtensions.data()};
+                                              .pNext = nullptr};
+        VkDeviceCreateInfo deviceCi = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+                                       .pNext = &features,
+                                       .queueCreateInfoCount = 1,
+                                       .pQueueCreateInfos = &queueCi,
+                                       .enabledLayerCount = 0,
+                                       .enabledExtensionCount = 0,
+                                       .ppEnabledExtensionNames = nullptr};
         ASSERT_EQ(k_vk->vkCreateDevice(m_vkPhysicalDevice, &deviceCi, nullptr, &m_vkDevice),
                   VK_SUCCESS);
         ASSERT_TRUE(m_vkDevice != VK_NULL_HANDLE);
@@ -226,35 +222,12 @@ const goldfish_vk::VulkanDispatch *CompositorVkTest::k_vk = nullptr;
 
 TEST_F(CompositorVkTest, Init) { ASSERT_NE(createCompositor(), nullptr); }
 
-TEST_F(CompositorVkTest, ValidatePhysicalDeviceFeatures) {
-    VkPhysicalDeviceFeatures2 features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-    ASSERT_FALSE(CompositorVk::validatePhysicalDeviceFeatures(features));
-    VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndexingFeatures = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT,
-        .pNext = nullptr};
-    descIndexingFeatures.descriptorBindingSampledImageUpdateAfterBind = VK_FALSE;
-    features.pNext = &descIndexingFeatures;
-    ASSERT_FALSE(CompositorVk::validatePhysicalDeviceFeatures(features));
-    descIndexingFeatures.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
-    ASSERT_TRUE(CompositorVk::validatePhysicalDeviceFeatures(features));
-}
-
 TEST_F(CompositorVkTest, ValidateQueueFamilyProperties) {
     VkQueueFamilyProperties properties = {};
     properties.queueFlags &= ~VK_QUEUE_GRAPHICS_BIT;
     ASSERT_FALSE(CompositorVk::validateQueueFamilyProperties(properties));
     properties.queueFlags |= VK_QUEUE_GRAPHICS_BIT;
     ASSERT_TRUE(CompositorVk::validateQueueFamilyProperties(properties));
-}
-
-TEST_F(CompositorVkTest, EnablePhysicalDeviceFeatures) {
-    VkPhysicalDeviceFeatures2 features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-    ASSERT_FALSE(CompositorVk::enablePhysicalDeviceFeatures(features));
-    VkPhysicalDeviceDescriptorIndexingFeaturesEXT descIndexingFeatures = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT};
-    features.pNext = &descIndexingFeatures;
-    ASSERT_TRUE(CompositorVk::enablePhysicalDeviceFeatures(features));
-    ASSERT_EQ(descIndexingFeatures.descriptorBindingSampledImageUpdateAfterBind, VK_TRUE);
 }
 
 TEST_F(CompositorVkTest, EmptyCompositionShouldDrawABlackFrame) {
@@ -277,6 +250,7 @@ TEST_F(CompositorVkTest, EmptyCompositionShouldDrawABlackFrame) {
     }
 
     auto compositor = createCompositor();
+    auto renderTargets = createCompositorRenderTargets(*compositor);
     ASSERT_NE(compositor, nullptr);
 
     // render to render targets with event index
@@ -287,7 +261,7 @@ TEST_F(CompositorVkTest, EmptyCompositionShouldDrawABlackFrame) {
             .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         };
         VK_CHECK(k_vk->vkBeginCommandBuffer(m_vkCommandBuffers[i], &beginInfo));
-        compositor->recordCommandBuffers(i, m_vkCommandBuffers[i]);
+        compositor->recordCommandBuffers(i, m_vkCommandBuffers[i], *renderTargets[i]);
         VK_CHECK(k_vk->vkEndCommandBuffer(m_vkCommandBuffers[i]));
         if (i % 2 == 0) {
             cmdBuffs.emplace_back(m_vkCommandBuffers[i]);
@@ -325,7 +299,6 @@ TEST_F(CompositorVkTest, SimpleComposition) {
     constexpr uint32_t textureBottom = 40;
     constexpr uint32_t textureWidth = textureRight - textureLeft;
     constexpr uint32_t textureHeight = textureBottom - textureTop;
-    auto sampler = createSampler();
     auto texture = RenderTexture::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
                                          m_vkCommandPool, textureWidth, textureHeight);
     uint32_t textureColor;
@@ -363,13 +336,14 @@ TEST_F(CompositorVkTest, SimpleComposition) {
     };
 
     std::unique_ptr<ComposeLayerVk> composeLayerVkPtr = ComposeLayerVk::createFromHwc2ComposeLayer(
-        sampler, texture->m_vkImageView, composeLayer, textureWidth, textureHeight,
+        m_rgbaVkSampler, texture->m_vkImageView, composeLayer, textureWidth, textureHeight,
         k_renderTargetWidth, k_renderTargetHeight);
 
     std::vector<std::unique_ptr<ComposeLayerVk>> layers;
     layers.emplace_back(std::move(composeLayerVkPtr));
 
     auto composition = std::make_unique<Composition>(std::move(layers));
+    auto renderTargets = createCompositorRenderTargets(*compositor);
     compositor->setComposition(0, std::move(composition));
 
     VkCommandBuffer cmdBuff = m_vkCommandBuffers[0];
@@ -378,7 +352,7 @@ TEST_F(CompositorVkTest, SimpleComposition) {
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
     VK_CHECK(k_vk->vkBeginCommandBuffer(cmdBuff, &beginInfo));
-    compositor->recordCommandBuffers(0, cmdBuff);
+    compositor->recordCommandBuffers(0, cmdBuff, *renderTargets[0]);
     VK_CHECK(k_vk->vkEndCommandBuffer(cmdBuff));
 
     VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -405,7 +379,6 @@ TEST_F(CompositorVkTest, SimpleComposition) {
             }
         }
     }
-    k_vk->vkDestroySampler(m_vkDevice, sampler, nullptr);
 }
 
 TEST_F(CompositorVkTest, CompositingWithDifferentCompositionOnMultipleTargets) {
@@ -450,7 +423,6 @@ TEST_F(CompositorVkTest, CompositingWithDifferentCompositionOnMultipleTargets) {
         };
     }
 
-    auto sampler = createSampler();
     auto texture = RenderTexture::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
                                          m_vkCommandPool, textureWidth, textureHeight);
     uint32_t textureColor;
@@ -463,11 +435,12 @@ TEST_F(CompositorVkTest, CompositingWithDifferentCompositionOnMultipleTargets) {
     ASSERT_TRUE(texture->write(pixels));
     auto compositor = createCompositor();
     ASSERT_NE(compositor, nullptr);
+    auto renderTargets = createCompositorRenderTargets(*compositor);
     for (int i = 0; i < k_numOfRenderTargets; i++) {
         std::unique_ptr<ComposeLayerVk> composeLayerVkPtr =
             ComposeLayerVk::createFromHwc2ComposeLayer(
-                sampler, texture->m_vkImageView, composeLayers[i], textureWidth, textureHeight,
-                k_renderTargetWidth, k_renderTargetHeight);
+                m_rgbaVkSampler, texture->m_vkImageView, composeLayers[i], textureWidth,
+                textureHeight, k_renderTargetWidth, k_renderTargetHeight);
 
         std::vector<std::unique_ptr<ComposeLayerVk>> layers;
         layers.emplace_back(std::move(composeLayerVkPtr));
@@ -481,7 +454,7 @@ TEST_F(CompositorVkTest, CompositingWithDifferentCompositionOnMultipleTargets) {
             .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         };
         VK_CHECK(k_vk->vkBeginCommandBuffer(cmdBuff, &beginInfo));
-        compositor->recordCommandBuffers(i, cmdBuff);
+        compositor->recordCommandBuffers(i, cmdBuff, *renderTargets[i]);
         VK_CHECK(k_vk->vkEndCommandBuffer(cmdBuff));
 
         VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -513,5 +486,4 @@ TEST_F(CompositorVkTest, CompositingWithDifferentCompositionOnMultipleTargets) {
             }
         }
     }
-    k_vk->vkDestroySampler(m_vkDevice, sampler, nullptr);
 }
