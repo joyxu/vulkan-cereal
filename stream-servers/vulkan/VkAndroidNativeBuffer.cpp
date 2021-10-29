@@ -125,6 +125,7 @@ VkResult prepareAndroidNativeBufferImage(
     if (colorBufferVulkanCompatible && externalMemoryCompatible &&
         setupVkColorBuffer(out->colorBufferHandle, false /* not Vulkan only */,
                            0u /* memoryProperty */, &out->useVulkanNativeImage)) {
+        releaseColorBufferFromHostComposingSync({out->colorBufferHandle});
         out->externallyBacked = true;
     }
 
@@ -415,10 +416,12 @@ void AndroidNativeBufferInfo::QueueState::setup(
     VulkanDispatch* vk,
     VkDevice device,
     VkQueue queueIn,
-    uint32_t queueFamilyIndexIn) {
+    uint32_t queueFamilyIndexIn,
+    android::base::Lock* queueLockIn) {
 
     queue = queueIn;
     queueFamilyIndex = queueFamilyIndexIn;
+    lock = queueLockIn;
 
     VkCommandPoolCreateInfo poolCreateInfo = {
         VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, 0,
@@ -478,6 +481,7 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
     VkDevice device,
     VkQueue defaultQueue,
     uint32_t defaultQueueFamilyIndex,
+    Lock* defaultQueueLock,
     VkSemaphore semaphore,
     VkFence fence,
     AndroidNativeBufferInfo* anbInfo) {
@@ -498,7 +502,7 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
             (uint32_t)(semaphore == VK_NULL_HANDLE ? 0 : 1),
             semaphore == VK_NULL_HANDLE ? nullptr : &semaphore,
         };
-
+        AutoLock qlock(*defaultQueueLock);
         vk->vkQueueSubmit(defaultQueue, 1, &submitInfo, fence);
     } else {
 
@@ -519,25 +523,27 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
 
             vk->vkBeginCommandBuffer(queueState.cb2, &beginInfo);
 
-            VkImageMemoryBarrier backToPresentSrc = {
-                VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, 0,
-                VK_ACCESS_HOST_READ_BIT, 0,
-                fb->getVkImageLayoutForCompose(),
-                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                VK_QUEUE_FAMILY_EXTERNAL,
-                anbInfo->lastUsedQueueFamilyIndex,
-                anbInfo->image,
-                {
-                    VK_IMAGE_ASPECT_COLOR_BIT,
-                    0, 1, 0, 1,
-                },
+            VkImageMemoryBarrier queueTransferBarrier = {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+                .oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL,
+                .dstQueueFamilyIndex = anbInfo->lastUsedQueueFamilyIndex,
+                .image = anbInfo->image,
+                .subresourceRange =
+                    {
+                        VK_IMAGE_ASPECT_COLOR_BIT,
+                        0,
+                        1,
+                        0,
+                        1,
+                    },
             };
-
-            vk->vkCmdPipelineBarrier(queueState.cb2,
-                    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0,
-                    nullptr, 0, nullptr, 1, &backToPresentSrc);
-
+            vk->vkCmdPipelineBarrier(queueState.cb2, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                     VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr,
+                                     1, &queueTransferBarrier);
             vk->vkEndCommandBuffer(queueState.cb2);
 
             VkSubmitInfo submitInfo = {
@@ -552,6 +558,7 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
                 semaphore == VK_NULL_HANDLE ? nullptr : &semaphore,
             };
 
+            AutoLock qlock(*queueState.lock);
             // TODO(kaiyili): initiate ownership transfer from DisplayVk here
             vk->vkQueueSubmit(queueState.queue, 1, &submitInfo, fence);
         } else {
@@ -564,6 +571,7 @@ VkResult setAndroidNativeImageSemaphoreSignaled(
                 (uint32_t)(semaphore == VK_NULL_HANDLE ? 0 : 1),
                 semaphore == VK_NULL_HANDLE ? nullptr : &semaphore,
             };
+            AutoLock qlock(*queueState.lock);
             vk->vkQueueSubmit(queueState.queue, 1, &submitInfo, fence);
         }
     }
@@ -577,6 +585,7 @@ VkResult syncImageToColorBuffer(
     VulkanDispatch* vk,
     uint32_t queueFamilyIndex,
     VkQueue queue,
+    Lock* queueLock,
     uint32_t waitSemaphoreCount,
     const VkSemaphore* pWaitSemaphores,
     int* pNativeFenceFd,
@@ -607,7 +616,7 @@ VkResult syncImageToColorBuffer(
 
     if (!queueState.queue) {
         queueState.setup(
-            vk, anbInfo->device, queue, queueFamilyIndex);
+            vk, anbInfo->device, queue, queueFamilyIndex, queueLock);
     }
 
     // Record our synchronization commands.
@@ -622,28 +631,27 @@ VkResult syncImageToColorBuffer(
     // If using the Vulkan image directly (rather than copying it back to
     // the CPU), change its layout for that use.
     if (anbInfo->useVulkanNativeImage) {
-        VkImageMemoryBarrier present2GeneralBarrier = {
-            VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, 0,
-            VK_ACCESS_HOST_READ_BIT, 0,
-            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            fb->getVkImageLayoutForCompose(),
-            queueFamilyIndex,
-            VK_QUEUE_FAMILY_EXTERNAL,
-            anbInfo->image,
-            {
-                VK_IMAGE_ASPECT_COLOR_BIT,
-                0, 1, 0, 1,
-            },
+        VkImageMemoryBarrier queueTransferBarrier = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            .srcQueueFamilyIndex = queueFamilyIndex,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL,
+            .image = anbInfo->image,
+            .subresourceRange =
+                {
+                    VK_IMAGE_ASPECT_COLOR_BIT,
+                    0,
+                    1,
+                    0,
+                    1,
+                },
         };
-
-        vk->vkCmdPipelineBarrier(
-            queueState.cb,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-            0,
-            0, nullptr,
-            0, nullptr,
-            1, &present2GeneralBarrier);
+        vk->vkCmdPipelineBarrier(queueState.cb, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                                 &queueTransferBarrier);
 
     } else {
         // Not a GL texture. Read it back and put it back in present layout.
@@ -745,6 +753,7 @@ VkResult syncImageToColorBuffer(
         qsriFence = anbInfo->qsriWaitInfo.getFenceFromPoolLocked();
         VK_ANB_DEBUG_OBJ(anbInfoPtr, "got qsri fence %p", qsriFence);
     }
+    AutoLock qLock(*queueLock);
     vk->vkQueueSubmit(queueState.queue, 1, &submitInfo, qsriFence);
     fb->unlock();
 
