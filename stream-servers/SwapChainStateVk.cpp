@@ -114,7 +114,7 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
     std::unordered_set<VkPresentModeKHR> presentModes(presentModes_.begin(), presentModes_.end());
     VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
     if (!presentModes.count(VK_PRESENT_MODE_FIFO_KHR)) {
-        SWAPCHAINSTATE_VK_ERROR("Fail to create swapchain: immediate present mode not supported.");
+        SWAPCHAINSTATE_VK_ERROR("Fail to create swapchain: FIFO present mode not supported.");
         return nullptr;
     }
     VkFormatProperties formatProperties = {};
