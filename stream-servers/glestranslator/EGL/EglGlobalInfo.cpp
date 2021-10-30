@@ -19,6 +19,7 @@
 #include "EglDisplay.h"
 #include "EglOsApi.h"
 
+#include "host-common/GfxstreamFatalError.h"
 #include "GLcommon/GLutils.h"
 
 #include <string.h>
@@ -39,7 +40,7 @@ static bool sEgl2EglSyncSafeToUse = false;
 void EglGlobalInfo::setEgl2Egl(EGLBoolean enable, bool nullEgl) {
     if (nullEgl && enable == EGL_FALSE) {
         // No point in nullEgl backend for non egl2egl cases.
-        std::abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER));
     }
     sEgl2Egl = enable;
     setGles2Gles(enable);

@@ -24,3 +24,8 @@
         GFXSTREAM_LOG(stderr, __VA_ARGS__); \
         fflush(stderr);                     \
     } while (0)
+
+#ifndef GFXSTREAM_FATAL
+#define GFXSTREAM_FATAL() abort();
+#endif
+

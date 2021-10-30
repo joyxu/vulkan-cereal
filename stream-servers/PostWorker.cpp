@@ -24,6 +24,8 @@
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "OpenGLESDispatch/GLESv2Dispatch.h"
 #include "RenderThreadInfo.h"
+#include "base/Tracing.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/misc.h"
 #include "vulkan/VkCommonOperations.h"
 
@@ -229,8 +231,8 @@ void PostWorker::viewportImpl(int width, int height) {
 // clear() is useful for outputting consistent colors.
 void PostWorker::clearImpl() {
     if (m_displayVk) {
-        POST_ERROR("PostWorker with Vulkan doesn't support clear.");
-        ::std::abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "PostWorker with Vulkan doesn't support clear";
     }
 #ifndef __linux__
     s_gles2.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
@@ -241,8 +243,8 @@ void PostWorker::clearImpl() {
 
 void PostWorker::composeImpl(const ComposeDevice* p) {
     if (m_displayVk) {
-        POST_ERROR("PostWorker with Vulkan doesn't support ComposeV1.");
-        ::std::abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "PostWorker with Vulkan doesn't support ComposeV1";
     }
     // bind the subwindow eglSurface
     if (!m_mainThreadPostingOnly && m_needsToRebindWindow) {
@@ -317,8 +319,8 @@ std::shared_future<void> PostWorker::composev2Impl(const ComposeDevice_v2* p) {
 
     if (m_displayVk) {
         if (!targetColorBufferPtr) {
-            ERR("failed to retrieve the composition target buffer\n");
-            std::abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                                "Failed to retrieve the composition target buffer";
         }
         // We don't copy the render result to the targetHandle color buffer
         // when using the Vulkan native host swapchain, because we directly
@@ -434,8 +436,8 @@ void PostWorker::unbind() {
 
 void PostWorker::glesComposeLayer(ComposeLayer* l, uint32_t w, uint32_t h) {
     if (m_displayVk) {
-        POST_ERROR("Should not reach with native Vulkan swapchain enabled.");
-        ::std::abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                            "Should not reach with native vulkan swapchain enabled.";
     }
     if (l->composeMode == HWC2_COMPOSITION_DEVICE) {
         ColorBufferPtr cb = mFb->findColorBuffer(l->cbHandle);
@@ -463,9 +465,8 @@ void PostWorker::screenshot(
     int rotation,
     void* pixels) {
     if (m_displayVk) {
-        POST_ERROR(
-            "Screenshot not supported with native Vulkan swapchain enabled.");
-        ::std::abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                            "Screenshot not supported with native Vulkan swapchain enabled.";
     }
     cb->readPixelsScaled(
         width, height, format, type, rotation, pixels);

@@ -25,8 +25,10 @@ namespace base {
 // Events that can be logged.
 struct MetricEventFreeze {};
 struct MetricEventUnFreeze { int64_t frozen_ms; };
+struct GfxstreamVkAbort { int64_t abort_reason; };
 
-using MetricEventType = std::variant<std::monostate, MetricEventFreeze, MetricEventUnFreeze>;
+using MetricEventType =
+    std::variant<std::monostate, MetricEventFreeze, MetricEventUnFreeze, GfxstreamVkAbort>;
 
 class MetricsLogger {
 public:

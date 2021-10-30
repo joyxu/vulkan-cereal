@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/matrix_transform_2d.hpp>
 
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"
 #include "vulkan/VkCommonOperations.h"
 #include "vulkan/VkFormatUtils.h"
@@ -117,9 +118,8 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
 
     if (!SwapChainStateVk::validateQueueFamilyProperties(m_vk, m_vkPhysicalDevice, surface,
                                                          m_swapChainQueueFamilyIndex)) {
-        DISPLAY_VK_ERROR(
-            "DisplayVk can't create VkSwapchainKHR with given VkDevice and VkSurfaceKHR.");
-        ::abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "DisplayVk can't create VkSwapchainKHR with given VkDevice and VkSurfaceKHR.";
     }
     auto swapChainCi = SwapChainStateVk::createSwapChainCi(
         m_vk, surface, m_vkPhysicalDevice, width, height,
@@ -128,10 +128,9 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
     m_vk.vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, swapChainCi->imageFormat,
                                              &formatProps);
     if (!(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT)) {
-        DISPLAY_VK_ERROR(
-            "DisplayVk: The image format chosen for present VkImage can't be used as the color "
-            "attachment, and therefore can't be used as the render target of CompositorVk.");
-        ::abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "DisplayVk: The image format chosen for present VkImage can't be used as the color "
+               "attachment, and therefore can't be used as the render target of CompositorVk.";
     }
     m_swapChainStateVk = std::make_unique<SwapChainStateVk>(m_vk, m_vkDevice, *swapChainCi);
     m_compositorVk = CompositorVk::create(
@@ -183,7 +182,6 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
     }
 
     std::shared_ptr<PostResource> postResource = m_postResourceFuture.value().get();
-
     VkSemaphore imageReadySem = postResource->m_swapchainImageAcquireSemaphore;
 
     uint32_t imageIndex;
@@ -395,9 +393,8 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
             targetBuffer->m_vkImageView, targetBuffer->m_vkImageCreateInfo.extent.width,
             targetBuffer->m_vkImageCreateInfo.extent.height);
         if (!compositorVkRenderTarget) {
-            DISPLAY_VK_ERROR(
-                "Fail to create CompositorVkRenderTarget for the target display buffer.");
-            std::abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Failed to create CompositorVkRenderTarget for the target display buffer.";
         }
         m_compositorVkRenderTargets.pop_back();
         m_compositorVkRenderTargets.push_front(compositorVkRenderTarget);
@@ -407,8 +404,8 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
     std::future<std::unique_ptr<ComposeResource>> composeResourceFuture =
         std::move(m_composeResourceFuture.value());
     if (!composeResourceFuture.valid()) {
-        DISPLAY_VK_ERROR("Invalid composeResourceFuture in m_postResourceFutures.");
-        std::abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Invalid composeResourceFuture in m_postResourceFutures.";
     }
     std::unique_ptr<ComposeResource> composeResource = composeResourceFuture.get();
 
@@ -637,8 +634,8 @@ bool DisplayVk::compareAndSaveComposition(
     uint32_t renderTargetIndex, uint32_t numLayers, const ComposeLayer layers[],
     const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers) {
     if (!m_surfaceState) {
-        DISPLAY_VK_ERROR("Haven't bound to a surface, can't compare and save composition.");
-        ::abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Haven't bound to a surface, can't compare and save composition.";
     }
     auto [iPrevComposition, compositionNotFound] =
         m_surfaceState->m_prevCompositions.emplace(renderTargetIndex, 0);
