@@ -464,11 +464,15 @@ void AndroidNativeBufferInfo::QueueState::setup(
 void AndroidNativeBufferInfo::QueueState::teardown(
     VulkanDispatch* vk, VkDevice device) {
 
-    if (queue) vk->vkQueueWaitIdle(queue);
+    if (queue) {
+        AutoLock qlock(*lock);
+        vk->vkQueueWaitIdle(queue);
+    }
     if (cb) vk->vkFreeCommandBuffers(device, pool, 1, &cb);
     if (pool) vk->vkDestroyCommandPool(device, pool, nullptr);
     if (fence) vk->vkDestroyFence(device, fence, nullptr);
 
+    lock = nullptr;
     queue = VK_NULL_HANDLE;
     pool = VK_NULL_HANDLE;
     cb = VK_NULL_HANDLE;
