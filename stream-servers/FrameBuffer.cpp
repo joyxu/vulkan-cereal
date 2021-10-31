@@ -287,6 +287,7 @@ void FrameBuffer::waitUntilInitialized() {
 
 void FrameBuffer::finalize() {
     AutoLock lock(sGlobals()->lock);
+    AutoLock fbLock(m_lock);
     m_perfStats = false;
     m_perfThread->wait(NULL);
     sInitialized.store(true, std::memory_order_relaxed);
@@ -817,8 +818,8 @@ bool FrameBuffer::importMemoryToColorBuffer(
 #else
     int handle,
 #endif
-    uint64_t size, bool dedicated, bool linearTiling, bool vulkanOnly,
-    uint32_t colorBufferHandle, VkImage image, VkFormat format) {
+    uint64_t size, bool dedicated, bool vulkanOnly, uint32_t colorBufferHandle, VkImage image,
+    const VkImageCreateInfo& imageCi) {
     AutoLock mutex(m_lock);
 
     ColorBufferMap::iterator c(m_colorbuffers.find(colorBufferHandle));
@@ -831,12 +832,10 @@ bool FrameBuffer::importMemoryToColorBuffer(
     auto& cb = *c->second.cb;
     std::shared_ptr<DisplayVk::DisplayBufferInfo> db = nullptr;
     if (m_displayVk != nullptr) {
-        db = m_displayVk->createDisplayBuffer(
-            image, format, static_cast<uint32_t>(cb.getWidth()),
-            static_cast<uint32_t>(cb.getHeight()));
+        db = m_displayVk->createDisplayBuffer(image, imageCi);
     }
-    return cb.importMemory(handle, size, dedicated, linearTiling, vulkanOnly,
-                           std::move(db));
+    return cb.importMemory(handle, size, dedicated, imageCi.tiling == VK_IMAGE_TILING_LINEAR,
+                           vulkanOnly, std::move(db));
 }
 
 void FrameBuffer::setColorBufferInUse(
@@ -1383,19 +1382,30 @@ void FrameBuffer::createColorBufferWithHandle(
      FrameworkFormat p_frameworkFormat,
      HandleType handle) {
 
-    AutoLock mutex(m_lock);
+    HandleType resHandle;
+    {
+        AutoLock mutex(m_lock);
 
-    // Check for handle collision
-    if (m_colorbuffers.count(handle) != 0) {
-        // emugl::emugl_crash_reporter(
-        //     "FATAL: color buffer with handle %u already exists",
-        //     handle);
-        ::abort();
+        // Check for handle collision
+        if (m_colorbuffers.count(handle) != 0) {
+            // emugl::emugl_crash_reporter(
+            //     "FATAL: color buffer with handle %u already exists",
+            //     handle);
+            ::abort();
+        }
+
+        resHandle = createColorBufferWithHandleLocked(
+            p_width, p_height, p_internalFormat, p_frameworkFormat,
+            handle);
     }
 
-    createColorBufferWithHandleLocked(
-        p_width, p_height, p_internalFormat, p_frameworkFormat,
-        handle);
+    if (m_displayVk && resHandle == handle) {
+        goldfish_vk::setupVkColorBuffer(
+            handle,
+            false /* not vulkan only */,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT /* memory property */,
+            nullptr /* exported */);
+    }
 }
 
 HandleType FrameBuffer::createColorBufferLocked(int p_width,
@@ -1880,6 +1890,9 @@ void FrameBuffer::cleanupProcGLObjects(uint64_t puid) {
     } while (renderThreadWithThisPuidExists);
 
     AutoLock mutex(m_lock);
+    if (!m_eglDisplay) {
+        return;
+    }
     auto colorBuffersToCleanup = cleanupProcGLObjects_locked(puid);
 
     // Run other cleanup callbacks
@@ -2783,6 +2796,9 @@ emugl::Renderer::FlushReadPixelPipeline FrameBuffer::getFlushReadPixelPipeline()
 
 bool FrameBuffer::repost(bool needLockAndBind) {
     GL_LOG("Reposting framebuffer.");
+    if (m_displayVk) {
+        return true;
+    }
     if (m_lastPostedColorBuffer &&
         sInitialized.load(std::memory_order_relaxed)) {
         GL_LOG("Has last posted colorbuffer and is initialized; post.");
@@ -3442,9 +3458,8 @@ void FrameBuffer::setGuestManagedColorBufferLifetime(bool guestManaged) {
     m_guestManagedColorBufferLifetime = guestManaged;
 }
 
-VkImageLayout FrameBuffer::getVkImageLayoutForCompose() const {
-    // TODO(segal): This is backwards. Correct it.
-    if (m_displayVk == nullptr) {
+VkImageLayout FrameBuffer::getVkImageLayoutForComposeLayer() const {
+    if (m_displayVk) {
         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
     return VK_IMAGE_LAYOUT_GENERAL;
