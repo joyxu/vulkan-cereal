@@ -5,6 +5,11 @@ option(BUILD_GOOGLETEST "Download and build the googletest library" ON)
 
 if (WIN32)
     add_definitions("-DUNICODE -D_UNICODE -DNOMINMAX -DEMUGL_BUILD -DVK_USE_PLATFORM_WIN32_KHR -DBUILDING_EMUGL_COMMON_SHARED")
+
+    option(RECORDER_DELEGATE_LIB "Use recorder_delegate_lib dll" OFF)
+    if(RECORDER_DELEGATE_LIB)
+        add_definitions(-DRECORDER_DELEGATE_LIB)
+    endif()
 endif()
 
 if(UNIX AND NOT APPLE)
