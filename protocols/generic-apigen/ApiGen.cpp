@@ -998,7 +998,7 @@ int ApiGen::genDecoderImpl(const std::string &filename)
     // decoder switch;
     fprintf(fp, "size_t %s::decode(void *buf, size_t len, IOStream *stream, ChecksumCalculator* checksumCalc) {\n", classname.c_str());
     fprintf(fp,
-"\tif (len < 8) return 0; \n\
+"\tif (len < 8) return 0;\n\
 #ifdef CHECK_GL_ERRORS\n\
 \tchar lastCall[256] = {0};\n\
 #endif\n\
@@ -1012,7 +1012,7 @@ R"(    const size_t checksumSize = checksumCalc->checksumByteSize();
     }
     fprintf(fp,
 "\twhile (end - ptr >= 8) {\n\
-\t\tuint32_t opcode = *(uint32_t *)ptr;   \n\
+\t\tuint32_t opcode = *(uint32_t *)ptr;\n\
 \t\tuint32_t packetLen = *(uint32_t *)(ptr + 4);\n\
 \t\tif (end - ptr < packetLen) return ptr - (unsigned char*)buf;\n");
     if (changesChecksum) {
@@ -1370,7 +1370,7 @@ R"(        // Do this on every iteration, as some commands may change the checks
                 fprintf(fp,
                         "\t\t\tif (useChecksum) {\n"
                         "\t\t\t\tChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, %s, "
-                        "ptr + %s, checksumSize, "
+                        "ptr + %s, checksumSize,"
                         "\n\t\t\t\t\t\"%s::decode,"
                         " OP_%s: GL checksumCalculator failure\\n\");\n"
                         "\t\t\t}\n",
