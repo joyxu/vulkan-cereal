@@ -1295,6 +1295,62 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			android::base::endTrace();
 			break;
 		}
+		case OP_rcGetFBDisplayConfigsCount: {
+			android::base::beginTrace("rcGetFBDisplayConfigsCount decode");
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize, 
+					"renderControl_decoder_context_t::decode, OP_rcGetFBDisplayConfigsCount: GL checksumCalculator failure\n");
+			}
+			size_t totalTmpSize = sizeof(int);
+			totalTmpSize += checksumSize;
+			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			*(int *)(&tmpBuf[0]) = 			this->rcGetFBDisplayConfigsCount();
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
+			}
+			stream->flush();
+			SET_LASTCALL("rcGetFBDisplayConfigsCount");
+			android::base::endTrace();
+			break;
+		}
+		case OP_rcGetFBDisplayConfigsParam: {
+			android::base::beginTrace("rcGetFBDisplayConfigsParam decode");
+			int var_configId = Unpack<int,uint32_t>(ptr + 8);
+			EGLint var_param = Unpack<EGLint,uint32_t>(ptr + 8 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+					"renderControl_decoder_context_t::decode, OP_rcGetFBDisplayConfigsParam: GL checksumCalculator failure\n");
+			}
+			size_t totalTmpSize = sizeof(int);
+			totalTmpSize += checksumSize;
+			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			*(int *)(&tmpBuf[0]) = 			this->rcGetFBDisplayConfigsParam(var_configId, var_param);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
+			}
+			stream->flush();
+			SET_LASTCALL("rcGetFBDisplayConfigsParam");
+			android::base::endTrace();
+			break;
+		}
+		case OP_rcGetFBDisplayActiveConfig: {
+			android::base::beginTrace("rcGetFBDisplayActiveConfig decode");
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize, 
+					"renderControl_decoder_context_t::decode, OP_rcGetFBDisplayActiveConfig: GL checksumCalculator failure\n");
+			}
+			size_t totalTmpSize = sizeof(int);
+			totalTmpSize += checksumSize;
+			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			*(int *)(&tmpBuf[0]) = 			this->rcGetFBDisplayActiveConfig();
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
+			}
+			stream->flush();
+			SET_LASTCALL("rcGetFBDisplayActiveConfig");
+			android::base::endTrace();
+			break;
+		}
 		default:
 			return ptr - (unsigned char*)buf;
 		} //switch
