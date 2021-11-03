@@ -14,7 +14,7 @@
 
 //#define ENABLE_GL_LOG 1
 #if defined(ENABLE_GL_LOG)
-#define GL_LOG(fmt, ...) GFXSTREAM_LOG(stderr, fmt, __VA_ARGS__)
+#define GL_LOG(...) GFXSTREAM_LOG(stderr, __VA_ARGS__)
 #else
 #define GL_LOG(...) ((void)0)
 #endif
