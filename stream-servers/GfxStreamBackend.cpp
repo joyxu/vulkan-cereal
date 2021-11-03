@@ -22,6 +22,7 @@
 #include "host-common/android_pipe_device.h"
 #include "host-common/vm_operations.h"
 #include "host-common/window_agent.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/HostmemIdMapping.h"
 #include "host-common/FeatureControl.h"
 #include "host-common/feature_control.h"
@@ -406,11 +407,8 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
            (renderer_flags & GFXSTREAM_RENDERER_FLAGS_ASYNC_FENCE_CB));
 
     if (useVulkanNativeSwapchain && !enableVk) {
-        fprintf(stderr,
-                "%s: can't enable vulkan native swapchain, Vulkan is disabled, "
-                "fatal\n",
-                __func__);
-        abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                            "can't enable vulkan native swapchain, Vulkan is disabled";
     }
 
     emugl::vkDispatch(false /* don't use test ICD */);
@@ -470,8 +468,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     auto openglesRenderer = android_getOpenglesRenderer();
 
     if (!openglesRenderer) {
-        fprintf(stderr, "%s: no renderer started, fatal\n", __func__);
-        abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "No renderer started, fatal";
     }
 
     address_space_set_vm_operations(getConsoleAgents()->vm);
