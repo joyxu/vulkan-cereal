@@ -567,9 +567,9 @@ void CompositorVk::setComposition(uint32_t rtIndex, std::unique_ptr<Composition>
     for (size_t i = 0; i < currentComposition.m_composeLayers.size(); ++i) {
         const auto &layer = currentComposition.m_composeLayers[i];
         if (m_vkSampler != layer->m_vkSampler) {
-            COMPOSITOR_VK_ERROR("Unsupported sampler(%#" PRIxPTR ").",
-                                reinterpret_cast<uintptr_t>(layer->m_vkSampler));
-            std::abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Unsupported sampler(" << reinterpret_cast<uintptr_t>(layer->m_vkSampler)
+                << ").";
         }
         imageInfos[i] =
             VkDescriptorImageInfo({.sampler = VK_NULL_HANDLE,

@@ -34,6 +34,7 @@
 #include "base/System.h"
 #include "base/Tracing.h"
 #include "common/goldfish_vk_dispatch.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/vm_operations.h"
 
 #ifdef _WIN32
@@ -792,7 +793,6 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
 
     sVkEmulation->physdev = physdevs[maxScoringIndex];
     sVkEmulation->deviceInfo = deviceInfos[maxScoringIndex];
-
     // Postcondition: sVkEmulation has valid device support info
 
     // Ask about image format support here.
@@ -1876,7 +1876,6 @@ bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
     bool readRes = FrameBuffer::getFB()->
         readColorBufferContents(
             colorBufferHandle, &cbNumBytes, nullptr);
-
     if (!readRes) {
         fprintf(stderr, "%s: Failed to read color buffer 0x%x\n",
                 __func__, colorBufferHandle);
@@ -2008,7 +2007,7 @@ bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
             });
         }
     }
-        
+
     vk->vkCmdCopyBufferToImage(
         sVkEmulation->commandBuffer,
         sVkEmulation->staging.buffer,
@@ -2469,8 +2468,8 @@ static std::tuple<VkCommandBuffer, VkFence> allocateQueueTransferCommandBuffer_l
         if (res == VK_NOT_READY) {
             continue;
         }
-        VK_COMMON_ERROR("Invalid fence state: %d", static_cast<int>(res));
-        ::std::abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Invalid fence state: " << static_cast<int>(res);
     }
     VkCommandBuffer commandBuffer;
     VkCommandBufferAllocateInfo allocateInfo = {
@@ -2504,9 +2503,7 @@ static std::tuple<VkCommandBuffer, VkFence> allocateQueueTransferCommandBuffer_l
 void acquireColorBuffersForHostComposing(const std::vector<uint32_t>& layerColorBuffers,
                                          uint32_t renderTargetColorBuffer) {
     if (!sVkEmulation || !sVkEmulation->live) {
-        VK_COMMON_ERROR("Host Vulkan device lost.");
-        ::std::abort();
-        return;
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Host Vulkan device lost";
     }
 
     std::vector<std::tuple<uint32_t, VkImageLayout>> colorBuffersAndLayouts;
@@ -2647,9 +2644,7 @@ void acquireColorBuffersForHostComposing(const std::vector<uint32_t>& layerColor
 static VkFence doReleaseColorBufferForGuestRendering(
     const std::vector<uint32_t>& colorBufferHandles) {
     if (!sVkEmulation || !sVkEmulation->live) {
-        VK_COMMON_ERROR("Host Vulkan device lost.");
-        ::std::abort();
-        return VK_NULL_HANDLE;
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Host Vulkan device lost";
     }
 
     AutoLock lock(sVkEmulationLock);
@@ -2772,9 +2767,7 @@ void releaseColorBufferFromHostComposing(const std::vector<uint32_t>& colorBuffe
 void releaseColorBufferFromHostComposingSync(const std::vector<uint32_t>& colorBufferHandles) {
     VkFence fence = doReleaseColorBufferForGuestRendering(colorBufferHandles);
     if (!sVkEmulation || !sVkEmulation->live) {
-        VK_COMMON_ERROR("Host Vulkan device lost.");
-        ::std::abort();
-        return;
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Host Vulkan device lost";
     }
 
     AutoLock lock(sVkEmulationLock);

@@ -44,6 +44,7 @@
 #include "common/goldfish_vk_deepcopy.h"
 #include "common/goldfish_vk_dispatch.h"
 #include "host-common/address_space_device_control_ops.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/vm_operations.h"
 #include "host-common/feature_control.h"
 #include "vk_util.h"
@@ -456,8 +457,8 @@ public:
 
         if (m_emu->instanceSupportsMoltenVK) {
             if (!m_vk->vkSetMTLTextureMVK) {
-                fprintf(stderr, "Cannot find vkSetMTLTextureMVK\n");
-                abort();
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                        "Cannot find vkSetMTLTextureMVK";
             }
         }
 
@@ -3032,11 +3033,8 @@ public:
             vk_find_struct<VkExportMemoryAllocateInfo>(pAllocateInfo);
 
         if (exportAllocInfoPtr) {
-            fprintf(stderr,
-                    "%s: Fatal: Export allocs are to be handled "
-                    "on the guest side / VkCommonOperations.\n",
-                    __func__);
-            abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                "Export allocs are to be handled on the guest side / VkCommonOperations.";
         }
 
         const VkMemoryDedicatedAllocateInfo* dedicatedAllocInfoPtr =
@@ -4370,7 +4368,7 @@ public:
                 currSi.pWaitSemaphores = pBindInfo[i].pWaitSemaphores;
                 waitDstStageMasks.resize(pBindInfo[i].waitSemaphoreCount, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
                 currSi.pWaitDstStageMask = waitDstStageMasks.data();
-                
+
                 currSi.signalSemaphoreCount = 0;
                 currSi.pSignalSemaphores = nullptr;
 
@@ -4515,8 +4513,8 @@ public:
 
         auto poolInfo = android::base::find(mDescriptorPoolInfo, pool);
         if (!poolInfo) {
-            fprintf(stderr, "%s: FATAL: descriptor pool %p not found\n", __func__, pool);
-            abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "descriptor pool " << pool << " not found ";
         }
 
         DispatchableHandleInfo<uint64_t>* setHandleInfo = sBoxedHandleManager.get(poolId);
@@ -4555,9 +4553,10 @@ public:
                 *didAlloc = true;
                 return allocedSet;
             } else {
-                fprintf(stderr, "%s: FATAL: descriptor pool %p wanted to get set with id 0x%llx but it wasn't allocated\n", __func__,
-                        pool, (unsigned long long)poolId);
-                abort();
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                        << "descriptor pool " << pool << " wanted to get set with id 0x" <<
+                        std::hex << poolId;
+                return nullptr;
             }
         }
     }
@@ -4587,9 +4586,8 @@ public:
         if (queueInfo) {
             device = queueInfo->device;
         } else {
-            fprintf(stderr, "%s: FATAL: queue %p (boxed: %p) with no device registered\n", __func__,
-                    queue, boxed_queue);
-            abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "queue " << queue << "(boxed: " << boxed_queue << ") with no device registered";
         }
 
         std::vector<VkDescriptorSet> setsToUpdate(descriptorSetCount, nullptr);
@@ -6259,8 +6257,8 @@ private:
             } else if (isDescriptorTypeBufferView(type)) {
                 numBufferViews += count;
             } else {
-                fprintf(stderr, "%s: fatal: unknown descriptor type 0x%x\n", __func__, type);
-                abort();
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                    << "unknown descriptor type 0x" << std::hex << type;
             }
         }
 
@@ -6303,8 +6301,8 @@ private:
                 entryForHost.stride = sizeof(VkBufferView);
                 ++bufferViewCount;
             } else {
-                fprintf(stderr, "%s: fatal: unknown descriptor type 0x%x\n", __func__, type);
-                abort();
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                    << "unknown descriptor type 0x" << std::hex << type;
             }
 
             res.linearizedTemplateEntries.push_back(entryForHost);

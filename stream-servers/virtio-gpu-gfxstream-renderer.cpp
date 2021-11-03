@@ -24,6 +24,7 @@
 #include "host-common/HostmemIdMapping.h"
 #include "host-common/address_space_device.h"
 #include "host-common/android_pipe_common.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/opengles.h"
 #include "host-common/vm_operations.h"
 
@@ -46,10 +47,9 @@ extern "C" {
 #define VGPLOG(fmt,...)
 #endif
 
-#define VGP_FATAL(fmt,...) do { \
-    fprintf(stderr, "virto-goldfish-pipe fatal error: %s:%d: " fmt "\n", __func__, __LINE__, ##__VA_ARGS__); \
-    abort(); \
-} while(0);
+#define VGP_FATAL()                                    \
+    GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << \
+            "virtio-goldfish-pipe fatal error: "
 
 #ifdef VIRTIO_GOLDFISH_EXPORT_API
 
@@ -235,7 +235,8 @@ static inline bool virgl_format_is_yuv(uint32_t format) {
         case VIRGL_FORMAT_YV12:
             return true;
         default:
-            VGP_FATAL("Unknown virgl format: 0x%x", format);
+            VGP_FATAL() << "Unknown virgl format 0x" << std::hex << format;
+            return false;
     }
 }
 
@@ -331,7 +332,7 @@ static inline size_t virgl_format_to_linear_base(
                 bpp = 1;
                 break;
             default:
-                VGP_FATAL("Unknown format: 0x%x", format);
+                VGP_FATAL() << "Unknown format: 0x" << std::hex << format;
         }
 
         uint32_t stride = totalWidth * bpp;
@@ -361,7 +362,7 @@ static inline size_t virgl_format_to_total_xfer_len(
             uvWidth = totalWidth / 2;
             uvPlaneCount = 2;
         } else {
-            VGP_FATAL("Unknown yuv virgl format: 0x%x", format);
+            VGP_FATAL() << "Unknown yuv virgl format: 0x" << std::hex << format;
         }
         uint32_t uvHeight = totalHeight / 2;
         uint32_t uvStride = align_up_power_of_2(uvWidth, uvAlign);
@@ -391,7 +392,7 @@ static inline size_t virgl_format_to_total_xfer_len(
                 bpp = 1;
                 break;
             default:
-                VGP_FATAL("Unknown format: 0x%x", format);
+                VGP_FATAL() << "Unknown format: 0x" << std::hex << format;
         }
 
         uint32_t stride = totalWidth * bpp;
@@ -415,13 +416,13 @@ static int sync_iov(PipeResEntry* res, uint64_t offset, const virgl_box* box, Io
             res->linearSize);
 
     if (box->x > res->args.width || box->y > res->args.height) {
-        VGP_FATAL("Box out of range of resource");
+        VGP_FATAL() << "Box out of range of resource";
     }
     if (box->w == 0U || box->h == 0U) {
-        VGP_FATAL("Empty transfer");
+        VGP_FATAL() << "Empty transfer";
     }
     if (box->x + box->w > res->args.width) {
-        VGP_FATAL("Box overflows resource width");
+        VGP_FATAL() << "Box overflows resource width";
     }
 
     size_t linearBase = virgl_format_to_linear_base(
@@ -440,8 +441,9 @@ static int sync_iov(PipeResEntry* res, uint64_t offset, const virgl_box* box, Io
     size_t end = start + length;
 
     if (end > res->linearSize) {
-        VGP_FATAL("start + length overflows! linearSize %zu, start %zu length %zu (wanted %zu)",
-                  res->linearSize, start, length, start + length);
+        VGP_FATAL() << "start + length overflows! linearSize "
+            << res->linearSize << " start " << start << " length " << length << " (wanted "
+            << start + length << ")";
     }
 
     uint32_t iovIndex = 0;
@@ -452,7 +454,7 @@ static int sync_iov(PipeResEntry* res, uint64_t offset, const virgl_box* box, Io
     while (written < length) {
 
         if (iovIndex >= res->numIovs) {
-            VGP_FATAL("write request overflowed numIovs");
+            VGP_FATAL() << "write request overflowed numIovs";
         }
 
         const char* iovBase_const = static_cast<const char*>(res->iov[iovIndex].iov_base);
@@ -476,7 +478,7 @@ static int sync_iov(PipeResEntry* res, uint64_t offset, const virgl_box* box, Io
                            toWrite);
                     break;
                 default:
-                    VGP_FATAL("Invalid sync dir: %d", dir);
+                    VGP_FATAL() << "Invalid sync dir " << dir;
             }
             written += toWrite;
         }
@@ -525,15 +527,17 @@ public:
         mVirglRendererCallbacks = *callbacks;
         mVirtioGpuOps = android_getVirtioGpuOps();
         if (!mVirtioGpuOps) {
-            VGP_FATAL("Could not get virtio gpu ops!");
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Could not get virtio gpu ops!";
         }
         mReadPixelsFunc = android_getReadPixelsFunc();
         if (!mReadPixelsFunc) {
-            VGP_FATAL("Could not get read pixels func!");
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Could not get read pixels func!";
         }
         mAddressSpaceDeviceControlOps = get_address_space_device_control_ops();
         if (!mAddressSpaceDeviceControlOps) {
-            VGP_FATAL("Could not get address space device control ops!");
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Could not get address space device control ops!";
         }
         if (flags & GFXSTREAM_RENDERER_FLAGS_ASYNC_FENCE_CB) {
             VGPLOG("Using async fence cb.");
@@ -551,8 +555,8 @@ public:
         VirglCtxId asCtxId = (VirglCtxId)(uintptr_t)hwPipe;
         auto it = mContexts.find(asCtxId);
         if (it == mContexts.end()) {
-            fprintf(stderr, "%s: fatal: pipe id %u not found\n", __func__, asCtxId);
-            abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "fatal: pipe id " << asCtxId << " not found";
         }
 
         auto& entry = it->second;
@@ -570,8 +574,8 @@ public:
         for (auto resId : resIds) {
             auto resEntryIt = mResources.find(resId);
             if (resEntryIt == mResources.end()) {
-                fprintf(stderr, "%s: fatal: res id %u entry not found\n", __func__, resId);
-                abort();
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                    << "res id " << resId << " entry not found";
             }
 
             auto& resEntry = resEntryIt->second;
@@ -637,9 +641,8 @@ public:
     void setContextAddressSpaceHandleLocked(VirglCtxId ctxId, uint32_t handle) {
         auto ctxIt = mContexts.find(ctxId);
         if (ctxIt == mContexts.end()) {
-            fprintf(stderr, "%s: fatal: ctx id %u not found\n", __func__,
-                    ctxId);
-            abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "ctx id " << ctxId << " not found";
         }
 
         auto& ctxEntry = ctxIt->second;
@@ -650,17 +653,15 @@ public:
     uint32_t getAddressSpaceHandleLocked(VirglCtxId ctxId) {
         auto ctxIt = mContexts.find(ctxId);
         if (ctxIt == mContexts.end()) {
-            fprintf(stderr, "%s: fatal: ctx id %u not found\n", __func__,
-                    ctxId);
-            abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "ctx id " << ctxId << " not found ";
         }
 
         auto& ctxEntry = ctxIt->second;
 
         if (!ctxEntry.hasAddressSpaceHandle) {
-            fprintf(stderr, "%s: fatal: ctx id %u doesn't have address space handle\n", __func__,
-                    ctxId);
-            abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "ctx id " << ctxId << " doesn't have address space handle";
         }
 
         return ctxEntry.addressSpaceHandle;
@@ -670,15 +671,15 @@ public:
 
         auto resEntryIt = mResources.find(resId);
         if (resEntryIt == mResources.end()) {
-            fprintf(stderr, "%s: fatal: resid %u not found\n", __func__, resId);
-            abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << " resid " << resId << " not found";
         }
 
         auto& resEntry = resEntryIt->second;
 
         if (!resEntry.iov) {
-            fprintf(stderr, "%s: fatal:resid %u had empty iov\n", __func__, resId);
-            abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "resid " << resId << " has empty iov ";
         }
 
         uint32_t* iovWords = (uint32_t*)(resEntry.iov[0].iov_base);
