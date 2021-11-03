@@ -18,6 +18,7 @@
 #include "host-common/address_space_device.h"
 #include "host-common/vm_operations.h"
 #include "host-common/crash_reporter.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/globals.h"
 #include "base/AlignedBuf.h"
 #include "base/SubAllocator.h"
@@ -347,7 +348,7 @@ public:
                 fillAllocFromLoad(mCombinedBlocks[alloc.blockIndex], alloc);
                 break;
             default:
-                abort();
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER));
                 break;
         }
     }

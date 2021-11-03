@@ -20,6 +20,7 @@
 #include "base/Thread.h"
 #include "OpenGLESDispatch/OpenGLDispatchLoader.h"
 #include "host-common/crash_reporter.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/sync_device.h"
 
 #ifndef _MSC_VER
@@ -51,10 +52,8 @@ static uint64_t curr_ms() {
 #define SYNC_THREAD_CHECK(condition)                                        \
     do {                                                                    \
         if (!(condition)) {                                                 \
-            fprintf(stderr, "%s(%s:%d): %s is false\n", __func__, __FILE__, \
-                    __LINE__, #condition);                                  \
-            fflush(stderr);                                                 \
-            ::std::abort();                                                 \
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<              \
+                #condition << " is false";                                  \
         }                                                                   \
     } while (0)
 

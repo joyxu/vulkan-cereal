@@ -38,6 +38,7 @@
 
 #include "host-common/crash_reporter.h"
 #include "host-common/feature_control.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"
 #include "host-common/misc.h"
 #include "host-common/vm_operations.h"
@@ -1391,7 +1392,7 @@ void FrameBuffer::createColorBufferWithHandle(
             // emugl::emugl_crash_reporter(
             //     "FATAL: color buffer with handle %u already exists",
             //     handle);
-            ::abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER));
         }
 
         resHandle = createColorBufferWithHandleLocked(
@@ -2021,8 +2022,9 @@ bool FrameBuffer::flushWindowSurfaceColorBuffer(HandleType p_surface) {
 
     GLenum resetStatus = s_gles2.glGetGraphicsResetStatusEXT();
     if (resetStatus != GL_NO_ERROR) {
-        ERR("Stream server aborting due to graphics reset. ResetStatus: %#x", resetStatus);
-        abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                "Stream server aborting due to graphics reset. ResetStatus: " <<
+                std::hex << resetStatus;
     }
 
     WindowSurface* surface = (*w).second.first.get();
