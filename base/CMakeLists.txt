@@ -72,7 +72,7 @@ target_link_libraries(
     PRIVATE
     lz4
     perfetto-tracing-only
-    $(gfxstream-base-platform-deps)
+    ${gfxstream-base-platform-deps}
     ${gfxstream-base-metrics-link-libraries})
 
 target_include_directories(
