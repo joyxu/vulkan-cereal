@@ -1031,9 +1031,11 @@ std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
                     if (m_vkSurface == VK_NULL_HANDLE) {
                         return false;
                     }
+                    INFO("Recreating swapchain...");
                     m_displayVk->bindToSurface(
                         m_vkSurface, static_cast<uint32_t>(m_windowWidth),
                         static_cast<uint32_t>(m_windowHeight));
+                    INFO("Recreating swapchain completes.");
                     return true;
                 }
                 if (m_subWin) {
