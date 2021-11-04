@@ -15,6 +15,7 @@
 #include "cereal/common/goldfish_vk_private_defs.h"
 #include "cereal/common/goldfish_vk_extension_structs.h"
 
+#include "host-common/GfxstreamFatalError.h"
 #include "stream-servers/FrameBuffer.h"
 #include "GrallocDefs.h"
 #include "VkCommonOperations.h"
@@ -464,11 +465,15 @@ void AndroidNativeBufferInfo::QueueState::setup(
 void AndroidNativeBufferInfo::QueueState::teardown(
     VulkanDispatch* vk, VkDevice device) {
 
-    if (queue) vk->vkQueueWaitIdle(queue);
+    if (queue) {
+        AutoLock qlock(*lock);
+        vk->vkQueueWaitIdle(queue);
+    }
     if (cb) vk->vkFreeCommandBuffers(device, pool, 1, &cb);
     if (pool) vk->vkDestroyCommandPool(device, pool, nullptr);
     if (fence) vk->vkDestroyFence(device, fence, nullptr);
 
+    lock = nullptr;
     queue = VK_NULL_HANDLE;
     pool = VK_NULL_HANDLE;
     cb = VK_NULL_HANDLE;

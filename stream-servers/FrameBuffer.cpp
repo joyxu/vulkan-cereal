@@ -38,6 +38,7 @@
 
 #include "host-common/crash_reporter.h"
 #include "host-common/feature_control.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"
 #include "host-common/misc.h"
 #include "host-common/vm_operations.h"
@@ -287,6 +288,7 @@ void FrameBuffer::waitUntilInitialized() {
 
 void FrameBuffer::finalize() {
     AutoLock lock(sGlobals()->lock);
+    AutoLock fbLock(m_lock);
     m_perfStats = false;
     m_perfThread->wait(NULL);
     sInitialized.store(true, std::memory_order_relaxed);
@@ -1390,7 +1392,7 @@ void FrameBuffer::createColorBufferWithHandle(
             // emugl::emugl_crash_reporter(
             //     "FATAL: color buffer with handle %u already exists",
             //     handle);
-            ::abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER));
         }
 
         resHandle = createColorBufferWithHandleLocked(
@@ -1889,6 +1891,9 @@ void FrameBuffer::cleanupProcGLObjects(uint64_t puid) {
     } while (renderThreadWithThisPuidExists);
 
     AutoLock mutex(m_lock);
+    if (!m_eglDisplay) {
+        return;
+    }
     auto colorBuffersToCleanup = cleanupProcGLObjects_locked(puid);
 
     // Run other cleanup callbacks
@@ -2017,8 +2022,9 @@ bool FrameBuffer::flushWindowSurfaceColorBuffer(HandleType p_surface) {
 
     GLenum resetStatus = s_gles2.glGetGraphicsResetStatusEXT();
     if (resetStatus != GL_NO_ERROR) {
-        ERR("Stream server aborting due to graphics reset. ResetStatus: %#x", resetStatus);
-        abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                "Stream server aborting due to graphics reset. ResetStatus: " <<
+                std::hex << resetStatus;
     }
 
     WindowSurface* surface = (*w).second.first.get();
