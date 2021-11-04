@@ -15,6 +15,7 @@
 #include "cereal/common/goldfish_vk_private_defs.h"
 #include "cereal/common/goldfish_vk_extension_structs.h"
 
+#include "host-common/GfxstreamFatalError.h"
 #include "stream-servers/FrameBuffer.h"
 #include "GrallocDefs.h"
 #include "VkCommonOperations.h"
