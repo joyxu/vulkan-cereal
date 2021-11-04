@@ -24,6 +24,7 @@ set(stream-server-core-sources
     ChannelStream.cpp
     ColorBuffer.cpp
     CompositorVk.cpp
+    Debug.cpp
     DisplayVk.cpp
     FbConfig.cpp
     FenceSync.cpp
