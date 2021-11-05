@@ -97,11 +97,20 @@ class CompositorVkTest : public ::testing::Test {
     }
 
     std::unique_ptr<CompositorVk> createCompositor() {
-        return CompositorVk::create(*k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue,
-                                    m_compositorVkQueueLock, RenderTarget::k_vkFormat,
-                                    RenderTarget::k_vkImageLayout, RenderTarget::k_vkImageLayout,
-                                    k_renderTargetWidth, k_renderTargetHeight,
-                                    m_renderTargetImageViews, m_vkCommandPool, m_rgbaVkSampler);
+        return CompositorVk::create(
+            *k_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue, m_compositorVkQueueLock,
+            RenderTarget::k_vkFormat, RenderTarget::k_vkImageLayout, RenderTarget::k_vkImageLayout,
+            m_renderTargetImageViews.size(), m_vkCommandPool, m_rgbaVkSampler);
+    }
+
+    std::vector<std::unique_ptr<CompositorVkRenderTarget>> createCompositorRenderTargets(
+        CompositorVk &compositor) {
+        std::vector<std::unique_ptr<CompositorVkRenderTarget>> res;
+        for (VkImageView imageView : m_renderTargetImageViews) {
+            res.emplace_back(compositor.createRenderTarget(imageView, k_renderTargetWidth,
+                                                           k_renderTargetHeight));
+        }
+        return res;
     }
 
     void setUpRGBASampler() {
@@ -241,6 +250,7 @@ TEST_F(CompositorVkTest, EmptyCompositionShouldDrawABlackFrame) {
     }
 
     auto compositor = createCompositor();
+    auto renderTargets = createCompositorRenderTargets(*compositor);
     ASSERT_NE(compositor, nullptr);
 
     // render to render targets with event index
@@ -251,7 +261,7 @@ TEST_F(CompositorVkTest, EmptyCompositionShouldDrawABlackFrame) {
             .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         };
         VK_CHECK(k_vk->vkBeginCommandBuffer(m_vkCommandBuffers[i], &beginInfo));
-        compositor->recordCommandBuffers(i, m_vkCommandBuffers[i]);
+        compositor->recordCommandBuffers(i, m_vkCommandBuffers[i], *renderTargets[i]);
         VK_CHECK(k_vk->vkEndCommandBuffer(m_vkCommandBuffers[i]));
         if (i % 2 == 0) {
             cmdBuffs.emplace_back(m_vkCommandBuffers[i]);
@@ -333,6 +343,7 @@ TEST_F(CompositorVkTest, SimpleComposition) {
     layers.emplace_back(std::move(composeLayerVkPtr));
 
     auto composition = std::make_unique<Composition>(std::move(layers));
+    auto renderTargets = createCompositorRenderTargets(*compositor);
     compositor->setComposition(0, std::move(composition));
 
     VkCommandBuffer cmdBuff = m_vkCommandBuffers[0];
@@ -341,7 +352,7 @@ TEST_F(CompositorVkTest, SimpleComposition) {
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
     VK_CHECK(k_vk->vkBeginCommandBuffer(cmdBuff, &beginInfo));
-    compositor->recordCommandBuffers(0, cmdBuff);
+    compositor->recordCommandBuffers(0, cmdBuff, *renderTargets[0]);
     VK_CHECK(k_vk->vkEndCommandBuffer(cmdBuff));
 
     VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -424,6 +435,7 @@ TEST_F(CompositorVkTest, CompositingWithDifferentCompositionOnMultipleTargets) {
     ASSERT_TRUE(texture->write(pixels));
     auto compositor = createCompositor();
     ASSERT_NE(compositor, nullptr);
+    auto renderTargets = createCompositorRenderTargets(*compositor);
     for (int i = 0; i < k_numOfRenderTargets; i++) {
         std::unique_ptr<ComposeLayerVk> composeLayerVkPtr =
             ComposeLayerVk::createFromHwc2ComposeLayer(
@@ -442,7 +454,7 @@ TEST_F(CompositorVkTest, CompositingWithDifferentCompositionOnMultipleTargets) {
             .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         };
         VK_CHECK(k_vk->vkBeginCommandBuffer(cmdBuff, &beginInfo));
-        compositor->recordCommandBuffers(i, cmdBuff);
+        compositor->recordCommandBuffers(i, cmdBuff, *renderTargets[i]);
         VK_CHECK(k_vk->vkEndCommandBuffer(cmdBuff));
 
         VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,

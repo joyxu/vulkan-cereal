@@ -16,12 +16,7 @@
 #include <cinttypes>
 #include <cstdio>
 
-#define VGT_ERROR(fmt, ...)                                                   \
-    do {                                                                      \
-        fprintf(stderr, "%s(%s:%d): " fmt "\n", __func__, __FILE__, __LINE__, \
-                ##__VA_ARGS__);                                               \
-        fflush(stderr);                                                       \
-    } while (0)
+#include "host-common/GfxstreamFatalError.h"
 
 using TaskId = VirtioGpuTimelines::TaskId;
 using CtxId = VirtioGpuTimelines::CtxId;
@@ -56,26 +51,22 @@ void VirtioGpuTimelines::notifyTaskCompletion(TaskId taskId) {
     AutoLock lock(mLock);
     auto iTask = mTaskIdToTask.find(taskId);
     if (iTask == mTaskIdToTask.end()) {
-        VGT_ERROR("Task(id = %" PRIu64 ") can't be found.",
-                  static_cast<uint64_t>(taskId));
-        ::std::abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Task(id = " << static_cast<uint64_t>(taskId) << ") can't be found";
     }
     std::shared_ptr<Task> task = iTask->second.lock();
     if (task == nullptr) {
-        VGT_ERROR("Task(id = %" PRIu64 ") has been destroyed.",
-                  static_cast<uint64_t>(taskId));
-        ::std::abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Task(id = " << static_cast<uint64_t>(taskId) << ") has been destroyed";
     }
     if (task->mId != taskId) {
-        VGT_ERROR("Task id mismatch. Expected %" PRIu64 ". Actual %" PRIu64,
-                  static_cast<uint64_t>(taskId),
-                  static_cast<uint64_t>(task->mId));
-        ::std::abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Task id mismatch. Expected " << static_cast<uint64_t>(taskId) << " Actual "
+            << static_cast<uint64_t>(task->mId);
     }
     if (task->mHasCompleted) {
-        VGT_ERROR("Task(id = %" PRIu64 ") has been set to completed.",
-                  static_cast<uint64_t>(taskId));
-        ::std::abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Task(id = " << static_cast<uint64_t>(taskId) << ") has been set to completed.";
     }
     task->mHasCompleted = true;
     poll_locked(task->mCtxId);
@@ -84,9 +75,8 @@ void VirtioGpuTimelines::notifyTaskCompletion(TaskId taskId) {
 void VirtioGpuTimelines::poll_locked(CtxId ctxId) {
     auto iTimelineQueue = mTimelineQueues.find(ctxId);
     if (iTimelineQueue == mTimelineQueues.end()) {
-        VGT_ERROR("Context(id = %" PRIu64 ") doesn't exist.",
-                  static_cast<uint64_t>(ctxId));
-        ::std::abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Context(id = " << ctxId << " doesn't exist";
     }
     std::list<TimelineItem> &timelineQueue = iTimelineQueue->second;
     auto i = timelineQueue.begin();

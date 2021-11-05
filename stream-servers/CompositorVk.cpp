@@ -126,18 +126,17 @@ const std::vector<uint16_t> CompositorVk::k_indices = {0, 1, 2, 2, 3, 0};
 std::unique_ptr<CompositorVk> CompositorVk::create(
     const goldfish_vk::VulkanDispatch &vk, VkDevice vkDevice, VkPhysicalDevice vkPhysicalDevice,
     VkQueue vkQueue, std::shared_ptr<android::base::Lock> queueLock, VkFormat format,
-    VkImageLayout initialLayout, VkImageLayout finalLayout, uint32_t width, uint32_t height,
-    const std::vector<VkImageView> &renderTargets, VkCommandPool commandPool, VkSampler sampler) {
+    VkImageLayout initialLayout, VkImageLayout finalLayout, uint32_t maxFramesInFlight,
+    VkCommandPool commandPool, VkSampler sampler) {
     auto res = std::unique_ptr<CompositorVk>(new CompositorVk(
-        vk, vkDevice, vkPhysicalDevice, vkQueue, queueLock, commandPool, width, height));
-    res->setUpGraphicsPipeline(width, height, format, initialLayout, finalLayout, sampler);
+        vk, vkDevice, vkPhysicalDevice, vkQueue, queueLock, commandPool, maxFramesInFlight));
+    res->setUpGraphicsPipeline(format, initialLayout, finalLayout, sampler);
     res->m_vkSampler = sampler;
     res->setUpVertexBuffers();
-    res->setUpFramebuffers(renderTargets, width, height);
     res->setUpUniformBuffers();
     res->setUpDescriptorSets();
-    res->m_currentCompositions.resize(renderTargets.size());
-    for (auto i = 0; i < renderTargets.size(); i++) {
+    res->m_currentCompositions.resize(maxFramesInFlight);
+    for (auto i = 0; i < maxFramesInFlight; i++) {
         std::vector<std::unique_ptr<ComposeLayerVk>> emptyCompositionLayers;
         res->setComposition(i, std::make_unique<Composition>(std::move(emptyCompositionLayers)));
     }
@@ -147,11 +146,9 @@ std::unique_ptr<CompositorVk> CompositorVk::create(
 CompositorVk::CompositorVk(const goldfish_vk::VulkanDispatch &vk, VkDevice vkDevice,
                            VkPhysicalDevice vkPhysicalDevice, VkQueue vkQueue,
                            std::shared_ptr<android::base::Lock> queueLock,
-                           VkCommandPool commandPool, uint32_t renderTargetWidth,
-                           uint32_t renderTargetHeight)
+                           VkCommandPool commandPool, uint32_t maxFramesInFlight)
     : CompositorVkBase(vk, vkDevice, vkPhysicalDevice, vkQueue, queueLock, commandPool),
-      m_renderTargetWidth(renderTargetWidth),
-      m_renderTargetHeight(renderTargetHeight),
+      m_maxFramesInFlight(maxFramesInFlight),
       m_vkSampler(VK_NULL_HANDLE),
       m_currentCompositions(0),
       m_uniformStorage({VK_NULL_HANDLE, VK_NULL_HANDLE, nullptr, 0}) {
@@ -168,10 +165,6 @@ CompositorVk::~CompositorVk() {
     }
     m_vk.vkDestroyBuffer(m_vkDevice, m_uniformStorage.m_vkBuffer, nullptr);
     m_vk.vkFreeMemory(m_vkDevice, m_uniformStorage.m_vkDeviceMemory, nullptr);
-    while (!m_renderTargetVkFrameBuffers.empty()) {
-        m_vk.vkDestroyFramebuffer(m_vkDevice, m_renderTargetVkFrameBuffers.back(), nullptr);
-        m_renderTargetVkFrameBuffers.pop_back();
-    }
     m_vk.vkFreeMemory(m_vkDevice, m_vertexVkDeviceMemory, nullptr);
     m_vk.vkDestroyBuffer(m_vkDevice, m_vertexVkBuffer, nullptr);
     m_vk.vkFreeMemory(m_vkDevice, m_indexVkDeviceMemory, nullptr);
@@ -182,8 +175,7 @@ CompositorVk::~CompositorVk() {
     m_vk.vkDestroyDescriptorSetLayout(m_vkDevice, m_vkDescriptorSetLayout, nullptr);
 }
 
-void CompositorVk::setUpGraphicsPipeline(uint32_t width, uint32_t height,
-                                         VkFormat renderTargetFormat, VkImageLayout initialLayout,
+void CompositorVk::setUpGraphicsPipeline(VkFormat renderTargetFormat, VkImageLayout initialLayout,
                                          VkImageLayout finalLayout, VkSampler sampler) {
     const std::vector<uint32_t> vertSpvBuff(CompositorVkShader::compositorVertexShader,
                                             std::end(CompositorVkShader::compositorVertexShader));
@@ -216,21 +208,15 @@ void CompositorVk::setUpGraphicsPipeline(uint32_t width, uint32_t height,
         .primitiveRestartEnable = VK_FALSE,
     };
 
-    VkViewport viewport = {.x = 0.0f,
-                           .y = 0.0f,
-                           .width = static_cast<float>(width),
-                           .height = static_cast<float>(height),
-                           .minDepth = 0.0f,
-                           .maxDepth = 1.0f};
-
-    VkRect2D scissor = {.offset = {0, 0}, .extent = {width, height}};
-
     VkPipelineViewportStateCreateInfo viewportStateCi = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         .viewportCount = 1,
-        .pViewports = &viewport,
+        // The viewport state is dynamic.
+        .pViewports = nullptr,
         .scissorCount = 1,
-        .pScissors = &scissor};
+        // The scissor state is dynamic.
+        .pScissors = nullptr,
+    };
 
     VkPipelineRasterizationStateCreateInfo rasterizerStateCi = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
@@ -270,6 +256,13 @@ void CompositorVk::setUpGraphicsPipeline(uint32_t width, uint32_t height,
         .logicOpEnable = VK_FALSE,
         .attachmentCount = 1,
         .pAttachments = &colorBlendAttachment};
+
+    VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo dynamicStateCi = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .dynamicStateCount = std::size(dynamicStates),
+        .pDynamicStates = dynamicStates,
+    };
 
     VkDescriptorSetLayoutBinding layoutBindings[2] = {
         {.binding = 0,
@@ -350,7 +343,7 @@ void CompositorVk::setUpGraphicsPipeline(uint32_t width, uint32_t height,
         .pMultisampleState = &multisampleStateCi,
         .pDepthStencilState = nullptr,
         .pColorBlendState = &colorBlendStateCi,
-        .pDynamicState = nullptr,
+        .pDynamicState = &dynamicStateCi,
         .layout = m_vkPipelineLayout,
         .renderPass = m_vkRenderPass,
         .subpass = 0,
@@ -442,31 +435,13 @@ void CompositorVk::setUpVertexBuffers() {
     m_vk.vkFreeMemory(m_vkDevice, indexStagingBufferMemory, nullptr);
 }
 
-void CompositorVk::setUpFramebuffers(const std::vector<VkImageView> &renderTargets, uint32_t width,
-                                     uint32_t height) {
-    for (size_t i = 0; i < renderTargets.size(); i++) {
-        VkFramebufferCreateInfo fbCi = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-                                        .renderPass = m_vkRenderPass,
-                                        .attachmentCount = 1,
-                                        .pAttachments = &renderTargets[i],
-                                        .width = width,
-                                        .height = height,
-                                        .layers = 1};
-        VkFramebuffer framebuffer;
-        VK_CHECK(m_vk.vkCreateFramebuffer(m_vkDevice, &fbCi, nullptr, &framebuffer));
-        m_renderTargetVkFrameBuffers.push_back(framebuffer);
-    }
-}
-
 // We don't see composition requests with more than 10 layers from the guest for
 // now. If we see rendering error or significant time spent on updating
 // descriptors in setComposition, we should tune this number.
 static const uint32_t kMaxLayersPerFrame = 10;
 
 void CompositorVk::setUpDescriptorSets() {
-    uint32_t numOfFrames = static_cast<uint32_t>(m_renderTargetVkFrameBuffers.size());
-
-    uint32_t setsPerDescriptorType = numOfFrames * kMaxLayersPerFrame;
+    uint32_t setsPerDescriptorType = m_maxFramesInFlight * kMaxLayersPerFrame;
 
     VkDescriptorPoolSize descriptorPoolSizes[2] = {
         {.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -506,17 +481,36 @@ void CompositorVk::setUpDescriptorSets() {
     }
 }
 
-void CompositorVk::recordCommandBuffers(uint32_t renderTargetIndex, VkCommandBuffer cmdBuffer) {
+void CompositorVk::recordCommandBuffers(uint32_t renderTargetIndex, VkCommandBuffer cmdBuffer,
+                                        const CompositorVkRenderTarget &renderTarget) {
     VkClearValue clearColor = {.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}};
     VkRenderPassBeginInfo renderPassBeginInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = m_vkRenderPass,
-        .framebuffer = m_renderTargetVkFrameBuffers[renderTargetIndex],
-        .renderArea = {.offset = {0, 0}, .extent = {m_renderTargetWidth, m_renderTargetHeight}},
+        .framebuffer = renderTarget.m_vkFramebuffer,
+        .renderArea = {.offset = {0, 0}, .extent = {renderTarget.m_width, renderTarget.m_height}},
         .clearValueCount = 1,
         .pClearValues = &clearColor};
     m_vk.vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
     m_vk.vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsVkPipeline);
+    VkRect2D scissor = {
+        .offset = {0, 0},
+        .extent =
+            {
+                .width = renderTarget.m_width,
+                .height = renderTarget.m_height,
+            },
+    };
+    m_vk.vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
+    VkViewport viewport = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = static_cast<float>(renderTarget.m_width),
+        .height = static_cast<float>(renderTarget.m_height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+    m_vk.vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
     VkDeviceSize offsets[] = {0};
     m_vk.vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &m_vertexVkBuffer, offsets);
     m_vk.vkCmdBindIndexBuffer(cmdBuffer, m_indexVkBuffer, 0, VK_INDEX_TYPE_UINT16);
@@ -531,8 +525,7 @@ void CompositorVk::recordCommandBuffers(uint32_t renderTargetIndex, VkCommandBuf
 }
 
 void CompositorVk::setUpUniformBuffers() {
-    auto numOfFrames = m_renderTargetVkFrameBuffers.size();
-    VkDeviceSize size = m_uniformStorage.m_stride * numOfFrames * kMaxLayersPerFrame;
+    VkDeviceSize size = m_uniformStorage.m_stride * m_maxFramesInFlight * kMaxLayersPerFrame;
     auto maybeBuffer =
         createBuffer(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
@@ -574,9 +567,9 @@ void CompositorVk::setComposition(uint32_t rtIndex, std::unique_ptr<Composition>
     for (size_t i = 0; i < currentComposition.m_composeLayers.size(); ++i) {
         const auto &layer = currentComposition.m_composeLayers[i];
         if (m_vkSampler != layer->m_vkSampler) {
-            COMPOSITOR_VK_ERROR("Unsupported sampler(%#" PRIxPTR ").",
-                                reinterpret_cast<uintptr_t>(layer->m_vkSampler));
-            std::abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Unsupported sampler(" << reinterpret_cast<uintptr_t>(layer->m_vkSampler)
+                << ").";
         }
         imageInfos[i] =
             VkDescriptorImageInfo({.sampler = VK_NULL_HANDLE,
@@ -599,6 +592,13 @@ void CompositorVk::setComposition(uint32_t rtIndex, std::unique_ptr<Composition>
                                 nullptr);
 }
 
+std::unique_ptr<CompositorVkRenderTarget> CompositorVk::createRenderTarget(VkImageView vkImageView,
+                                                                           uint32_t width,
+                                                                           uint32_t height) {
+    return std::unique_ptr<CompositorVkRenderTarget>(
+        new CompositorVkRenderTarget(m_vk, m_vkDevice, vkImageView, width, height, m_vkRenderPass));
+}
+
 VkVertexInputBindingDescription CompositorVk::Vertex::getBindingDescription() {
     return {
         .binding = 0, .stride = sizeof(struct Vertex), .inputRate = VK_VERTEX_INPUT_RATE_VERTEX};
@@ -613,4 +613,30 @@ std::array<VkVertexInputAttributeDescription, 2> CompositorVk::Vertex::getAttrib
                                               .binding = 0,
                                               .format = VK_FORMAT_R32G32_SFLOAT,
                                               .offset = offsetof(struct Vertex, texPos)}};
+}
+
+CompositorVkRenderTarget::CompositorVkRenderTarget(const goldfish_vk::VulkanDispatch &vk,
+                                                   VkDevice vkDevice, VkImageView vkImageView,
+                                                   uint32_t width, uint32_t height,
+                                                   VkRenderPass vkRenderPass)
+    : m_vk(vk),
+      m_vkDevice(vkDevice),
+      m_vkFramebuffer(VK_NULL_HANDLE),
+      m_width(width),
+      m_height(height) {
+    VkFramebufferCreateInfo framebufferCi = {
+        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+        .flags = 0,
+        .renderPass = vkRenderPass,
+        .attachmentCount = 1,
+        .pAttachments = &vkImageView,
+        .width = width,
+        .height = height,
+        .layers = 1,
+    };
+    VK_CHECK(m_vk.vkCreateFramebuffer(vkDevice, &framebufferCi, nullptr, &m_vkFramebuffer));
+}
+
+CompositorVkRenderTarget::~CompositorVkRenderTarget() {
+    m_vk.vkDestroyFramebuffer(m_vkDevice, m_vkFramebuffer, nullptr);
 }

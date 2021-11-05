@@ -44,6 +44,7 @@
 #include "common/goldfish_vk_deepcopy.h"
 #include "common/goldfish_vk_dispatch.h"
 #include "host-common/address_space_device_control_ops.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/vm_operations.h"
 #include "host-common/feature_control.h"
 #include "vk_util.h"
@@ -456,8 +457,8 @@ public:
 
         if (m_emu->instanceSupportsMoltenVK) {
             if (!m_vk->vkSetMTLTextureMVK) {
-                fprintf(stderr, "Cannot find vkSetMTLTextureMVK\n");
-                abort();
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                        "Cannot find vkSetMTLTextureMVK";
             }
         }
 
@@ -1288,7 +1289,6 @@ public:
                 if (mLogging) {
                     fprintf(stderr, "%s: get device queue (end)\n", __func__);
                 }
-
                 queues.push_back(queueOut);
                 mQueueInfo[queueOut].device = *pDevice;
                 mQueueInfo[queueOut].queueFamilyIndex = index;
@@ -3033,11 +3033,8 @@ public:
             vk_find_struct<VkExportMemoryAllocateInfo>(pAllocateInfo);
 
         if (exportAllocInfoPtr) {
-            fprintf(stderr,
-                    "%s: Fatal: Export allocs are to be handled "
-                    "on the guest side / VkCommonOperations.\n",
-                    __func__);
-            abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                "Export allocs are to be handled on the guest side / VkCommonOperations.";
         }
 
         const VkMemoryDedicatedAllocateInfo* dedicatedAllocInfoPtr =
@@ -3470,8 +3467,9 @@ public:
 
         VkQueue defaultQueue;
         uint32_t defaultQueueFamilyIndex;
-        if (!getDefaultQueueForDeviceLocked(
-                    device, &defaultQueue, &defaultQueueFamilyIndex)) {
+        Lock* defaultQueueLock;
+        if (!getDefaultQueueForDeviceLocked(device, &defaultQueue, &defaultQueueFamilyIndex,
+                                            &defaultQueueLock)) {
             fprintf(stderr, "%s: cant get the default q\n", __func__);
             return VK_ERROR_INITIALIZATION_FAILED;
         }
@@ -3481,7 +3479,7 @@ public:
         return
             setAndroidNativeImageSemaphoreSignaled(
                     vk, device,
-                    defaultQueue, defaultQueueFamilyIndex,
+                    defaultQueue, defaultQueueFamilyIndex, defaultQueueLock,
                     semaphore, fence, anbInfo);
     }
 
@@ -3498,9 +3496,9 @@ public:
 
         AutoLock lock(mLock);
 
-        auto queueFamilyIndex = queueFamilyIndexOfQueueLocked(queue);
+        auto queueInfo = android::base::find(mQueueInfo, queue);
 
-        if (!queueFamilyIndex) {
+        if (!queueInfo) {
             return VK_ERROR_INITIALIZATION_FAILED;
         }
 
@@ -3509,11 +3507,8 @@ public:
 
         return
             syncImageToColorBuffer(
-                    vk,
-                    *queueFamilyIndex,
-                    queue,
-                    waitSemaphoreCount, pWaitSemaphores,
-                    pNativeFenceFd, anbInfo);
+                    vk, queueInfo->queueFamilyIndex, queue, queueInfo->lock, waitSemaphoreCount,
+                    pWaitSemaphores, pNativeFenceFd, anbInfo);
     }
 
     VkResult on_vkMapMemoryIntoAddressSpaceGOOGLE(
@@ -4373,7 +4368,7 @@ public:
                 currSi.pWaitSemaphores = pBindInfo[i].pWaitSemaphores;
                 waitDstStageMasks.resize(pBindInfo[i].waitSemaphoreCount, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
                 currSi.pWaitDstStageMask = waitDstStageMasks.data();
-                
+
                 currSi.signalSemaphoreCount = 0;
                 currSi.pSignalSemaphores = nullptr;
 
@@ -4518,8 +4513,8 @@ public:
 
         auto poolInfo = android::base::find(mDescriptorPoolInfo, pool);
         if (!poolInfo) {
-            fprintf(stderr, "%s: FATAL: descriptor pool %p not found\n", __func__, pool);
-            abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "descriptor pool " << pool << " not found ";
         }
 
         DispatchableHandleInfo<uint64_t>* setHandleInfo = sBoxedHandleManager.get(poolId);
@@ -4558,9 +4553,10 @@ public:
                 *didAlloc = true;
                 return allocedSet;
             } else {
-                fprintf(stderr, "%s: FATAL: descriptor pool %p wanted to get set with id 0x%llx but it wasn't allocated\n", __func__,
-                        pool, (unsigned long long)poolId);
-                abort();
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                        << "descriptor pool " << pool << " wanted to get set with id 0x" <<
+                        std::hex << poolId;
+                return nullptr;
             }
         }
     }
@@ -4590,9 +4586,8 @@ public:
         if (queueInfo) {
             device = queueInfo->device;
         } else {
-            fprintf(stderr, "%s: FATAL: queue %p (boxed: %p) with no device registered\n", __func__,
-                    queue, boxed_queue);
-            abort();
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "queue " << queue << "(boxed: " << boxed_queue << ") with no device registered";
         }
 
         std::vector<VkDescriptorSet> setsToUpdate(descriptorSetCount, nullptr);
@@ -5021,15 +5016,8 @@ private:
         return &physdevInfo->memoryProperties;
     }
 
-    Optional<uint32_t> queueFamilyIndexOfQueueLocked(VkQueue queue) {
-        auto info = android::base::find(mQueueInfo, queue);
-        if (!info) return {};
-
-        return info->queueFamilyIndex;
-    }
-
     bool getDefaultQueueForDeviceLocked(
-            VkDevice device, VkQueue* queue, uint32_t* queueFamilyIndex) {
+            VkDevice device, VkQueue* queue, uint32_t* queueFamilyIndex, Lock** queueLock) {
 
         auto deviceInfo = android::base::find(mDeviceInfo, device);
         if (!deviceInfo) return false;
@@ -5041,9 +5029,10 @@ private:
             // that does show up.
             for (auto it : deviceInfo->queues) {
                 auto index = it.first;
-                for (auto deviceQueue : it.second) {
+                for (auto& deviceQueue : it.second) {
                     *queue = deviceQueue;
                     *queueFamilyIndex = index;
+                    *queueLock = mQueueInfo.at(deviceQueue).lock;
                     return true;
                 }
             }
@@ -5053,6 +5042,7 @@ private:
             // Use queue family index 0.
             *queue = zeroIt->second[0];
             *queueFamilyIndex = 0;
+            *queueLock = mQueueInfo.at(zeroIt->second[0]).lock;
             return true;
         }
 
@@ -6267,8 +6257,8 @@ private:
             } else if (isDescriptorTypeBufferView(type)) {
                 numBufferViews += count;
             } else {
-                fprintf(stderr, "%s: fatal: unknown descriptor type 0x%x\n", __func__, type);
-                abort();
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                    << "unknown descriptor type 0x" << std::hex << type;
             }
         }
 
@@ -6311,8 +6301,8 @@ private:
                 entryForHost.stride = sizeof(VkBufferView);
                 ++bufferViewCount;
             } else {
-                fprintf(stderr, "%s: fatal: unknown descriptor type 0x%x\n", __func__, type);
-                abort();
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                    << "unknown descriptor type 0x" << std::hex << type;
             }
 
             res.linearizedTemplateEntries.push_back(entryForHost);

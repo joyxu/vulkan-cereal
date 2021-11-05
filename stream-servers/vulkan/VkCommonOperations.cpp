@@ -32,7 +32,9 @@
 #include "base/Optional.h"
 #include "base/StaticMap.h"
 #include "base/System.h"
+#include "base/Tracing.h"
 #include "common/goldfish_vk_dispatch.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/vm_operations.h"
 
 #ifdef _WIN32
@@ -791,7 +793,6 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
 
     sVkEmulation->physdev = physdevs[maxScoringIndex];
     sVkEmulation->deviceInfo = deviceInfos[maxScoringIndex];
-
     // Postcondition: sVkEmulation has valid device support info
 
     // Ask about image format support here.
@@ -1034,6 +1035,8 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
 
     // LOG(VERBOSE) << "Vulkan global emulation state successfully initialized.";
     sVkEmulation->live = true;
+
+    sVkEmulation->transferQueueCommandBufferPool.resize(0);
 
     return sVkEmulation;
 }
@@ -1525,6 +1528,7 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
                      VK_IMAGE_USAGE_TRANSFER_SRC_BIT},
                     {VK_FORMAT_FEATURE_TRANSFER_DST_BIT,
                      VK_IMAGE_USAGE_TRANSFER_DST_BIT},
+                    {VK_FORMAT_FEATURE_BLIT_SRC_BIT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT},
             };
     VkFormatFeatureFlags tilingFeatures =
             (res.tiling == VK_IMAGE_TILING_OPTIMAL)
@@ -1641,9 +1645,8 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
     if (sVkEmulation->deviceInfo.supportsExternalMemory &&
         glCompatible &&
         FrameBuffer::getFB()->importMemoryToColorBuffer(
-            dupExternalMemory(res.memory.exportedHandle), res.memory.size,
-            false /* dedicated */, res.tiling == VK_IMAGE_TILING_LINEAR,
-            vulkanOnly, colorBufferHandle, res.image, res.format)) {
+            dupExternalMemory(res.memory.exportedHandle), res.memory.size, false /* dedicated */,
+            vulkanOnly, colorBufferHandle, res.image, imageCi)) {
         res.glExported = true;
     }
 
@@ -1653,8 +1656,9 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
     if (mappedPtr)
         *mappedPtr = res.memory.mappedPtr;
 
-    sVkEmulation->colorBuffers[colorBufferHandle] = res;
+    res.ownedByHost = std::make_shared<std::atomic_bool>(true);
 
+    sVkEmulation->colorBuffers[colorBufferHandle] = res;
     return true;
 }
 
@@ -1872,7 +1876,6 @@ bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
     bool readRes = FrameBuffer::getFB()->
         readColorBufferContents(
             colorBufferHandle, &cbNumBytes, nullptr);
-
     if (!readRes) {
         fprintf(stderr, "%s: Failed to read color buffer 0x%x\n",
                 __func__, colorBufferHandle);
@@ -2004,7 +2007,7 @@ bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
             });
         }
     }
-        
+
     vk->vkCmdCopyBufferToImage(
         sVkEmulation->commandBuffer,
         sVkEmulation->staging.buffer,
@@ -2439,6 +2442,351 @@ transformExternalMemoryProperties_fromhost(
             props.compatibleHandleTypes,
             wantedGuestHandleType);
     return res;
+}
+
+// Allocate a ready to use VkCommandBuffer for queue transfer. The caller needs
+// to signal the returned VkFence when the VkCommandBuffer completes.
+static std::tuple<VkCommandBuffer, VkFence> allocateQueueTransferCommandBuffer_locked() {
+    auto vk = sVkEmulation->dvk;
+    // Check if a command buffer in the pool is ready to use. If the associated
+    // VkFence is ready, vkGetFenceStatus will return VK_SUCCESS, and the
+    // associated command buffer should be ready to use, so we return that
+    // command buffer with the associated VkFence. If the associated VkFence is
+    // not ready, vkGetFenceStatus will return VK_NOT_READY, we will continue to
+    // search and test the next command buffer. If the VkFence is in an error
+    // state, vkGetFenceStatus will return with other VkResult variants, we will
+    // abort.
+    for (auto& [commandBuffer, fence] : sVkEmulation->transferQueueCommandBufferPool) {
+        auto res = vk->vkGetFenceStatus(sVkEmulation->device, fence);
+        if (res == VK_SUCCESS) {
+            VK_CHECK(vk->vkResetFences(sVkEmulation->device, 1, &fence));
+            VK_CHECK(vk->vkResetCommandBuffer(
+                commandBuffer,
+                VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT));
+            return std::make_tuple(commandBuffer, fence);
+        }
+        if (res == VK_NOT_READY) {
+            continue;
+        }
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Invalid fence state: " << static_cast<int>(res);
+    }
+    VkCommandBuffer commandBuffer;
+    VkCommandBufferAllocateInfo allocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .pNext = nullptr,
+        .commandPool = sVkEmulation->commandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+    VK_CHECK(vk->vkAllocateCommandBuffers(sVkEmulation->device, &allocateInfo,
+                                          &commandBuffer));
+    VkFence fence;
+    VkFenceCreateInfo fenceCi = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+    };
+    VK_CHECK(
+        vk->vkCreateFence(sVkEmulation->device, &fenceCi, nullptr, &fence));
+
+    sVkEmulation->transferQueueCommandBufferPool.emplace_back(commandBuffer, fence);
+
+    VK_COMMON_VERBOSE(
+        "Create a new command buffer for queue transfer for a total of %d "
+        "transfer command buffers",
+        static_cast<int>(sVkEmulation->transferQueueCommandBufferPool.size()));
+
+    return std::make_tuple(commandBuffer, fence);
+}
+
+void acquireColorBuffersForHostComposing(const std::vector<uint32_t>& layerColorBuffers,
+                                         uint32_t renderTargetColorBuffer) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Host Vulkan device lost";
+    }
+
+    std::vector<std::tuple<uint32_t, VkImageLayout>> colorBuffersAndLayouts;
+    for (uint32_t layerColorBuffer : layerColorBuffers) {
+        colorBuffersAndLayouts.emplace_back(
+            layerColorBuffer, FrameBuffer::getFB()->getVkImageLayoutForComposeLayer());
+    }
+    colorBuffersAndLayouts.emplace_back(renderTargetColorBuffer, VK_IMAGE_LAYOUT_UNDEFINED);
+    AutoLock lock(sVkEmulationLock);
+    auto vk = sVkEmulation->dvk;
+
+    std::vector<std::tuple<VkEmulation::ColorBufferInfo*, VkImageLayout>>
+        colorBufferInfosAndLayouts;
+    for (auto [colorBufferHandle, newLayout] : colorBuffersAndLayouts) {
+        VkEmulation::ColorBufferInfo *infoPtr =
+            android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
+        if (!infoPtr) {
+            VK_COMMON_ERROR("Invalid ColorBuffer handle %d.",
+                            static_cast<int>(colorBufferHandle));
+            continue;
+        }
+        colorBufferInfosAndLayouts.emplace_back(infoPtr, newLayout);
+    }
+
+    std::vector<VkImageMemoryBarrier> queueTransferBarriers;
+    std::stringstream transferredColorBuffers;
+    for (auto [infoPtr, _] : colorBufferInfosAndLayouts) {
+        if (infoPtr->ownedByHost->load()) {
+            VK_COMMON_VERBOSE("Skipping queue transfer from guest to host for ColorBuffer(id = %d)",
+                              static_cast<int>(infoPtr->handle));
+            continue;
+        }
+        VkImageMemoryBarrier queueTransferBarrier = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
+            // VK_ACCESS_SHADER_READ_BIT for the compose layers, and VK_ACCESS_TRANSFER_READ_BIT for
+            // the render target/post source.
+            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL,
+            .dstQueueFamilyIndex = sVkEmulation->queueFamilyIndex,
+            .image = infoPtr->image,
+            .subresourceRange =
+                {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+        };
+        queueTransferBarriers.emplace_back(queueTransferBarrier);
+        transferredColorBuffers << infoPtr->handle << " ";
+        infoPtr->ownedByHost->store(true);
+        infoPtr->currentLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    }
+
+    std::vector<VkImageMemoryBarrier> layoutTransitionBarriers;
+    for (auto [infoPtr, newLayout] : colorBufferInfosAndLayouts) {
+        infoPtr->currentLayout = newLayout;
+        if (newLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+            continue;
+        }
+        VkImageMemoryBarrier layoutTransitionBarrier = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
+            // VK_ACCESS_SHADER_READ_BIT for the compose layers, and VK_ACCESS_TRANSFER_READ_BIT for
+            // the render target/post source.
+            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT,
+            .oldLayout = infoPtr->currentLayout,
+            .newLayout = newLayout,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = infoPtr->image,
+            .subresourceRange =
+                {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+        };
+        layoutTransitionBarriers.emplace_back(layoutTransitionBarrier);
+    }
+
+    auto [commandBuffer, fence] = allocateQueueTransferCommandBuffer_locked();
+
+    VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .pInheritanceInfo = nullptr,
+    };
+    VK_CHECK(vk->vkBeginCommandBuffer(commandBuffer, &beginInfo));
+    if (!queueTransferBarriers.empty()) {
+        vk->vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr,
+                                 static_cast<uint32_t>(queueTransferBarriers.size()),
+                                 queueTransferBarriers.data());
+    }
+    if (!layoutTransitionBarriers.empty()) {
+        vk->vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr,
+                                 static_cast<uint32_t>(layoutTransitionBarriers.size()),
+                                 layoutTransitionBarriers.data());
+    }
+    VK_CHECK(vk->vkEndCommandBuffer(commandBuffer));
+
+    // We assume the host Vulkan compositor lives on the same queue, so we don't
+    // need to use semaphore to synchronize with the host compositor.
+    VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 0,
+        .pWaitSemaphores = nullptr,
+        .pWaitDstStageMask = nullptr,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores = nullptr,
+    };
+    {
+        std::stringstream ss;
+        ss << __func__
+           << ": submitting commands to issue acquire queue transfer from "
+              "guest to host for ColorBuffer("
+           << transferredColorBuffers.str() << ")";
+        AEMU_SCOPED_TRACE(ss.str().c_str());
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        VK_CHECK(vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo, fence));
+    }
+}
+
+static VkFence doReleaseColorBufferForGuestRendering(
+    const std::vector<uint32_t>& colorBufferHandles) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Host Vulkan device lost";
+    }
+
+    AutoLock lock(sVkEmulationLock);
+    auto vk = sVkEmulation->dvk;
+
+    std::stringstream transferredColorBuffers;
+    std::vector<VkImageMemoryBarrier> layoutTransitionBarriers;
+    std::vector<VkImageMemoryBarrier> queueTransferBarriers;
+    for (uint32_t colorBufferHandle : colorBufferHandles) {
+        auto infoPtr =
+            android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
+        if (!infoPtr) {
+            VK_COMMON_ERROR("Invalid ColorBuffer handle %d.",
+                            static_cast<int>(colorBufferHandle));
+            continue;
+        }
+        if (!infoPtr->ownedByHost->load()) {
+            VK_COMMON_VERBOSE(
+                "Skipping queue transfer from host to guest for "
+                "ColorBuffer(id = %d)",
+                static_cast<int>(colorBufferHandle));
+            continue;
+        }
+        VkImageMemoryBarrier layoutTransitionBarrier = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            .oldLayout = infoPtr->currentLayout,
+            .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = infoPtr->image,
+            .subresourceRange =
+                {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+        };
+        layoutTransitionBarriers.emplace_back(layoutTransitionBarrier);
+        infoPtr->currentLayout = layoutTransitionBarrier.newLayout;
+
+        VkImageMemoryBarrier queueTransferBarrier = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            .oldLayout = infoPtr->currentLayout,
+            .newLayout = infoPtr->currentLayout,
+            .srcQueueFamilyIndex = sVkEmulation->queueFamilyIndex,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL,
+            .image = infoPtr->image,
+            .subresourceRange =
+                {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+        };
+        queueTransferBarriers.emplace_back(queueTransferBarrier);
+        transferredColorBuffers << colorBufferHandle << " ";
+        infoPtr->ownedByHost->store(false);
+    }
+
+    auto [commandBuffer, fence] = allocateQueueTransferCommandBuffer_locked();
+
+    VK_CHECK(vk->vkResetCommandBuffer(commandBuffer, 0));
+    VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = nullptr,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        .pInheritanceInfo = nullptr,
+    };
+    VK_CHECK(vk->vkBeginCommandBuffer(commandBuffer, &beginInfo));
+    vk->vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr,
+                             static_cast<uint32_t>(layoutTransitionBarriers.size()),
+                             layoutTransitionBarriers.data());
+    vk->vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr,
+                             static_cast<uint32_t>(queueTransferBarriers.size()),
+                             queueTransferBarriers.data());
+    VK_CHECK(vk->vkEndCommandBuffer(commandBuffer));
+    // We assume the host Vulkan compositor lives on the same queue, so we don't
+    // need to use semaphore to synchronize with the host compositor.
+    VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 0,
+        .pWaitSemaphores = nullptr,
+        .pWaitDstStageMask = nullptr,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores = nullptr,
+    };
+
+    {
+        std::stringstream ss;
+        ss << __func__
+           << ": submitting commands to issue release queue transfer from host "
+              "to guest for ColorBuffer("
+           << transferredColorBuffers.str() << ")";
+        AEMU_SCOPED_TRACE(ss.str().c_str());
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        VK_CHECK(vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo, fence));
+    }
+    return fence;
+}
+
+void releaseColorBufferFromHostComposing(const std::vector<uint32_t>& colorBufferHandles) {
+    doReleaseColorBufferForGuestRendering(colorBufferHandles);
+}
+
+void releaseColorBufferFromHostComposingSync(const std::vector<uint32_t>& colorBufferHandles) {
+    VkFence fence = doReleaseColorBufferForGuestRendering(colorBufferHandles);
+    if (!sVkEmulation || !sVkEmulation->live) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Host Vulkan device lost";
+    }
+
+    AutoLock lock(sVkEmulationLock);
+    auto vk = sVkEmulation->dvk;
+    static constexpr uint64_t ANB_MAX_WAIT_NS =
+        5ULL * 1000ULL * 1000ULL * 1000ULL;
+    VK_CHECK(vk->vkWaitForFences(sVkEmulation->device, 1, &fence, VK_TRUE,
+                                 ANB_MAX_WAIT_NS));
+}
+
+void setColorBufferCurrentLayout(uint32_t colorBufferHandle, VkImageLayout layout) {
+    AutoLock lock(sVkEmulationLock);
+
+    auto infoPtr = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
+    if (!infoPtr) {
+        VK_COMMON_ERROR("Invalid ColorBuffer handle %d.", static_cast<int>(colorBufferHandle));
+        return;
+    }
+    infoPtr->currentLayout = layout;
 }
 
 } // namespace goldfish_vk
