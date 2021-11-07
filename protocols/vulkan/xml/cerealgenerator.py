@@ -464,6 +464,7 @@ class BumpPool;
 #include "{self.baseLibDirPrefix}/Tracing.h"
 #include "stream-servers/IOStream.h"
 #include "host-common/feature_control.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"
 
 #include "VkDecoderGlobalState.h"
