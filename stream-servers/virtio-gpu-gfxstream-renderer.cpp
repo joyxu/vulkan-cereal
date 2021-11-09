@@ -1407,6 +1407,9 @@ public:
             case VIRGL_FORMAT_R8G8B8X8_UNORM:
                 info->drm_fourcc = DRM_FORMAT_RGBX8888;
                 break;
+            case VIRGL_FORMAT_R8_UNORM:
+                info->drm_fourcc = DRM_FORMAT_R8;
+                break;
             default:
                 return EINVAL;
         }
