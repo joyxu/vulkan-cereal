@@ -12,6 +12,8 @@
 
 #include "ChecksumCalculatorThreadInfo.h"
 
+#include "host-common/logging.h"
+
 #include <stdio.h>
 
 typedef unsigned int tsize_t; // Target "size_t", which is 32-bit for now. It may or may not be the same as host's size_t when emugen is compiled.
@@ -48,6 +50,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(GLint);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcGetRendererVersion()", stream);
 			*(GLint *)(&tmpBuf[0]) = 			this->rcGetRendererVersion();
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -72,6 +75,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_major(&tmpBuf[0], size_major);
 			OutputBuffer outptr_minor(&tmpBuf[0 + size_major], size_minor);
+			DECODER_DEBUG_LOG("renderControl(%p): rcGetEGLVersion(major:%p(%u) minor:%p(%u) )", stream, (EGLint*)(outptr_major.get()), size_major, (EGLint*)(outptr_minor.get()), size_minor);
 			*(EGLint *)(&tmpBuf[0 + size_major + size_minor]) = 			this->rcGetEGLVersion((EGLint*)(outptr_major.get()), (EGLint*)(outptr_minor.get()));
 			outptr_major.flush();
 			outptr_minor.flush();
@@ -97,6 +101,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_buffer(&tmpBuf[0], size_buffer);
+			DECODER_DEBUG_LOG("renderControl(%p): rcQueryEGLString(name:0x%08x buffer:%p(%u) bufferSize:0x%08x )", stream, var_name, (void*)(outptr_buffer.get()), size_buffer, var_bufferSize);
 			*(EGLint *)(&tmpBuf[0 + size_buffer]) = 			this->rcQueryEGLString(var_name, (void*)(outptr_buffer.get()), var_bufferSize);
 			outptr_buffer.flush();
 			if (useChecksum) {
@@ -121,6 +126,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_buffer(&tmpBuf[0], size_buffer);
+			DECODER_DEBUG_LOG("renderControl(%p): rcGetGLString(name:0x%08x buffer:%p(%u) bufferSize:0x%08x )", stream, var_name, (void*)(outptr_buffer.get()), size_buffer, var_bufferSize);
 			*(EGLint *)(&tmpBuf[0 + size_buffer]) = 			this->rcGetGLString(var_name, (void*)(outptr_buffer.get()), var_bufferSize);
 			outptr_buffer.flush();
 			if (useChecksum) {
@@ -143,6 +149,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_numAttribs(&tmpBuf[0], size_numAttribs);
+			DECODER_DEBUG_LOG("renderControl(%p): rcGetNumConfigs(numAttribs:%p(%u) )", stream, (uint32_t*)(outptr_numAttribs.get()), size_numAttribs);
 			*(EGLint *)(&tmpBuf[0 + size_numAttribs]) = 			this->rcGetNumConfigs((uint32_t*)(outptr_numAttribs.get()));
 			outptr_numAttribs.flush();
 			if (useChecksum) {
@@ -166,6 +173,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_buffer(&tmpBuf[0], size_buffer);
+			DECODER_DEBUG_LOG("renderControl(%p): rcGetConfigs(bufSize:0x%08x buffer:%p(%u) )", stream, var_bufSize, (GLuint*)(outptr_buffer.get()), size_buffer);
 			*(EGLint *)(&tmpBuf[0 + size_buffer]) = 			this->rcGetConfigs(var_bufSize, (GLuint*)(outptr_buffer.get()));
 			outptr_buffer.flush();
 			if (useChecksum) {
@@ -192,6 +200,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_configs(&tmpBuf[0], size_configs);
+			DECODER_DEBUG_LOG("renderControl(%p): rcChooseConfig(attribs:%p(%u) attribs_size:0x%08x configs:%p(%u) configs_size:0x%08x )", stream, (EGLint*)(inptr_attribs.get()), size_attribs, var_attribs_size, (uint32_t*)(outptr_configs.get()), size_configs, var_configs_size);
 			*(EGLint *)(&tmpBuf[0 + size_configs]) = 			this->rcChooseConfig((EGLint*)(inptr_attribs.get()), var_attribs_size, size_configs == 0 ? nullptr : (uint32_t*)(outptr_configs.get()), var_configs_size);
 			outptr_configs.flush();
 			if (useChecksum) {
@@ -212,6 +221,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(EGLint);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcGetFBParam(param:0x%08x )", stream, var_param);
 			*(EGLint *)(&tmpBuf[0]) = 			this->rcGetFBParam(var_param);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -233,6 +243,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(uint32_t);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcCreateContext(config:0x%08x share:0x%08x glVersion:0x%08x )", stream, var_config, var_share, var_glVersion);
 			*(uint32_t *)(&tmpBuf[0]) = 			this->rcCreateContext(var_config, var_share, var_glVersion);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -249,6 +260,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcDestroyContext: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcDestroyContext(context:0x%08x )", stream, var_context);
 			this->rcDestroyContext(var_context);
 			SET_LASTCALL("rcDestroyContext");
 			android::base::endTrace();
@@ -266,6 +278,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(uint32_t);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcCreateWindowSurface(config:0x%08x width:0x%08x height:0x%08x )", stream, var_config, var_width, var_height);
 			*(uint32_t *)(&tmpBuf[0]) = 			this->rcCreateWindowSurface(var_config, var_width, var_height);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -282,6 +295,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcDestroyWindowSurface: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcDestroyWindowSurface(windowSurface:0x%08x )", stream, var_windowSurface);
 			this->rcDestroyWindowSurface(var_windowSurface);
 			SET_LASTCALL("rcDestroyWindowSurface");
 			android::base::endTrace();
@@ -299,6 +313,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(uint32_t);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcCreateColorBuffer(width:0x%08x height:0x%08x internalFormat:0x%08x )", stream, var_width, var_height, var_internalFormat);
 			*(uint32_t *)(&tmpBuf[0]) = 			this->rcCreateColorBuffer(var_width, var_height, var_internalFormat);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -315,6 +330,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcOpenColorBuffer: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcOpenColorBuffer(colorbuffer:0x%08x )", stream, var_colorbuffer);
 			this->rcOpenColorBuffer(var_colorbuffer);
 			SET_LASTCALL("rcOpenColorBuffer");
 			android::base::endTrace();
@@ -327,6 +343,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcCloseColorBuffer: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcCloseColorBuffer(colorbuffer:0x%08x )", stream, var_colorbuffer);
 			this->rcCloseColorBuffer(var_colorbuffer);
 			SET_LASTCALL("rcCloseColorBuffer");
 			android::base::endTrace();
@@ -340,6 +357,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcSetWindowColorBuffer: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcSetWindowColorBuffer(windowSurface:0x%08x colorBuffer:0x%08x )", stream, var_windowSurface, var_colorBuffer);
 			this->rcSetWindowColorBuffer(var_windowSurface, var_colorBuffer);
 			SET_LASTCALL("rcSetWindowColorBuffer");
 			android::base::endTrace();
@@ -355,6 +373,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcFlushWindowColorBuffer(windowSurface:0x%08x )", stream, var_windowSurface);
 			*(int *)(&tmpBuf[0]) = 			this->rcFlushWindowColorBuffer(var_windowSurface);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -376,6 +395,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(EGLint);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcMakeCurrent(context:0x%08x drawSurf:0x%08x readSurf:0x%08x )", stream, var_context, var_drawSurf, var_readSurf);
 			*(EGLint *)(&tmpBuf[0]) = 			this->rcMakeCurrent(var_context, var_drawSurf, var_readSurf);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -392,6 +412,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcFBPost: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcFBPost(colorBuffer:0x%08x )", stream, var_colorBuffer);
 			this->rcFBPost(var_colorBuffer);
 			SET_LASTCALL("rcFBPost");
 			android::base::endTrace();
@@ -404,6 +425,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcFBSetSwapInterval: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcFBSetSwapInterval(interval:0x%08x )", stream, var_interval);
 			this->rcFBSetSwapInterval(var_interval);
 			SET_LASTCALL("rcFBSetSwapInterval");
 			android::base::endTrace();
@@ -416,6 +438,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcBindTexture: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcBindTexture(colorBuffer:0x%08x )", stream, var_colorBuffer);
 			this->rcBindTexture(var_colorBuffer);
 			SET_LASTCALL("rcBindTexture");
 			android::base::endTrace();
@@ -428,6 +451,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcBindRenderbuffer: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcBindRenderbuffer(colorBuffer:0x%08x )", stream, var_colorBuffer);
 			this->rcBindRenderbuffer(var_colorBuffer);
 			SET_LASTCALL("rcBindRenderbuffer");
 			android::base::endTrace();
@@ -445,6 +469,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(EGLint);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcColorBufferCacheFlush(colorbuffer:0x%08x postCount:0x%08x forRead:%d )", stream, var_colorbuffer, var_postCount, var_forRead);
 			*(EGLint *)(&tmpBuf[0]) = 			this->rcColorBufferCacheFlush(var_colorbuffer, var_postCount, var_forRead);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -472,6 +497,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_pixels(&tmpBuf[0], size_pixels);
+			DECODER_DEBUG_LOG("renderControl(%p): rcReadColorBuffer(colorbuffer:0x%08x x:0x%08x y:0x%08x width:0x%08x height:0x%08x format:0x%08x type:0x%08x pixels:%p(%u) )", stream, var_colorbuffer, var_x, var_y, var_width, var_height, var_format, var_type, (void*)(outptr_pixels.get()), size_pixels);
 			this->rcReadColorBuffer(var_colorbuffer, var_x, var_y, var_width, var_height, var_format, var_type, (void*)(outptr_pixels.get()));
 			outptr_pixels.flush();
 			if (useChecksum) {
@@ -500,6 +526,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcUpdateColorBuffer(colorbuffer:0x%08x x:0x%08x y:0x%08x width:0x%08x height:0x%08x format:0x%08x type:0x%08x pixels:%p(%u) )", stream, var_colorbuffer, var_x, var_y, var_width, var_height, var_format, var_type, (void*)(inptr_pixels.get()), size_pixels);
 			*(int *)(&tmpBuf[0]) = 			this->rcUpdateColorBuffer(var_colorbuffer, var_x, var_y, var_width, var_height, var_format, var_type, (void*)(inptr_pixels.get()));
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -519,6 +546,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcOpenColorBuffer2(colorbuffer:0x%08x )", stream, var_colorbuffer);
 			*(int *)(&tmpBuf[0]) = 			this->rcOpenColorBuffer2(var_colorbuffer);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -540,6 +568,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(uint32_t);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcCreateClientImage(context:0x%08x target:0x%08x buffer:0x%08x )", stream, var_context, var_target, var_buffer);
 			*(uint32_t *)(&tmpBuf[0]) = 			this->rcCreateClientImage(var_context, var_target, var_buffer);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -559,6 +588,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcDestroyClientImage(image:0x%08x )", stream, var_image);
 			*(int *)(&tmpBuf[0]) = 			this->rcDestroyClientImage(var_image);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -576,6 +606,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcSelectChecksumHelper: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcSelectChecksumHelper(newProtocol:0x%08x reserved:0x%08x )", stream, var_newProtocol, var_reserved);
 			this->rcSelectChecksumHelper(var_newProtocol, var_reserved);
 			SET_LASTCALL("rcSelectChecksumHelper");
 			android::base::endTrace();
@@ -600,6 +631,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_glsync_out(&tmpBuf[0], size_glsync_out);
 			OutputBuffer outptr_syncthread_out(&tmpBuf[0 + size_glsync_out], size_syncthread_out);
+			DECODER_DEBUG_LOG("renderControl(%p): rcCreateSyncKHR(type:0x%08x attribs:%p(%u) num_attribs:0x%08x destroy_when_signaled:%d glsync_out:%p(%u) syncthread_out:%p(%u) )", stream, var_type, (EGLint*)(inptr_attribs.get()), size_attribs, var_num_attribs, var_destroy_when_signaled, (uint64_t*)(outptr_glsync_out.get()), size_glsync_out, (uint64_t*)(outptr_syncthread_out.get()), size_syncthread_out);
 			this->rcCreateSyncKHR(var_type, (EGLint*)(inptr_attribs.get()), var_num_attribs, var_destroy_when_signaled, (uint64_t*)(outptr_glsync_out.get()), (uint64_t*)(outptr_syncthread_out.get()));
 			outptr_glsync_out.flush();
 			outptr_syncthread_out.flush();
@@ -623,6 +655,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(EGLint);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcClientWaitSyncKHR(sync:0x%016lx flags:0x%08x timeout:0x%016lx )", stream, var_sync, var_flags, var_timeout);
 			*(EGLint *)(&tmpBuf[0]) = 			this->rcClientWaitSyncKHR(var_sync, var_flags, var_timeout);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -639,6 +672,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcFlushWindowColorBufferAsync: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcFlushWindowColorBufferAsync(windowSurface:0x%08x )", stream, var_windowSurface);
 			this->rcFlushWindowColorBufferAsync(var_windowSurface);
 			SET_LASTCALL("rcFlushWindowColorBufferAsync");
 			android::base::endTrace();
@@ -654,6 +688,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcDestroySyncKHR(sync:0x%016lx )", stream, var_sync);
 			*(int *)(&tmpBuf[0]) = 			this->rcDestroySyncKHR(var_sync);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -670,6 +705,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 8, ptr + 8 + 8, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcSetPuid: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcSetPuid(puid:0x%016lx )", stream, var_puid);
 			this->rcSetPuid(var_puid);
 			SET_LASTCALL("rcSetPuid");
 			android::base::endTrace();
@@ -695,6 +731,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcUpdateColorBufferDMA(colorbuffer:0x%08x x:0x%08x y:0x%08x width:0x%08x height:0x%08x format:0x%08x type:0x%08x pixels:%p(%u) pixels_size:0x%08x )", stream, var_colorbuffer, var_x, var_y, var_width, var_height, var_format, var_type, var_pixels, var_pixels_size);
 			*(int *)(&tmpBuf[0]) = 			this->rcUpdateColorBufferDMA(var_colorbuffer, var_x, var_y, var_width, var_height, var_format, var_type, var_pixels, var_pixels_size);
 			stream->unlockDma(var_pixels_guest_paddr);
 			if (useChecksum) {
@@ -718,6 +755,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(uint32_t);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcCreateColorBufferDMA(width:0x%08x height:0x%08x internalFormat:0x%08x frameworkFormat:%d )", stream, var_width, var_height, var_internalFormat, var_frameworkFormat);
 			*(uint32_t *)(&tmpBuf[0]) = 			this->rcCreateColorBufferDMA(var_width, var_height, var_internalFormat, var_frameworkFormat);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -735,6 +773,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 8 + 4, ptr + 8 + 8 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcWaitSyncKHR: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcWaitSyncKHR(sync:0x%016lx flags:0x%08x )", stream, var_sync, var_flags);
 			this->rcWaitSyncKHR(var_sync, var_flags);
 			SET_LASTCALL("rcWaitSyncKHR");
 			android::base::endTrace();
@@ -752,6 +791,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(GLint);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcCompose(bufferSize:0x%08x buffer:%p(%u) )", stream, var_bufferSize, (void*)(inptr_buffer.get()), size_buffer);
 			*(GLint *)(&tmpBuf[0]) = 			this->rcCompose(var_bufferSize, (void*)(inptr_buffer.get()));
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -773,6 +813,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_displayId(&tmpBuf[0], size_displayId);
+			DECODER_DEBUG_LOG("renderControl(%p): rcCreateDisplay(displayId:%p(%u) )", stream, (uint32_t*)(outptr_displayId.get()), size_displayId);
 			*(int *)(&tmpBuf[0 + size_displayId]) = 			this->rcCreateDisplay((uint32_t*)(outptr_displayId.get()));
 			outptr_displayId.flush();
 			if (useChecksum) {
@@ -793,6 +834,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcDestroyDisplay(displayId:0x%08x )", stream, var_displayId);
 			*(int *)(&tmpBuf[0]) = 			this->rcDestroyDisplay(var_displayId);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -813,6 +855,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcSetDisplayColorBuffer(displayId:0x%08x colorBuffer:0x%08x )", stream, var_displayId, var_colorBuffer);
 			*(int *)(&tmpBuf[0]) = 			this->rcSetDisplayColorBuffer(var_displayId, var_colorBuffer);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -835,6 +878,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_colorBuffer(&tmpBuf[0], size_colorBuffer);
+			DECODER_DEBUG_LOG("renderControl(%p): rcGetDisplayColorBuffer(displayId:0x%08x colorBuffer:%p(%u) )", stream, var_displayId, (uint32_t*)(outptr_colorBuffer.get()), size_colorBuffer);
 			*(int *)(&tmpBuf[0 + size_colorBuffer]) = 			this->rcGetDisplayColorBuffer(var_displayId, (uint32_t*)(outptr_colorBuffer.get()));
 			outptr_colorBuffer.flush();
 			if (useChecksum) {
@@ -858,6 +902,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_displayId(&tmpBuf[0], size_displayId);
+			DECODER_DEBUG_LOG("renderControl(%p): rcGetColorBufferDisplay(colorBuffer:0x%08x displayId:%p(%u) )", stream, var_colorBuffer, (uint32_t*)(outptr_displayId.get()), size_displayId);
 			*(int *)(&tmpBuf[0 + size_displayId]) = 			this->rcGetColorBufferDisplay(var_colorBuffer, (uint32_t*)(outptr_displayId.get()));
 			outptr_displayId.flush();
 			if (useChecksum) {
@@ -890,6 +935,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			OutputBuffer outptr_y(&tmpBuf[0 + size_x], size_y);
 			OutputBuffer outptr_w(&tmpBuf[0 + size_x + size_y], size_w);
 			OutputBuffer outptr_h(&tmpBuf[0 + size_x + size_y + size_w], size_h);
+			DECODER_DEBUG_LOG("renderControl(%p): rcGetDisplayPose(displayId:0x%08x x:%p(%u) y:%p(%u) w:%p(%u) h:%p(%u) )", stream, var_displayId, (GLint*)(outptr_x.get()), size_x, (GLint*)(outptr_y.get()), size_y, (uint32_t*)(outptr_w.get()), size_w, (uint32_t*)(outptr_h.get()), size_h);
 			*(int *)(&tmpBuf[0 + size_x + size_y + size_w + size_h]) = 			this->rcGetDisplayPose(var_displayId, (GLint*)(outptr_x.get()), (GLint*)(outptr_y.get()), (uint32_t*)(outptr_w.get()), (uint32_t*)(outptr_h.get()));
 			outptr_x.flush();
 			outptr_y.flush();
@@ -917,6 +963,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcSetDisplayPose(displayId:0x%08x x:0x%08x y:0x%08x w:0x%08x h:0x%08x )", stream, var_displayId, var_x, var_y, var_w, var_h);
 			*(int *)(&tmpBuf[0]) = 			this->rcSetDisplayPose(var_displayId, var_x, var_y, var_w, var_h);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -937,6 +984,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(GLint);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcSetColorBufferVulkanMode(colorBuffer:0x%08x mode:0x%08x )", stream, var_colorBuffer, var_mode);
 			*(GLint *)(&tmpBuf[0]) = 			this->rcSetColorBufferVulkanMode(var_colorBuffer, var_mode);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -963,6 +1011,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_pixels(&tmpBuf[0], size_pixels);
+			DECODER_DEBUG_LOG("renderControl(%p): rcReadColorBufferYUV(colorbuffer:0x%08x x:0x%08x y:0x%08x width:0x%08x height:0x%08x pixels:%p(%u) pixels_size:0x%08x )", stream, var_colorbuffer, var_x, var_y, var_width, var_height, (void*)(outptr_pixels.get()), size_pixels, var_pixels_size);
 			this->rcReadColorBufferYUV(var_colorbuffer, var_x, var_y, var_width, var_height, (void*)(outptr_pixels.get()), var_pixels_size);
 			outptr_pixels.flush();
 			if (useChecksum) {
@@ -983,6 +1032,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcIsSyncSignaled(sync:0x%016lx )", stream, var_sync);
 			*(int *)(&tmpBuf[0]) = 			this->rcIsSyncSignaled(var_sync);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -1002,6 +1052,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcCreateColorBufferWithHandle: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcCreateColorBufferWithHandle(width:0x%08x height:0x%08x internalFormat:0x%08x handle:0x%08x )", stream, var_width, var_height, var_internalFormat, var_handle);
 			this->rcCreateColorBufferWithHandle(var_width, var_height, var_internalFormat, var_handle);
 			SET_LASTCALL("rcCreateColorBufferWithHandle");
 			android::base::endTrace();
@@ -1017,6 +1068,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(uint32_t);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcCreateBuffer(size:0x%08x )", stream, var_size);
 			*(uint32_t *)(&tmpBuf[0]) = 			this->rcCreateBuffer(var_size);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -1033,6 +1085,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcCloseBuffer: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcCloseBuffer(buffer:0x%08x )", stream, var_buffer);
 			this->rcCloseBuffer(var_buffer);
 			SET_LASTCALL("rcCloseBuffer");
 			android::base::endTrace();
@@ -1050,6 +1103,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(GLint);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcSetColorBufferVulkanMode2(colorBuffer:0x%08x mode:0x%08x memoryProperty:0x%08x )", stream, var_colorBuffer, var_mode, var_memoryProperty);
 			*(GLint *)(&tmpBuf[0]) = 			this->rcSetColorBufferVulkanMode2(var_colorBuffer, var_mode, var_memoryProperty);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -1070,6 +1124,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcMapGpaToBufferHandle(bufferHandle:0x%08x gpa:0x%016lx )", stream, var_bufferHandle, var_gpa);
 			*(int *)(&tmpBuf[0]) = 			this->rcMapGpaToBufferHandle(var_bufferHandle, var_gpa);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -1090,6 +1145,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(uint32_t);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcCreateBuffer2(size:0x%016lx memoryProperty:0x%08x )", stream, var_size, var_memoryProperty);
 			*(uint32_t *)(&tmpBuf[0]) = 			this->rcCreateBuffer2(var_size, var_memoryProperty);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -1111,6 +1167,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcMapGpaToBufferHandle2(bufferHandle:0x%08x gpa:0x%016lx size:0x%016lx )", stream, var_bufferHandle, var_gpa, var_size);
 			*(int *)(&tmpBuf[0]) = 			this->rcMapGpaToBufferHandle2(var_bufferHandle, var_gpa, var_size);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -1128,6 +1185,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcFlushWindowColorBufferAsyncWithFrameNumber: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcFlushWindowColorBufferAsyncWithFrameNumber(windowSurface:0x%08x frameNumber:0x%08x )", stream, var_windowSurface, var_frameNumber);
 			this->rcFlushWindowColorBufferAsyncWithFrameNumber(var_windowSurface, var_frameNumber);
 			SET_LASTCALL("rcFlushWindowColorBufferAsyncWithFrameNumber");
 			android::base::endTrace();
@@ -1142,6 +1200,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 8 + 4 + 8, ptr + 8 + 8 + 4 + 8, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcSetTracingForPuid: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcSetTracingForPuid(puid:0x%016lx enable:0x%08x guestTime:0x%016lx )", stream, var_puid, var_enable, var_guestTime);
 			this->rcSetTracingForPuid(var_puid, var_enable, var_guestTime);
 			SET_LASTCALL("rcSetTracingForPuid");
 			android::base::endTrace();
@@ -1156,6 +1215,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcMakeCurrentAsync: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcMakeCurrentAsync(context:0x%08x drawSurf:0x%08x readSurf:0x%08x )", stream, var_context, var_drawSurf, var_readSurf);
 			this->rcMakeCurrentAsync(var_context, var_drawSurf, var_readSurf);
 			SET_LASTCALL("rcMakeCurrentAsync");
 			android::base::endTrace();
@@ -1170,6 +1230,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_buffer, ptr + 8 + 4 + 4 + size_buffer, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcComposeAsync: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcComposeAsync(bufferSize:0x%08x buffer:%p(%u) )", stream, var_bufferSize, (void*)(inptr_buffer.get()), size_buffer);
 			this->rcComposeAsync(var_bufferSize, (void*)(inptr_buffer.get()));
 			SET_LASTCALL("rcComposeAsync");
 			android::base::endTrace();
@@ -1182,6 +1243,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 8, ptr + 8 + 8, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcDestroySyncKHRAsync: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcDestroySyncKHRAsync(sync:0x%016lx )", stream, var_sync);
 			this->rcDestroySyncKHRAsync(var_sync);
 			SET_LASTCALL("rcDestroySyncKHRAsync");
 			android::base::endTrace();
@@ -1199,6 +1261,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(GLint);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcComposeWithoutPost(bufferSize:0x%08x buffer:%p(%u) )", stream, var_bufferSize, (void*)(inptr_buffer.get()), size_buffer);
 			*(GLint *)(&tmpBuf[0]) = 			this->rcComposeWithoutPost(var_bufferSize, (void*)(inptr_buffer.get()));
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -1217,6 +1280,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_buffer, ptr + 8 + 4 + 4 + size_buffer, checksumSize,
 					"renderControl_decoder_context_t::decode, OP_rcComposeAsyncWithoutPost: GL checksumCalculator failure\n");
 			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcComposeAsyncWithoutPost(bufferSize:0x%08x buffer:%p(%u) )", stream, var_bufferSize, (void*)(inptr_buffer.get()), size_buffer);
 			this->rcComposeAsyncWithoutPost(var_bufferSize, (void*)(inptr_buffer.get()));
 			SET_LASTCALL("rcComposeAsyncWithoutPost");
 			android::base::endTrace();
@@ -1232,6 +1296,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcCreateDisplayById(displayId:0x%08x )", stream, var_displayId);
 			*(int *)(&tmpBuf[0]) = 			this->rcCreateDisplayById(var_displayId);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -1256,6 +1321,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcSetDisplayPoseDpi(displayId:0x%08x x:0x%08x y:0x%08x w:0x%08x h:0x%08x dpi:0x%08x )", stream, var_displayId, var_x, var_y, var_w, var_h, var_dpi);
 			*(int *)(&tmpBuf[0]) = 			this->rcSetDisplayPoseDpi(var_displayId, var_x, var_y, var_w, var_h, var_dpi);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -1285,6 +1351,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcReadColorBufferDMA(colorbuffer:0x%08x x:0x%08x y:0x%08x width:0x%08x height:0x%08x format:0x%08x type:0x%08x pixels:%p(%u) pixels_size:0x%08x )", stream, var_colorbuffer, var_x, var_y, var_width, var_height, var_format, var_type, var_pixels, var_pixels_size);
 			*(int *)(&tmpBuf[0]) = 			this->rcReadColorBufferDMA(var_colorbuffer, var_x, var_y, var_width, var_height, var_format, var_type, var_pixels, var_pixels_size);
 			stream->unlockDma(var_pixels_guest_paddr);
 			if (useChecksum) {
@@ -1304,6 +1371,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcGetFBDisplayConfigsCount()", stream);
 			*(int *)(&tmpBuf[0]) = 			this->rcGetFBDisplayConfigsCount();
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -1324,6 +1392,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcGetFBDisplayConfigsParam(configId:%d param:0x%08x )", stream, var_configId, var_param);
 			*(int *)(&tmpBuf[0]) = 			this->rcGetFBDisplayConfigsParam(var_configId, var_param);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -1342,6 +1411,7 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			DECODER_DEBUG_LOG("renderControl(%p): rcGetFBDisplayActiveConfig()", stream);
 			*(int *)(&tmpBuf[0]) = 			this->rcGetFBDisplayActiveConfig();
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
