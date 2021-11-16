@@ -1001,6 +1001,7 @@ int ApiGen::genDecoderImpl(const std::string &filename)
     fprintf(fp, "#include \"%s_dec.h\"\n\n\n", m_basename.c_str());
     fprintf(fp, "#include \"ProtocolUtils.h\"\n\n");
     fprintf(fp, "#include \"ChecksumCalculatorThreadInfo.h\"\n\n");
+    fprintf(fp, "#include \"host-common/logging.h\"\n\n");
     fprintf(fp, "#include <stdio.h>\n\n");
     fprintf(fp, "typedef unsigned int tsize_t; // Target \"size_t\", which is 32-bit for now. It may or may not be the same as host's size_t when emugen is compiled.\n\n");
 
@@ -1065,6 +1066,7 @@ R"(        // Do this on every iteration, as some commands may change the checks
         std::string printString;
         for (size_t i = 0; i < e->vars().size(); i++) {
             Var *v = &e->vars()[i];
+            printString +=  v->name() + ":";
             if (!v->isVoid())  printString += (v->isPointer() ? "%p(%u)" : v->type()->printFormat()) + " ";
         }
 
@@ -1086,12 +1088,7 @@ R"(        // Do this on every iteration, as some commands may change the checks
             retvalType = e->retval().type()->name();
         }
 
-#define SKIP_DEBUG_PRINT 1
-
         for (int pass = PASS_FIRST; pass < PASS_LAST; pass++) {
-#if SKIP_DEBUG_PRINT
-            if (pass == PASS_DebugPrint) continue;
-#endif
 
 #if INSTRUMENT_TIMING_HOST
             if (pass == PASS_FunctionCall) {
@@ -1116,14 +1113,15 @@ R"(        // Do this on every iteration, as some commands may change the checks
                 }
             } else if (pass == PASS_DebugPrint) {
                 if (strstr(m_basename.c_str(), "gl")) {
-                    fprintf(fp, "\t\t#ifdef CHECK_GL_ERRORS\n");
-                    fprintf(fp, "\t\tGLint err = this->glGetError();\n");
-                    fprintf(fp, "\t\tif (err) fprintf(stderr, \"%s Error (pre-call): 0x%%X before %s\\n\", err);\n",
+                    fprintf(fp, "\t\t\t#ifdef CHECK_GL_ERRORS\n");
+                    fprintf(fp, "\t\t\tGLint err = this->glGetError();\n");
+                    fprintf(fp, "\t\t\tif (err) fprintf(stderr, \"%s Error (pre-call): 0x%%X before %s\\n\", err);\n",
                             m_basename.c_str(), e->name().c_str());
-                    fprintf(fp, "\t\t#endif\n");
+                    fprintf(fp, "\t\t\t#endif\n");
                 }
+
                 fprintf(fp,
-                        "\t\t\tDEBUG(\"%s(%%p): %s(%s)\\n\", stream",
+                        "\t\t\tDECODER_DEBUG_LOG(\"%s(%%p): %s(%s)\", stream",
                         m_basename.c_str(),
                         e->name().c_str(),
                         printString.c_str());
