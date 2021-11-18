@@ -26,6 +26,13 @@
 #define DECODER_DEBUG_LOG(...) ((void)0)
 #endif
 
+#define ENABLE_DISPATCH_LOG 1
+#if defined(ENABLE_DISPATCH_LOG)
+#define DISPATCH_DEBUG_LOG(...) GFXSTREAM_LOG(stderr, "I", __VA_ARGS__)
+#else
+#define DISPATCH_DEBUG_LOG(...) ((void)0)
+#endif
+
 #define ERR(...)                                 \
     do {                                         \
         GFXSTREAM_LOG(stderr, "E", __VA_ARGS__); \
