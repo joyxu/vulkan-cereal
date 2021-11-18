@@ -1395,20 +1395,21 @@ public:
         uint32_t bpp = 4U;
         switch (entry.args.format) {
             case VIRGL_FORMAT_B8G8R8A8_UNORM:
-                info->drm_fourcc = DRM_FORMAT_BGRA8888;
+                info->drm_fourcc = DRM_FORMAT_ARGB8888;
                 break;
             case VIRGL_FORMAT_B5G6R5_UNORM:
-                info->drm_fourcc = DRM_FORMAT_BGR565;
+                info->drm_fourcc = DRM_FORMAT_RGB565;
                 bpp = 2U;
                 break;
             case VIRGL_FORMAT_R8G8B8A8_UNORM:
-                info->drm_fourcc = DRM_FORMAT_RGBA8888;
+                info->drm_fourcc = DRM_FORMAT_ABGR8888;
                 break;
             case VIRGL_FORMAT_R8G8B8X8_UNORM:
-                info->drm_fourcc = DRM_FORMAT_RGBX8888;
+                info->drm_fourcc = DRM_FORMAT_XBGR8888;
                 break;
             case VIRGL_FORMAT_R8_UNORM:
                 info->drm_fourcc = DRM_FORMAT_R8;
+                bpp = 1U;
                 break;
             default:
                 return EINVAL;
