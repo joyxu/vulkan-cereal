@@ -1060,7 +1060,7 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     return sVkEmulation;
 }
 
-void initVkEmulationFeatures(const VkEmulationFeatures& features) {
+void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures> features) {
     if (!sVkEmulation || !sVkEmulation->live) {
         ERR("VkEmulation is either not initialized or destroyed.");
         return;
@@ -1068,16 +1068,18 @@ void initVkEmulationFeatures(const VkEmulationFeatures& features) {
 
     AutoLock lock(sVkEmulationLock);
     INFO("Initializing VkEmulation features:");
-    INFO("    glInteropSupported: %s", features.glInteropSupported ? "true" : "false");
-    INFO("    useDeferredCommands: %s", features.deferredCommands ? "true" : "false");
+    INFO("    glInteropSupported: %s", features->glInteropSupported ? "true" : "false");
+    INFO("    useDeferredCommands: %s", features->deferredCommands ? "true" : "false");
     INFO("    createResourceWithRequirements: %s",
-         features.createResourceWithRequirements ? "true" : "false");
-    INFO("    useVulkanNativeSwapchain: %s", features.useVulkanNativeSwapchain ? "true" : "false");
-    sVkEmulation->deviceInfo.glInteropSupported = features.glInteropSupported;
-    sVkEmulation->useDeferredCommands = features.deferredCommands;
-    sVkEmulation->useCreateResourcesWithRequirements = features.createResourceWithRequirements;
+         features->createResourceWithRequirements ? "true" : "false");
+    INFO("    useVulkanNativeSwapchain: %s", features->useVulkanNativeSwapchain ? "true" : "false");
+    INFO("    enable guestRenderDoc: %s", features->guestRenderDoc ? "true" : "false");
+    sVkEmulation->deviceInfo.glInteropSupported = features->glInteropSupported;
+    sVkEmulation->useDeferredCommands = features->deferredCommands;
+    sVkEmulation->useCreateResourcesWithRequirements = features->createResourceWithRequirements;
+    sVkEmulation->guestRenderDoc = std::move(features->guestRenderDoc);
 
-    if (features.useVulkanNativeSwapchain) {
+    if (features->useVulkanNativeSwapchain) {
         if (sVkEmulation->displayVk) {
             ERR("Reset VkEmulation::displayVk.");
         }

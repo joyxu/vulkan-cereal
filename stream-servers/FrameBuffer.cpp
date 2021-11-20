@@ -366,6 +366,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         return false;
     }
 
+    std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> renderDocMultipleVkInstances = nullptr;
     if (!android::base::getEnvironmentVariable("ANDROID_EMU_RENDERDOC").empty()) {
         SharedLibrary* renderdocLib = nullptr;
 #ifdef _WIN32
@@ -376,6 +377,12 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         fb->m_renderDoc = emugl::RenderDoc::create(renderdocLib);
         if (fb->m_renderDoc) {
             INFO("RenderDoc integration enabled.");
+            renderDocMultipleVkInstances =
+                std::make_unique<emugl::RenderDocWithMultipleVkInstances>(*fb->m_renderDoc);
+            if (!renderDocMultipleVkInstances) {
+                ERR("Failed to initialize RenderDoc with multiple VkInstances. Can't capture any "
+                    "information from guest VkInstances with RenderDoc.");
+            }
         }
     }
     // Initialize Vulkan emulation state
@@ -500,17 +507,19 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         feature_is_enabled(
             kFeature_GuestUsesAngle);
 
-    goldfish_vk::VkEmulationFeatures vkEmulationFeatures = {
-        .glInteropSupported = false,  // Set later.
-        .deferredCommands =
-            android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_DEFERRED_COMMANDS")
-                .empty(),
-        .createResourceWithRequirements =
-            android::base::getEnvironmentVariable(
-                "ANDROID_EMU_VK_DISABLE_USE_CREATE_RESOURCES_WITH_REQUIREMENTS")
-                .empty(),
-        .useVulkanNativeSwapchain = feature_is_enabled(kFeature_VulkanNativeSwapchain),
-    };
+    std::unique_ptr<goldfish_vk::VkEmulationFeatures> vkEmulationFeatures =
+        std::make_unique<goldfish_vk::VkEmulationFeatures>(goldfish_vk::VkEmulationFeatures{
+            .glInteropSupported = false,  // Set later.
+            .deferredCommands =
+                android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_DEFERRED_COMMANDS")
+                    .empty(),
+            .createResourceWithRequirements =
+                android::base::getEnvironmentVariable(
+                    "ANDROID_EMU_VK_DISABLE_USE_CREATE_RESOURCES_WITH_REQUIREMENTS")
+                    .empty(),
+            .useVulkanNativeSwapchain = feature_is_enabled(kFeature_VulkanNativeSwapchain),
+            .guestRenderDoc = std::move(renderDocMultipleVkInstances),
+        });
 
     //
     // if GLES2 plugin has loaded - try to make GLES2 context and
@@ -814,9 +823,9 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     }
 
     GL_LOG("glvk interop final: %d", fb->m_vulkanInteropSupported);
-    vkEmulationFeatures.glInteropSupported = fb->m_vulkanInteropSupported;
+    vkEmulationFeatures->glInteropSupported = fb->m_vulkanInteropSupported;
     if (feature_is_enabled(kFeature_Vulkan)) {
-        goldfish_vk::initVkEmulationFeatures(vkEmulationFeatures);
+        goldfish_vk::initVkEmulationFeatures(std::move(vkEmulationFeatures));
         if (vkEmu->displayVk) {
             fb->m_displayVk = vkEmu->displayVk.get();
         }
