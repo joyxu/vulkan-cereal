@@ -256,6 +256,8 @@ target_include_directories(
     ${GFXSTREAM_REPO_ROOT}/include)
 target_link_libraries(
     VirtioGpuTimelines_unittests
+    PUBLIC
+    gfxstream-base
     PRIVATE
     gtest
     gmock)
