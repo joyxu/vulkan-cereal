@@ -35,6 +35,7 @@
 #include <EGL/eglext.h>
 #include <EGL/eglext_angle.h>
 #include <GLES2/gl2.h>
+#include <cstring>
 #include <memory>
 #include <vector>
 
@@ -549,6 +550,10 @@ EglOsEglDisplay::createContext(EGLint profileMask,
     // Always GLES3
     std::vector<EGLint> attributes = { EGL_CONTEXT_CLIENT_VERSION, 3 };
     auto exts = mDispatcher.eglQueryString(mDisplay, EGL_EXTENSIONS);
+    auto vendor = mDispatcher.eglQueryString(mDisplay, EGL_VENDOR);
+
+    // TODO (b/207426737): remove Imagination-specific workaround
+    bool disable_robustness = (strcmp(vendor, "Imagination Technologies") == 0);
 
     bool disableValidation = android::base::getEnvironmentVariable("ANDROID_EMUGL_EGL_VALIDATION") == "0";
     if (exts != nullptr && emugl::hasExtension(exts, "EGL_KHR_create_context_no_error") && disableValidation) {
@@ -556,7 +561,7 @@ EglOsEglDisplay::createContext(EGLint profileMask,
         attributes.push_back(EGL_TRUE);
     }
 
-    if (exts != nullptr && emugl::hasExtension(exts, "EGL_EXT_create_context_robustness")) {
+    if (exts != nullptr && emugl::hasExtension(exts, "EGL_EXT_create_context_robustness") && !disable_robustness) {
         attributes.push_back(EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_EXT);
         attributes.push_back(EGL_LOSE_CONTEXT_ON_RESET_EXT);
     }
