@@ -64,6 +64,10 @@ public:
         return nativeType()->getExtensionString();
     }
 
+    const char* getVendorString() {
+        return nativeType()->getVendorString();
+    }
+
     EGLImage createNativeImage(
             EGLDisplay dpy,
             EGLContext ctx,
