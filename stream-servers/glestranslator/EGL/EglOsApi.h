@@ -163,6 +163,7 @@ public:
 
     virtual GlesVersion getMaxGlesVersion() = 0;
     virtual const char* getExtensionString() { return ""; }
+    virtual const char* getVendorString() { return "Google"; }
 
     virtual void queryConfigs(int renderableType,
                               AddConfigCallback* addConfigFunc,
