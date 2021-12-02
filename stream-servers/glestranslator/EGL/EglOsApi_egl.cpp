@@ -408,7 +408,8 @@ EglOsEglDisplay::~EglOsEglDisplay() {
 
 EglOS::GlesVersion EglOsEglDisplay::getMaxGlesVersion() {
     // TODO: Detect and return the highest version like in GLESVersionDetector.cpp
-    return EglOS::GlesVersion::ES30;
+    // GLES3.2 will also need some more autogen + enums if anyone is interested.
+    return EglOS::GlesVersion::ES31;
 }
 
 const char* EglOsEglDisplay::getExtensionString() {
