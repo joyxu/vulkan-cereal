@@ -36,6 +36,11 @@ public:
     virtual void logMetricEvent(MetricEventType eventType) = 0;
     // Virtual destructor.
     virtual ~MetricsLogger() = default;
+
+    // Callbacks to log events
+    static void (*add_instant_event_callback)(int64_t event_code);
+    static void (*add_instant_event_with_descriptor_callback)(int64_t event_code, int64_t descriptor);
+    static void (*add_instant_event_with_metric_callback)(int64_t event_code, int64_t metric_value);
 };
 
 std::unique_ptr<MetricsLogger> CreateMetricsLogger();

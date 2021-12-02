@@ -12,6 +12,11 @@ if (WIN32)
     endif()
 endif()
 
+option(VIRGL_RENDERER_UNSTABLE_APIS "Use unstable virglrenderer APIs" OFF)
+if(VIRGL_RENDERER_UNSTABLE_APIS)
+    add_definitions(-DVIRGL_RENDERER_UNSTABLE_APIS)
+endif()
+
 if(UNIX AND NOT APPLE)
     set(LINUX TRUE)
 endif()
