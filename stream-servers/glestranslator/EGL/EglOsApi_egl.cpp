@@ -275,6 +275,7 @@ public:
     ~EglOsEglDisplay();
     virtual EglOS::GlesVersion getMaxGlesVersion();
     virtual const char* getExtensionString();
+    virtual const char* getVendorString();
     virtual EGLImage createImage(
             EGLDisplay dpy,
             EGLContext ctx,
@@ -319,6 +320,7 @@ private:
     EglOsEglDispatcher mDispatcher;
     bool mHeadless = false;
     std::string mClientExts;
+    std::string mVendor;
 
 #ifdef __linux__
     ::Display* mGlxDisplay = nullptr;
@@ -366,6 +368,7 @@ EglOsEglDisplay::EglOsEglDisplay(bool nullEgl) {
     mDispatcher.eglInitialize(mDisplay, nullptr, nullptr);
     mDispatcher.eglSwapInterval(mDisplay, 0);
     auto clientExts = mDispatcher.eglQueryString(mDisplay, EGL_EXTENSIONS);
+    auto vendor = mDispatcher.eglQueryString(mDisplay, EGL_VENDOR);
 
     if (mVerbose) {
         fprintf(stderr, "%s: client exts: [%s]\n", __func__, clientExts);
@@ -373,6 +376,10 @@ EglOsEglDisplay::EglOsEglDisplay(bool nullEgl) {
 
     if (clientExts) {
         mClientExts = clientExts;
+    }
+
+    if (vendor) {
+        mVendor = vendor;
     }
 
     mDispatcher.eglBindAPI(EGL_OPENGL_ES_API);
@@ -401,11 +408,16 @@ EglOsEglDisplay::~EglOsEglDisplay() {
 
 EglOS::GlesVersion EglOsEglDisplay::getMaxGlesVersion() {
     // TODO: Detect and return the highest version like in GLESVersionDetector.cpp
-    return EglOS::GlesVersion::ES30;
+    // GLES3.2 will also need some more autogen + enums if anyone is interested.
+    return EglOS::GlesVersion::ES31;
 }
 
 const char* EglOsEglDisplay::getExtensionString() {
     return mClientExts.c_str();
+}
+
+const char* EglOsEglDisplay::getVendorString() {
+    return mVendor.c_str();
 }
 
 EGLImage EglOsEglDisplay::createImage(
