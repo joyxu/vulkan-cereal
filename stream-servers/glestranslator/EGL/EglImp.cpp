@@ -1765,12 +1765,6 @@ EGLAPI void EGLAPIENTRY eglSetMaxGLESVersion(EGLint version) {
         break;
     }
 
-    // If egl2egl, set internal gles version to 3 as
-    // that is what we use (EglOsApi_egl.cpp)
-    if (EglGlobalInfo::isEgl2Egl()) {
-        glesVersion = GLES_3_0;
-    }
-
     if (g_eglInfo->getIface(GLES_1_1)) {
         g_eglInfo->getIface(GLES_1_1)->setMaxGlesVersion(glesVersion);
     }
