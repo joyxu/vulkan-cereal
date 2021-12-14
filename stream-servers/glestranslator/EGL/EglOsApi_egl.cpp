@@ -123,7 +123,7 @@ static const char* kGLES2LibName = "libGLESv2.dylib";
     X(EGLBoolean, eglDestroyImageKHR, (EGLDisplay dpy, EGLImage image))        \
     X(EGLImage, eglCreateImage, (EGLDisplay dpy,                               \
       EGLContext ctx, EGLenum target, EGLClientBuffer buffer,                  \
-      const EGLint *attrib_list))                                              \
+      const EGLAttrib *attrib_list))                                           \
     X(EGLBoolean, eglDestroyImage, (EGLDisplay dpy, EGLImage image))           \
     X(EGLBoolean, eglReleaseThread, (void))                                    \
     X(EGLint, eglDebugMessageControlKHR,                                       \
@@ -276,13 +276,13 @@ public:
     virtual EglOS::GlesVersion getMaxGlesVersion();
     virtual const char* getExtensionString();
     virtual const char* getVendorString();
-    virtual EGLImage createImage(
+    virtual EGLImage createImageKHR(
             EGLDisplay dpy,
             EGLContext ctx,
             EGLenum target,
             EGLClientBuffer buffer,
             const EGLint *attrib_list);
-    virtual EGLBoolean destroyImage(
+    virtual EGLBoolean destroyImageKHR(
             EGLDisplay dpy,
             EGLImage image);
     virtual EGLDisplay getNative();
@@ -420,26 +420,26 @@ const char* EglOsEglDisplay::getVendorString() {
     return mVendor.c_str();
 }
 
-EGLImage EglOsEglDisplay::createImage(
+EGLImage EglOsEglDisplay::createImageKHR(
         EGLDisplay dpy,
         EGLContext ctx,
         EGLenum target,
         EGLClientBuffer buffer,
         const EGLint *attrib_list) {
-    if (mDispatcher.eglCreateImage) {
-        return mDispatcher.eglCreateImage(dpy, ctx, target, buffer, attrib_list);
-    } else {
+    if (mDispatcher.eglCreateImageKHR) {
         return mDispatcher.eglCreateImageKHR(dpy, ctx, target, buffer, attrib_list);
+    } else {
+        return EGL_NO_IMAGE_KHR;
     }
 }
 
-EGLBoolean EglOsEglDisplay::destroyImage(
+EGLBoolean EglOsEglDisplay::destroyImageKHR(
         EGLDisplay dpy,
         EGLImage image) {
     if (mDispatcher.eglDestroyImage) {
-        return mDispatcher.eglDestroyImage(dpy, image);
-    } else {
         return mDispatcher.eglDestroyImageKHR(dpy, image);
+    } else {
+        return EGL_FALSE;
     }
 }
 
