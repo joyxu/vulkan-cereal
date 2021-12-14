@@ -11997,21 +11997,10 @@ void marshal_VkXcbSurfaceCreateInfoKHR(
     const VkXcbSurfaceCreateInfoKHR* forMarshaling)
 {
     (void)rootType;
-    vkStream->write((VkStructureType*)&forMarshaling->sType, sizeof(VkStructureType));
-    if (rootType == VK_STRUCTURE_TYPE_MAX_ENUM)
-    {
-        rootType = forMarshaling->sType;
-    }
-    marshal_extension_struct(vkStream, rootType, forMarshaling->pNext);
-    vkStream->write((VkXcbSurfaceCreateFlagsKHR*)&forMarshaling->flags, sizeof(VkXcbSurfaceCreateFlagsKHR));
-    // WARNING PTR CHECK
-    uint64_t cgen_var_0 = (uint64_t)(uintptr_t)forMarshaling->connection;
-    vkStream->putBe64(cgen_var_0);
-    if (forMarshaling->connection)
-    {
-        vkStream->write((xcb_connection_t*)forMarshaling->connection, sizeof(xcb_connection_t));
-    }
-    vkStream->write((xcb_window_t*)&forMarshaling->window, sizeof(xcb_window_t));
+    
+    // This struct should never be marshaled / unmarshaled.
+    __builtin_trap();
+    
 }
 
 void unmarshal_VkXcbSurfaceCreateInfoKHR(
@@ -12020,32 +12009,10 @@ void unmarshal_VkXcbSurfaceCreateInfoKHR(
     VkXcbSurfaceCreateInfoKHR* forUnmarshaling)
 {
     (void)rootType;
-    vkStream->read((VkStructureType*)&forUnmarshaling->sType, sizeof(VkStructureType));
-    if (rootType == VK_STRUCTURE_TYPE_MAX_ENUM)
-    {
-        rootType = forUnmarshaling->sType;
-    }
-    size_t pNext_size;
-    pNext_size = vkStream->getBe32();
-    forUnmarshaling->pNext = nullptr;
-    if (pNext_size)
-    {
-        vkStream->alloc((void**)&forUnmarshaling->pNext, sizeof(VkStructureType));
-        vkStream->read((void*)forUnmarshaling->pNext, sizeof(VkStructureType));
-        VkStructureType extType = *(VkStructureType*)(forUnmarshaling->pNext);
-        vkStream->alloc((void**)&forUnmarshaling->pNext, goldfish_vk_extension_struct_size_with_stream_features(vkStream->getFeatureBits(), rootType, forUnmarshaling->pNext));
-        *(VkStructureType*)forUnmarshaling->pNext = extType;
-        unmarshal_extension_struct(vkStream, rootType, (void*)(forUnmarshaling->pNext));
-    }
-    vkStream->read((VkXcbSurfaceCreateFlagsKHR*)&forUnmarshaling->flags, sizeof(VkXcbSurfaceCreateFlagsKHR));
-    // WARNING PTR CHECK
-    forUnmarshaling->connection = (xcb_connection_t*)(uintptr_t)vkStream->getBe64();
-    if (forUnmarshaling->connection)
-    {
-        vkStream->alloc((void**)&forUnmarshaling->connection, sizeof(xcb_connection_t));
-        vkStream->read((xcb_connection_t*)forUnmarshaling->connection, sizeof(xcb_connection_t));
-    }
-    vkStream->read((xcb_window_t*)&forUnmarshaling->window, sizeof(xcb_window_t));
+    
+    // This struct should never be marshaled / unmarshaled.
+    __builtin_trap();
+    
 }
 
 #endif
@@ -23204,20 +23171,10 @@ void marshal_VkMetalSurfaceCreateInfoEXT(
     const VkMetalSurfaceCreateInfoEXT* forMarshaling)
 {
     (void)rootType;
-    vkStream->write((VkStructureType*)&forMarshaling->sType, sizeof(VkStructureType));
-    if (rootType == VK_STRUCTURE_TYPE_MAX_ENUM)
-    {
-        rootType = forMarshaling->sType;
-    }
-    marshal_extension_struct(vkStream, rootType, forMarshaling->pNext);
-    vkStream->write((VkMetalSurfaceCreateFlagsEXT*)&forMarshaling->flags, sizeof(VkMetalSurfaceCreateFlagsEXT));
-    // WARNING PTR CHECK
-    uint64_t cgen_var_0 = (uint64_t)(uintptr_t)forMarshaling->pLayer;
-    vkStream->putBe64(cgen_var_0);
-    if (forMarshaling->pLayer)
-    {
-        vkStream->write((const CAMetalLayer*)forMarshaling->pLayer, sizeof(const CAMetalLayer));
-    }
+    
+    // This struct should never be marshaled / unmarshaled.
+    __builtin_trap();
+    
 }
 
 void unmarshal_VkMetalSurfaceCreateInfoEXT(
@@ -23226,31 +23183,10 @@ void unmarshal_VkMetalSurfaceCreateInfoEXT(
     VkMetalSurfaceCreateInfoEXT* forUnmarshaling)
 {
     (void)rootType;
-    vkStream->read((VkStructureType*)&forUnmarshaling->sType, sizeof(VkStructureType));
-    if (rootType == VK_STRUCTURE_TYPE_MAX_ENUM)
-    {
-        rootType = forUnmarshaling->sType;
-    }
-    size_t pNext_size;
-    pNext_size = vkStream->getBe32();
-    forUnmarshaling->pNext = nullptr;
-    if (pNext_size)
-    {
-        vkStream->alloc((void**)&forUnmarshaling->pNext, sizeof(VkStructureType));
-        vkStream->read((void*)forUnmarshaling->pNext, sizeof(VkStructureType));
-        VkStructureType extType = *(VkStructureType*)(forUnmarshaling->pNext);
-        vkStream->alloc((void**)&forUnmarshaling->pNext, goldfish_vk_extension_struct_size_with_stream_features(vkStream->getFeatureBits(), rootType, forUnmarshaling->pNext));
-        *(VkStructureType*)forUnmarshaling->pNext = extType;
-        unmarshal_extension_struct(vkStream, rootType, (void*)(forUnmarshaling->pNext));
-    }
-    vkStream->read((VkMetalSurfaceCreateFlagsEXT*)&forUnmarshaling->flags, sizeof(VkMetalSurfaceCreateFlagsEXT));
-    // WARNING PTR CHECK
-    forUnmarshaling->pLayer = (const CAMetalLayer*)(uintptr_t)vkStream->getBe64();
-    if (forUnmarshaling->pLayer)
-    {
-        vkStream->alloc((void**)&forUnmarshaling->pLayer, sizeof(const CAMetalLayer));
-        vkStream->read((CAMetalLayer*)forUnmarshaling->pLayer, sizeof(const CAMetalLayer));
-    }
+    
+    // This struct should never be marshaled / unmarshaled.
+    __builtin_trap();
+    
 }
 
 #endif
