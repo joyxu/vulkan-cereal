@@ -3503,8 +3503,8 @@ bool FrameBuffer::platformImportResource(uint32_t handle, uint32_t type, void* r
 void* FrameBuffer::platformCreateSharedEglContext(void) {
     AutoLock lock(m_lock);
 
-    EGLContext context;
-    EGLSurface surface;
+    EGLContext context = 0;
+    EGLSurface surface = 0;
     createSharedTrivialContext(&context, &surface);
 
     void* underlyingContext = s_egl.eglGetNativeContextANDROID(m_eglDisplay, context);
