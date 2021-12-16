@@ -22,6 +22,8 @@
 #include "base/Metrics.h"
 #include "host-common/logging.h"
 
+using ::android::base::MetricsLogger;
+
 enum GfxstreamAbortReason : int64_t { VK_RESULT, ABORT_REASON_OTHER = -0x1'0000'0000 };
 
 struct FatalError {
@@ -51,7 +53,13 @@ class AbortMessage {
            fprintf(stderr, "\n");
            fflush(stderr);
            android::base::CreateMetricsLogger()->logMetricEvent(
-               android::base::GfxstreamVkAbort{abortCode});
+               android::base::GfxstreamVkAbort{
+                   .file = mFile,
+                   .function = mFunction,
+                   .msg = mOss.str().c_str(),
+                   .line = mLine,
+                   .abort_reason = abortCode
+                });
            GFXSTREAM_FATAL();
        }
 
