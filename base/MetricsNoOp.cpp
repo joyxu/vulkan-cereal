@@ -18,12 +18,12 @@
 namespace android {
 namespace base {
 
-void (*MetricsLogger::add_instant_event_callback)(
-    int64_t event_code) = nullptr;
+void (*MetricsLogger::add_instant_event_callback)(int64_t event_code) = nullptr;
 void (*MetricsLogger::add_instant_event_with_descriptor_callback)(
     int64_t event_code, int64_t descriptor)  = nullptr;
 void (*MetricsLogger::add_instant_event_with_metric_callback)(
     int64_t event_code, int64_t metric_value) = nullptr;
+void (*MetricsLogger::set_crash_annotation_callback)(const char* key, const char* value) = nullptr;
 
 class MetricsLogLibNoOp : public MetricsLogger {
     void logMetricEvent(MetricEventType eventType) override {}
