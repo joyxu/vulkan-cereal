@@ -25,7 +25,13 @@ namespace base {
 // Events that can be logged.
 struct MetricEventFreeze {};
 struct MetricEventUnFreeze { int64_t frozen_ms; };
-struct GfxstreamVkAbort { int64_t abort_reason; };
+struct GfxstreamVkAbort {
+    const char* file;
+    const char* function;
+    const char* msg;
+    int line;
+    int64_t abort_reason;
+};
 
 using MetricEventType =
     std::variant<std::monostate, MetricEventFreeze, MetricEventUnFreeze, GfxstreamVkAbort>;
@@ -39,8 +45,12 @@ public:
 
     // Callbacks to log events
     static void (*add_instant_event_callback)(int64_t event_code);
-    static void (*add_instant_event_with_descriptor_callback)(int64_t event_code, int64_t descriptor);
-    static void (*add_instant_event_with_metric_callback)(int64_t event_code, int64_t metric_value);
+    static void (*add_instant_event_with_descriptor_callback)(
+        int64_t event_code, int64_t descriptor);
+    static void (*add_instant_event_with_metric_callback)(
+        int64_t event_code, int64_t metric_value);
+    // Crashpad will copy the strings, so these need only persist for the function call
+    static void(*set_crash_annotation_callback)(const char* key, const char* value);
 };
 
 std::unique_ptr<MetricsLogger> CreateMetricsLogger();
