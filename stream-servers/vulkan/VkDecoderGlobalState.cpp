@@ -4851,8 +4851,8 @@ public:
                     ERR("The VkImageCreateInfo to import AHardwareBuffer contains unsupported "
                         "VkImageUsageFlags. All supported VkImageUsageFlags are %s, the input "
                         "VkImageCreateInfo requires support for %s.",
-                        string_VkImageUsageFlags(imageCreateInfo.usage).c_str(),
-                        string_VkImageUsageFlags(colorBufferVkImageCi->usage).c_str());
+                        string_VkImageUsageFlags(colorBufferVkImageCi->usage).c_str(),
+                        string_VkImageUsageFlags(imageCreateInfo.usage).c_str());
                 }
                 imageCreateInfo.usage |= colorBufferVkImageCi->usage;
                 // VkImageCreateInfo::{sharingMode, queueFamilyIndexCount, pQueueFamilyIndices,
