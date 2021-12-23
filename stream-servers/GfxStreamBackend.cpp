@@ -89,6 +89,8 @@ struct gfxstream_callbacks {
        int64_t event_code, int64_t descriptor);
    void (*add_instant_event_with_metric)(
        int64_t event_code, int64_t metric_value);
+   void (*set_annotation)(
+       const char* key, const char* value);
 };
 
 
@@ -292,6 +294,10 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
         if (gfxstreamcallbacks->add_instant_event_with_descriptor) {
             MetricsLogger::add_instant_event_with_descriptor_callback =
                 gfxstreamcallbacks->add_instant_event_with_descriptor;
+        }
+        if (gfxstreamcallbacks->set_annotation) {
+            MetricsLogger::set_crash_annotation_callback =
+                gfxstreamcallbacks->set_annotation;
         }
     }
 

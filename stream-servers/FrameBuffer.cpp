@@ -1277,15 +1277,15 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
             // the last posted color buffer.
             m_dpr = dpr;
             m_zRot = zRot;
-            Post postCmd;
-            postCmd.cmd = PostCmd::Viewport;
-            postCmd.viewport.width = fbw;
-            postCmd.viewport.height = fbh;
-            std::future<void> completeFuture =
-                sendPostWorkerCmd(std::move(postCmd));
-            completeFuture.wait();
-
             if (m_displayVk == nullptr) {
+                Post postCmd;
+                postCmd.cmd = PostCmd::Viewport;
+                postCmd.viewport.width = fbw;
+                postCmd.viewport.height = fbh;
+                std::future<void> completeFuture =
+                    sendPostWorkerCmd(std::move(postCmd));
+                completeFuture.wait();
+
                 bool posted = false;
 
                 if (m_lastPostedColorBuffer) {
