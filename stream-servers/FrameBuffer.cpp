@@ -1277,15 +1277,15 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
             // the last posted color buffer.
             m_dpr = dpr;
             m_zRot = zRot;
-            Post postCmd;
-            postCmd.cmd = PostCmd::Viewport;
-            postCmd.viewport.width = fbw;
-            postCmd.viewport.height = fbh;
-            std::future<void> completeFuture =
-                sendPostWorkerCmd(std::move(postCmd));
-            completeFuture.wait();
-
             if (m_displayVk == nullptr) {
+                Post postCmd;
+                postCmd.cmd = PostCmd::Viewport;
+                postCmd.viewport.width = fbw;
+                postCmd.viewport.height = fbh;
+                std::future<void> completeFuture =
+                    sendPostWorkerCmd(std::move(postCmd));
+                completeFuture.wait();
+
                 bool posted = false;
 
                 if (m_lastPostedColorBuffer) {
@@ -3503,8 +3503,8 @@ bool FrameBuffer::platformImportResource(uint32_t handle, uint32_t type, void* r
 void* FrameBuffer::platformCreateSharedEglContext(void) {
     AutoLock lock(m_lock);
 
-    EGLContext context;
-    EGLSurface surface;
+    EGLContext context = 0;
+    EGLSurface surface = 0;
     createSharedTrivialContext(&context, &surface);
 
     void* underlyingContext = s_egl.eglGetNativeContextANDROID(m_eglDisplay, context);
