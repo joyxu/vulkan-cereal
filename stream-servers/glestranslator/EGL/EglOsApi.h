@@ -163,6 +163,7 @@ public:
 
     virtual GlesVersion getMaxGlesVersion() = 0;
     virtual const char* getExtensionString() { return ""; }
+    virtual const char* getVendorString() { return "Google"; }
 
     virtual void queryConfigs(int renderableType,
                               AddConfigCallback* addConfigFunc,
@@ -184,7 +185,7 @@ public:
     virtual Surface* createPbufferSurface(
             const PixelFormat* pixelFormat, const PbufferInfo* info) = 0;
 
-    virtual EGLImage createImage(
+    virtual EGLImage createImageKHR(
             EGLDisplay,
             EGLContext,
             EGLenum,
@@ -193,7 +194,7 @@ public:
         return (EGLImage)0;
     }
 
-    virtual EGLBoolean destroyImage(
+    virtual EGLBoolean destroyImageKHR(
             EGLDisplay,
             EGLImage) { return EGL_FALSE; }
 

@@ -9,13 +9,21 @@ enum BackendFlags {
     GFXSTREAM_BACKEND_FLAGS_EGL2EGL_BIT = 1 << 1,
 };
 
+struct gfxstream_callbacks {
+   /* Metrics callbacks */
+   void (*add_instant_event)(int64_t event_code);
+   void (*add_instant_event_with_descriptor)(int64_t event_code, int64_t descriptor);
+   void (*add_instant_event_with_metric)(int64_t event_code, int64_t metric_value);
+}
+
 extern "C" VG_EXPORT void gfxstream_backend_init(
     uint32_t display_width,
     uint32_t display_height,
     uint32_t display_type,
     void* renderer_cookie,
     int renderer_flags,
-    struct virgl_renderer_callbacks* virglrenderer_callbacks);
+    struct virgl_renderer_callbacks* virglrenderer_callbacks,
+    struct gfxstream_callbacks* gfxstreamcallbacks);
 
 extern "C" VG_EXPORT void gfxstream_backend_setup_window(
         void* native_window_handle,
