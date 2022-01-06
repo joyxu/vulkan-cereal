@@ -94,6 +94,7 @@ struct gfxstream_callbacks {
        int64_t event_code, int64_t metric_value);
    void (*set_annotation)(
        const char* key, const char* value);
+   void (*abort)();
 };
 
 
@@ -301,6 +302,9 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
         if (gfxstreamcallbacks->set_annotation) {
             MetricsLogger::set_crash_annotation_callback =
                 gfxstreamcallbacks->set_annotation;
+        }
+        if (gfxstreamcallbacks->abort) {
+            emugl::setDieFunction(gfxstreamcallbacks->abort);
         }
     }
 
