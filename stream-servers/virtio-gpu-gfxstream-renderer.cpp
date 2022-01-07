@@ -1360,7 +1360,7 @@ public:
             mResourceContexts[resId] = ids;
         } else {
             auto& ids = contextsIt->second;
-            auto idIt = std::find(ids.begin(), ids.end(), resId);
+            auto idIt = std::find(ids.begin(), ids.end(), ctxId);
             if (idIt == ids.end())
                 ids.push_back(ctxId);
         }
