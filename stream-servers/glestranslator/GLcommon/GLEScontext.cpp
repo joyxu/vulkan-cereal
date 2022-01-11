@@ -1880,6 +1880,12 @@ void GLEScontext::initCapsLocked(const GLubyte * extensionString)
             s_glSupport.hasS3tcSupport = true;
         }
     }
+
+    if (feature_is_enabled(kFeature_RgtcTextureSupport)) {
+        if (strstr(cstring, "GL_EXT_texture_compression_rgtc") != NULL) {
+            s_glSupport.hasRgtcSupport = true;
+        }
+    }
 }
 
 void GLEScontext::buildStrings(bool isGles1, const char* baseVendor,

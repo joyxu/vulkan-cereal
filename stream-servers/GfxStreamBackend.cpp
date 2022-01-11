@@ -407,6 +407,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
             kFeature_BptcTextureSupport, bptcTextureSupport);
     feature_set_enabled_override(
             kFeature_S3tcTextureSupport, s3tcTextureSupport);
+    feature_set_enabled_override(kFeature_RgtcTextureSupport, true);
     feature_set_enabled_override(
             kFeature_GLDirectMem, false);
     feature_set_enabled_override(
