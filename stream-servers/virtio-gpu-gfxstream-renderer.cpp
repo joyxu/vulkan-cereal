@@ -156,6 +156,8 @@ extern "C" {
 using android::base::AutoLock;
 using android::base::Lock;
 using android::emulation::HostmemIdMapping;
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 using VirglResId = uint32_t;
 

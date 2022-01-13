@@ -54,6 +54,9 @@
 #define MAJOR          1
 #define MINOR          4
 
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
+
 //declarations
 
 namespace translator {
