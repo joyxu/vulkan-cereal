@@ -22,6 +22,8 @@ using TaskId = VirtioGpuTimelines::TaskId;
 using CtxId = VirtioGpuTimelines::CtxId;
 using FenceId = VirtioGpuTimelines::FenceId;
 using AutoLock = android::base::AutoLock;
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 VirtioGpuTimelines::VirtioGpuTimelines() : mNextId(0) {}
 

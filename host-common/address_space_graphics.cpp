@@ -37,6 +37,8 @@
 using android::base::AutoLock;
 using android::base::Lock;
 using android::base::SubAllocator;
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 namespace android {
 namespace emulation {
