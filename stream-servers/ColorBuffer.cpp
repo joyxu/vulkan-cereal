@@ -37,6 +37,9 @@
 
 #define DEBUG_CB_FBO 0
 
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
+
 namespace {
 
 // Lazily create and bind a framebuffer object to the current host context.
