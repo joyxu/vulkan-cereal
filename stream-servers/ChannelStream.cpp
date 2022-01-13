@@ -26,6 +26,8 @@
 namespace emugl {
 
 using IoResult = RenderChannel::IoResult;
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 ChannelStream::ChannelStream(RenderChannelImpl* channel, size_t bufSize)
     : IOStream(bufSize), mChannel(channel) {

@@ -10,6 +10,9 @@
 #include "vulkan/VkCommonOperations.h"
 #include "vulkan/vk_util.h"
 
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
+
 namespace CompositorVkShader {
 #include "vulkan/CompositorFragmentShader.h"
 #include "vulkan/CompositorVertexShader.h"

@@ -19,6 +19,8 @@ using android::base::GfxstreamVkAbort;
 
 }  // namespace
 
+namespace emugl {
+
 AbortMessage::AbortMessage(const char *file, const char *function, int line, FatalError reason)
     : mFile(file), mFunction(function), mLine(line), mReason(reason) {
     mOss << "FATAL in " << function << ", err code: " << reason.getAbortCode() << ": ";
@@ -35,3 +37,5 @@ AbortMessage::~AbortMessage() {
 
     die();
 }
+
+}  // namespace emugl

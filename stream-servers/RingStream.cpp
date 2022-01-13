@@ -25,6 +25,9 @@
 #include <assert.h>
 #include <memory.h>
 
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
+
 namespace emugl {
 
 RingStream::RingStream(

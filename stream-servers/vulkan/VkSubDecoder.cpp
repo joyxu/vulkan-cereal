@@ -3878,7 +3878,7 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
 #endif
             default:
             {
-                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Unrecognized opcode " << opcode;
+                GFXSTREAM_ABORT(::emugl::FatalError(::emugl::ABORT_REASON_OTHER)) << "Unrecognized opcode " << opcode;
             }
         }
         ++count; if (count % 1000 == 0) { pool->freeAll(); };
