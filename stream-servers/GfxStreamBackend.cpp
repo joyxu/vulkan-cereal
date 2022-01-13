@@ -45,6 +45,9 @@
 #include "render_api.h"
 #include "FrameBuffer.h"
 
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
+
 #define GFXSTREAM_DEBUG_LEVEL 1
 
 #if GFXSTREAM_DEBUG_LEVEL >= 1

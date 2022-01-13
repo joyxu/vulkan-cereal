@@ -38,6 +38,8 @@
 
 using android::base::AutoLock;
 using android::base::Lock;
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 namespace goldfish_vk {
 

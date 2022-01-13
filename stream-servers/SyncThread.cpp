@@ -28,6 +28,9 @@
 #endif
 #include <memory>
 
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
+
 #define DEBUG 0
 
 #if DEBUG

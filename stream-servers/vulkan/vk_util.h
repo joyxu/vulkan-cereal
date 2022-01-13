@@ -265,12 +265,12 @@ template <class S, class T> void vk_struct_chain_remove(S* unwanted, T* vk_struc
     }
 }
 
-#define VK_CHECK(x)                                                      \
-    do {                                                                 \
-        VkResult err = x;                                                \
-        if (err != VK_SUCCESS) {                                         \
-            GFXSTREAM_ABORT(FatalError(err));                            \
-        }                                                                \
+#define VK_CHECK(x)                                    \
+    do {                                               \
+        VkResult err = x;                              \
+        if (err != VK_SUCCESS) {                       \
+            GFXSTREAM_ABORT(::emugl::FatalError(err)); \
+        }                                              \
     } while (0)
 
 namespace vk_util {

@@ -16,6 +16,7 @@
 
 #include "host-common/GfxstreamFatalError.h"
 
+namespace emugl {
 namespace {
 
 TEST(GFXSTREAM_ABORT, MessageIsWellFormatted) {
@@ -29,3 +30,4 @@ TEST(GFXSTREAM_ABORT, WithVkResult) {
 }
 
 }  // namespace
+}  // namespace emugl

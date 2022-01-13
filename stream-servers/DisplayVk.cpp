@@ -11,6 +11,9 @@
 #include "vulkan/VkFormatUtils.h"
 #include "vulkan/vk_enum_string_helper.h"
 
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
+
 #define DISPLAY_VK_ERROR(fmt, ...)                                                            \
     do {                                                                                      \
         fprintf(stderr, "%s(%s:%d): " fmt "\n", __func__, __FILE__, __LINE__, ##__VA_ARGS__); \
