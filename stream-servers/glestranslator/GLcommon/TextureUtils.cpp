@@ -343,7 +343,14 @@ GLenum decompressedInternalFormat(GLEScontext* ctx, GLenum compressedFormat) {
         case GL_PALETTE8_RGBA4_OES:
         case GL_PALETTE8_RGB5_A1_OES:
             return glrgba;
-        
+        case GL_COMPRESSED_RED_RGTC1_EXT:               // BC4U
+            return GL_R8;
+        case GL_COMPRESSED_SIGNED_RED_RGTC1_EXT:        // BC4S
+            return GL_R8_SNORM;
+        case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:         // BC5U
+            return GL_RG8;
+        case GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT:  // BC5S
+            return GL_RG8_SNORM;
         default:
             return compressedFormat;
     }
@@ -400,7 +407,7 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
                 &unpackBuffer);
         needUnpackBuffer = unpackBuffer;
     }
-
+    TextureUnpackReset unpack(ctx);
     if (isEtcFormat(internalformat)) {
         GLint format = GL_RGB;
         GLint type = GL_UNSIGNED_BYTE;
@@ -514,7 +521,8 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
                 width, height, ctx->getMaxTexSize() + 2),
             GL_INVALID_VALUE);
         SET_ERROR_IF(!data,GL_INVALID_OPERATION);
-
+        //the decoder fully packed the pixels.
+        ctx->dispatcher().glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         int nMipmaps = -level + 1;
         GLsizei tmpWidth  = width;
         GLsizei tmpHeight = height;
@@ -531,6 +539,61 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
             tmpWidth /= 2;
             tmpHeight /= 2;
             delete [] uncompressed;
+        }
+    } else if (isRgtcFormat(internalformat)) {
+        GLint format, type;
+        GLint convertedInternalFormat = decompressedInternalFormat(ctx, internalformat);
+        RGTCImageFormat rgtcFormat;
+        switch (internalformat) {
+            case GL_COMPRESSED_RED_RGTC1_EXT:               // BC4U
+                format = GL_RED;
+                type = GL_UNSIGNED_BYTE;
+                rgtcFormat = BC4_UNORM;
+                break;
+            case GL_COMPRESSED_SIGNED_RED_RGTC1_EXT:        // BC4S
+                format = GL_RED;
+                type = GL_BYTE;
+                rgtcFormat = BC4_SNORM;
+                break;
+            case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:         // BC5U
+                format = GL_RG;
+                type = GL_UNSIGNED_BYTE;
+                rgtcFormat = BC5_UNORM;
+                break;
+            case GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT:  // BC5S
+                format = GL_RG;
+                type = GL_BYTE;
+                rgtcFormat = BC5_SNORM;
+                break;
+        }
+        size_t pixelSize = rgtc_get_decoded_pixel_size(rgtcFormat);
+        GLsizei compressedSize = rgtc_get_encoded_image_size(rgtcFormat, width, height);
+        SET_ERROR_IF((compressedSize != imageSize), GL_INVALID_VALUE);
+        std::unique_ptr<ScopedFetchUnpackData> unpackData;
+        bool emulateCompressedData = false;
+        if (needUnpackBuffer) {
+            unpackData.reset(
+                new ScopedFetchUnpackData(ctx, reinterpret_cast<GLintptr>(data), compressedSize));
+            data = unpackData->data();
+            SET_ERROR_IF(!data, GL_INVALID_OPERATION);
+        } else {
+            if (!data) {
+                emulateCompressedData = true;
+                data = new char[compressedSize];
+            }
+        }
+        const int32_t align = ctx->getUnpackAlignment() - 1;
+        const int32_t bpr = ((width * pixelSize) + align) & ~align;
+        const size_t size = bpr * height;
+        std::unique_ptr<uint8_t[]> pOut(new uint8_t[size]);
+
+        int res =
+            rgtc_decode_image((const uint8_t*)data, rgtcFormat, pOut.get(), width, height, bpr);
+        SET_ERROR_IF(res != 0, GL_INVALID_VALUE);
+        glTexImage2DPtr(target, level, convertedInternalFormat, width, height, border, format, type,
+                        pOut.get());
+        if (emulateCompressedData) {
+            delete[](char*) data;
         }
     } else {
         SET_ERROR_IF(1, GL_INVALID_ENUM);
@@ -791,6 +854,19 @@ void forEachS3tcFormat(std::function<void(GLint format)> f) {
     f(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT);
 }
 
+bool isRgtcFormat(GLenum format) {
+    switch (format) {
+        case GL_COMPRESSED_RED_RGTC1_EXT: // BC4U
+        case GL_COMPRESSED_SIGNED_RED_RGTC1_EXT: // BC4S
+        case GL_COMPRESSED_RED_GREEN_RGTC2_EXT: // BC5U
+        case GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT: // BC5S
+            return true;
+        default:
+            break;
+    }
+    return false;
+}
+
 bool isEtc2OrAstcFormat(GLenum format) {
     switch (format) {
     case GL_COMPRESSED_RGB8_ETC2:
@@ -819,6 +895,8 @@ bool shouldPassthroughCompressedFormat(GLEScontext* ctx, GLenum internalformat) 
         return ctx->getCaps()->hasBptcSupport;
     } else if (isS3tcFormat(internalformat)) {
         return ctx->getCaps()->hasS3tcSupport;
+    } else if (isRgtcFormat(internalformat)) {
+        return ctx->getCaps()->hasRgtcSupport;
     }
     return false;
 }
@@ -1154,3 +1232,35 @@ GLenum getTypeFromInternalFormat(GLint internalFormat) {
             return GL_UNSIGNED_BYTE;
     }
 }
+
+
+GLint TextureUnpackReset::unpackCheckAndUpdate(GLenum name, GLint newValue) {
+    GLint curValue;
+    glesContext->dispatcher().glGetIntegerv(name, &curValue);
+    if (curValue != newValue) {
+        glesContext->dispatcher().glPixelStorei(name, newValue);
+    }
+    return curValue;
+}
+
+TextureUnpackReset::TextureUnpackReset(GLEScontext* ctx) : glesContext(ctx) {
+    if (glesContext->getMajorVersion() >= 3) {
+        unpackRowLength = unpackCheckAndUpdate(GL_UNPACK_ROW_LENGTH, kUnpackRowLength);
+        unpackImageHeight = unpackCheckAndUpdate(GL_UNPACK_IMAGE_HEIGHT, kUnpackImageHeight);
+        unpackSkipRows = unpackCheckAndUpdate(GL_UNPACK_SKIP_ROWS, kUnpackSkipRows);
+        unpackSkipPixels = unpackCheckAndUpdate(GL_UNPACK_SKIP_PIXELS, kUnpackSkipPixels);
+        unpackSkipImages = unpackCheckAndUpdate(GL_UNPACK_SKIP_IMAGES, kUnpackSkipImages);
+        unpackAlignment = unpackCheckAndUpdate(GL_UNPACK_ALIGNMENT, kUnpackAlignment);
+    }
+}
+TextureUnpackReset::~TextureUnpackReset() {
+    if (glesContext->getMajorVersion() >= 3) {
+        unpackCheckAndUpdate(GL_UNPACK_ROW_LENGTH, unpackRowLength);
+        unpackCheckAndUpdate(GL_UNPACK_IMAGE_HEIGHT, unpackImageHeight);
+        unpackCheckAndUpdate(GL_UNPACK_SKIP_ROWS, unpackSkipRows);
+        unpackCheckAndUpdate(GL_UNPACK_SKIP_PIXELS, unpackSkipPixels);
+        unpackCheckAndUpdate(GL_UNPACK_SKIP_IMAGES, unpackSkipImages);
+        unpackCheckAndUpdate(GL_UNPACK_ALIGNMENT, unpackAlignment);
+    }
+}
+
