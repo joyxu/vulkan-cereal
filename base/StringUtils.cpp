@@ -45,6 +45,9 @@ const void* memmem(const void* haystack, size_t haystackLen,
 }
 #endif  // _WIN32
 
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
+
 namespace android {
 namespace base {
 

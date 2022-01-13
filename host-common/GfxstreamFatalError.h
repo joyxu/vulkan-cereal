@@ -19,6 +19,8 @@
 #include <cstdint>
 #include <sstream>
 
+namespace emugl {
+
 enum GfxstreamAbortReason : int64_t {
     VK_RESULT = 0,
     ABORT_REASON_OTHER =
@@ -54,4 +56,6 @@ class AbortMessage {
     std::ostringstream mOss;
 };
 
-#define GFXSTREAM_ABORT(reason) AbortMessage(__FILE__, __func__, __LINE__, reason).stream()
+}  // namespace emugl
+
+#define GFXSTREAM_ABORT(reason) ::emugl::AbortMessage(__FILE__, __func__, __LINE__, reason).stream()
