@@ -659,7 +659,11 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
 
         if (feature_is_enabled(kFeature_S3tcTextureSupport)) {
             glStr += "GL_EXT_texture_compression_s3tc ";
-       }
+        }
+
+        if (feature_is_enabled(kFeature_RgtcTextureSupport)) {
+            glStr += "GL_EXT_texture_compression_rgtc ";
+        }
 
         // Host side tracing support.
         glStr += kHostSideTracing;
