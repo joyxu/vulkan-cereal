@@ -11,13 +11,18 @@ namespace {
 using android::base::CreateMetricsLogger;
 using android::base::GfxstreamVkAbort;
 
+std::optional<std::function<void()>> customDieFunction = std::nullopt;
 [[noreturn]] void die() {
-    // Note: we do this in this die() function instead of just calling abort() directly so that
-    // downstream users of gfxstream can easily substitute their own logic.
-    abort();
+    if (customDieFunction) {
+        (*customDieFunction)();
+    } else {
+        abort();
+    }
 }
 
 }  // namespace
+
+namespace emugl {
 
 AbortMessage::AbortMessage(const char *file, const char *function, int line, FatalError reason)
     : mFile(file), mFunction(function), mLine(line), mReason(reason) {
@@ -35,3 +40,6 @@ AbortMessage::~AbortMessage() {
 
     die();
 }
+
+void setDieFunction(std::optional<std::function<void()>> newDie) { customDieFunction = newDie; }
+}  // namespace emugl

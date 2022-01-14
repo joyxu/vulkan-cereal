@@ -50,6 +50,8 @@
 using android::base::AutoLock;
 using android::base::Stream;
 using android::base::WorkerProcessingResult;
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 namespace {
 
