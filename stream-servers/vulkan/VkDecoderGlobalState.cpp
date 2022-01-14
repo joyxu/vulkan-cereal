@@ -65,6 +65,8 @@ using android::base::AutoLock;
 using android::base::ConditionVariable;
 using android::base::Lock;
 using android::base::Optional;
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 // TODO: Asserts build
 #define DCHECK(condition)

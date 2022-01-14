@@ -17,7 +17,11 @@
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
+#include <functional>
+#include <optional>
 #include <sstream>
+
+namespace emugl {
 
 enum GfxstreamAbortReason : int64_t {
     VK_RESULT = 0,
@@ -54,4 +58,9 @@ class AbortMessage {
     std::ostringstream mOss;
 };
 
-#define GFXSTREAM_ABORT(reason) AbortMessage(__FILE__, __func__, __LINE__, reason).stream()
+// A function that terminates the process should be passed in. When calling the GFXSTREAM_ABORT
+// macro, the set function will be used to terminate the process instead of std::abort.
+void setDieFunction(std::optional<std::function<void()>> newDie);
+}  // namespace emugl
+
+#define GFXSTREAM_ABORT(reason) ::emugl::AbortMessage(__FILE__, __func__, __LINE__, reason).stream()

@@ -58,6 +58,8 @@ using android::base::StaticLock;
 using android::base::StaticMap;
 
 using android::base::kNullopt;
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 namespace goldfish_vk {
 
