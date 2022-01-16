@@ -189,6 +189,7 @@ struct PipeResEntry {
     uint64_t hvaSize;
     uint64_t hvaId;
     uint32_t hvSlot;
+    uint32_t caching;
 };
 
 static inline uint32_t align_up(uint32_t n, uint32_t a) {
@@ -1466,6 +1467,7 @@ public:
         e.hva = entry.hva;
         e.hvaSize = entry.size;
         e.args.width = entry.size;
+        e.caching = entry.caching;
         e.hvaId = hvaId;
         e.hvSlot = 0;
         e.iov = nullptr;
@@ -1572,6 +1574,16 @@ public:
     int platformDestroySharedEglContext(void* context) {
         bool success = mVirtioGpuOps->platform_destroy_shared_egl_context(context);
         return success ? 0 : -1;
+    }
+
+    int resourceMapInfo(uint32_t res_handle, uint32_t *map_info) {
+        AutoLock lock(mLock);
+        auto it = mResources.find(res_handle);
+        if (it == mResources.end()) return -1;
+
+        const auto& entry = it->second;
+        *map_info = entry.caching;
+        return 0;
     }
 
 private:
@@ -1838,6 +1850,10 @@ VG_EXPORT void* stream_renderer_platform_create_shared_egl_context() {
 
 VG_EXPORT int stream_renderer_platform_destroy_shared_egl_context(void* context) {
     return sRenderer()->platformDestroySharedEglContext(context);
+}
+
+VG_EXPORT int stream_renderer_resource_map_info(uint32_t res_handle, uint32_t *map_info) {
+    return sRenderer()->resourceMapInfo(res_handle, map_info);
 }
 
 #define VIRGLRENDERER_API_PIPE_STRUCT_DEF(api) pipe_##api,
