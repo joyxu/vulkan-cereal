@@ -66,6 +66,8 @@ using ServiceList = std::vector<std::unique_ptr<Service>>;
 using VmLock = android::VmLock;
 using android::base::MemStream;
 using android::base::StringFormat;
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 static BaseStream* asBaseStream(CStream* stream) {
     return reinterpret_cast<BaseStream*>(stream);

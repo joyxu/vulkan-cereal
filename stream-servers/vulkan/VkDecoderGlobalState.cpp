@@ -65,6 +65,8 @@ using android::base::AutoLock;
 using android::base::ConditionVariable;
 using android::base::Lock;
 using android::base::Optional;
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 // TODO: Asserts build
 #define DCHECK(condition)
@@ -3214,6 +3216,14 @@ public:
             return result;
         }
 
+        if (memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
+            mapInfo.caching = MAP_CACHE_CACHED;
+        } else if (memoryPropertyFlags & VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD) {
+            mapInfo.caching = MAP_CACHE_UNCACHED;
+        } else if (memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) {
+            mapInfo.caching = MAP_CACHE_WC;
+        }
+
         if (mappedPtr) {
             mapInfo.needUnmap = false;
             mapInfo.ptr = mappedPtr;
@@ -3551,6 +3561,7 @@ public:
             VkDevice boxed_device, VkDeviceMemory memory,
             uint64_t* pAddress, uint64_t* pSize, uint64_t* pHostmemId) {
         AutoLock lock(mLock);
+        struct MemEntry entry = { 0 };
 
         auto info = android::base::find(mMapInfo, memory);
 
@@ -3568,12 +3579,12 @@ public:
             ((size + pageOffset + kPageSize - 1) >>
              kPageBits) << kPageBits;
 
+        entry.hva = (uint64_t)(uintptr_t)(info->ptr);
+        entry.size = (uint64_t)(uintptr_t)(info->size);
+        entry.caching = info->caching;
+
         auto id =
-            get_emugl_vm_operations().hostmemRegister(
-                    (uint64_t)(uintptr_t)(info->ptr),
-                    (uint64_t)(uintptr_t)(info->size),
-                    // No fixed registration
-                    false, 0);
+            get_emugl_vm_operations().hostmemRegister(&entry);
 
         *pAddress = hva & (0xfff); // Don't expose exact hva to guest
         *pSize = sizeToPage;
@@ -6455,6 +6466,7 @@ private:
         // GLDirectMem info
         bool directMapped = false;
         bool virtioGpuMapped = false;
+        uint32_t caching = 0;
         uint64_t guestPhysAddr = 0;
         void* pageAlignedHva = nullptr;
         uint64_t sizeToPage = 0;
