@@ -372,7 +372,7 @@ class VulkanSubDecoder(VulkanWrapperGenerator):
         self.cgen.line("default:")
         self.cgen.beginBlock()
         self.cgen.stmt(
-            "GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << \"Unrecognized opcode \" << opcode")
+            "GFXSTREAM_ABORT(::emugl::FatalError(::emugl::ABORT_REASON_OTHER)) << \"Unrecognized opcode \" << opcode")
         self.cgen.endBlock()
 
         self.cgen.endBlock()  # switch stmt

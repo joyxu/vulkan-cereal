@@ -24,6 +24,9 @@
 
 #include <string.h>
 
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
+
 namespace {
 
 static EGLBoolean sEgl2Egl = false;

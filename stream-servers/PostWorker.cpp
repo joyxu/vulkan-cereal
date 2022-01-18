@@ -29,6 +29,9 @@
 #include "host-common/misc.h"
 #include "vulkan/VkCommonOperations.h"
 
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
+
 #define POST_DEBUG 0
 #if POST_DEBUG >= 1
 #define DD(fmt, ...) \

@@ -37,6 +37,8 @@
 using android::base::AutoLock;
 using android::base::Lock;
 using android::base::SubAllocator;
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 namespace android {
 namespace emulation {
@@ -434,12 +436,15 @@ private:
                         ADDRESS_SPACE_GRAPHICS_PAGE_SIZE,
                         dedicatedSize);
 
+                struct MemEntry entry = { 0 };
+                entry.hva = (uint64_t)(uintptr_t)buf;
+                entry.size = dedicatedSize;
+                entry.register_fixed = hostmemRegisterFixed;
+                entry.fixed_id = hostmemIdOut ? *hostmemIdOut : 0;
+                entry.caching = MAP_CACHE_CACHED;
+
                 uint64_t hostmemId =
-                    mControlOps->hostmem_register(
-                        (uint64_t)(uintptr_t)buf,
-                        dedicatedSize,
-                        hostmemRegisterFixed,
-                        hostmemIdOut ? *hostmemIdOut : 0);
+                    mControlOps->hostmem_register(&entry);
 
                 if (hostmemIdOut) *hostmemIdOut = hostmemId;
 

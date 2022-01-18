@@ -26,6 +26,9 @@
 
 #define E(fmt,...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
 
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
+
 namespace goldfish_vk {
 
 VulkanStream::VulkanStream(IOStream *stream) : mStream(stream) {
