@@ -16,6 +16,7 @@
 
 #include "host-common/GfxstreamFatalError.h"
 
+namespace emugl {
 namespace {
 
 TEST(GFXSTREAM_ABORT, MessageIsWellFormatted) {
@@ -28,4 +29,15 @@ TEST(GFXSTREAM_ABORT, WithVkResult) {
                  R"re(err code: -1000161000: so fragmented)re");
 }
 
+TEST(GFXSTREAM_ABORT, WithCustomizedDeathFunction) {
+    ::testing::MockFunction<void()> customDie;
+
+    EXPECT_CALL(customDie, Call());
+
+    setDieFunction(customDie.AsStdFunction());
+    GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER));
+
+    setDieFunction(std::nullopt);
+}
 }  // namespace
+}  // namespace emugl

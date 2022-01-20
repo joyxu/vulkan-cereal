@@ -512,7 +512,7 @@ def decode_vkFlushMappedMemoryRanges(typeInfo, api, cgen):
     cgen.stmt("uint64_t readStream = 0")
     cgen.stmt("memcpy(&readStream, *readStreamPtrPtr, sizeof(uint64_t)); *readStreamPtrPtr += sizeof(uint64_t)")
     cgen.stmt("auto hostPtr = m_state->getMappedHostPointer(memory)")
-    cgen.stmt("if (!hostPtr && readStream > 0) GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))")
+    cgen.stmt("if (!hostPtr && readStream > 0) GFXSTREAM_ABORT(::emugl::FatalError(::emugl::ABORT_REASON_OTHER))")
     cgen.stmt("if (!hostPtr) continue")
     cgen.stmt("uint8_t* targetRange = hostPtr + offset")
     cgen.stmt("memcpy(targetRange, *readStreamPtrPtr, readStream); *readStreamPtrPtr += readStream")

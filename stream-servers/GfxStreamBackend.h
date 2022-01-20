@@ -14,7 +14,9 @@ struct gfxstream_callbacks {
    void (*add_instant_event)(int64_t event_code);
    void (*add_instant_event_with_descriptor)(int64_t event_code, int64_t descriptor);
    void (*add_instant_event_with_metric)(int64_t event_code, int64_t metric_value);
-}
+   void (*set_annotation)(const char* key, const char* value);
+   void (*abort)();
+};
 
 extern "C" VG_EXPORT void gfxstream_backend_init(
     uint32_t display_width,
