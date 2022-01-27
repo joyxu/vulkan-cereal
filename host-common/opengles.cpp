@@ -63,8 +63,10 @@
 using android::base::pj;
 using android::base::SharedLibrary;
 using android::emulation::asg::AddressSpaceGraphicsContext;
-using android::emulation::asg::ConsumerInterface;
 using android::emulation::asg::ConsumerCallbacks;
+using android::emulation::asg::ConsumerInterface;
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 /* Name of the GLES rendering library we're going to use */
 #define RENDERER_LIB_NAME "libOpenglRender"

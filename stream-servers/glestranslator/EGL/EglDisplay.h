@@ -64,19 +64,23 @@ public:
         return nativeType()->getExtensionString();
     }
 
+    const char* getVendorString() {
+        return nativeType()->getVendorString();
+    }
+
     EGLImage createNativeImage(
             EGLDisplay dpy,
             EGLContext ctx,
             EGLenum target,
             EGLClientBuffer buffer,
             const EGLint *attrib_list) {
-        return nativeType()->createImage(dpy, ctx, target, buffer, attrib_list);
+        return nativeType()->createImageKHR(dpy, ctx, target, buffer, attrib_list);
     }
 
     EGLBoolean destroyNativeImage(
             EGLDisplay dpy,
             EGLImage image) {
-        return nativeType()->destroyImage(dpy, image);
+        return nativeType()->destroyImageKHR(dpy, image);
     }
 
     EGLDisplay getHostDriverDisplay() {

@@ -512,7 +512,7 @@ def decode_vkFlushMappedMemoryRanges(typeInfo, api, cgen):
     cgen.stmt("uint64_t readStream = 0")
     cgen.stmt("memcpy(&readStream, *readStreamPtrPtr, sizeof(uint64_t)); *readStreamPtrPtr += sizeof(uint64_t)")
     cgen.stmt("auto hostPtr = m_state->getMappedHostPointer(memory)")
-    cgen.stmt("if (!hostPtr && readStream > 0) GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))")
+    cgen.stmt("if (!hostPtr && readStream > 0) GFXSTREAM_ABORT(::emugl::FatalError(::emugl::ABORT_REASON_OTHER))")
     cgen.stmt("if (!hostPtr) continue")
     cgen.stmt("uint8_t* targetRange = hostPtr + offset")
     cgen.stmt("memcpy(targetRange, *readStreamPtrPtr, readStream); *readStreamPtrPtr += readStream")
@@ -554,6 +554,11 @@ def decode_vkInvalidateMappedMemoryRanges(typeInfo, api, cgen):
     emit_snapshot(typeInfo, api, cgen);
     emit_pool_free(cgen)
     emit_seqno_incr(api, cgen)
+
+def decode_unsupported_api(typeInfo, api, cgen):
+    cgen.line(f"// Decoding {api.name} is not supported. This should not run.")
+    cgen.stmt(f"fprintf(stderr, \"stream %p: fatal: decoding unsupported API {api.name}\\n\", ioStream)");
+    cgen.stmt("__builtin_trap()")
 
 custom_decodes = {
     "vkEnumerateInstanceVersion" : emit_global_state_wrapped_decoding,
@@ -691,6 +696,13 @@ custom_decodes = {
     "vkQueueSignalReleaseImageANDROIDAsyncGOOGLE" : emit_global_state_wrapped_decoding,
 
     "vkQueueBindSparse" : emit_global_state_wrapped_decoding,
+
+    # VK_KHR_xcb_surface
+    "vkCreateXcbSurfaceKHR": decode_unsupported_api,
+    "vkGetPhysicalDeviceXcbPresentationSupportKHR": decode_unsupported_api,
+
+    # VK_EXT_metal_surface
+    "vkCreateMetalSurfaceEXT": decode_unsupported_api,
 }
 
 class VulkanDecoder(VulkanWrapperGenerator):

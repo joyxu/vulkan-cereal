@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "base/MemStream.h"
+#include "base/Metrics.h"
 #include "base/PathUtils.h"
 #include "base/System.h"
 #include "host-common/address_space_device.h"
@@ -44,6 +45,9 @@
 #include "render_api.h"
 #include "FrameBuffer.h"
 
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
+
 #define GFXSTREAM_DEBUG_LEVEL 1
 
 #if GFXSTREAM_DEBUG_LEVEL >= 1
@@ -64,6 +68,7 @@ extern "C" {
 
 using android::AndroidPipe;
 using android::base::pj;
+using android::base::MetricsLogger;
 
 #ifdef _WIN32
 #define VG_EXPORT __declspec(dllexport)
@@ -80,6 +85,17 @@ typedef void (*get_pixels_t)(void*, uint32_t, uint32_t);
 static get_pixels_t sGetPixelsFunc = 0;
 typedef void (*post_callback_t)(void*, uint32_t, int, int, int, int, int, unsigned char*);
 
+struct gfxstream_callbacks {
+   /* Metrics callbacks */
+   void (*add_instant_event)(int64_t event_code);
+   void (*add_instant_event_with_descriptor)(
+       int64_t event_code, int64_t descriptor);
+   void (*add_instant_event_with_metric)(
+       int64_t event_code, int64_t metric_value);
+   void (*set_annotation)(
+       const char* key, const char* value);
+   void (*abort)();
+};
 
 
 extern "C" VG_EXPORT void gfxstream_backend_init(
@@ -88,7 +104,8 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     uint32_t display_type,
     void* renderer_cookie,
     int renderer_flags,
-    struct virgl_renderer_callbacks* virglrenderer_callbacks);
+    struct virgl_renderer_callbacks* virglrenderer_callbacks,
+    struct gfxstream_callbacks* gfxstreamcallbacks);
 
 extern "C" VG_EXPORT void gfxstream_backend_setup_window(
         void* native_window_handle,
@@ -265,7 +282,31 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     uint32_t display_type,
     void* renderer_cookie,
     int renderer_flags,
-    struct virgl_renderer_callbacks* virglrenderer_callbacks) {
+    struct virgl_renderer_callbacks* virglrenderer_callbacks,
+    struct gfxstream_callbacks* gfxstreamcallbacks) {
+
+    // Set metrics callbacks
+    if (gfxstreamcallbacks) {
+        if (gfxstreamcallbacks->add_instant_event) {
+            MetricsLogger::add_instant_event_callback =
+                gfxstreamcallbacks->add_instant_event;
+        }
+        if (gfxstreamcallbacks->add_instant_event_with_metric) {
+            MetricsLogger::add_instant_event_with_metric_callback =
+                gfxstreamcallbacks->add_instant_event_with_metric;
+        }
+        if (gfxstreamcallbacks->add_instant_event_with_descriptor) {
+            MetricsLogger::add_instant_event_with_descriptor_callback =
+                gfxstreamcallbacks->add_instant_event_with_descriptor;
+        }
+        if (gfxstreamcallbacks->set_annotation) {
+            MetricsLogger::set_crash_annotation_callback =
+                gfxstreamcallbacks->set_annotation;
+        }
+        if (gfxstreamcallbacks->abort) {
+            emugl::setDieFunction(gfxstreamcallbacks->abort);
+        }
+    }
 
 
     // First we make some agents available.

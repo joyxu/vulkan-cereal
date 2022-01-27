@@ -54,6 +54,9 @@
 #define MAJOR          1
 #define MINOR          4
 
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
+
 //declarations
 
 namespace translator {
@@ -401,7 +404,6 @@ EGLAPI EGLBoolean EGLAPIENTRY eglTerminate(EGLDisplay display) {
 
 EGLAPI const char * EGLAPIENTRY eglQueryString(EGLDisplay display, EGLint name) {
     VALIDATE_DISPLAY(display);
-    static const char* vendor     = "Google";
     static const char* version    = "1.4";
     static const char* extensions = "EGL_KHR_image EGL_KHR_image_base "
                                     "EGL_KHR_gl_texture_2D_image "
@@ -411,7 +413,7 @@ EGLAPI const char * EGLAPIENTRY eglQueryString(EGLDisplay display, EGLint name) 
     }
     switch(name) {
     case EGL_VENDOR:
-        return vendor;
+        return dpy->getVendorString();
     case EGL_VERSION:
         return version;
     case EGL_EXTENSIONS:
@@ -1764,12 +1766,6 @@ EGLAPI void EGLAPIENTRY eglSetMaxGLESVersion(EGLint version) {
     case 3: // TODO: GLES 3.2 support?
         glesVersion = GLES_3_1;
         break;
-    }
-
-    // If egl2egl, set internal gles version to 3 as
-    // that is what we use (EglOsApi_egl.cpp)
-    if (EglGlobalInfo::isEgl2Egl()) {
-        glesVersion = GLES_3_0;
     }
 
     if (g_eglInfo->getIface(GLES_1_1)) {

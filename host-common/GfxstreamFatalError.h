@@ -14,53 +14,53 @@
 
 #pragma once
 
-#include <cstdint>
-#include <ostream>
-#include <sstream>
 #include <vulkan/vulkan.h>
 
-#include "base/Metrics.h"
-#include "host-common/logging.h"
+#include <cstdint>
+#include <functional>
+#include <optional>
+#include <sstream>
 
-enum GfxstreamAbortReason : int64_t { VK_RESULT, ABORT_REASON_OTHER = -0x1'0000'0000 };
+namespace emugl {
+
+enum GfxstreamAbortReason : int64_t {
+    VK_RESULT = 0,
+    ABORT_REASON_OTHER =
+        4'300'000'000  // VkResult is 32-bit, so we pick this to be outside the 32-bit range.
+};
 
 struct FatalError {
-    GfxstreamAbortReason abort_reason;
-    VkResult vk_result;
+    const GfxstreamAbortReason abort_reason;
+    const VkResult vk_result;
 
-    FatalError(GfxstreamAbortReason ab_reason) : abort_reason(ab_reason) {}
-    FatalError(VkResult vk_result) : abort_reason(VK_RESULT), vk_result(vk_result) {}
+    explicit FatalError(GfxstreamAbortReason ab_reason)
+        : abort_reason(ab_reason), vk_result(VK_SUCCESS) {}
+    explicit FatalError(VkResult vk_result) : abort_reason(VK_RESULT), vk_result(vk_result) {}
 
-    inline uint64_t getAbortCode() const {
+    inline int64_t getAbortCode() const {
         return abort_reason == VK_RESULT ? vk_result : abort_reason;
     }
 };
 
 class AbortMessage {
    public:
-       AbortMessage(const char *file, const char *function, int line, FatalError reason)
-        : mFile(file), mFunction(function), mLine(line), mReason(reason) {}
+    AbortMessage(const char* file, const char* function, int line, FatalError reason);
 
-     [[noreturn]] ~AbortMessage() {
-           int64_t abortCode = mReason.getAbortCode();
-           fprintf(stderr, "FATAL: %s:%d:%s: (error code: %" PRIi64 ")", mFile, mLine, mFunction,
-                   abortCode);
-           if (!mOss.str().empty()) {
-               fprintf(stderr, ": %s", mOss.str().c_str());
-           }
-           fprintf(stderr, "\n");
-           fflush(stderr);
-           android::base::CreateMetricsLogger()->logMetricEvent(
-               android::base::GfxstreamVkAbort{abortCode});
-           GFXSTREAM_FATAL();
-       }
+    [[noreturn]] ~AbortMessage();
 
-       std::ostream &stream() { return mOss; }
-    private:
-       const char *mFile, *mFunction;
-       int mLine;
-       FatalError mReason;
-       std::ostringstream mOss;
+    std::ostream& stream() { return mOss; }
+
+   private:
+    const char* const mFile;
+    const char* const mFunction;
+    const int mLine;
+    const FatalError mReason;
+    std::ostringstream mOss;
 };
 
-#define GFXSTREAM_ABORT(reason) AbortMessage(__FILE__, __func__, __LINE__, reason).stream()
+// A function that terminates the process should be passed in. When calling the GFXSTREAM_ABORT
+// macro, the set function will be used to terminate the process instead of std::abort.
+void setDieFunction(std::optional<std::function<void()>> newDie);
+}  // namespace emugl
+
+#define GFXSTREAM_ABORT(reason) ::emugl::AbortMessage(__FILE__, __func__, __LINE__, reason).stream()
