@@ -1774,6 +1774,20 @@ VG_EXPORT void stream_renderer_resource_create_v2(
     sRenderer()->createResourceV2(res_handle, hvaId);
 }
 
+VG_EXPORT int stream_renderer_create_blob(uint32_t ctx_id, uint32_t res_handle,
+                                          const struct stream_renderer_create_blob* create_blob,
+                                          const struct iovec* iovecs, uint32_t num_iovs,
+                                          const struct stream_renderer_handle* handle) {
+    sRenderer()->createResourceV2(res_handle, create_blob->blob_id);
+    return 0;
+}
+
+VG_EXPORT int stream_renderer_export_blob(uint32_t res_handle,
+                                          struct stream_renderer_handle* handle) {
+    // Unimplemented for now.
+    return -EINVAL;
+}
+
 VG_EXPORT int stream_renderer_resource_map(uint32_t res_handle, void** hvaOut, uint64_t* sizeOut) {
     return sRenderer()->resourceMap(res_handle, hvaOut, sizeOut);
 }
