@@ -91,8 +91,29 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
     VK_CHECK(
         vk.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr));
     std::vector<VkSurfaceFormatKHR> formats(formatCount);
-    VK_CHECK(vk.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount,
-                                                     formats.data()));
+    VkResult res = vk.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount,
+                                                           formats.data());
+    // b/217226027: drivers may return VK_INCOMPLETE with pSurfaceFormatCount returned by
+    // vkGetPhysicalDeviceSurfaceFormatsKHR. Retry here as a work around to the potential driver
+    // bug.
+    if (res == VK_INCOMPLETE) {
+        formatCount = (formatCount + 1) * 2;
+        INFO(
+            "VK_INCOMPLETE returned by vkGetPhysicalDeviceSurfaceFormatsKHR. A possible driver "
+            "bug. Retry with *pSurfaceFormatCount = %" PRIu32 ".",
+            formatCount);
+        formats.resize(formatCount);
+        res = vk.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount,
+                                                      formats.data());
+        formats.resize(formatCount);
+    }
+    if (res == VK_INCOMPLETE) {
+        INFO(
+            "VK_INCOMPLETE still returned by vkGetPhysicalDeviceSurfaceFormatsKHR with retry. A "
+            "possible driver bug.");
+    } else {
+        VK_CHECK(res);
+    }
     auto iSurfaceFormat =
         std::find_if(formats.begin(), formats.end(), [](const VkSurfaceFormatKHR &format) {
             return format.format == k_vkFormat && format.colorSpace == k_vkColorSpace;
