@@ -32,7 +32,17 @@ using emugl::FatalError;
 namespace {
 
 bool shouldRecreateSwapchain(VkResult result) {
-    return result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR;
+    switch (result) {
+        case VK_SUBOPTIMAL_KHR:
+        case VK_ERROR_OUT_OF_DATE_KHR:
+        // b/217229121: drivers may return VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT in
+        // vkQueuePresentKHR even if VK_EXT_full_screen_exclusive is not enabled.
+        case VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT:
+            return true;
+
+        default:
+            return false;
+    }
 }
 
 }  // namespace
