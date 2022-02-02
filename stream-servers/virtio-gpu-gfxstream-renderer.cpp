@@ -1479,22 +1479,6 @@ public:
         mResources[res_handle] = e;
     }
 
-    uint64_t getResourceHva(uint32_t res_handle) {
-        AutoLock lock(mLock);
-        auto it = mResources.find(res_handle);
-        if (it == mResources.end()) return 0;
-        const auto& entry = it->second;
-        return entry.hva;
-    }
-
-    uint64_t getResourceHvaSize(uint32_t res_handle) {
-        AutoLock lock(mLock);
-        auto it = mResources.find(res_handle);
-        if (it == mResources.end()) return 0;
-        const auto& entry = it->second;
-        return entry.hvaSize;
-    }
-
     int resourceMap(uint32_t res_handle, void** hvaOut, uint64_t* sizeOut) {
         AutoLock lock(mLock);
         auto it = mResources.find(res_handle);
@@ -1531,22 +1515,6 @@ public:
         // TODO(lfy): Good place to run any registered cleanup callbacks.
         // No-op for now.
         return 0;
-    }
-
-    void setResourceHvSlot(uint32_t res_handle, uint32_t slot) {
-        AutoLock lock(mLock);
-        auto it = mResources.find(res_handle);
-        if (it == mResources.end()) return;
-        auto& entry = it->second;
-        entry.hvSlot = slot;
-    }
-
-    uint32_t getResourceHvSlot(uint32_t res_handle) {
-        AutoLock lock(mLock);
-        auto it = mResources.find(res_handle);
-        if (it == mResources.end()) return 0;
-        const auto& entry = it->second;
-        return entry.hvSlot;
     }
 
     int platformImportResource(int res_handle, int res_type, void* resource) {
@@ -1804,22 +1772,6 @@ VG_EXPORT void stream_renderer_flush_resource_and_readback(
 VG_EXPORT void stream_renderer_resource_create_v2(
     uint32_t res_handle, uint64_t hvaId) {
     sRenderer()->createResourceV2(res_handle, hvaId);
-}
-
-VG_EXPORT uint64_t stream_renderer_resource_get_hva(uint32_t res_handle) {
-    return sRenderer()->getResourceHva(res_handle);
-}
-
-VG_EXPORT uint64_t stream_renderer_resource_get_hva_size(uint32_t res_handle) {
-    return sRenderer()->getResourceHvaSize(res_handle);
-}
-
-VG_EXPORT void stream_renderer_resource_set_hv_slot(uint32_t res_handle, uint32_t slot) {
-    sRenderer()->setResourceHvSlot(res_handle, slot);
-}
-
-VG_EXPORT uint32_t stream_renderer_resource_get_hv_slot(uint32_t res_handle) {
-    return sRenderer()->getResourceHvSlot(res_handle);
 }
 
 VG_EXPORT int stream_renderer_resource_map(uint32_t res_handle, void** hvaOut, uint64_t* sizeOut) {

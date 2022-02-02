@@ -182,10 +182,6 @@ TEST_F(GfxStreamBackendTest, DISABLED_ApiCallLinkTest) {
     pipe_virgl_renderer_ctx_detach_resource(0, 0);
     pipe_virgl_renderer_resource_get_info(0, 0);
     stream_renderer_resource_create_v2(0, 0);
-    stream_renderer_resource_get_hva(0);
-    stream_renderer_resource_get_hva_size(0);
-    stream_renderer_resource_set_hv_slot(0, 0);
-    stream_renderer_resource_get_hv_slot(0);
     stream_renderer_resource_map(0, 0, 0);
     stream_renderer_resource_unmap(0);
 }
