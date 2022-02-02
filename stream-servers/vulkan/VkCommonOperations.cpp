@@ -601,22 +601,17 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
     sVkEmulation->instanceSupportsMoltenVK = moltenVKSupported;
 
     if (sVkEmulation->instanceSupportsExternalMemoryCapabilities) {
-        sVkEmulation->getImageFormatProperties2Func = reinterpret_cast<
-                PFN_vkGetPhysicalDeviceImageFormatProperties2KHR>(
-                ivk->vkGetInstanceProcAddr(
-                        sVkEmulation->instance,
-                        "vkGetPhysicalDeviceImageFormatProperties2KHR"));
-        sVkEmulation->getPhysicalDeviceProperties2Func = reinterpret_cast<
-                PFN_vkGetPhysicalDeviceProperties2KHR>(
-                ivk->vkGetInstanceProcAddr(
-                        sVkEmulation->instance,
-                        "vkGetPhysicalDeviceProperties2KHR"));
+        sVkEmulation->getImageFormatProperties2Func =
+            reinterpret_cast<PFN_vkGetPhysicalDeviceImageFormatProperties2KHR>(
+                vk->vkGetInstanceProcAddr(sVkEmulation->instance,
+                                          "vkGetPhysicalDeviceImageFormatProperties2KHR"));
+        sVkEmulation->getPhysicalDeviceProperties2Func =
+            reinterpret_cast<PFN_vkGetPhysicalDeviceProperties2KHR>(vk->vkGetInstanceProcAddr(
+                sVkEmulation->instance, "vkGetPhysicalDeviceProperties2KHR"));
         if (!sVkEmulation->getPhysicalDeviceProperties2Func) {
-            sVkEmulation->getPhysicalDeviceProperties2Func = reinterpret_cast<
-                    PFN_vkGetPhysicalDeviceProperties2KHR>(
-                    ivk->vkGetInstanceProcAddr(
-                            sVkEmulation->instance,
-                            "vkGetPhysicalDeviceProperties2"));
+            sVkEmulation->getPhysicalDeviceProperties2Func =
+                reinterpret_cast<PFN_vkGetPhysicalDeviceProperties2KHR>(vk->vkGetInstanceProcAddr(
+                    sVkEmulation->instance, "vkGetPhysicalDeviceProperties2"));
         }
     }
 
