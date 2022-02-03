@@ -2,6 +2,7 @@ project(gfx-streaming-kit)
 cmake_minimum_required(VERSION 3.11)
 
 option(BUILD_GOOGLETEST "Download and build the googletest library" ON)
+option(BUILD_ASAN_WIN32 "Build with ASAN on Windows platform" OFF)
 
 if (WIN32)
     add_definitions("-DUNICODE -D_UNICODE -DNOMINMAX -DEMUGL_BUILD -DVK_USE_PLATFORM_WIN32_KHR -DBUILDING_EMUGL_COMMON_SHARED")
@@ -59,6 +60,24 @@ endif()
 # Uncomment for ASAN support
 # set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
 # set (CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
+
+if (WIN32)
+    if (BUILD_ASAN_WIN32)
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+        # ASAN does not work with flag /MDd, replace it with /MD
+        string(REPLACE "/MDd" "/MD" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+        set(CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
+
+        # ASAN linker
+        # User needs to use -D ASAN_LIB_DIR:STRING=/path/to/asan_libs to add library directory
+        if (NOT DEFINED ASAN_LIB_DIR)
+            message(FATAL_ERROR "Please input ASAN library path with -D ASAN_LIB_DIR:STRING=/path/to/asan_lib_dir")
+        endif()
+        link_libraries(clang_rt.asan_dynamic-x86_64.lib clang_rt.asan_dynamic_runtime_thunk-x86_64.lib)
+        message("Linking ASAN libraries from: ${ASAN_LIB_DIR}")
+        link_directories(${ASAN_LIB_DIR})
+    endif()
+endif()
 
 # GoogleTest support: uses CMake ExternalProject to pull in external repo
 # without manual steps (during CMake build script generation phase)
