@@ -572,13 +572,12 @@ public:
 
         if (m_emu->instanceSupportsExternalMemoryCapabilities) {
             PFN_vkGetPhysicalDeviceProperties2KHR getPhysdevProps2Func =
-                (PFN_vkGetPhysicalDeviceProperties2KHR)(vk->vkGetInstanceProcAddr(
-                    instance, "vkGetPhysicalDeviceProperties2KHR"));
+                (PFN_vkGetPhysicalDeviceProperties2KHR)(
+                    m_vk->vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceProperties2KHR"));
 
             if (!getPhysdevProps2Func) {
-                getPhysdevProps2Func =
-                    (PFN_vkGetPhysicalDeviceProperties2KHR)(vk->vkGetInstanceProcAddr(
-                        instance, "vkGetPhysicalDeviceProperties2"));
+                getPhysdevProps2Func = (PFN_vkGetPhysicalDeviceProperties2KHR)(
+                    m_vk->vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceProperties2"));
             }
 
             if (!getPhysdevProps2Func) {
