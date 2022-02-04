@@ -32,3 +32,21 @@ target_include_directories(gfxstream-vulkan-server
                            ${GFXSTREAM_REPO_ROOT}/stream-servers
                            ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan
                            ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common)
+
+add_executable(
+    vk_util_unittest
+    vk_util_unittest.cpp)
+target_include_directories(
+    vk_util_unittest
+    PRIVATE
+    ${GFXSTREAM_REPO_ROOT}
+    ${GFXSTREAM_REPO_ROOT}/include
+    ${GFXSTREAM_REPO_ROOT}/stream-servers
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan/cereal
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common)
+target_link_libraries(
+    vk_util_unittest
+    PRIVATE
+    gtest
+    gmock)
