@@ -572,25 +572,13 @@ public:
 
         if (m_emu->instanceSupportsExternalMemoryCapabilities) {
             PFN_vkGetPhysicalDeviceProperties2KHR getPhysdevProps2Func =
-                (PFN_vkGetPhysicalDeviceProperties2KHR)(vk->vkGetInstanceProcAddr(
-                    instance, "vkGetPhysicalDeviceProperties2KHR"));
-
-            if (!getPhysdevProps2Func) {
-                getPhysdevProps2Func =
-                    (PFN_vkGetPhysicalDeviceProperties2KHR)(vk->vkGetInstanceProcAddr(
-                        instance, "vkGetPhysicalDeviceProperties2"));
-            }
-
-            if (!getPhysdevProps2Func) {
-                PFN_vkGetPhysicalDeviceProperties2KHR khrFunc =
-                    vk->vkGetPhysicalDeviceProperties2KHR;
-                PFN_vkGetPhysicalDeviceProperties2KHR coreFunc =
-                    vk->vkGetPhysicalDeviceProperties2;
-
-                if (coreFunc) getPhysdevProps2Func = coreFunc;
-                if (!getPhysdevProps2Func && khrFunc)
-                    getPhysdevProps2Func = khrFunc;
-            }
+                vk_util::getVkInstanceProcAddrWithFallback<
+                    vk_util::vk_fn_info::GetPhysicalDeviceProperties2>(
+                    {
+                        vk->vkGetInstanceProcAddr,
+                        m_vk->vkGetInstanceProcAddr,
+                    },
+                    instance);
 
             if (getPhysdevProps2Func) {
                 validPhysicalDevices.erase(std::remove_if(
