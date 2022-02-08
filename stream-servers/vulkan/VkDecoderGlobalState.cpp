@@ -572,25 +572,13 @@ public:
 
         if (m_emu->instanceSupportsExternalMemoryCapabilities) {
             PFN_vkGetPhysicalDeviceProperties2KHR getPhysdevProps2Func =
-                (PFN_vkGetPhysicalDeviceProperties2KHR)(vk->vkGetInstanceProcAddr(
-                    instance, "vkGetPhysicalDeviceProperties2KHR"));
-
-            if (!getPhysdevProps2Func) {
-                getPhysdevProps2Func =
-                    (PFN_vkGetPhysicalDeviceProperties2KHR)(vk->vkGetInstanceProcAddr(
-                        instance, "vkGetPhysicalDeviceProperties2"));
-            }
-
-            if (!getPhysdevProps2Func) {
-                PFN_vkGetPhysicalDeviceProperties2KHR khrFunc =
-                    vk->vkGetPhysicalDeviceProperties2KHR;
-                PFN_vkGetPhysicalDeviceProperties2KHR coreFunc =
-                    vk->vkGetPhysicalDeviceProperties2;
-
-                if (coreFunc) getPhysdevProps2Func = coreFunc;
-                if (!getPhysdevProps2Func && khrFunc)
-                    getPhysdevProps2Func = khrFunc;
-            }
+                vk_util::getVkInstanceProcAddrWithFallback<
+                    vk_util::vk_fn_info::GetPhysicalDeviceProperties2>(
+                    {
+                        vk->vkGetInstanceProcAddr,
+                        m_vk->vkGetInstanceProcAddr,
+                    },
+                    instance);
 
             if (getPhysdevProps2Func) {
                 validPhysicalDevices.erase(std::remove_if(
@@ -2163,7 +2151,7 @@ public:
             } else {
                 for (auto poolId : info->poolIds) {
                     auto handleInfo = sBoxedHandleManager.get(poolId);
-                    if (handleInfo) handleInfo->underlying = VK_NULL_HANDLE;
+                    if (handleInfo) handleInfo->underlying = reinterpret_cast<uint64_t>(VK_NULL_HANDLE);
                 }
             }
         }
@@ -2306,7 +2294,7 @@ public:
                 auto handleInfo = sBoxedHandleManager.get((uint64_t)*descSetAllocedEntry);
                 if (handleInfo) {
                     if (feature_is_enabled(kFeature_VulkanBatchedDescriptorSetUpdate)) {
-                        handleInfo->underlying = VK_NULL_HANDLE;
+                        handleInfo->underlying = reinterpret_cast<uint64_t>(VK_NULL_HANDLE);
                     } else {
                         delete_VkDescriptorSet(*descSetAllocedEntry);
                     }
@@ -4784,7 +4772,6 @@ public:
 
 #define GUEST_EXTERNAL_MEMORY_HANDLE_TYPES                                \
     (VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID | \
-     VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA |         \
      VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA)
 
     // Transforms

@@ -601,23 +601,12 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
     sVkEmulation->instanceSupportsMoltenVK = moltenVKSupported;
 
     if (sVkEmulation->instanceSupportsExternalMemoryCapabilities) {
-        sVkEmulation->getImageFormatProperties2Func = reinterpret_cast<
-                PFN_vkGetPhysicalDeviceImageFormatProperties2KHR>(
-                ivk->vkGetInstanceProcAddr(
-                        sVkEmulation->instance,
-                        "vkGetPhysicalDeviceImageFormatProperties2KHR"));
-        sVkEmulation->getPhysicalDeviceProperties2Func = reinterpret_cast<
-                PFN_vkGetPhysicalDeviceProperties2KHR>(
-                ivk->vkGetInstanceProcAddr(
-                        sVkEmulation->instance,
-                        "vkGetPhysicalDeviceProperties2KHR"));
-        if (!sVkEmulation->getPhysicalDeviceProperties2Func) {
-            sVkEmulation->getPhysicalDeviceProperties2Func = reinterpret_cast<
-                    PFN_vkGetPhysicalDeviceProperties2KHR>(
-                    ivk->vkGetInstanceProcAddr(
-                            sVkEmulation->instance,
-                            "vkGetPhysicalDeviceProperties2"));
-        }
+        sVkEmulation->getImageFormatProperties2Func = vk_util::getVkInstanceProcAddrWithFallback<
+            vk_util::vk_fn_info::GetPhysicalDeviceImageFormatProperties2>(
+            {ivk->vkGetInstanceProcAddr, vk->vkGetInstanceProcAddr}, sVkEmulation->instance);
+        sVkEmulation->getPhysicalDeviceProperties2Func = vk_util::getVkInstanceProcAddrWithFallback<
+            vk_util::vk_fn_info::GetPhysicalDeviceProperties2>(
+            {ivk->vkGetInstanceProcAddr, vk->vkGetInstanceProcAddr}, sVkEmulation->instance);
     }
 
     if (sVkEmulation->instanceSupportsMoltenVK) {
@@ -2424,8 +2413,8 @@ transformExternalMemoryHandleTypeFlags_tohost(
         res |= VK_EXT_MEMORY_HANDLE_TYPE_BIT;
     }
 
-    if (bits & VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA) {
-        res &= ~VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA;
+    if (bits & VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA) {
+        res &= ~VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA;
         res |= VK_EXT_MEMORY_HANDLE_TYPE_BIT;
     }
 
