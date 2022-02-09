@@ -394,7 +394,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         goldfish_vk::setUseCreateResourcesWithRequirements(vkEmu, useCreateResourcesWithRequirements);
         if (feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
             fb->m_displayVk = std::make_shared<DisplayVk>(
-                *vkDispatch, vkEmu->physdev, vkEmu->queueFamilyIndex, vkEmu->queueFamilyIndex,
+                *vkEmu->ivk, vkEmu->physdev, vkEmu->queueFamilyIndex, vkEmu->queueFamilyIndex,
                 vkEmu->device, vkEmu->queue, vkEmu->queueLock, vkEmu->queue, vkEmu->queueLock);
             fb->m_vkInstance = vkEmu->instance;
         }
