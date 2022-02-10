@@ -972,11 +972,6 @@ const GLvoid* GLEScontext::setPointer(GLenum arrType,GLint size,GLenum type,GLsi
     return data;
 }
 
-GLint GLEScontext::getUnpackAlignment() {
-    return android::base::findOrDefault(m_glPixelStoreiList,
-            GL_UNPACK_ALIGNMENT, 4);
-}
-
 void GLEScontext::enableArr(GLenum arr,bool enable) {
     auto vertexAttrib = m_currVaoState.find(arr);
     if (vertexAttrib != m_currVaoState.end()) {
