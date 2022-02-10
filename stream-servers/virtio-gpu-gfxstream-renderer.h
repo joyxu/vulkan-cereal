@@ -96,7 +96,7 @@ VG_EXPORT void stream_renderer_resource_create_v2(
 #define STREAM_FENCE_HANDLE_TYPE_SYNC_FD 0x11
 #define STREAM_FENCE_HANDLE_TYPE_OPAQUE_WIN32 0x12
 struct stream_renderer_handle {
-    int32_t os_handle;
+    int64_t os_handle;
     uint32_t handle_type;
 };
 
