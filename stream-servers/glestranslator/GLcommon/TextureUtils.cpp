@@ -408,6 +408,7 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
         needUnpackBuffer = unpackBuffer;
     }
     TextureUnpackReset unpack(ctx);
+    const int32_t unpackAlignment = TextureUnpackReset::kUnpackAlignment;
     if (isEtcFormat(internalformat)) {
         GLint format = GL_RGB;
         GLint type = GL_UNSIGNED_BYTE;
@@ -474,7 +475,7 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
             }
         }
 
-        const int32_t align = ctx->getUnpackAlignment()-1;
+        const int32_t align = unpackAlignment - 1;
         const int32_t bpr = ((width * pixelSize) + align) & ~align;
         const size_t size = bpr * height;
         std::unique_ptr<etc1_byte[]> pOut(new etc1_byte[size]);
@@ -496,7 +497,7 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
         bool srgb;
         getAstcFormatInfo(internalformat, &footprint, &srgb);
 
-        const int32_t align = ctx->getUnpackAlignment() - 1;
+        const int32_t align = unpackAlignment - 1;
         const int32_t stride = ((width * 4) + align) & ~align;
         const size_t size = stride * height;
 
@@ -582,7 +583,7 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
                 data = new char[compressedSize];
             }
         }
-        const int32_t align = ctx->getUnpackAlignment() - 1;
+        const int32_t align = unpackAlignment - 1;
         const int32_t bpr = ((width * pixelSize) + align) & ~align;
         const size_t size = bpr * height;
         std::unique_ptr<uint8_t[]> pOut(new uint8_t[size]);
@@ -1244,23 +1245,23 @@ GLint TextureUnpackReset::unpackCheckAndUpdate(GLenum name, GLint newValue) {
 }
 
 TextureUnpackReset::TextureUnpackReset(GLEScontext* ctx) : glesContext(ctx) {
+    unpackAlignment = unpackCheckAndUpdate(GL_UNPACK_ALIGNMENT, kUnpackAlignment);
     if (glesContext->getMajorVersion() >= 3) {
         unpackRowLength = unpackCheckAndUpdate(GL_UNPACK_ROW_LENGTH, kUnpackRowLength);
         unpackImageHeight = unpackCheckAndUpdate(GL_UNPACK_IMAGE_HEIGHT, kUnpackImageHeight);
         unpackSkipRows = unpackCheckAndUpdate(GL_UNPACK_SKIP_ROWS, kUnpackSkipRows);
         unpackSkipPixels = unpackCheckAndUpdate(GL_UNPACK_SKIP_PIXELS, kUnpackSkipPixels);
         unpackSkipImages = unpackCheckAndUpdate(GL_UNPACK_SKIP_IMAGES, kUnpackSkipImages);
-        unpackAlignment = unpackCheckAndUpdate(GL_UNPACK_ALIGNMENT, kUnpackAlignment);
     }
 }
 TextureUnpackReset::~TextureUnpackReset() {
+    unpackCheckAndUpdate(GL_UNPACK_ALIGNMENT, unpackAlignment);
     if (glesContext->getMajorVersion() >= 3) {
         unpackCheckAndUpdate(GL_UNPACK_ROW_LENGTH, unpackRowLength);
         unpackCheckAndUpdate(GL_UNPACK_IMAGE_HEIGHT, unpackImageHeight);
         unpackCheckAndUpdate(GL_UNPACK_SKIP_ROWS, unpackSkipRows);
         unpackCheckAndUpdate(GL_UNPACK_SKIP_PIXELS, unpackSkipPixels);
         unpackCheckAndUpdate(GL_UNPACK_SKIP_IMAGES, unpackSkipImages);
-        unpackCheckAndUpdate(GL_UNPACK_ALIGNMENT, unpackAlignment);
     }
 }
 
