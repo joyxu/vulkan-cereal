@@ -132,7 +132,8 @@ add_executable(
     HostAddressSpace_unittest.cpp
     HostmemIdMapping_unittest.cpp
     logging_unittest.cpp
-    GfxstreamFatalError_unittest.cpp)
+    GfxstreamFatalError_unittest.cpp
+    RenderDoc_unittest.cpp)
 
 target_include_directories(
     gfxstream-host-common_unittests
