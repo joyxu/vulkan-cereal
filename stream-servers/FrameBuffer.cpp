@@ -945,6 +945,7 @@ FrameBuffer::~FrameBuffer() {
     m_readbackWorker.reset();
 
     goldfish_vk::teardownGlobalVkEmulation();
+    SyncThread::destroy();
 }
 
 WorkerProcessingResult

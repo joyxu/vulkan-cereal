@@ -16,11 +16,12 @@
 
 #include "SyncThread.h"
 
+#include "OpenGLESDispatch/OpenGLDispatchLoader.h"
 #include "base/System.h"
 #include "base/Thread.h"
-#include "OpenGLESDispatch/OpenGLDispatchLoader.h"
-#include "host-common/crash_reporter.h"
 #include "host-common/GfxstreamFatalError.h"
+#include "host-common/crash_reporter.h"
+#include "host-common/logging.h"
 #include "host-common/sync_device.h"
 
 #ifndef _MSC_VER
@@ -73,6 +74,11 @@ public:
     SyncThread* syncThreadPtr() {
         AutoLock mutex(mLock);
         return mSyncThread.get();
+    }
+
+    void destroy() {
+        AutoLock mutex(mLock);
+        mSyncThread = nullptr;
     }
 
 private:
@@ -206,6 +212,11 @@ void SyncThread::cleanup() {
     mExiting = true;
     mCv.signalAndUnlock(&mLock);
     DPRINT("exit");
+    // Wait for the control thread to exit. We can't destroy the SyncThread
+    // before we wait the control thread.
+    if (!wait(nullptr)) {
+        ERR("Fail to wait the control thread of the SyncThread to exit.");
+    }
 }
 
 // Private methods below////////////////////////////////////////////////////////
@@ -549,3 +560,5 @@ SyncThread* SyncThread::get() {
 void SyncThread::initialize(bool noEGL) {
     sGlobalSyncThread()->initialize(noEGL);
 }
+
+void SyncThread::destroy() { sGlobalSyncThread()->destroy(); }
