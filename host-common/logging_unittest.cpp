@@ -14,15 +14,16 @@
 
 #include <gmock/gmock.h>
 
+#include "host-common/logging.h"
+
 #include <thread>
 
-#include "host-common/logging.h"
+#include "base/testing/TestUtils.h"
 
 namespace {
 
 using ::testing::EndsWith;
 using ::testing::HasSubstr;
-using ::testing::MatchesRegex;
 using ::testing::Not;
 using ::testing::StartsWith;
 using ::testing::internal::CaptureStderr;
@@ -86,7 +87,7 @@ TEST(Logging, FormatsPrefixCorrectly) {
     // See http://go/gunitadvanced#regular-expression-syntax for the full syntax.
     EXPECT_THAT(
         log,
-        MatchesRegex(
+        MatchesStdRegex(
             R"re(I\d\d\d\d \d\d:\d\d:\d\d.\d\d\d\d\d\d +\d+ logging_unittest.cpp:\d+\] foo\n)re"));
 }
 
@@ -126,8 +127,8 @@ TEST(Logging, OutputsDifferentThreadIdsOnDifferentThreads) {
 
     std::string tid1 = log1.substr(21, 9);
     std::string tid2 = log2.substr(21, 9);
-    EXPECT_THAT(tid1, MatchesRegex(R"( +\d+ )"));
-    EXPECT_THAT(tid2, MatchesRegex(R"( +\d+ )"));
+    EXPECT_THAT(tid1, MatchesStdRegex(R"( +\d+ )"));
+    EXPECT_THAT(tid2, MatchesStdRegex(R"( +\d+ )"));
     EXPECT_NE(tid1, tid2);
 }
 
