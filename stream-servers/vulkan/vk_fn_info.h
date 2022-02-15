@@ -38,6 +38,8 @@ REGISTER_VK_FN_INFO(GetPhysicalDeviceProperties2,
 REGISTER_VK_FN_INFO(GetPhysicalDeviceImageFormatProperties2,
                     ("vkGetPhysicalDeviceImageFormatProperties2KHR",
                      "vkGetPhysicalDeviceImageFormatProperties2"))
+REGISTER_VK_FN_INFO(GetPhysicalDeviceFeatures2,
+                    ("vkGetPhysicalDeviceFeatures2", "vkGetPhysicalDeviceFeatures2KHR"));
 }  // namespace vk_fn_info
 }  // namespace vk_util
 

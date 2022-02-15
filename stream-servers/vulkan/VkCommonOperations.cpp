@@ -611,6 +611,9 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
             vk_util::vk_fn_info::GetPhysicalDeviceProperties2>(
             {ivk->vkGetInstanceProcAddr, vk->vkGetInstanceProcAddr}, sVkEmulation->instance);
     }
+    sVkEmulation->getPhysicalDeviceFeatures2Func =
+        vk_util::getVkInstanceProcAddrWithFallback<vk_util::vk_fn_info::GetPhysicalDeviceFeatures2>(
+            {ivk->vkGetInstanceProcAddr, vk->vkGetInstanceProcAddr}, sVkEmulation->instance);
 
     if (sVkEmulation->instanceSupportsMoltenVK) {
         sVkEmulation->setMTLTextureFunc = reinterpret_cast<PFN_vkSetMTLTextureMVK>(
@@ -688,6 +691,23 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
                 physdevs[i],
                 &propsWithId);
             deviceInfos[i].idProps = idProps;
+        }
+
+        deviceInfos[i].hasSamplerYcbcrConversionExtension =
+            extensionsSupported(deviceExts, {VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME});
+        if (sVkEmulation->getPhysicalDeviceFeatures2Func) {
+            VkPhysicalDeviceFeatures2 features2 = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+            };
+            auto features2Chain = vk_make_chain_iterator(&features2);
+            VkPhysicalDeviceSamplerYcbcrConversionFeatures samplerYcbcrConversionFeatures = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES,
+            };
+            vk_append_struct(&features2Chain, &samplerYcbcrConversionFeatures);
+            sVkEmulation->getPhysicalDeviceFeatures2Func(physdevs[i], &features2);
+
+            deviceInfos[i].supportsSamplerYcbcrConversion =
+                samplerYcbcrConversionFeatures.samplerYcbcrConversion == VK_TRUE;
         }
 
         uint32_t queueFamilyCount = 0;
@@ -819,9 +839,6 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
         1, &priority,
     };
 
-    VkPhysicalDeviceFeatures2 features = {};
-    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-
     std::unordered_set<const char*> selectedDeviceExtensionNames_;
 
     if (sVkEmulation->deviceInfo.supportsExternalMemory) {
@@ -832,18 +849,38 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
     for (auto extension : SwapChainStateVk::getRequiredDeviceExtensions()) {
         selectedDeviceExtensionNames_.emplace(extension);
     }
+    if (sVkEmulation->deviceInfo.hasSamplerYcbcrConversionExtension) {
+        selectedDeviceExtensionNames_.emplace(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME);
+    }
     std::vector<const char*> selectedDeviceExtensionNames(
         selectedDeviceExtensionNames_.begin(),
         selectedDeviceExtensionNames_.end());
 
     VkDeviceCreateInfo dCi = {};
     dCi.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    dCi.pNext = &features;
     dCi.queueCreateInfoCount = 1;
     dCi.pQueueCreateInfos = &dqCi;
     dCi.enabledExtensionCount =
         static_cast<uint32_t>(selectedDeviceExtensionNames.size());
     dCi.ppEnabledExtensionNames = selectedDeviceExtensionNames.data();
+
+    // Setting up VkDeviceCreateInfo::pNext
+    auto deviceCiChain = vk_make_chain_iterator(&dCi);
+
+    VkPhysicalDeviceFeatures2 features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+    vk_append_struct(&deviceCiChain, &features);
+
+    std::unique_ptr<VkPhysicalDeviceSamplerYcbcrConversionFeatures> samplerYcbcrConversionFeatures =
+        nullptr;
+    if (sVkEmulation->deviceInfo.supportsSamplerYcbcrConversion) {
+        samplerYcbcrConversionFeatures =
+            std::make_unique<VkPhysicalDeviceSamplerYcbcrConversionFeatures>(
+                VkPhysicalDeviceSamplerYcbcrConversionFeatures{
+                    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES,
+                    .samplerYcbcrConversion = VK_TRUE,
+                });
+        vk_append_struct(&deviceCiChain, samplerYcbcrConversionFeatures.get());
+    }
 
     ivk->vkCreateDevice(sVkEmulation->physdev, &dCi, nullptr,
                         &sVkEmulation->device);
