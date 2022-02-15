@@ -247,7 +247,9 @@ target_link_libraries(
 add_executable(
     VirtioGpuTimelines_unittests
     tests/VirtioGpuTimelines_unittest.cpp
-    VirtioGpuTimelines.cpp)
+    VirtioGpuTimelines.cpp
+    ${GFXSTREAM_REPO_ROOT}/host-common/GfxstreamFatalError.cpp
+    ${GFXSTREAM_REPO_ROOT}/host-common/logging.cpp)
 target_include_directories(
     VirtioGpuTimelines_unittests
     PRIVATE
