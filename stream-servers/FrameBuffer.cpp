@@ -377,9 +377,15 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     // preventing new contexts from being created that share
     // against those contexts.
     goldfish_vk::VkEmulation* vkEmu = nullptr;
+    goldfish_vk::VulkanDispatch* vkDispatch = nullptr;
     if (feature_is_enabled(kFeature_Vulkan)) {
-        auto dispatch = emugl::vkDispatch(false /* not for testing */);
-        vkEmu = goldfish_vk::createOrGetGlobalVkEmulation(dispatch);
+        vkDispatch = emugl::vkDispatch(false /* not for testing */);
+        vkEmu = goldfish_vk::createOrGetGlobalVkEmulation(vkDispatch);
+        if (!vkEmu) {
+            ERR("Failed to initialize global Vulkan emulation. Disable the Vulkan support.");
+        }
+    }
+    if (vkEmu) {
         bool useDeferredCommands =
             android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_DEFERRED_COMMANDS").empty();
         bool useCreateResourcesWithRequirements =
@@ -388,9 +394,8 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         goldfish_vk::setUseCreateResourcesWithRequirements(vkEmu, useCreateResourcesWithRequirements);
         if (feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
             fb->m_displayVk = std::make_shared<DisplayVk>(
-                *dispatch, vkEmu->physdev, vkEmu->queueFamilyIndex,
-                vkEmu->queueFamilyIndex, vkEmu->device, vkEmu->queue,
-                vkEmu->queueLock, vkEmu->queue, vkEmu->queueLock);
+                *vkEmu->ivk, vkEmu->physdev, vkEmu->queueFamilyIndex, vkEmu->queueFamilyIndex,
+                vkEmu->device, vkEmu->queue, vkEmu->queueLock, vkEmu->queue, vkEmu->queueLock);
             fb->m_vkInstance = vkEmu->instance;
         }
         if (vkEmu->deviceInfo.supportsIdProperties) {
