@@ -342,7 +342,6 @@ void FrameBuffer::finalize() {
     }
 
     m_readbackThread.enqueue({ReadbackCmd::Exit});
-    m_displayVk.reset();
     if (m_vkSurface != VK_NULL_HANDLE) {
         emugl::vkDispatch(false /* not for testing */)
             ->vkDestroySurfaceKHR(m_vkInstance, m_vkSurface, nullptr);
@@ -380,22 +379,13 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     goldfish_vk::VulkanDispatch* vkDispatch = nullptr;
     if (feature_is_enabled(kFeature_Vulkan)) {
         vkDispatch = emugl::vkDispatch(false /* not for testing */);
-        vkEmu = goldfish_vk::createOrGetGlobalVkEmulation(vkDispatch);
+        vkEmu = goldfish_vk::createGlobalVkEmulation(vkDispatch);
         if (!vkEmu) {
             ERR("Failed to initialize global Vulkan emulation. Disable the Vulkan support.");
         }
     }
     if (vkEmu) {
-        bool useDeferredCommands =
-            android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_DEFERRED_COMMANDS").empty();
-        bool useCreateResourcesWithRequirements =
-            android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_USE_CREATE_RESOURCES_WITH_REQUIREMENTS").empty();
-        goldfish_vk::setUseDeferredCommands(vkEmu, useDeferredCommands);
-        goldfish_vk::setUseCreateResourcesWithRequirements(vkEmu, useCreateResourcesWithRequirements);
         if (feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
-            fb->m_displayVk = std::make_shared<DisplayVk>(
-                *vkEmu->ivk, vkEmu->physdev, vkEmu->queueFamilyIndex, vkEmu->queueFamilyIndex,
-                vkEmu->device, vkEmu->queue, vkEmu->queueLock, vkEmu->queue, vkEmu->queueLock);
             fb->m_vkInstance = vkEmu->instance;
         }
         if (vkEmu->deviceInfo.supportsIdProperties) {
@@ -499,6 +489,18 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     fb->m_guestUsesAngle =
         feature_is_enabled(
             kFeature_GuestUsesAngle);
+
+    goldfish_vk::VkEmulationFeatures vkEmulationFeatures = {
+        .glInteropSupported = false,  // Set later.
+        .deferredCommands =
+            android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_DEFERRED_COMMANDS")
+                .empty(),
+        .createResourceWithRequirements =
+            android::base::getEnvironmentVariable(
+                "ANDROID_EMU_VK_DISABLE_USE_CREATE_RESOURCES_WITH_REQUIREMENTS")
+                .empty(),
+        .useVulkanNativeSwapchain = feature_is_enabled(kFeature_VulkanNativeSwapchain),
+    };
 
     //
     // if GLES2 plugin has loaded - try to make GLES2 context and
@@ -802,7 +804,13 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     }
 
     GL_LOG("glvk interop final: %d", fb->m_vulkanInteropSupported);
-    goldfish_vk::setGlInteropSupported(fb->m_vulkanInteropSupported);
+    vkEmulationFeatures.glInteropSupported = fb->m_vulkanInteropSupported;
+    if (feature_is_enabled(kFeature_Vulkan)) {
+        goldfish_vk::initVkEmulationFeatures(vkEmulationFeatures);
+        if (vkEmu->displayVk) {
+            fb->m_displayVk = vkEmu->displayVk.get();
+        }
+    }
 
     // Start up the single sync thread. If we are using Vulkan native
     // swapchain, then don't initialize SyncThread worker threads with EGL
@@ -844,8 +852,12 @@ bool FrameBuffer::importMemoryToColorBuffer(
 
     auto& cb = *c->second.cb;
     std::shared_ptr<DisplayVk::DisplayBufferInfo> db = nullptr;
-    if (m_displayVk != nullptr) {
+    if (m_displayVk) {
         db = m_displayVk->createDisplayBuffer(image, imageCi);
+        if (!db) {
+            ERR("Fail to create display buffer for ColorBuffer %" PRIu64 ".",
+                static_cast<uint64_t>(colorBufferHandle));
+        }
     }
     return cb.importMemory(handle, size, dedicated, imageCi.tiling == VK_IMAGE_TILING_LINEAR,
                            vulkanOnly, std::move(db));
@@ -1045,9 +1057,8 @@ std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
                         return false;
                     }
                     INFO("Recreating swapchain...");
-                    m_displayVk->bindToSurface(
-                        m_vkSurface, static_cast<uint32_t>(m_windowWidth),
-                        static_cast<uint32_t>(m_windowHeight));
+                    m_displayVk->bindToSurface(m_vkSurface, static_cast<uint32_t>(m_windowWidth),
+                                             static_cast<uint32_t>(m_windowHeight));
                     INFO("Recreating swapchain completes.");
                     return true;
                 }
