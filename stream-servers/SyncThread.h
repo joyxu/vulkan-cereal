@@ -134,11 +134,10 @@ public:
     // Obtains the global sync thread.
     static SyncThread* get();
 
-    // Destroys and recreates the sync thread, for use on snapshot load.
+    // Destroys and cleanup the global sync thread.
     static void destroy();
-    static void recreate();
 
-private:
+   private:
     // |initSyncContext| creates an EGL context expressly for calling
     // eglClientWaitSyncKHR in the processing caused by |triggerWait|.
     // This is used by the constructor only. It is non-blocking.
