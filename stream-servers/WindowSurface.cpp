@@ -15,7 +15,7 @@
 */
 #include "WindowSurface.h"
 
-#include "host-common/logging.h"
+#include "ErrorLog.h"
 #include "FbConfig.h"
 #include "FrameBuffer.h"
 
@@ -101,12 +101,12 @@ bool WindowSurface::flushColorBuffer() {
     if (mAttachedColorBuffer->getWidth() != mWidth ||
         mAttachedColorBuffer->getHeight() != mHeight) {
         // XXX: should never happen - how this needs to be handled?
-        ERR("Dimensions do not match");
+        fprintf(stderr, "Dimensions do not match\n");
         return false;
     }
 
     if (!mDrawContext.get()) {
-        ERR("%p: Draw context is NULL", this);
+        fprintf(stderr, "%p: Draw context is NULL\n", this);
         return false;
     }
 
@@ -122,7 +122,7 @@ bool WindowSurface::flushColorBuffer() {
                                   mSurface,
                                   mSurface,
                                   mDrawContext->getEGLContext())) {
-            ERR("Error making draw context current");
+            fprintf(stderr, "Error making draw context current\n");
             return false;
         }
     }
@@ -176,7 +176,7 @@ bool WindowSurface::resize(unsigned int p_width, unsigned int p_height)
                                              mConfig,
                                              pbufAttribs);
     if (mSurface == EGL_NO_SURFACE) {
-        ERR("Renderer error: failed to create/resize pbuffer!!");
+        fprintf(stderr, "Renderer error: failed to create/resize pbuffer!!\n");
         return false;
     }
 
