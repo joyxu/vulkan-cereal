@@ -44,37 +44,13 @@ else()
         ${gfxstream-base-posix-sources})
 endif()
 
-if (RECORDER_DELEGATE_LIB)
-    set(gfxstream-base-metrics-sources
-        MetricsRecorderDelegate.cpp)
-    set(gfxstream-base-metrics-link-libraries
-        recorder_delegate_lib)
-else()
-    set(gfxstream-base-metrics-sources
-        MetricsNoOp.cpp)
-    set(gfxstream-base-metrics-link-libraries)
-endif()
-
 add_library(
     gfxstream-base
     ${gfxstream-base-common-sources}
-    ${gfxstream-platform-sources}
-    ${gfxstream-base-metrics-sources})
-
-if (WIN32)
-    set(gfxstream-base-platform-deps "")
-else()
-    set(gfxstream-base-platform-deps dl)
-endif()
+    ${gfxstream-platform-sources})
 
 target_link_libraries(
-    gfxstream-base
-    PRIVATE
-    lz4
-    perfetto-tracing-only
-    ${gfxstream-base-platform-deps}
-    ${gfxstream-base-metrics-link-libraries})
-
+    gfxstream-base PRIVATE lz4 perfetto-tracing-only)
 target_include_directories(
     gfxstream-base PUBLIC ${GFXSTREAM_REPO_ROOT})
 if (NOT MSVC)

@@ -22,6 +22,8 @@
 #include "host-common/logging.h"
 #include "GLcommon/GLLibrary.h"
 
+#include "apigen-codec-common/ErrorLog.h"
+
 #include <windows.h>
 #include <wingdi.h>
 
@@ -603,7 +605,7 @@ public:
     explicit WinContext(const WglExtensionsDispatch* dispatch, HGLRC ctx) :
         mDispatch(dispatch), mCtx(ctx) {}
 
-    virtual ~WinContext() {
+    ~WinContext() {
         android::base::AutoLock lock(sGlobalLock);
         if (!mDispatch->wglDeleteContext(mCtx)) {
             WGL_ERR("error deleting WGL context! error 0x%x\n",

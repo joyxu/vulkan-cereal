@@ -16,7 +16,6 @@
 
 #include "GLEScmContext.h"
 #include "GLEScmUtils.h"
-#include <algorithm>
 #include <GLcommon/GLutils.h>
 #include <GLcommon/GLconversion_macros.h>
 #include <string.h>
@@ -454,8 +453,7 @@ void GLEScmContext::setupArrayPointerHelper(GLESConversionArrays& cArrs,GLint fi
         }
 }
 
-void GLEScmContext::setupArraysPointers(GLESConversionArrays& cArrs,GLint first,GLsizei count,GLenum type,const GLvoid* indices,bool direct, bool* needEnablingPostDraw) {
-    (void)needEnablingPostDraw;
+void GLEScmContext::setupArraysPointers(GLESConversionArrays& cArrs,GLint first,GLsizei count,GLenum type,const GLvoid* indices,bool direct) {
     ArraysMap::iterator it;
     m_pointsIndex = -1;
 
@@ -579,50 +577,36 @@ bool GLEScmContext::doConvert(GLESConversionArrays& cArrs,GLint first,GLsizei co
     return needConvert(cArrs, first, count, type, indices, direct, p, array_id);
 }
 
-void GLEScmContext::getColor(uint32_t count, std::vector<float>& out) const {
-    std::vector<float> vec(4);
+std::vector<float> GLEScmContext::getColor() const {
     switch (mColor.type) {
         case GL_UNSIGNED_BYTE:
-            vec = { mColor.val.ubyteVal[0] / 255.0f,
-                    mColor.val.ubyteVal[1] / 255.0f,
-                    mColor.val.ubyteVal[2] / 255.0f,
-                    mColor.val.ubyteVal[3] / 255.0f, };
+            return
+            { mColor.val.ubyteVal[0] / 255.0f,
+              mColor.val.ubyteVal[1] / 255.0f,
+              mColor.val.ubyteVal[2] / 255.0f,
+              mColor.val.ubyteVal[3] / 255.0f, };
         default:
-            vec = { mColor.val.floatVal[0],
-                    mColor.val.floatVal[1],
-                    mColor.val.floatVal[2],
-                    mColor.val.floatVal[3], };
+        case GL_FLOAT:
+            return { mColor.val.floatVal[0],
+                     mColor.val.floatVal[1],
+                     mColor.val.floatVal[2],
+                     mColor.val.floatVal[3], };
     }
-
-    appendRepeatedVector(count, vec, out);
 }
 
-void GLEScmContext::getNormal(uint32_t count, std::vector<float>& out) const {
-    std::vector<float> vec = { mNormal.val.floatVal[0],
+std::vector<float> GLEScmContext::getNormal() const {
+    return
+        { mNormal.val.floatVal[0],
           mNormal.val.floatVal[1],
           mNormal.val.floatVal[2] };
-
-    appendRepeatedVector(count, vec, out);
 }
 
-void GLEScmContext::getMultiTexCoord(uint32_t count, uint32_t index, std::vector<float>& out) const {
-    // s, t, r, qcomponents
-    std::vector<float> vec = { mMultiTexCoord[index].floatVal[0],
+std::vector<float> GLEScmContext::getMultiTexCoord(uint32_t index) const {
+    return // s, t, r, qcomponents
+        { mMultiTexCoord[index].floatVal[0],
           mMultiTexCoord[index].floatVal[1],
           mMultiTexCoord[index].floatVal[2],
           mMultiTexCoord[index].floatVal[3] };
-
-    appendRepeatedVector(count, vec, out);
-}
-
-void GLEScmContext::appendRepeatedVector(uint32_t count, std::vector<float>& in, std::vector<float>& out) const {
-    size_t previousOutSize = out.size();
-    out.resize(previousOutSize + (count * in.size()));
-    auto it = out.begin() + previousOutSize;
-    for (int i = 0; i < count; i++) {
-        std::copy(in.begin(), in.end(), it);
-        it += in.size();
-    }
 }
 
 GLenum GLEScmContext::getTextureEnvMode() {
@@ -991,7 +975,7 @@ void GLEScmContext::orthof(GLfloat left, GLfloat right, GLfloat bottom, GLfloat 
     if (m_coreProfileEngine) {
         core().orthof(left, right, bottom, top, zNear, zFar);
     } else {
-        dispatcher().glOrthof(left,right,bottom,top,zNear,zFar);
+        dispatcher().glOrtho(left,right,bottom,top,zNear,zFar);
     }
 }
 
@@ -1855,7 +1839,7 @@ void GLEScmContext::drawArrays(GLenum mode, GLint first, GLsizei count) {
     } else {
         GLESConversionArrays tmpArrs;
 
-        setupArraysPointers(tmpArrs,first,count,0,NULL,true,nullptr);
+        setupArraysPointers(tmpArrs,first,count,0,NULL,true);
 
         if (mode == GL_POINTS && isArrEnabled(GL_POINT_SIZE_ARRAY_OES)){
             drawPointsArrs(tmpArrs,first,count);
@@ -1911,7 +1895,7 @@ void GLEScmContext::drawElements(GLenum mode, GLsizei count, GLenum type, const 
     } else {
         GLESConversionArrays tmpArrs;
 
-        setupArraysPointers(tmpArrs,0,count,type,indices,false,nullptr);
+        setupArraysPointers(tmpArrs,0,count,type,indices,false);
         if(mode == GL_POINTS && isArrEnabled(GL_POINT_SIZE_ARRAY_OES)){
             drawPointsElems(tmpArrs,count,type,indices);
         }
@@ -1924,7 +1908,6 @@ void GLEScmContext::drawElements(GLenum mode, GLsizei count, GLenum type, const 
 }
 
 void GLEScmContext::clientActiveTexture(GLenum texture) {
-    setClientActiveTexture(texture);
     if (m_coreProfileEngine) {
         core().clientActiveTexture(texture);
     } else {

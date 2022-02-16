@@ -14,10 +14,6 @@ add_library(
     gfxstream-host-common
     STATIC
 
-    # logging
-    logging.cpp
-    GfxstreamFatalError.cpp
-
     # emugl glue
     crash_reporter.cpp
     vm_operations.cpp
@@ -105,20 +101,11 @@ add_executable(
     address_space_host_memory_allocator_unittests.cpp
     address_space_shared_slots_host_memory_allocator_unittests.cpp
     HostAddressSpace_unittest.cpp
-    HostmemIdMapping_unittest.cpp
-    logging_unittest.cpp
-    GfxstreamFatalError_unittest.cpp)
-
-target_include_directories(
-    gfxstream-host-common_unittests
-    PRIVATE
-    ${GFXSTREAM_REPO_ROOT}/include)
-
+    HostmemIdMapping_unittest.cpp)
 target_link_libraries(
     gfxstream-host-common_unittests
     PRIVATE
     gfxstream-base
     gfxstream-host-common
     gfxstream-host-common-testing-support
-    gtest_main
-    gmock_main)
+    gtest_main)
