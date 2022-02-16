@@ -543,13 +543,9 @@ extern "C" VG_EXPORT void gfxstream_backend_setup_window(
 }
 
 static void set_post_callback(struct renderer_display_info* r, post_callback_t func, uint32_t display_type) {
-
-    // crosvm needs bgra readback depending on the display type
-    bool use_bgra_readback = false;
     switch (display_type) {
         case POST_CALLBACK_DISPLAY_TYPE_X:
             GFXS_LOG("using display type: X11");
-            use_bgra_readback = true;
             break;
         case POST_CALLBACK_DISPLAY_TYPE_WAYLAND_SHARED_MEM:
             GFXS_LOG("using display type: wayland shared mem");

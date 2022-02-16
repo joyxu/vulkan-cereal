@@ -83,12 +83,9 @@ TEST(Logging, FormatsPrefixCorrectly) {
     CaptureStdout();
     INFO("foo");
     std::string log = GetCapturedStdout();
-    // gtest on Windows has only very limited regexp support. `{n}` isn't supported.
-    // See http://go/gunitadvanced#regular-expression-syntax for the full syntax.
     EXPECT_THAT(
-        log,
-        MatchesStdRegex(
-            R"re(I\d\d\d\d \d\d:\d\d:\d\d.\d\d\d\d\d\d +\d+ logging_unittest.cpp:\d+\] foo\n)re"));
+        log, MatchesStdRegex(
+                 R"re(I\d{4} \d{2}:\d{2}:\d{2}\.\d{6} +\d+ logging_unittest.cpp:\d+\] foo\n)re"));
 }
 
 TEST(Logging, OutputsTimestamp) {
