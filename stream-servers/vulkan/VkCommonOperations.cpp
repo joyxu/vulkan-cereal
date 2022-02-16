@@ -445,7 +445,7 @@ static std::vector<VkEmulation::ImageSupportInfo> getBasicImageSupportList() {
     return res;
 }
 
-VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
+VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
 #define VK_EMU_INIT_RETURN_ON_ERROR(...) \
     do {                                 \
         ERR(__VA_ARGS__);                \
@@ -1060,30 +1060,32 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
     return sVkEmulation;
 }
 
-void setGlInteropSupported(bool supported) {
-    if (!sVkEmulation) {
-        // LOG(VERBOSE) << "Not setting vk/gl interop support, Vulkan not enabled";
+void initVkEmulationFeatures(const VkEmulationFeatures& features) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        ERR("VkEmulation is either not initialized or destroyed.");
         return;
     }
 
-    // LOG(VERBOSE) << "Setting gl interop support for Vk to: " << supported;
-    sVkEmulation->deviceInfo.glInteropSupported = supported;
-}
+    AutoLock lock(sVkEmulationLock);
+    INFO("Initializing VkEmulation features:");
+    INFO("    glInteropSupported: %s", features.glInteropSupported ? "true" : "false");
+    INFO("    useDeferredCommands: %s", features.deferredCommands ? "true" : "false");
+    INFO("    createResourceWithRequirements: %s",
+         features.createResourceWithRequirements ? "true" : "false");
+    INFO("    useVulkanNativeSwapchain: %s", features.useVulkanNativeSwapchain ? "true" : "false");
+    sVkEmulation->deviceInfo.glInteropSupported = features.glInteropSupported;
+    sVkEmulation->useDeferredCommands = features.deferredCommands;
+    sVkEmulation->useCreateResourcesWithRequirements = features.createResourceWithRequirements;
 
-void setUseDeferredCommands(VkEmulation* emu, bool useDeferredCommands) {
-    if (!emu) return;
-    if (!emu->live) return;
-
-    // LOG(VERBOSE) << "Using deferred Vulkan commands: " << useDeferredCommands;
-    emu->useDeferredCommands = useDeferredCommands;
-}
-
-void setUseCreateResourcesWithRequirements(VkEmulation* emu, bool useCreateResourcesWithRequirements) {
-    if (!emu) return;
-    if (!emu->live) return;
-
-    /// LOG(VERBOSE) << "Using deferred Vulkan commands: " << useCreateResourcesWithRequirements;
-    emu->useCreateResourcesWithRequirements = useCreateResourcesWithRequirements;
+    if (features.useVulkanNativeSwapchain) {
+        if (sVkEmulation->displayVk) {
+            ERR("Reset VkEmulation::displayVk.");
+        }
+        sVkEmulation->displayVk = std::make_unique<DisplayVk>(
+            *sVkEmulation->ivk, sVkEmulation->physdev, sVkEmulation->queueFamilyIndex,
+            sVkEmulation->queueFamilyIndex, sVkEmulation->device, sVkEmulation->queue,
+            sVkEmulation->queueLock, sVkEmulation->queue, sVkEmulation->queueLock);
+    }
 }
 
 VkEmulation* getGlobalVkEmulation() {
@@ -1096,6 +1098,8 @@ void teardownGlobalVkEmulation() {
 
     // Don't try to tear down something that did not set up completely; too risky
     if (!sVkEmulation->live) return;
+
+    sVkEmulation->displayVk.reset();
 
     freeExternalMemoryLocked(sVkEmulation->dvk, &sVkEmulation->staging.memory);
 
