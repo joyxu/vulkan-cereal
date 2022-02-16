@@ -89,6 +89,7 @@ struct VkEmulation {
             getImageFormatProperties2Func = nullptr;
     PFN_vkGetPhysicalDeviceProperties2KHR
             getPhysicalDeviceProperties2Func = nullptr;
+    PFN_vkGetPhysicalDeviceFeatures2 getPhysicalDeviceFeatures2Func = nullptr;
 
     bool instanceSupportsMoltenVK = false;
     PFN_vkSetMTLTextureMVK setMTLTextureFunc = nullptr;
@@ -134,6 +135,8 @@ struct VkEmulation {
         bool hasComputeQueueFamily = false;
         bool supportsExternalMemory = false;
         bool supportsIdProperties = false;
+        bool hasSamplerYcbcrConversionExtension = false;
+        bool supportsSamplerYcbcrConversion = false;
         bool glInteropSupported = false;
 
         std::vector<uint32_t> graphicsQueueFamilyIndices;
