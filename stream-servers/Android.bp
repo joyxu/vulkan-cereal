@@ -79,6 +79,7 @@ cc_library_shared {
         "RenderLibImpl.cpp",
         "RendererImpl.cpp",
         "FrameBuffer.cpp",
+        "vulkan/vk_util.cpp",
 
         "GfxStreamAgents.cpp",
         "virtio-gpu-gfxstream-renderer.cpp",
