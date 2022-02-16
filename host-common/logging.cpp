@@ -1,6 +1,7 @@
 #include "logging.h"
 
 #include <chrono>
+#include <cinttypes>
 #include <cstdarg>
 #include <cstring>
 #include <sstream>
@@ -88,9 +89,9 @@ void OutputLog(FILE* stream, char severity, const char* file, unsigned int line,
 
     // Output the standard Google logging prefix
     // See also: https://github.com/google/glog/blob/9dc1107f88d3a1613d61b80040d83c1c1acbac3d/src/logging.cc#L1612-L1615
-    fprintf(stream, "%c%02d%02d %02d:%02d:%02d.%06llu %7s %s:%d] ", severity, ts_parts.tm_mon + 1,
-            ts_parts.tm_mday, ts_parts.tm_hour, ts_parts.tm_min, ts_parts.tm_sec,
-            microseconds, getCachedThreadID(), GetFileBasename(file), line);
+    fprintf(stream, "%c%02d%02d %02d:%02d:%02d.%06" PRId64 " %7s %s:%d] ", severity,
+            ts_parts.tm_mon + 1, ts_parts.tm_mday, ts_parts.tm_hour, ts_parts.tm_min,
+            ts_parts.tm_sec, microseconds, getCachedThreadID(), GetFileBasename(file), line);
 
     // Output the actual log message and newline
     va_list args;
