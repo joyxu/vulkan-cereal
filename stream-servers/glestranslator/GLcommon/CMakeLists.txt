@@ -1,7 +1,6 @@
 add_library(
   GLcommon
   etc.cpp
-  rgtc.cpp
   FramebufferData.cpp
   GLBackgroundLoader.cpp
   GLDispatch.cpp

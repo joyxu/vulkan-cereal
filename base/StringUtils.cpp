@@ -25,8 +25,6 @@
 #include <string>
 #include <vector>
 
-#include "host-common/GfxstreamFatalError.h"
-
 #ifdef _WIN32
 const void* memmem(const void* haystack, size_t haystackLen,
                    const void* needle, size_t needleLen) {
@@ -44,9 +42,6 @@ const void* memmem(const void* haystack, size_t haystackLen,
             : it;
 }
 #endif  // _WIN32
-
-using emugl::ABORT_REASON_OTHER;
-using emugl::FatalError;
 
 namespace android {
 namespace base {
@@ -131,7 +126,7 @@ void splitTokens(const std::string& input,
 
 #define CHECK_NE(a, b) \
     if ((a) == (b))    \
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER));
+        abort();
 
 std::vector<std::string> Split(const std::string& s,
                                const std::string& delimiters) {

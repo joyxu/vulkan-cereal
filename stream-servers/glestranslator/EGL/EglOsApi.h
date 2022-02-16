@@ -19,7 +19,6 @@
 #include "base/Compiler.h"
 
 #include <EGL/egl.h>
-#include <EGL/eglext.h>
 
 #include <memory>
 
@@ -64,9 +63,6 @@ public:
     bool isCoreProfile() const {
         return mCoreProfile;
     }
-
-    virtual void* getNative() { return nullptr; }
-
 protected:
     ~Context() = default;
 private:
@@ -162,8 +158,6 @@ public:
     virtual ~Display() {}
 
     virtual GlesVersion getMaxGlesVersion() = 0;
-    virtual const char* getExtensionString() { return ""; }
-    virtual const char* getVendorString() { return "Google"; }
 
     virtual void queryConfigs(int renderableType,
                               AddConfigCallback* addConfigFunc,
@@ -185,21 +179,6 @@ public:
     virtual Surface* createPbufferSurface(
             const PixelFormat* pixelFormat, const PbufferInfo* info) = 0;
 
-    virtual EGLImage createImageKHR(
-            EGLDisplay,
-            EGLContext,
-            EGLenum,
-            EGLClientBuffer,
-            const EGLint* attribs) {
-        return (EGLImage)0;
-    }
-
-    virtual EGLBoolean destroyImageKHR(
-            EGLDisplay,
-            EGLImage) { return EGL_FALSE; }
-
-    virtual EGLDisplay getNative() { return (EGLDisplay)0; }
-
     virtual bool releasePbuffer(Surface* pb) = 0;
 
     virtual bool makeCurrent(Surface* read,
@@ -207,8 +186,6 @@ public:
                              Context* context) = 0;
 
     virtual void swapBuffers(Surface* srfc) = 0;
-
-    virtual EGLBoolean releaseThread() { return EGL_TRUE; }
 
     DISALLOW_COPY_AND_ASSIGN(Display);
 };
@@ -230,18 +207,11 @@ public:
     // Return to engine-specific implementation of eglGetProcAddress.
     virtual void* eglGetProcAddress(const char*) = 0;
 
-    // Return to engine-specific implementation of eglDebugMessageControlKHR.
-    virtual EGLint eglDebugMessageControlKHR(EGLDEBUGPROCKHR callback,
-                                             const EGLAttrib* attribs) {
-        return EGL_BAD_ATTRIBUTE;
-    }
-
     // Create a new window surface. |wnd| is a host-specific window handle
     // (e.g. a Windows HWND). A software renderer would always return NULL
     // here.
     virtual Surface* createWindowSurface(PixelFormat* cfg,
                                          EGLNativeWindowType wnd) = 0;
-
 
     // Retrieve the implementation for the current host. This can be called
     // multiple times, and will initialize the engine on first call.
@@ -250,7 +220,7 @@ public:
 
 // getEgl2EglHostInstance returns a host instance that is used to mount
 // EGL/GLES translator on top of another EGL/GLES library
-Engine* getEgl2EglHostInstance(bool nullEgl);
+Engine* getEgl2EglHostInstance();
 
 }  // namespace EglOS
 
