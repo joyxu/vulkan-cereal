@@ -22,8 +22,6 @@ cc_library_static {
         "sync_device.cpp",
         "misc.cpp",
         "window_operations.cpp",
-        "logging.cpp",
-        "GfxstreamFatalError.cpp",
 
         "AndroidPipe.cpp",
         "HostmemIdMapping.cpp",
