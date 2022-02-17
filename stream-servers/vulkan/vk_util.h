@@ -37,7 +37,6 @@
 #include <type_traits>
 #include <vector>
 
-#include "VkCommonOperations.h"
 #include "base/Lock.h"
 #include "common/vk_struct_id.h"
 #include "host-common/GfxstreamFatalError.h"
@@ -270,15 +269,43 @@ template <class S, class T> void vk_struct_chain_remove(S* unwanted, T* vk_struc
     }
 }
 
-#define VK_CHECK(x)                                    \
-    do {                                               \
-        VkResult err = x;                              \
-        if (err != VK_SUCCESS) {                       \
-            GFXSTREAM_ABORT(::emugl::FatalError(err)); \
-        }                                              \
+#define VK_CHECK(x)                                                     \
+    do {                                                                \
+        VkResult err = x;                                               \
+        if (err != VK_SUCCESS) {                                        \
+            if (err == VK_ERROR_DEVICE_LOST) {                          \
+                ::vk_util::getVkCheckCallbacks().callIfExists(          \
+                    &::vk_util::VkCheckCallbacks::onVkErrorDeviceLost); \
+            }                                                           \
+            GFXSTREAM_ABORT(::emugl::FatalError(err));                  \
+        }                                                               \
     } while (0)
 
 namespace vk_util {
+
+typedef struct {
+    std::function<void()> onVkErrorDeviceLost;
+} VkCheckCallbacks;
+
+template <class T>
+class CallbacksWrapper {
+   public:
+    CallbacksWrapper(std::unique_ptr<T> callbacks) : mCallbacks(std::move(callbacks)) {}
+    // function should be a member function pointer to T.
+    template <class U, class... Args>
+    void callIfExists(U function, Args &&...args) const {
+        if (mCallbacks && (*mCallbacks.*function)) {
+            (*mCallbacks.*function)(std::forward(args)...);
+        }
+    }
+
+   private:
+    std::unique_ptr<T> mCallbacks;
+};
+
+void setVkCheckCallbacks(std::unique_ptr<VkCheckCallbacks>);
+const CallbacksWrapper<VkCheckCallbacks> &getVkCheckCallbacks();
+
 class CRTPBase {};
 
 template <class T, class U = CRTPBase>
