@@ -14,6 +14,10 @@ add_library(
     gfxstream-host-common
     STATIC
 
+    # logging
+    logging.cpp
+    GfxstreamFatalError.cpp
+
     # emugl glue
     crash_reporter.cpp
     vm_operations.cpp
@@ -66,6 +70,7 @@ add_library(
     ${gfxstream-host-common-opengles-platform-sources}
 
     )
+
 target_include_directories(
     gfxstream-host-common
     PRIVATE
@@ -95,17 +100,42 @@ target_link_libraries(
     gtest
     gmock)
 
+get_target_property(
+    gfxstream-host-common-sources
+    gfxstream-host-common
+    SOURCES)
+
+get_target_property(
+    gfxstream-host-common-include-dirs
+    gfxstream-host-common
+    INCLUDE_DIRECTORIES)
+
 add_executable(
     gfxstream-host-common_unittests
+    ${gfxstream-host-common-sources}
     address_space_graphics_unittests.cpp
     address_space_host_memory_allocator_unittests.cpp
     address_space_shared_slots_host_memory_allocator_unittests.cpp
     HostAddressSpace_unittest.cpp
-    HostmemIdMapping_unittest.cpp)
+    HostmemIdMapping_unittest.cpp
+    logging_unittest.cpp
+    GfxstreamFatalError_unittest.cpp)
+
+target_include_directories(
+    gfxstream-host-common_unittests
+    PRIVATE
+    ${GFXSTREAM_REPO_ROOT}/include
+    ${gfxstream-host-common-include-dirs})
+
 target_link_libraries(
     gfxstream-host-common_unittests
     PRIVATE
     gfxstream-base
-    gfxstream-host-common
     gfxstream-host-common-testing-support
-    gtest_main)
+    gtest_main
+    gmock_main)
+
+target_compile_definitions(
+    gfxstream-host-common_unittests
+    PUBLIC
+    GFXSTREAM_TESTING)
