@@ -35,7 +35,11 @@ target_include_directories(gfxstream-vulkan-server
 
 add_executable(
     vk_util_unittest
-    vk_util_unittest.cpp)
+    vk_util_unittest.cpp
+    vk_util.cpp
+    ${GFXSTREAM_REPO_ROOT}/host-common/GfxstreamFatalError.cpp
+    ${GFXSTREAM_REPO_ROOT}/host-common/logging.cpp
+    ${GFXSTREAM_REPO_ROOT}/base/MetricsNoOp.cpp)
 target_include_directories(
     vk_util_unittest
     PRIVATE
@@ -50,3 +54,7 @@ target_link_libraries(
     PRIVATE
     gtest
     gmock)
+target_compile_definitions(
+    vk_util_unittest
+    PUBLIC
+    GFXSTREAM_TESTING)

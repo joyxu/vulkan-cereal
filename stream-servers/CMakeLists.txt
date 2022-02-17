@@ -48,7 +48,8 @@ set(stream-server-core-sources
     RenderWindow.cpp
     RenderLibImpl.cpp
     RendererImpl.cpp
-    FrameBuffer.cpp)
+    FrameBuffer.cpp
+    vulkan/vk_util.cpp)
 if (APPLE)
     set(stream-server-core-platform-sources NativeSubWindow_cocoa.m)
 elseif (WIN32)
@@ -247,7 +248,9 @@ target_link_libraries(
 add_executable(
     VirtioGpuTimelines_unittests
     tests/VirtioGpuTimelines_unittest.cpp
-    VirtioGpuTimelines.cpp)
+    VirtioGpuTimelines.cpp
+    ${GFXSTREAM_REPO_ROOT}/host-common/GfxstreamFatalError.cpp
+    ${GFXSTREAM_REPO_ROOT}/host-common/logging.cpp)
 target_include_directories(
     VirtioGpuTimelines_unittests
     PRIVATE

@@ -17,6 +17,8 @@
 
 #include "vk_util.h"
 
+#include <vulkan/vulkan_core.h>
+
 #include <tuple>
 
 namespace vk_util {
@@ -131,6 +133,44 @@ TEST(getVkInstanceProcAddrWithFallbackTest, firstNameShouldTakeThePriority) {
                   {vkGetInstanceProcAddrMock.AsStdFunction()}, instance),
               validFps[0]);
 }
+
+class VkCheckCallbacksTest : public ::testing::Test {
+   protected:
+    void SetUp() override {
+        // Do not abort on VK_CHECK failures.
+        emugl::setDieFunction([] {});
+    }
+    void TearDown() override {
+        setVkCheckCallbacks(nullptr);
+        emugl::setDieFunction(std::nullopt);
+    }
+};
+
+TEST_F(VkCheckCallbacksTest, defaultCallbacksWontCrash) { VK_CHECK(VK_ERROR_DEVICE_LOST); }
+
+TEST_F(VkCheckCallbacksTest, deviceLostCallbackShouldBeCalled) {
+    MockFunction<void()> onVkErrorDeviceLost;
+    setVkCheckCallbacks(std::make_unique<VkCheckCallbacks>(VkCheckCallbacks{
+        .onVkErrorDeviceLost = onVkErrorDeviceLost.AsStdFunction(),
+    }));
+
+    EXPECT_CALL(onVkErrorDeviceLost, Call()).Times(0);
+    VK_CHECK(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+    EXPECT_CALL(onVkErrorDeviceLost, Call());
+    VK_CHECK(VK_ERROR_DEVICE_LOST);
+}
+
+TEST_F(VkCheckCallbacksTest, nullCallbacksShoudntCrash) {
+    setVkCheckCallbacks(nullptr);
+    VK_CHECK(VK_ERROR_DEVICE_LOST);
+}
+
+TEST_F(VkCheckCallbacksTest, nullVkDeviceLostErrorCallbackShoudntCrash) {
+    setVkCheckCallbacks(
+        std::make_unique<VkCheckCallbacks>(VkCheckCallbacks{.onVkErrorDeviceLost = nullptr}));
+    VK_CHECK(VK_ERROR_DEVICE_LOST);
+}
+
 }  // namespace
 }  // namespace vk_util
 
