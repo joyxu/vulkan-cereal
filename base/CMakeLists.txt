@@ -44,13 +44,37 @@ else()
         ${gfxstream-base-posix-sources})
 endif()
 
+if (RECORDER_DELEGATE_LIB)
+    set(gfxstream-base-metrics-sources
+        MetricsRecorderDelegate.cpp)
+    set(gfxstream-base-metrics-link-libraries
+        recorder_delegate_lib)
+else()
+    set(gfxstream-base-metrics-sources
+        MetricsNoOp.cpp)
+    set(gfxstream-base-metrics-link-libraries)
+endif()
+
 add_library(
     gfxstream-base
     ${gfxstream-base-common-sources}
-    ${gfxstream-platform-sources})
+    ${gfxstream-platform-sources}
+    ${gfxstream-base-metrics-sources})
+
+if (WIN32)
+    set(gfxstream-base-platform-deps "")
+else()
+    set(gfxstream-base-platform-deps dl)
+endif()
 
 target_link_libraries(
-    gfxstream-base PRIVATE lz4 perfetto-tracing-only)
+    gfxstream-base
+    PRIVATE
+    lz4
+    perfetto-tracing-only
+    ${gfxstream-base-platform-deps}
+    ${gfxstream-base-metrics-link-libraries})
+
 target_include_directories(
     gfxstream-base PUBLIC ${GFXSTREAM_REPO_ROOT})
 if (NOT MSVC)
@@ -69,7 +93,9 @@ endif()
 # Tests
 add_library(
     gfxstream-base-testing-support
-    testing/file_io.cpp)
+    testing/file_io.cpp
+    ${GFXSTREAM_REPO_ROOT}/host-common/GfxstreamFatalError.cpp
+    ${GFXSTREAM_REPO_ROOT}/host-common/logging.cpp)
 target_include_directories(
     gfxstream-base-testing-support
     PRIVATE
