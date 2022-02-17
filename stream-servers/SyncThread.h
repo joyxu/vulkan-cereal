@@ -29,6 +29,7 @@
 #include "base/ThreadPool.h"
 #include "base/MessageChannel.h"
 #include "vulkan/VkDecoderGlobalState.h"
+#include "virtio_gpu_ops.h"
 
 // SyncThread///////////////////////////////////////////////////////////////////
 // The purpose of SyncThread is to track sync device timelines and give out +
@@ -36,9 +37,9 @@
 
 // We communicate with the sync thread in 3 ways:
 enum SyncThreadOpCode {
-    // Nonblocking command to initialize sync thread's contents,
-    // such as the EGL context for sync operations
-    SYNC_THREAD_INIT = 0,
+    // Nonblocking command to initialize sync thread's EGL contexts for sync
+    // operations
+    SYNC_THREAD_EGL_INIT = 0,
     // Nonblocking command to wait on a given FenceSync object
     // and timeline handle.
     // A fence FD object in the guest is signaled.
@@ -52,19 +53,32 @@ enum SyncThreadOpCode {
     // and timeline handle.
     // A fence FD object / Zircon eventpair in the guest is signaled.
     SYNC_THREAD_WAIT_VK = 4,
+    // Command to wait on the presentation the given VkImage.
+    SYNC_THREAD_WAIT_VK_QSRI = 5,
+    // Command that consists only of a callback.
+    SYNC_THREAD_GENERAL = 6,
 };
 
 struct SyncThreadCmd {
-    SyncThreadOpCode opCode = SYNC_THREAD_INIT;
+    // For use with initialization in multiple thread pools.
+    int workerId = 0;
+    // For use with ThreadPool::broadcastIndexed
+    void setIndex(int id) { workerId = id; }
+
+    SyncThreadOpCode opCode = SYNC_THREAD_EGL_INIT;
     union {
         FenceSync* fenceSync = nullptr;
         VkFence vkFence;
+        VkImage vkImage;
     };
     uint64_t timeline = 0;
 
     android::base::Lock* lock = nullptr;
     android::base::ConditionVariable* cond = nullptr;
     android::base::Optional<int>* result = nullptr;
+
+    bool useFenceCompletionCallback = false;
+    FenceCompletionCallback fenceCompletionCallback;;
 };
 
 struct RenderThreadInfo;
@@ -72,8 +86,8 @@ class SyncThread : public android::base::Thread {
 public:
     // - constructor: start up the sync worker threads for a given context.
     // The initialization of the sync threads is nonblocking.
-    // - Triggers a |SyncThreadCmd| with op code |SYNC_THREAD_INIT|
-    SyncThread();
+    // - Triggers a |SyncThreadCmd| with op code |SYNC_THREAD_EGL_INIT|
+    SyncThread(bool noGL);
     ~SyncThread();
 
     // |triggerWait|: async wait with a given FenceSync object.
@@ -99,6 +113,14 @@ public:
     // while waiting.
     void triggerBlockedWaitNoTimeline(FenceSync* fenceSync);
 
+    // For use with virtio-gpu and async fence completion callback. This is async like triggerWait, but takes a fence completion callback instead of incrementing some timeline directly.
+    void triggerWaitWithCompletionCallback(FenceSync* fenceSync, FenceCompletionCallback);
+    void triggerWaitVkWithCompletionCallback(VkFence fenceHandle, FenceCompletionCallback);
+    void triggerWaitVkQsriWithCompletionCallback(VkImage image, FenceCompletionCallback);
+    void triggerWaitVkQsriBlockedNoTimeline(VkImage image);
+
+    void triggerGeneral(FenceCompletionCallback);
+
     // |cleanup|: for use with destructors and other cleanup functions.
     // it destroys the sync context and exits the sync thread.
     // This is blocking; after this function returns, we're sure
@@ -106,19 +128,21 @@ public:
     // - Triggers a |SyncThreadCmd| with op code |SYNC_THREAD_EXIT|
     void cleanup();
 
+    // Initialize the global sync thread.
+    static void initialize(bool noGL);
+
     // Obtains the global sync thread.
     static SyncThread* get();
 
-    // Destroys and recreates the sync thread, for use on snapshot load.
+    // Destroys and cleanup the global sync thread.
     static void destroy();
-    static void recreate();
 
-private:
+   private:
     // |initSyncContext| creates an EGL context expressly for calling
     // eglClientWaitSyncKHR in the processing caused by |triggerWait|.
     // This is used by the constructor only. It is non-blocking.
-    // - Triggers a |SyncThreadCmd| with op code |SYNC_THREAD_INIT|
-    void initSyncContext();
+    // - Triggers a |SyncThreadCmd| with op code |SYNC_THREAD_EGL_INIT|
+    void initSyncEGLContext();
 
     // Thread function.
     // It keeps the workers runner until |mExiting| is set.
@@ -136,21 +160,26 @@ private:
     // |doSyncThreadCmd| and related functions below
     // execute the actual commands. These run on the sync thread.
     int doSyncThreadCmd(SyncThreadCmd* cmd);
-    void doSyncContextInit();
+    void doSyncEGLContextInit(SyncThreadCmd* cmd);
     void doSyncWait(SyncThreadCmd* cmd);
     int doSyncWaitVk(SyncThreadCmd* cmd);
+    int doSyncWaitVkQsri(SyncThreadCmd* cmd);
+    int doSyncGeneral(SyncThreadCmd* cmd);
     void doSyncBlockedWaitNoTimeline(SyncThreadCmd* cmd);
-    void doExit();
+    void doExit(SyncThreadCmd* cmd);
 
     // EGL objects / object handles specific to
     // a sync thread.
+    static const uint32_t kNumWorkerThreads = 4u;
+
     EGLDisplay mDisplay = EGL_NO_DISPLAY;
-    EGLContext mContext = EGL_NO_CONTEXT;
-    EGLSurface mSurface = EGL_NO_SURFACE;
+    EGLSurface mSurface[kNumWorkerThreads];
+    EGLContext mContext[kNumWorkerThreads];
 
     bool mExiting = false;
     android::base::Lock mLock;
     android::base::ConditionVariable mCv;
     android::base::ThreadPool<SyncThreadCmd> mWorkerThreadPool;
+    bool mNoGL;
 };
 
