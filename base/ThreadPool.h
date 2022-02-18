@@ -14,16 +14,18 @@
 
 #pragma once
 
+#include <atomic>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
 #include "base/Compiler.h"
 #include "base/Optional.h"
 #include "base/System.h"
 #include "base/WorkerThread.h"
-
-#include <atomic>
-#include <functional>
-#include <memory>
-#include <utility>
-#include <vector>
 
 //
 // ThreadPool<Item> - a simple collection of worker threads to process enqueued
@@ -64,21 +66,43 @@ class ThreadPool {
 
 public:
     using Item = ItemT;
-    using Worker = WorkerThread<Optional<Item>>;
-    using Processor = std::function<void(Item&&)>;
+    using WorkerId = uint32_t;
+    using Processor = std::function<void(Item&&, WorkerId)>;
 
-    ThreadPool(int threads, Processor&& processor)
-        : mProcessor(std::move(processor)) {
+   private:
+    struct Command {
+        Item mItem;
+        WorkerId mWorkerId;
+
+        Command(Item&& item, WorkerId workerId) : mItem(std::move(item)), mWorkerId(workerId) {}
+        DISALLOW_COPY_AND_ASSIGN(Command);
+        Command(Command&&) = default;
+    };
+    using Worker = WorkerThread<Optional<Command>>;
+
+   public:
+    // Fn is the type of the processor, it can either have 2 parameters: 1 for the Item, 1 for the
+    // WorkerId, or have only 1 Item parameter.
+    template <class Fn, typename = std::enable_if_t<std::is_invocable_v<Fn, Item, WorkerId> ||
+                                                    std::is_invocable_v<Fn, Item>>>
+    ThreadPool(int threads, Fn&& processor) : mProcessor() {
+        if constexpr (std::is_invocable_v<Fn, Item, WorkerId>) {
+            mProcessor = std::move(processor);
+        } else if constexpr (std::is_invocable_v<Fn, Item>) {
+            using namespace std::placeholders;
+            mProcessor = std::bind(std::move(processor), _1);
+        }
         if (threads < 1) {
             threads = android::base::getCpuCoreCount();
         }
         mWorkers = std::vector<Optional<Worker>>(threads);
         for (auto& workerPtr : mWorkers) {
-            workerPtr.emplace([this](Optional<Item>&& item) {
-                if (!item) {
+            workerPtr.emplace([this](Optional<Command>&& commandOpt) {
+                if (!commandOpt) {
                     return Worker::Result::Stop;
                 }
-                mProcessor(std::move(item.value()));
+                Command command = std::move(commandOpt.value());
+                mProcessor(std::move(command.mItem), command.mWorkerId);
                 return Worker::Result::Continue;
             });
         }
@@ -119,19 +143,7 @@ public:
         mValidWorkersCount = 0;
     }
 
-    void enqueue(Item&& item) {
-        for (;;) {
-            int currentIndex =
-                    mNextWorkerIndex.fetch_add(1, std::memory_order_relaxed);
-            auto& workerPtr = mWorkers[currentIndex % mWorkers.size()];
-            if (workerPtr) {
-                workerPtr->enqueue(std::move(item));
-                break;
-            }
-        }
-    }
-
-    void enqueueIndexed(const Item& item) {
+    void enqueue(const Item& item) {
         for (;;) {
             int currentIndex =
                     mNextWorkerIndex.fetch_add(1, std::memory_order_relaxed);
@@ -139,31 +151,20 @@ public:
             auto& workerPtr = mWorkers[workerIndex];
             if (workerPtr) {
                 Item itemCopy = item;
-                itemCopy.setIndex(workerIndex);
-                workerPtr->enqueue(std::move(itemCopy));
+                Command command(std::move(itemCopy), workerIndex);
+                workerPtr->enqueue(std::move(command));
                 break;
             }
         }
     }
 
-    // Runs the same Item for all workers.
     void broadcast(const Item& item) {
-        for (auto workerOpt : mWorkers) {
-            if (!workerOpt) continue;
-            Item itemCopy = item;
-            workerOpt->enqueue(std::move(itemCopy));
-        }
-    }
-
-    // broadcast(), except the Item type must support a method to expose the
-    // worker id.
-    void broadcastIndexed(const Item& item) {
         int i = 0;
         for (auto& workerOpt : mWorkers) {
             if (!workerOpt) continue;
             Item itemCopy = item;
-            itemCopy.setIndex(i);
-            workerOpt->enqueue(std::move(itemCopy));
+            Command command(std::move(itemCopy), i);
+            workerOpt->enqueue(std::move(command));
             ++i;
         }
     }

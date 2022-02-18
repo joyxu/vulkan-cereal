@@ -98,9 +98,15 @@ static const uint64_t kDefaultTimeoutNsecs = 5ULL * 1000ULL * 1000ULL * 1000ULL;
 
 SyncThread::SyncThread(bool noGL)
     : android::base::Thread(android::base::ThreadFlags::MaskSignals, 512 * 1024),
-      mWorkerThreadPool(kNumWorkerThreads, [this](SyncThreadCmd&& cmd) { doSyncThreadCmd(&cmd); }),
+      mWorkerThreadPool(kNumWorkerThreads,
+                        [this](SyncThreadCmd&& cmd, ThreadPool::WorkerId workerId) {
+                            doSyncThreadCmd(&cmd, workerId);
+                        }),
       mSignalPresentCompleteWorkerThreadPool(
-          kNumWorkerThreads, [this](SyncThreadCmd&& cmd) { doSyncThreadCmd(&cmd); }),
+          kNumWorkerThreads,
+          [this](SyncThreadCmd&& cmd, ThreadPool::WorkerId workerId) {
+              doSyncThreadCmd(&cmd, workerId);
+          }),
       mNoGL(noGL) {
     this->start();
     mWorkerThreadPool.start();
@@ -234,7 +240,7 @@ void SyncThread::initSyncEGLContext() {
     DPRINT("enter");
     SyncThreadCmd to_send;
     to_send.opCode = SYNC_THREAD_EGL_INIT;
-    mWorkerThreadPool.broadcastIndexed(to_send);
+    mWorkerThreadPool.broadcast(to_send);
     mWorkerThreadPool.waitAllItems();
     DPRINT("exit");
 }
@@ -518,7 +524,7 @@ void SyncThread::doExit(SyncThreadCmd* cmd) {
     }
 }
 
-int SyncThread::doSyncThreadCmd(SyncThreadCmd* cmd) {
+int SyncThread::doSyncThreadCmd(SyncThreadCmd* cmd, ThreadPool::WorkerId workerId) {
 #if DEBUG
     thread_local static auto threadId = android::base::getCurrentThreadId();
     thread_local static size_t numCommands = 0U;
@@ -527,6 +533,7 @@ int SyncThread::doSyncThreadCmd(SyncThreadCmd* cmd) {
 #endif  // DEBUG
 
     int result = 0;
+    cmd->workerId = workerId;
     switch (cmd->opCode) {
     case SYNC_THREAD_EGL_INIT:
         DPRINT("exec SYNC_THREAD_EGL_INIT");

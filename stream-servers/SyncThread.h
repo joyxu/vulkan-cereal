@@ -62,8 +62,6 @@ enum SyncThreadOpCode {
 struct SyncThreadCmd {
     // For use with initialization in multiple thread pools.
     int workerId = 0;
-    // For use with ThreadPool::broadcastIndexed
-    void setIndex(int id) { workerId = id; }
 
     SyncThreadOpCode opCode = SYNC_THREAD_EGL_INIT;
     union {
@@ -141,6 +139,7 @@ public:
     static void destroy();
 
    private:
+    using ThreadPool = android::base::ThreadPool<SyncThreadCmd>;
     // |initSyncContext| creates an EGL context expressly for calling
     // eglClientWaitSyncKHR in the processing caused by |triggerWait|.
     // This is used by the constructor only. It is non-blocking.
@@ -162,7 +161,7 @@ public:
 
     // |doSyncThreadCmd| and related functions below
     // execute the actual commands. These run on the sync thread.
-    int doSyncThreadCmd(SyncThreadCmd* cmd);
+    int doSyncThreadCmd(SyncThreadCmd* cmd, ThreadPool::WorkerId);
     void doSyncEGLContextInit(SyncThreadCmd* cmd);
     void doSyncWait(SyncThreadCmd* cmd);
     int doSyncWaitVk(SyncThreadCmd* cmd);
@@ -182,7 +181,7 @@ public:
     bool mExiting = false;
     android::base::Lock mLock;
     android::base::ConditionVariable mCv;
-    android::base::ThreadPool<SyncThreadCmd> mWorkerThreadPool;
+    ThreadPool mWorkerThreadPool;
     android::base::ThreadPool<SyncThreadCmd> mSignalPresentCompleteWorkerThreadPool;
     bool mNoGL;
 };
