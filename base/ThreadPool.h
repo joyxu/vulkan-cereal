@@ -60,13 +60,15 @@
 namespace android {
 namespace base {
 
+using ThreadPoolWorkerId = uint32_t;
+
 template <class ItemT>
 class ThreadPool {
     DISALLOW_COPY_AND_ASSIGN(ThreadPool);
 
 public:
     using Item = ItemT;
-    using WorkerId = uint32_t;
+    using WorkerId = ThreadPoolWorkerId;
     using Processor = std::function<void(Item&&, WorkerId)>;
 
    private:
@@ -143,27 +145,27 @@ public:
         mValidWorkersCount = 0;
     }
 
-    void enqueue(const Item& item) {
+    void enqueue(Item&& item) {
         for (;;) {
             int currentIndex =
                     mNextWorkerIndex.fetch_add(1, std::memory_order_relaxed);
             int workerIndex = currentIndex % mWorkers.size();
             auto& workerPtr = mWorkers[workerIndex];
             if (workerPtr) {
-                Item itemCopy = item;
-                Command command(std::move(itemCopy), workerIndex);
+                Command command(std::forward<Item>(item), workerIndex);
                 workerPtr->enqueue(std::move(command));
                 break;
             }
         }
     }
 
-    void broadcast(const Item& item) {
+    // The itemFactory will be called multiple times to generate one item for each worker thread.
+    template <class Fn, typename = std::enable_if_t<std::is_invocable_r_v<Item, Fn>>>
+    void broadcast(Fn&& itemFactory) {
         int i = 0;
         for (auto& workerOpt : mWorkers) {
             if (!workerOpt) continue;
-            Item itemCopy = item;
-            Command command(std::move(itemCopy), i);
+            Command command(std::move(itemFactory()), i);
             workerOpt->enqueue(std::move(command));
             ++i;
         }
