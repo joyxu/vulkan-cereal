@@ -255,7 +255,13 @@ int SyncThread::sendAndWaitForResult(SyncThreadCmd& cmd) {
     cond.wait(&lock, [&result] { return result.hasValue(); });
 
     DPRINT("result=%d", *result);
-    return *result;
+    int final_result = *result;
+
+    // Clear these to prevent dangling pointers after we return.
+    cmd.lock = nullptr;
+    cmd.cond = nullptr;
+    cmd.result = nullptr;
+    return final_result;
 }
 
 void SyncThread::sendAsync(SyncThreadCmd& cmd) {
