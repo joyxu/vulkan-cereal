@@ -12,7 +12,10 @@ using android::base::CreateMetricsLogger;
 using android::base::GfxstreamVkAbort;
 
 std::optional<std::function<void()>> customDieFunction = std::nullopt;
-[[noreturn]] void die() {
+#ifndef GFXSTREAM_TESTING
+[[noreturn]]
+#endif
+void die() {
     if (customDieFunction) {
         (*customDieFunction)();
     } else {

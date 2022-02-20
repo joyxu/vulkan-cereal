@@ -53,17 +53,16 @@ static void sDefaultRunOnUiThread(UiUpdateFunc f, void* data, bool wait) {
     (void)wait;
 }
 
-PostWorker::PostWorker(PostWorker::BindSubwinCallback&& cb,
-                       bool mainThreadPostingOnly, EGLContext eglContext,
-                       EGLSurface, std::shared_ptr<DisplayVk> displayVk)
+PostWorker::PostWorker(PostWorker::BindSubwinCallback&& cb, bool mainThreadPostingOnly,
+                       EGLContext eglContext, EGLSurface,
+                       DisplayVk* displayVk)
     : mFb(FrameBuffer::getFB()),
       mBindSubwin(cb),
       m_mainThreadPostingOnly(mainThreadPostingOnly),
-      m_runOnUiThread(m_mainThreadPostingOnly
-                          ? emugl::get_emugl_window_operations().runOnUiThread
-                          : sDefaultRunOnUiThread),
+      m_runOnUiThread(m_mainThreadPostingOnly ? emugl::get_emugl_window_operations().runOnUiThread
+                                              : sDefaultRunOnUiThread),
       mContext(eglContext),
-      m_displayVk(std::move(displayVk)) {}
+      m_displayVk(displayVk) {}
 
 void PostWorker::fillMultiDisplayPostStruct(ComposeLayer* l,
                                             hwc_rect_t displayArea,
