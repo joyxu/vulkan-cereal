@@ -22,6 +22,7 @@
 
 #include <functional>
 #include <future>
+#include <string>
 #include <type_traits>
 
 #include "FenceSync.h"
@@ -75,12 +76,7 @@ public:
     void triggerWaitWithCompletionCallback(FenceSync* fenceSync, FenceCompletionCallback);
     void triggerWaitVkWithCompletionCallback(VkFence fenceHandle, FenceCompletionCallback);
     void triggerWaitVkQsriWithCompletionCallback(VkImage image, FenceCompletionCallback);
-    void triggerWaitVkQsriBlockedNoTimeline(VkImage image);
-    // Similar to triggerGeneral, but will dispatch the task to the dedicated
-    // signalPresentCompleteWorkerThreadPool.
-    void triggerSignalVkPresentComplete(FenceCompletionCallback);
-
-    void triggerGeneral(FenceCompletionCallback);
+    void triggerGeneral(FenceCompletionCallback, std::string description);
 
     // |cleanup|: for use with destructors and other cleanup functions.
     // it destroys the sync context and exits the sync thread.
@@ -129,7 +125,6 @@ public:
 
     void doSyncWait(FenceSync* fenceSync, std::function<void()> onComplete);
     static int doSyncWaitVk(VkFence, std::function<void()> onComplete);
-    static int doSyncWaitVkQsri(VkImage, std::function<void()> onComplete);
 
     // EGL objects / object handles specific to
     // a sync thread.
@@ -143,7 +138,6 @@ public:
     android::base::Lock mLock;
     android::base::ConditionVariable mCv;
     ThreadPool mWorkerThreadPool;
-    ThreadPool mSignalPresentCompleteWorkerThreadPool;
     bool mNoGL;
 };
 

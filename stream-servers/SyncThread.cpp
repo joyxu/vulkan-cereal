@@ -99,11 +99,9 @@ static const uint64_t kDefaultTimeoutNsecs = 5ULL * 1000ULL * 1000ULL * 1000ULL;
 SyncThread::SyncThread(bool noGL)
     : android::base::Thread(android::base::ThreadFlags::MaskSignals, 512 * 1024),
       mWorkerThreadPool(kNumWorkerThreads, doSyncThreadCmd),
-      mSignalPresentCompleteWorkerThreadPool(kNumWorkerThreads, doSyncThreadCmd),
       mNoGL(noGL) {
     this->start();
     mWorkerThreadPool.start();
-    mSignalPresentCompleteWorkerThreadPool.start();
     if (!noGL) {
         initSyncEGLContext();
     }
@@ -176,33 +174,18 @@ void SyncThread::triggerWaitVkQsriWithCompletionCallback(VkImage vkImage, FenceC
     std::stringstream ss;
     ss << "triggerWaitVkQsriWithCompletionCallback vkImage=0x"
        << reinterpret_cast<uintptr_t>(vkImage);
-    sendAsync([vkImage, cb = std::move(cb)](WorkerId) { doSyncWaitVkQsri(vkImage, std::move(cb)); },
-              ss.str());
-}
-
-void SyncThread::triggerWaitVkQsriBlockedNoTimeline(VkImage vkImage) {
-    std::stringstream ss;
-    ss << "triggerWaitVkQsriBlockedNoTimeline vkImage=0x" << reinterpret_cast<uintptr_t>(vkImage);
-    sendAndWaitForResult(
-        [vkImage](WorkerId) { return doSyncWaitVkQsri(vkImage, std::function<void()>()); },
+    sendAsync(
+        [vkImage, cb = std::move(cb)](WorkerId) {
+            auto decoder = goldfish_vk::VkDecoderGlobalState::get();
+            decoder->registerQsriCallback(vkImage, std::move(cb));
+        },
         ss.str());
 }
 
-void SyncThread::triggerGeneral(FenceCompletionCallback cb) {
+void SyncThread::triggerGeneral(FenceCompletionCallback cb, std::string description) {
     std::stringstream ss;
-    ss << "triggerGeneral";
+    ss << "triggerGeneral: " << description;
     sendAsync(std::bind(std::move(cb)), ss.str());
-}
-
-void SyncThread::triggerSignalVkPresentComplete(FenceCompletionCallback cb) {
-    Command command = {
-        .mTask = std::packaged_task<int(WorkerId)>([cb = std::move(cb)](WorkerId) {
-            cb();
-            return 0;
-        }),
-        .mDescription = std::string("triggerSignalVkPresentComplete"),
-    };
-    mSignalPresentCompleteWorkerThreadPool.enqueue(std::move(command));
 }
 
 void SyncThread::cleanup() {
@@ -242,8 +225,6 @@ intptr_t SyncThread::main() {
 
     mWorkerThreadPool.done();
     mWorkerThreadPool.join();
-    mSignalPresentCompleteWorkerThreadPool.done();
-    mSignalPresentCompleteWorkerThreadPool.join();
     DPRINT("exited sync thread");
     return 0;
 }
@@ -401,36 +382,6 @@ int SyncThread::doSyncWaitVk(VkFence vkFence, std::function<void()> onComplete) 
         DPRINT("SYNC_WAIT_VK timeout: vkFence=%p", vkFence);
     } else if (result != VK_SUCCESS) {
         DPRINT("SYNC_WAIT_VK error: %d vkFence=%p", result, vkFence);
-    }
-
-    DPRINT("issue timeline increment");
-
-    // We always unconditionally increment timeline at this point, even
-    // if the call to vkWaitForFences returned abnormally.
-    // See comments in |doSyncWait| about the rationale.
-    if (onComplete) {
-        onComplete();
-    }
-
-    DPRINT("done timeline increment");
-
-    DPRINT("exit");
-    return result;
-}
-
-int SyncThread::doSyncWaitVkQsri(VkImage vkImage, std::function<void()> onComplete) {
-    DPRINT("enter");
-
-    auto decoder = goldfish_vk::VkDecoderGlobalState::get();
-    DPRINT("doSyncWaitVkQsri for image %p", vkImage);
-    auto result = decoder->waitQsri(vkImage, kDefaultTimeoutNsecs);
-    DPRINT("doSyncWaitVkQsri for image %p (done, do signal/callback)", vkImage);
-    if (result == VK_TIMEOUT) {
-        fprintf(stderr, "SyncThread::%s: SYNC_WAIT_VK_QSRI timeout: vkImage=%p\n", __func__,
-                vkImage);
-    } else if (result != VK_SUCCESS) {
-        fprintf(stderr, "SyncThread::%s: SYNC_WAIT_VK_QSRI error: %d vkImage=%p\n", __func__,
-                result, vkImage);
     }
 
     DPRINT("issue timeline increment");
