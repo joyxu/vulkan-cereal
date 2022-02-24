@@ -3,6 +3,7 @@
 #include <cinttypes>
 #include <unordered_set>
 
+#include "host-common/logging.h"
 #include "vulkan/vk_enum_string_helper.h"
 #include "vulkan/vk_util.h"
 
