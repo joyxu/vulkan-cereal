@@ -118,6 +118,9 @@ public:
     void triggerWaitVkWithCompletionCallback(VkFence fenceHandle, FenceCompletionCallback);
     void triggerWaitVkQsriWithCompletionCallback(VkImage image, FenceCompletionCallback);
     void triggerWaitVkQsriBlockedNoTimeline(VkImage image);
+    // Similar to triggerGeneral, but will dispatch the task to the dedicated
+    // signalPresentCompleteWorkerThreadPool.
+    void triggerSignalVkPresentComplete(FenceCompletionCallback);
 
     void triggerGeneral(FenceCompletionCallback);
 
@@ -180,6 +183,7 @@ public:
     android::base::Lock mLock;
     android::base::ConditionVariable mCv;
     android::base::ThreadPool<SyncThreadCmd> mWorkerThreadPool;
+    android::base::ThreadPool<SyncThreadCmd> mSignalPresentCompleteWorkerThreadPool;
     bool mNoGL;
 };
 
