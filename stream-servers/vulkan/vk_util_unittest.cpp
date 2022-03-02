@@ -22,6 +22,7 @@
 #include <tuple>
 
 namespace vk_util {
+namespace vk_fn_info {
 
 // Register a fake Vulkan function for testing.
 using PFN_vkGfxstreamTestFunc = PFN_vkCreateDevice;
@@ -172,6 +173,7 @@ TEST_F(VkCheckCallbacksTest, nullVkDeviceLostErrorCallbackShoudntCrash) {
 }
 
 }  // namespace
+}  // namespace vk_fn_info
 }  // namespace vk_util
 
 int main(int argc, char** argv) {
