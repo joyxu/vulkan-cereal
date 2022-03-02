@@ -4712,6 +4712,13 @@ public:
         });
         fenceLock.unlock();
 
+        lock.lock();
+        if (mFenceInfo.find(fence) == mFenceInfo.end()) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                "Fence was destroyed before vkWaitForFences call.";
+        }
+        lock.unlock();
+
         return vk->vkWaitForFences(device, /* fenceCount */ 1u, &fence,
                                    /* waitAll */ false, timeout);
     }
