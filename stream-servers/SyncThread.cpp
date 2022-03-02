@@ -97,13 +97,14 @@ static const uint32_t kTimelineInterval = 1;
 static const uint64_t kDefaultTimeoutNsecs = 5ULL * 1000ULL * 1000ULL * 1000ULL;
 
 SyncThread::SyncThread(bool noGL)
-    : android::base::Thread(android::base::ThreadFlags::MaskSignals,
-                            512 * 1024),
-      mWorkerThreadPool(kNumWorkerThreads,
-                        [this](SyncThreadCmd&& cmd) { doSyncThreadCmd(&cmd); }),
+    : android::base::Thread(android::base::ThreadFlags::MaskSignals, 512 * 1024),
+      mWorkerThreadPool(kNumWorkerThreads, [this](SyncThreadCmd&& cmd) { doSyncThreadCmd(&cmd); }),
+      mSignalPresentCompleteWorkerThreadPool(
+          kNumWorkerThreads, [this](SyncThreadCmd&& cmd) { doSyncThreadCmd(&cmd); }),
       mNoGL(noGL) {
     this->start();
     mWorkerThreadPool.start();
+    mSignalPresentCompleteWorkerThreadPool.start();
     if (!noGL) {
         initSyncEGLContext();
     }
@@ -202,6 +203,14 @@ void SyncThread::triggerGeneral(FenceCompletionCallback cb) {
     sendAsync(to_send);
 }
 
+void SyncThread::triggerSignalVkPresentComplete(FenceCompletionCallback cb) {
+    SyncThreadCmd to_send;
+    to_send.opCode = SYNC_THREAD_GENERAL;
+    to_send.useFenceCompletionCallback = true;
+    to_send.fenceCompletionCallback = cb;
+    mSignalPresentCompleteWorkerThreadPool.enqueue(std::move(to_send));
+}
+
 void SyncThread::cleanup() {
     DPRINT("enter");
     SyncThreadCmd to_send;
@@ -237,6 +246,8 @@ intptr_t SyncThread::main() {
 
     mWorkerThreadPool.done();
     mWorkerThreadPool.join();
+    mSignalPresentCompleteWorkerThreadPool.done();
+    mSignalPresentCompleteWorkerThreadPool.join();
     DPRINT("exited sync thread");
     return 0;
 }
