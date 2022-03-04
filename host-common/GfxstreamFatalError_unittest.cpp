@@ -16,17 +16,20 @@
 
 #include "host-common/GfxstreamFatalError.h"
 
+#include "base/testing/TestUtils.h"
+
 namespace emugl {
 namespace {
 
 TEST(GFXSTREAM_ABORT, MessageIsWellFormatted) {
-    EXPECT_DEATH({ GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "I'm dying!"; },
-                 R"re(\nF\d\d\d\d .*\] FATAL in \S+, err code: 4300000000: I'm dying!\n)re");
+    EXPECT_DEATH(
+        { GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "I'm dying!"; },
+        MatchesStdRegex(R"re(F\d\d\d\d .*\] FATAL in \S+, err code: 4300000000: I'm dying!\n)re"));
 }
 
 TEST(GFXSTREAM_ABORT, WithVkResult) {
     EXPECT_DEATH({ GFXSTREAM_ABORT(FatalError(VK_ERROR_FRAGMENTATION)) << "so fragmented"; },
-                 R"re(err code: -1000161000: so fragmented)re");
+                 "err code: -1000161000: so fragmented");
 }
 
 TEST(GFXSTREAM_ABORT, WithCustomizedDeathFunction) {

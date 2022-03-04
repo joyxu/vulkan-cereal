@@ -26,9 +26,9 @@
 
 #define VK_ANB_ERR(fmt,...) fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
 
-#define VK_ANB_DEBUG 0
+#define ENABLE_VK_ANB_DEBUG 0
 
-#if VK_ANB_DEBUG
+#if ENABLE_VK_ANB_DEBUG
 #define VK_ANB_DEBUG(fmt,...) fprintf(stderr, "vk-anb-debug: %s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
 #define VK_ANB_DEBUG_OBJ(obj, fmt,...) fprintf(stderr, "vk-anb-debug: %s:%d:%p " fmt "\n", __func__, __LINE__, obj, ##__VA_ARGS__);
 #else
@@ -770,7 +770,8 @@ VkResult syncImageToColorBuffer(
         VkDevice device = anbInfo->device;
         // Queue wait to sync thread with completion callback
         // Pass anbInfo by value to get a ref
-        SyncThread::get()->triggerGeneral([anbInfoPtr, anbInfo, vk, device, qsriFence] {
+        SyncThread::get()->triggerSignalVkPresentComplete([anbInfoPtr, anbInfo, vk, device,
+                                                           qsriFence] {
             (void)anbInfoPtr;
             VK_ANB_DEBUG_OBJ(anbInfoPtr, "wait callback: enter");
             if (qsriFence) {

@@ -16,11 +16,12 @@
 
 #include "SyncThread.h"
 
+#include "OpenGLESDispatch/OpenGLDispatchLoader.h"
 #include "base/System.h"
 #include "base/Thread.h"
-#include "OpenGLESDispatch/OpenGLDispatchLoader.h"
-#include "host-common/crash_reporter.h"
 #include "host-common/GfxstreamFatalError.h"
+#include "host-common/crash_reporter.h"
+#include "host-common/logging.h"
 #include "host-common/sync_device.h"
 
 #ifndef _MSC_VER
@@ -75,6 +76,11 @@ public:
         return mSyncThread.get();
     }
 
+    void destroy() {
+        AutoLock mutex(mLock);
+        mSyncThread = nullptr;
+    }
+
 private:
     std::unique_ptr<SyncThread> mSyncThread = nullptr;
     // lock for the access to this object
@@ -91,13 +97,14 @@ static const uint32_t kTimelineInterval = 1;
 static const uint64_t kDefaultTimeoutNsecs = 5ULL * 1000ULL * 1000ULL * 1000ULL;
 
 SyncThread::SyncThread(bool noGL)
-    : android::base::Thread(android::base::ThreadFlags::MaskSignals,
-                            512 * 1024),
-      mWorkerThreadPool(kNumWorkerThreads,
-                        [this](SyncThreadCmd&& cmd) { doSyncThreadCmd(&cmd); }),
+    : android::base::Thread(android::base::ThreadFlags::MaskSignals, 512 * 1024),
+      mWorkerThreadPool(kNumWorkerThreads, [this](SyncThreadCmd&& cmd) { doSyncThreadCmd(&cmd); }),
+      mSignalPresentCompleteWorkerThreadPool(
+          kNumWorkerThreads, [this](SyncThreadCmd&& cmd) { doSyncThreadCmd(&cmd); }),
       mNoGL(noGL) {
     this->start();
     mWorkerThreadPool.start();
+    mSignalPresentCompleteWorkerThreadPool.start();
     if (!noGL) {
         initSyncEGLContext();
     }
@@ -196,6 +203,14 @@ void SyncThread::triggerGeneral(FenceCompletionCallback cb) {
     sendAsync(to_send);
 }
 
+void SyncThread::triggerSignalVkPresentComplete(FenceCompletionCallback cb) {
+    SyncThreadCmd to_send;
+    to_send.opCode = SYNC_THREAD_GENERAL;
+    to_send.useFenceCompletionCallback = true;
+    to_send.fenceCompletionCallback = cb;
+    mSignalPresentCompleteWorkerThreadPool.enqueue(std::move(to_send));
+}
+
 void SyncThread::cleanup() {
     DPRINT("enter");
     SyncThreadCmd to_send;
@@ -206,6 +221,11 @@ void SyncThread::cleanup() {
     mExiting = true;
     mCv.signalAndUnlock(&mLock);
     DPRINT("exit");
+    // Wait for the control thread to exit. We can't destroy the SyncThread
+    // before we wait the control thread.
+    if (!wait(nullptr)) {
+        ERR("Fail to wait the control thread of the SyncThread to exit.");
+    }
 }
 
 // Private methods below////////////////////////////////////////////////////////
@@ -226,6 +246,8 @@ intptr_t SyncThread::main() {
 
     mWorkerThreadPool.done();
     mWorkerThreadPool.join();
+    mSignalPresentCompleteWorkerThreadPool.done();
+    mSignalPresentCompleteWorkerThreadPool.join();
     DPRINT("exited sync thread");
     return 0;
 }
@@ -244,7 +266,13 @@ int SyncThread::sendAndWaitForResult(SyncThreadCmd& cmd) {
     cond.wait(&lock, [&result] { return result.hasValue(); });
 
     DPRINT("result=%d", *result);
-    return *result;
+    int final_result = *result;
+
+    // Clear these to prevent dangling pointers after we return.
+    cmd.lock = nullptr;
+    cmd.cond = nullptr;
+    cmd.result = nullptr;
+    return final_result;
 }
 
 void SyncThread::sendAsync(SyncThreadCmd& cmd) {
@@ -549,3 +577,5 @@ SyncThread* SyncThread::get() {
 void SyncThread::initialize(bool noEGL) {
     sGlobalSyncThread()->initialize(noEGL);
 }
+
+void SyncThread::destroy() { sGlobalSyncThread()->destroy(); }

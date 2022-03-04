@@ -93,7 +93,9 @@ endif()
 # Tests
 add_library(
     gfxstream-base-testing-support
-    testing/file_io.cpp)
+    testing/file_io.cpp
+    ${GFXSTREAM_REPO_ROOT}/host-common/GfxstreamFatalError.cpp
+    ${GFXSTREAM_REPO_ROOT}/host-common/logging.cpp)
 target_include_directories(
     gfxstream-base-testing-support
     PRIVATE

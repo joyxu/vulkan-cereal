@@ -118,6 +118,9 @@ public:
     void triggerWaitVkWithCompletionCallback(VkFence fenceHandle, FenceCompletionCallback);
     void triggerWaitVkQsriWithCompletionCallback(VkImage image, FenceCompletionCallback);
     void triggerWaitVkQsriBlockedNoTimeline(VkImage image);
+    // Similar to triggerGeneral, but will dispatch the task to the dedicated
+    // signalPresentCompleteWorkerThreadPool.
+    void triggerSignalVkPresentComplete(FenceCompletionCallback);
 
     void triggerGeneral(FenceCompletionCallback);
 
@@ -134,11 +137,10 @@ public:
     // Obtains the global sync thread.
     static SyncThread* get();
 
-    // Destroys and recreates the sync thread, for use on snapshot load.
+    // Destroys and cleanup the global sync thread.
     static void destroy();
-    static void recreate();
 
-private:
+   private:
     // |initSyncContext| creates an EGL context expressly for calling
     // eglClientWaitSyncKHR in the processing caused by |triggerWait|.
     // This is used by the constructor only. It is non-blocking.
@@ -181,6 +183,7 @@ private:
     android::base::Lock mLock;
     android::base::ConditionVariable mCv;
     android::base::ThreadPool<SyncThreadCmd> mWorkerThreadPool;
+    android::base::ThreadPool<SyncThreadCmd> mSignalPresentCompleteWorkerThreadPool;
     bool mNoGL;
 };
 
