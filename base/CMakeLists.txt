@@ -100,6 +100,7 @@ target_include_directories(
     gfxstream-base-testing-support
     PRIVATE
     ${GFXSTREAM_REPO_ROOT}
+    ${GFXSTREAM_REPO_ROOT}/include
     PUBLIC
     ${GFXSTREAM_REPO_ROOT}/base/testing)
 target_link_libraries(
