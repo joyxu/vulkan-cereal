@@ -186,6 +186,8 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
     VkSwapchainCreateInfoKHRPtr swapChainCi(
         new VkSwapchainCreateInfoKHR{
             .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+            .pNext = nullptr,
+            .flags = VkSwapchainCreateFlagsKHR{0},
             .surface = surface,
             .minImageCount = imageCount,
             .imageFormat = iSurfaceFormat->format,
@@ -193,6 +195,9 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
             .imageExtent = extent,
             .imageArrayLayers = 1,
             .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            .imageSharingMode = VkSharingMode{},
+            .queueFamilyIndexCount = 0,
+            .pQueueFamilyIndices = nullptr,
             .preTransform = surfaceCaps.currentTransform,
             .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
             .presentMode = presentMode,
