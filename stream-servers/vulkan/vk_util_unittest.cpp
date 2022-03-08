@@ -135,48 +135,39 @@ TEST(getVkInstanceProcAddrWithFallbackTest, firstNameShouldTakeThePriority) {
               validFps[0]);
 }
 
-class VkCheckCallbacksTest : public ::testing::Test {
-   protected:
-    void SetUp() override {
-        // Do not abort on VK_CHECK failures.
-        emugl::setDieFunction([] {});
-    }
-    void TearDown() override {
-        setVkCheckCallbacks(nullptr);
-        emugl::setDieFunction(std::nullopt);
-    }
-};
-
-TEST_F(VkCheckCallbacksTest, defaultCallbacksWontCrash) { VK_CHECK(VK_ERROR_DEVICE_LOST); }
-
-TEST_F(VkCheckCallbacksTest, deviceLostCallbackShouldBeCalled) {
-    MockFunction<void()> onVkErrorDeviceLost;
+TEST(VkCheckCallbacksDeathTest, deviceLostCallbackShouldBeCalled) {
     setVkCheckCallbacks(std::make_unique<VkCheckCallbacks>(VkCheckCallbacks{
-        .onVkErrorDeviceLost = onVkErrorDeviceLost.AsStdFunction(),
+        .onVkErrorDeviceLost = [] { exit(43); },
     }));
 
-    EXPECT_CALL(onVkErrorDeviceLost, Call()).Times(0);
-    VK_CHECK(VK_ERROR_OUT_OF_DEVICE_MEMORY);
-    EXPECT_CALL(onVkErrorDeviceLost, Call());
-    VK_CHECK(VK_ERROR_DEVICE_LOST);
+    EXPECT_EXIT(VK_CHECK(VK_ERROR_DEVICE_LOST), testing::ExitedWithCode(43), "");
 }
 
-TEST_F(VkCheckCallbacksTest, nullCallbacksShoudntCrash) {
+TEST(VkCheckCallbacksDeathTest, deviceLostCallbackShouldNotBeCalled) {
+    // Default death function uses exit code 42
+    emugl::setDieFunction([] { exit(42); });
+
+    // Device lost death function uses exit code 43
+    setVkCheckCallbacks(std::make_unique<VkCheckCallbacks>(VkCheckCallbacks{
+        .onVkErrorDeviceLost = [] { exit(43); },
+    }));
+
+    EXPECT_EXIT(VK_CHECK(VK_ERROR_OUT_OF_DEVICE_MEMORY), testing::ExitedWithCode(42), "");
+}
+
+TEST(VkCheckCallbacksDeathTest, nullCallbacksShouldntCrash) {
+    emugl::setDieFunction([] { exit(42); });
     setVkCheckCallbacks(nullptr);
-    VK_CHECK(VK_ERROR_DEVICE_LOST);
+    EXPECT_EXIT(VK_CHECK(VK_ERROR_DEVICE_LOST), testing::ExitedWithCode(42), "");
 }
 
-TEST_F(VkCheckCallbacksTest, nullVkDeviceLostErrorCallbackShoudntCrash) {
+TEST(VkCheckCallbacksDeathTest, nullVkDeviceLostErrorCallbackShouldntCrash) {
+    emugl::setDieFunction([] { exit(42); });
     setVkCheckCallbacks(
         std::make_unique<VkCheckCallbacks>(VkCheckCallbacks{.onVkErrorDeviceLost = nullptr}));
-    VK_CHECK(VK_ERROR_DEVICE_LOST);
+    EXPECT_EXIT(VK_CHECK(VK_ERROR_DEVICE_LOST), testing::ExitedWithCode(42), "");
 }
 
 }  // namespace
 }  // namespace vk_fn_info
 }  // namespace vk_util
-
-int main(int argc, char** argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}
