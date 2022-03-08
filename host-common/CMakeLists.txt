@@ -134,6 +134,12 @@ target_link_libraries(
     gfxstream-host-common-testing-support
     gtest_main
     gmock_main)
+if (WIN32)
+    target_link_libraries(
+        gfxstream-host-common_unittests
+        PRIVATE
+        D3d9.lib)
+endif()
 
 target_compile_definitions(
     gfxstream-host-common_unittests
