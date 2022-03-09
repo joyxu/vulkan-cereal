@@ -1,7 +1,6 @@
 project(gfx-streaming-kit)
 cmake_minimum_required(VERSION 3.11)
 
-option(BUILD_GOOGLETEST "Download and build the googletest library" ON)
 option(BUILD_ASAN_WIN32 "Build with ASAN on Windows platform" OFF)
 
 if (WIN32)
@@ -77,12 +76,6 @@ if (WIN32)
         message("Linking ASAN libraries from: ${ASAN_LIB_DIR}")
         link_directories(${ASAN_LIB_DIR})
     endif()
-endif()
-
-# GoogleTest support: uses CMake ExternalProject to pull in external repo
-# without manual steps (during CMake build script generation phase)
-if (BUILD_GOOGLETEST)
-    include(gtest.cmake)
 endif()
 
 set(GFXSTREAM_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
