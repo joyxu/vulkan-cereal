@@ -46,10 +46,7 @@ class AbortMessage {
    public:
     AbortMessage(const char* file, const char* function, int line, FatalError reason);
 
-#ifndef GFXSTREAM_TESTING
-    [[noreturn]]
-#endif
-    ~AbortMessage();
+    [[noreturn]] ~AbortMessage();
 
     std::ostream& stream() { return mOss; }
 

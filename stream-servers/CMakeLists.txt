@@ -21,6 +21,8 @@ add_subdirectory(renderControl_dec)
 
 # Stream server core
 set(stream-server-core-sources
+    GfxStreamAgents.cpp
+    VirtioGpuTimelines.cpp
     ChannelStream.cpp
     ColorBuffer.cpp
     CompositorVk.cpp
@@ -58,42 +60,53 @@ else()
     set(stream-server-core-platform-sources NativeSubWindow_x11.cpp)
 endif()
 
+# Compile everything as a static library first so that unit tests can call non-exported functions
+add_library(
+        gfxstream_backend_static
+        STATIC
+        ${stream-server-core-sources}
+        ${stream-server-core-platform-sources}
+)
+target_link_libraries(
+        gfxstream_backend_static
+        PUBLIC
+        gfxstream-host-common
+        gfxstream-base
+        OpenGLESDispatch
+        gles1_dec
+        gles2_dec
+        renderControl_dec
+        gfxstream-vulkan-server
+        gfxstream-snapshot
+        apigen-codec-common
+        perfetto-tracing-only)
+
+target_include_directories(
+        gfxstream_backend_static
+        PUBLIC
+        ${GFXSTREAM_REPO_ROOT}
+        ${GFXSTREAM_REPO_ROOT}/include
+        ${GFXSTREAM_REPO_ROOT}/stream-servers
+        ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
+        ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan)
+
+if (WIN32)
+    target_link_libraries(gfxstream_backend_static PRIVATE D3d9.lib)
+    target_link_options(gfxstream_backend_static PRIVATE /DEBUG)
+endif()
+
+# gfxstream_backend.dll
 add_library(
     gfxstream_backend
     SHARED
-    ${stream-server-core-sources}
-    ${stream-server-core-platform-sources}
-    GfxStreamAgents.cpp
     GfxStreamBackend.cpp
-    virtio-gpu-gfxstream-renderer.cpp
-    VirtioGpuTimelines.cpp)
+    virtio-gpu-gfxstream-renderer.cpp)
+
 target_link_libraries(
     gfxstream_backend
     PUBLIC
-    gfxstream-host-common
-    gfxstream-base
-    OpenGLESDispatch
-    gles1_dec
-    gles2_dec
-    renderControl_dec
-    gfxstream-vulkan-server
-    gfxstream-snapshot
-    apigen-codec-common
-    perfetto-tracing-only)
+    gfxstream_backend_static)
 
-if (WIN32)
-    target_link_libraries(gfxstream_backend PRIVATE D3d9.lib)
-    target_link_options(gfxstream_backend PRIVATE /DEBUG)
-endif()
-
-target_include_directories(
-    gfxstream_backend
-    PUBLIC
-    ${GFXSTREAM_REPO_ROOT}
-    ${GFXSTREAM_REPO_ROOT}/include
-    ${GFXSTREAM_REPO_ROOT}/stream-servers
-    ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
-    ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan)
 android_install_shared(gfxstream_backend)
 
 # Testing libraries
@@ -117,8 +130,6 @@ target_link_libraries(
 # This includes the server core and testing sources
 add_library(
     stream-server-testing-support
-    ${stream-server-core-sources}
-    ${stream-server-core-platform-sources}
     tests/SampleApplication.cpp
     tests/GLSnapshotTesting.cpp
     tests/OpenGLTestContext.cpp
@@ -129,11 +140,9 @@ add_library(
     tests/HelloTriangleImp.cpp)
 target_include_directories(
     stream-server-testing-support
-    PRIVATE
-    ${GFXSTREAM_REPO_ROOT}
     PUBLIC
-    ${GFXSTREAM_REPO_ROOT}/base/testing
     ${GFXSTREAM_REPO_ROOT}
+    ${GFXSTREAM_REPO_ROOT}/base/testing
     ${GFXSTREAM_REPO_ROOT}/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers
     ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
@@ -141,15 +150,7 @@ target_include_directories(
 target_link_libraries(
     stream-server-testing-support
     PUBLIC
-    gfxstream-base
-    gfxstream-host-common
-    OpenGLESDispatch
-    gles1_dec
-    gles2_dec
-    renderControl_dec
-    gfxstream-vulkan-server
-    gfxstream-snapshot
-    apigen-codec-common
+    gfxstream_backend_static
     OSWindow
     gtest)
 
@@ -172,9 +173,11 @@ add_executable(
 target_link_libraries(
     OpenglRender_unittests
     PRIVATE
+    gfxstream_backend_static
     stream-server-testing-support
     gfxstream-base-testing-support
-    gfxstream-host-common-testing-support)
+    gfxstream-host-common-testing-support
+    gtest_main)
 if (LINUX)
     target_link_libraries(
         OpenglRender_unittests
@@ -203,6 +206,7 @@ add_executable(
 target_link_libraries(
     OpenglRender_snapshot_unittests
     PRIVATE
+    gfxstream_backend_static
     stream-server-testing-support
     gfxstream-base-testing-support
     gfxstream-host-common-testing-support)
@@ -210,57 +214,19 @@ target_link_libraries(
 # Vulkan tests##################################################################
 add_executable(
     Vulkan_unittests
-    tests/Vulkan_unittest.cpp)
+    tests/Vulkan_unittest.cpp
+    tests/CompositorVk_unittest.cpp
+    tests/SwapChainStateVk_unittest.cpp
+    tests/DisplayVk_unittest.cpp
+    tests/VirtioGpuTimelines_unittest.cpp
+    vulkan/vk_util_unittest.cpp
+)
 target_link_libraries(
     Vulkan_unittests
     PRIVATE
+    gfxstream_backend_static
     stream-server-testing-support
     gfxstream-base-testing-support
-    gfxstream-host-common-testing-support)
-
-add_executable(
-    CompositorVk_unittests
-    tests/CompositorVk_unittest.cpp)
-target_link_libraries(
-    CompositorVk_unittests
-    PRIVATE
-    stream-server-testing-support
-    gfxstream-host-common-testing-support)
-
-add_executable(
-    SwapChainStateVk_unittests
-    tests/SwapChainStateVk_unittest.cpp)
-target_link_libraries(
-    SwapChainStateVk_unittests
-    PRIVATE
-    stream-server-testing-support
-    gfxstream-host-common-testing-support)
-
-add_executable(
-    DisplayVk_unittests
-    tests/DisplayVk_unittest.cpp)
-target_link_libraries(
-    DisplayVk_unittests
-    PRIVATE
-    stream-server-testing-support
-    gfxstream-host-common-testing-support)
-
-add_executable(
-    VirtioGpuTimelines_unittests
-    tests/VirtioGpuTimelines_unittest.cpp
-    VirtioGpuTimelines.cpp
-    ${GFXSTREAM_REPO_ROOT}/host-common/GfxstreamFatalError.cpp
-    ${GFXSTREAM_REPO_ROOT}/host-common/logging.cpp)
-target_include_directories(
-    VirtioGpuTimelines_unittests
-    PRIVATE
-    ${GFXSTREAM_REPO_ROOT}
-    ${GFXSTREAM_REPO_ROOT}/stream-servers
-    ${GFXSTREAM_REPO_ROOT}/include)
-target_link_libraries(
-    VirtioGpuTimelines_unittests
-    PUBLIC
-    gfxstream-base
-    PRIVATE
+    gfxstream-host-common-testing-support
     gtest
     gmock)
