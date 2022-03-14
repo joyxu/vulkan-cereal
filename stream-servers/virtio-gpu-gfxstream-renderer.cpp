@@ -1750,11 +1750,6 @@ VG_EXPORT int pipe_virgl_renderer_resource_get_info(
     return sRenderer()->getResourceInfo(res_handle, info);
 }
 
-VG_EXPORT int pipe_virgl_renderer_resource_create_v2(uint32_t res_handle, uint64_t hvaId) {
-    sRenderer()->createResourceV2(res_handle, hvaId);
-    return 0;
-}
-
 VG_EXPORT int pipe_virgl_renderer_resource_map(uint32_t res_handle, void** hvaOut, uint64_t* sizeOut) {
     return sRenderer()->resourceMap(res_handle, hvaOut, sizeOut);
 }
@@ -1767,11 +1762,6 @@ VG_EXPORT void stream_renderer_flush_resource_and_readback(
     uint32_t res_handle, uint32_t x, uint32_t y, uint32_t width, uint32_t height,
     void* pixels, uint32_t max_bytes) {
     sRenderer()->flushResourceAndReadback(res_handle, x, y, width, height, pixels, max_bytes);
-}
-
-VG_EXPORT void stream_renderer_resource_create_v2(
-    uint32_t res_handle, uint64_t hvaId) {
-    sRenderer()->createResourceV2(res_handle, hvaId);
 }
 
 VG_EXPORT int stream_renderer_create_blob(uint32_t ctx_id, uint32_t res_handle,
