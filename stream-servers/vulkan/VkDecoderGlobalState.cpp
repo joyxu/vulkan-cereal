@@ -4740,9 +4740,7 @@ public:
         return vk->vkGetFenceStatus(device, fence);
     }
 
-    VkResult waitQsri(VkImage boxed_image, uint64_t timeout) {
-        (void)timeout; // TODO
-
+    VkResult registerQsriCallback(VkImage boxed_image, VkQsriTimeline::Callback callback) {
         AutoLock lock(mLock);
 
         VkImage image = unbox_VkImage(boxed_image);
@@ -4774,20 +4772,10 @@ public:
             return VK_SUCCESS;
         }
 
-        AutoLock qsriLock(anbInfo->qsriWaitInfo.lock);
-        uint64_t targetPresentCount = ++anbInfo->qsriWaitInfo.requestedPresentCount;
+        anbInfo->qsriTimeline->registerCallbackForNextPresentAndPoll(std::move(callback));
 
         if (mLogging) {
-            fprintf(stderr, "%s:%p New target present count %llu\n",
-                    __func__, anbInfo.get(), (unsigned long long)targetPresentCount);
-        }
-
-        anbInfo->qsriWaitInfo.cv.wait(&anbInfo->qsriWaitInfo.lock, [anbInfo, targetPresentCount] {
-            return targetPresentCount <= anbInfo->qsriWaitInfo.presentCount;
-        });
-
-        if (mLogging) {
-            fprintf(stderr, "%s:%p Done waiting\n", __func__, anbInfo.get());
+            fprintf(stderr, "%s:%p Done registering\n", __func__, anbInfo.get());
         }
         return VK_SUCCESS;
     }
@@ -7926,8 +7914,9 @@ VkResult VkDecoderGlobalState::getFenceStatus(VkFence boxed_fence) {
     return mImpl->getFenceStatus(boxed_fence);
 }
 
-VkResult VkDecoderGlobalState::waitQsri(VkImage image, uint64_t timeout) {
-    return mImpl->waitQsri(image, timeout);
+VkResult VkDecoderGlobalState::registerQsriCallback(VkImage image,
+                                                    VkQsriTimeline::Callback callback) {
+    return mImpl->registerQsriCallback(image, std::move(callback));
 }
 
 void VkDecoderGlobalState::deviceMemoryTransform_tohost(
