@@ -998,15 +998,15 @@ WorkerProcessingResult FrameBuffer::postWorkerFunc(Post& post) {
                                       post.composeBuffer.size(),
                                       std::move(post.composeCallback));
             } else {
-                auto composeCallback =
-                    std::make_shared<Post::ComposeCallback>(
-                        [composeCallback = std::move(post.composeCallback)]
-                            (std::shared_future<void> waitForGpu) {
-                                SyncThread::get()->triggerGeneral(
-                                    [composeCallback = std::move(composeCallback), waitForGpu]{
-                                        (*composeCallback)(waitForGpu);
-                                    });
-                            });
+                auto composeCallback = std::make_shared<Post::ComposeCallback>(
+                    [composeCallback =
+                         std::move(post.composeCallback)](std::shared_future<void> waitForGpu) {
+                        SyncThread::get()->triggerGeneral(
+                            [composeCallback = std::move(composeCallback), waitForGpu] {
+                                (*composeCallback)(waitForGpu);
+                            },
+                            "Wait for host composition");
+                    });
                 m_postWorker->compose(
                     (ComposeDevice_v2*)post.composeBuffer.data(),
                     post.composeBuffer.size(), std::move(composeCallback));
