@@ -147,3 +147,5 @@ target_link_libraries(
     gfxstream-host-common-testing-support
     gtest_main
     gmock_main)
+
+gtest_discover_tests(gfxstream-host-common_unittests)
