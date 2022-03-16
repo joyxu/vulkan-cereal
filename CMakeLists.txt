@@ -23,6 +23,7 @@ endif()
 
 find_package(Threads)
 include(ExternalProject)
+include(GoogleTest)
 enable_testing()
 
 # set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
@@ -104,25 +105,3 @@ add_subdirectory(protocols)
 if (NOT WIN32)
     add_subdirectory(fake-android-guest)
 endif()
-
-# Frontends#####################################################################
-
-# add_subdirectory(stream-clients)
-
-# Test environments#############################################################
-
-# add_subdirectory(testenvs)
-
-# Target: Host backend to consume real guest traffic############################
-
-# Target: Host front+back drivers for test environment##########################
-
-# Target: Host front+back drivers for app isolation#############################
-
-# Tests#################3#######################################################
-add_test(NAME gfxstream-base_unittests COMMAND gfxstream-base_unittests)
-add_test(NAME gfxstream-host-common_unittests COMMAND gfxstream-host-common_unittests)
-add_test(NAME gfxstream_backend_unittests COMMAND gfxstream_backend_unittests)
-add_test(NAME OpenglRender_unittests COMMAND OpenglRender_unittests)
-add_test(NAME OpenglRender_snapshot_unittests COMMAND OpenglRender_snapshot_unittests)
-add_test(NAME Vulkan_unittests COMMAND Vulkan_unittests)
