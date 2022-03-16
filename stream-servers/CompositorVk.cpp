@@ -580,13 +580,13 @@ void CompositorVk::setComposition(uint32_t rtIndex, std::unique_ptr<Composition>
                                    .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
         const VkDescriptorImageInfo &imageInfo = imageInfos[i];
         descriptorWrites.emplace_back(
-            VkWriteDescriptorSet({.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            VkWriteDescriptorSet{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                                   .dstSet = m_vkDescriptorSets[rtIndex * kMaxLayersPerFrame + i],
                                   .dstBinding = 0,
                                   .dstArrayElement = 0,
                                   .descriptorCount = 1,
                                   .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                  .pImageInfo = &imageInfo}));
+                                  .pImageInfo = &imageInfo});
         memcpy(reinterpret_cast<uint8_t *>(m_uniformStorage.m_data) +
                    (rtIndex * kMaxLayersPerFrame + i) * m_uniformStorage.m_stride,
                &layer->m_layerTransform, sizeof(ComposeLayerVk::LayerTransform));

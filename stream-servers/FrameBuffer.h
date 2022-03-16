@@ -789,7 +789,7 @@ class FrameBuffer {
 
     // The implementation for Vulkan native swapchain. Only initialized when useVulkan is set when
     // calling FrameBuffer::initialize(). DisplayVk is actually owned by VkEmulation.
-    DisplayVk *m_displayVk;
+    DisplayVk *m_displayVk = nullptr;
     VkInstance m_vkInstance = VK_NULL_HANDLE;
     VkSurfaceKHR m_vkSurface = VK_NULL_HANDLE;
 
