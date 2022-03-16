@@ -126,6 +126,7 @@ target_link_libraries(
     gfxstream_backend
     gfxstream-base
     gtest_main)
+gtest_discover_tests(gfxstream_backend_unittests)
 
 # More functional tests#########################################################
 
@@ -186,7 +187,7 @@ if (LINUX)
         OpenglRender_unittests
         PRIVATE x11_testing_support)
 endif()
-
+gtest_discover_tests(OpenglRender_unittests)
 
 # Snapshot tests################################################################
 add_executable(
@@ -213,6 +214,7 @@ target_link_libraries(
     stream-server-testing-support
     gfxstream-base-testing-support
     gfxstream-host-common-testing-support)
+gtest_discover_tests(OpenglRender_snapshot_unittests)
 
 # Vulkan tests##################################################################
 add_executable(
@@ -234,3 +236,4 @@ target_link_libraries(
     gfxstream-host-common-testing-support
     gtest
     gmock)
+gtest_discover_tests(Vulkan_unittests)
