@@ -111,3 +111,4 @@ target_link_libraries(
     logging-base
     gfxstream-base-testing-support
     gtest_main)
+gtest_discover_tests(gfxstream-base_unittests)
