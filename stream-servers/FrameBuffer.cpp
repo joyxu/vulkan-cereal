@@ -16,36 +16,34 @@
 
 #include "FrameBuffer.h"
 
-#include "DispatchTables.h"
-#include "GLESVersionDetector.h"
-#include "NativeSubWindow.h"
-#include "RenderControl.h"
-#include "RenderThreadInfo.h"
-#include "YUVConverter.h"
-#include "gles2_dec/gles2_dec.h"
-
-#include "OpenGLESDispatch/EGLDispatch.h"
-#include "vulkan/VkCommonOperations.h"
-#include "vulkan/VkDecoderGlobalState.h"
-
-#include "base/LayoutResolver.h"
-#include "base/Lock.h"
-#include "base/Lookup.h"
-#include "base/StreamSerializing.h"
-#include "base/MemoryTracker.h"
-#include "base/System.h"
-#include "base/Tracing.h"
-
-#include "host-common/crash_reporter.h"
-#include "host-common/feature_control.h"
-#include "host-common/GfxstreamFatalError.h"
-#include "host-common/logging.h"
-#include "host-common/misc.h"
-#include "host-common/vm_operations.h"
-
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+
+#include "DispatchTables.h"
+#include "GLESVersionDetector.h"
+#include "NativeSubWindow.h"
+#include "OpenGLESDispatch/EGLDispatch.h"
+#include "RenderControl.h"
+#include "RenderThreadInfo.h"
+#include "YUVConverter.h"
+#include "base/LayoutResolver.h"
+#include "base/Lock.h"
+#include "base/Lookup.h"
+#include "base/MemoryTracker.h"
+#include "base/SharedLibrary.h"
+#include "base/StreamSerializing.h"
+#include "base/System.h"
+#include "base/Tracing.h"
+#include "gles2_dec/gles2_dec.h"
+#include "host-common/GfxstreamFatalError.h"
+#include "host-common/crash_reporter.h"
+#include "host-common/feature_control.h"
+#include "host-common/logging.h"
+#include "host-common/misc.h"
+#include "host-common/vm_operations.h"
+#include "vulkan/VkCommonOperations.h"
+#include "vulkan/VkDecoderGlobalState.h"
 
 using android::base::AutoLock;
 using android::base::Stream;
@@ -368,6 +366,18 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         return false;
     }
 
+    if (!android::base::getEnvironmentVariable("ANDROID_EMU_RENDERDOC").empty()) {
+        SharedLibrary* renderdocLib = nullptr;
+#ifdef _WIN32
+        renderdocLib = SharedLibrary::open(R"(C:\Program Files\RenderDoc\renderdoc.dll)");
+#elif defined(__linux__)
+        renderdocLib = SharedLibrary::open("librenderdoc.so");
+#endif
+        fb->m_renderDoc = emugl::RenderDoc::create(renderdocLib);
+        if (fb->m_renderDoc) {
+            INFO("RenderDoc integration enabled.");
+        }
+    }
     // Initialize Vulkan emulation state
     //
     // Note: This must happen before any use of s_egl,
@@ -1251,6 +1261,11 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
                              ->vkCreateWin32SurfaceKHR(m_vkInstance, &surfaceCi,
                                                        nullptr, &m_vkSurface));
 #endif
+                if (m_renderDoc) {
+                    m_renderDoc->call(emugl::RenderDoc::kSetActiveWindow,
+                                      RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance),
+                                      reinterpret_cast<RENDERDOC_WindowHandle>(m_subWin));
+                }
             } else {
                 // create EGLSurface from the generated subwindow
                 m_eglSurface = s_egl.eglCreateWindowSurface(
