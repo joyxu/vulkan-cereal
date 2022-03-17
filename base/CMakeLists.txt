@@ -57,6 +57,8 @@ endif()
 
 target_link_libraries(
     gfxstream-base
+    PUBLIC
+    renderdoc
     PRIVATE
     lz4
     perfetto-tracing-only
