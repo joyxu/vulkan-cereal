@@ -18,10 +18,14 @@
 
 #include <renderdoc_app.h>
 
+#include <algorithm>
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <type_traits>
+#include <unordered_map>
+#include <vector>
 
 #include "base/SharedLibrary.h"
 #include "host-common/logging.h"
@@ -56,10 +60,13 @@ class RenderDoc {
 
     static constexpr auto kSetActiveWindow = &RenderDocApi::SetActiveWindow;
     static constexpr auto kGetCaptureOptionU32 = &RenderDocApi::GetCaptureOptionU32;
+    static constexpr auto kIsFrameCapturing = &RenderDocApi::IsFrameCapturing;
+    static constexpr auto kStartFrameCapture = &RenderDocApi::StartFrameCapture;
+    static constexpr auto kEndFrameCapture = &RenderDocApi::EndFrameCapture;
     template <class F, class... Args, typename = std::enable_if_t<std::is_invocable_v<F, Args...>>>
     // Call a RenderDoc in-application API given the function pointer and parameters, and guard the
     // API call with a mutex.
-    auto call(F(RenderDocApi::*function), Args... args) {
+    auto call(F(RenderDocApi::*function), Args... args) const {
         std::lock_guard<std::mutex> guard(mMutex);
         return (mRdocApi->*function)(args...);
     }
@@ -67,9 +74,52 @@ class RenderDoc {
    private:
     RenderDoc(RenderDocApi* rdocApi) : mRdocApi(rdocApi) {}
 
-    std::mutex mMutex;
+    mutable std::mutex mMutex;
     RenderDocApi* mRdocApi = nullptr;
 };
+
+template <class RenderDocT>
+class RenderDocWithMultipleVkInstancesBase {
+   public:
+    RenderDocWithMultipleVkInstancesBase(RenderDocT& renderDoc) : mRenderDoc(renderDoc) {}
+
+    void onFrameDelimiter(VkInstance vkInstance) {
+        std::lock_guard<std::mutex> guard(mMutex);
+        mCaptureContexts.erase(vkInstance);
+        if (mRenderDoc.call(RenderDoc::kIsFrameCapturing)) {
+            mCaptureContexts.emplace(vkInstance,
+                                     std::make_unique<CaptureContext>(mRenderDoc, vkInstance));
+        }
+    }
+
+    void removeVkInstance(VkInstance vkInstance) {
+        std::lock_guard<std::mutex> guard(mMutex);
+        mCaptureContexts.erase(vkInstance);
+    }
+
+   private:
+    class CaptureContext {
+       public:
+        CaptureContext(RenderDocT& renderDoc, VkInstance vkInstance)
+            : mRenderDoc(renderDoc), mVkInstance(vkInstance) {
+            mRenderDoc.call(RenderDoc::kStartFrameCapture,
+                            RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(mVkInstance), nullptr);
+        }
+        ~CaptureContext() {
+            mRenderDoc.call(RenderDoc::kEndFrameCapture,
+                            RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(mVkInstance), nullptr);
+        }
+
+       private:
+        const RenderDocT& mRenderDoc;
+        const VkInstance mVkInstance;
+    };
+    std::mutex mMutex;
+    std::unordered_map<VkInstance, std::unique_ptr<CaptureContext>> mCaptureContexts;
+    RenderDocT& mRenderDoc;
+};
+
+using RenderDocWithMultipleVkInstances = RenderDocWithMultipleVkInstancesBase<RenderDoc>;
 }  // namespace emugl
 
 #endif
