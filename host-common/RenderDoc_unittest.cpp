@@ -85,5 +85,94 @@ TEST(RenderDocTest, CreateSuccessfully) {
     EXPECT_EQ(renderDoc->call(RenderDoc::kGetCaptureOptionU32, eRENDERDOC_Option_DebugOutputMute),
               1);
 }
+
+class RenderDocMock {
+   public:
+    // For StartFrameCapture
+    MOCK_METHOD(void, call,
+                (void (*RenderDocApi::*function)(RENDERDOC_DevicePointer, RENDERDOC_WindowHandle),
+                 RENDERDOC_DevicePointer, RENDERDOC_WindowHandle),
+                (const));
+    // For EndFrameCapture
+    MOCK_METHOD(uint32_t, call,
+                (uint32_t(*RenderDocApi::*function)(RENDERDOC_DevicePointer,
+                                                    RENDERDOC_WindowHandle),
+                 RENDERDOC_DevicePointer, RENDERDOC_WindowHandle),
+                (const));
+    // For IsFrameCapturing
+    MOCK_METHOD(uint32_t, call, (uint32_t(*RenderDocApi::*function)()), (const));
+};
+
+using RenderDocWithMultipleVkInstances = RenderDocWithMultipleVkInstancesBase<RenderDocMock>;
+
+TEST(RenderDocWithMultipleVkInstancesTest,
+     ShouldNotStartFrameCaptureOnFrameDelimiterWhenNotCapturing) {
+    RenderDocMock renderDocMock;
+    RenderDocWithMultipleVkInstances renderDocWithMultipleVkInstances(renderDocMock);
+    int vkInstanceInternal = 0x1234;
+    VkInstance vkInstance = reinterpret_cast<VkInstance>(&vkInstanceInternal);
+
+    EXPECT_CALL(renderDocMock, call(RenderDoc::kIsFrameCapturing)).WillRepeatedly(Return(0));
+    EXPECT_CALL(renderDocMock, call(RenderDoc::kStartFrameCapture, _, _)).Times(0);
+    EXPECT_CALL(renderDocMock, call(RenderDoc::kEndFrameCapture, _, _)).Times(0);
+
+    renderDocWithMultipleVkInstances.onFrameDelimiter(vkInstance);
+}
+
+TEST(RenderDocWithMultipleVkInstancesTest, ShouldStartAndEndFrameCaptureOnFrameDelimiter) {
+    RenderDocMock renderDocMock;
+    RenderDocWithMultipleVkInstances renderDocWithMultipleVkInstances(renderDocMock);
+    int vkInstanceInternal = 0x4321;
+    VkInstance vkInstance = reinterpret_cast<VkInstance>(&vkInstanceInternal);
+
+    EXPECT_CALL(renderDocMock, call(RenderDoc::kIsFrameCapturing)).WillRepeatedly(Return(1));
+    {
+        InSequence s;
+
+        EXPECT_CALL(renderDocMock, call(RenderDoc::kStartFrameCapture,
+                                        RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(vkInstance), NULL))
+            .Times(1);
+        EXPECT_CALL(renderDocMock, call(RenderDoc::kEndFrameCapture,
+                                        RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(vkInstance), NULL))
+            .Times(1)
+            .WillRepeatedly(Return(1));
+        EXPECT_CALL(renderDocMock, call(RenderDoc::kStartFrameCapture,
+                                        RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(vkInstance), NULL))
+            .Times(1);
+        EXPECT_CALL(renderDocMock, call(RenderDoc::kEndFrameCapture,
+                                        RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(vkInstance), NULL))
+            .Times(1)
+            .WillRepeatedly(Return(1));
+    }
+
+    renderDocWithMultipleVkInstances.onFrameDelimiter(vkInstance);
+    renderDocWithMultipleVkInstances.onFrameDelimiter(vkInstance);
+}
+
+TEST(RenderDocWithMultipleVkInstancesTest, ShouldEndFrameCaptureOnVkInstanceRemoved) {
+    RenderDocMock renderDocMock;
+    RenderDocWithMultipleVkInstances renderDocWithMultipleVkInstances(renderDocMock);
+    int vkInstanceInternal = 0x4321;
+    VkInstance vkInstance = reinterpret_cast<VkInstance>(&vkInstanceInternal);
+
+    EXPECT_CALL(renderDocMock, call(RenderDoc::kIsFrameCapturing)).WillRepeatedly(Return(1));
+    {
+        InSequence s;
+
+        EXPECT_CALL(renderDocMock, call(RenderDoc::kStartFrameCapture,
+                                        RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(vkInstance), NULL))
+            .Times(1);
+        EXPECT_CALL(renderDocMock, call(RenderDoc::kEndFrameCapture,
+                                        RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(vkInstance), NULL))
+            .Times(1)
+            .WillRepeatedly(Return(1));
+    }
+
+    renderDocWithMultipleVkInstances.onFrameDelimiter(vkInstance);
+    renderDocWithMultipleVkInstances.removeVkInstance(vkInstance);
+    EXPECT_CALL(renderDocMock, call(RenderDoc::kEndFrameCapture,
+                                    RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(vkInstance), NULL))
+        .Times(0);
+}
 }  // namespace
 }  // namespace emugl
