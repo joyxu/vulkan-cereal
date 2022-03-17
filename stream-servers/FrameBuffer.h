@@ -45,6 +45,7 @@
 #include "base/Stream.h"
 #include "base/Thread.h"
 #include "base/WorkerThread.h"
+#include "host-common/RenderDoc.h"
 #include "render_api.h"
 #include "snapshot/common.h"
 #include "virtio_gpu_ops.h"
@@ -792,6 +793,7 @@ class FrameBuffer {
     DisplayVk *m_displayVk = nullptr;
     VkInstance m_vkInstance = VK_NULL_HANDLE;
     VkSurfaceKHR m_vkSurface = VK_NULL_HANDLE;
+    std::unique_ptr<emugl::RenderDoc> m_renderDoc = nullptr;
 
     // UUIDs of physical devices for Vulkan and GLES, respectively.  In most
     // cases, this determines whether we can support zero-copy interop.
