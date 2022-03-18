@@ -26,6 +26,7 @@
 #include "base/Lock.h"
 #include "base/Optional.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
+#include "host-common/RenderDoc.h"
 
 namespace goldfish_vk {
 
@@ -74,6 +75,9 @@ struct VkEmulation {
 
     // Whether to fuse memory requirements getting with resource creation.
     bool useCreateResourcesWithRequirements = false;
+
+    // RenderDoc integration for guest VkInstances.
+    std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> guestRenderDoc = nullptr;
 
     // Instance and device for creating the system-wide shareable objects.
     VkInstance instance = VK_NULL_HANDLE;
@@ -349,8 +353,9 @@ struct VkEmulationFeatures {
     bool deferredCommands = false;
     bool createResourceWithRequirements = false;
     bool useVulkanNativeSwapchain = false;
+    std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> guestRenderDoc = nullptr;
 };
-void initVkEmulationFeatures(const VkEmulationFeatures&);
+void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures>);
 
 VkEmulation* getGlobalVkEmulation();
 void teardownGlobalVkEmulation();
