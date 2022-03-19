@@ -170,7 +170,7 @@ struct VirtioGpuCmd {
 } __attribute__((packed));
 
 struct PipeCtxEntry {
-    VirglCtxId ctxId;
+    VirtioGpuCtxId ctxId;
     GoldfishHostPipe* hostPipe;
     int fence;
     uint32_t addressSpaceHandle;
@@ -184,7 +184,7 @@ struct PipeResEntry {
     void* linear;
     size_t linearSize;
     GoldfishHostPipe* hostPipe;
-    VirglCtxId ctxId;
+    VirtioGpuCtxId ctxId;
     uint64_t hva;
     uint64_t hvaSize;
     uint64_t hvaId;
@@ -555,7 +555,7 @@ public:
 
     void resetPipe(GoldfishHwPipe* hwPipe, GoldfishHostPipe* hostPipe) {
         VGPLOG("Want to reset hwpipe %p to hostpipe %p", hwPipe, hostPipe);
-        VirglCtxId asCtxId = (VirglCtxId)(uintptr_t)hwPipe;
+        VirtioGpuCtxId asCtxId = (VirtioGpuCtxId)(uintptr_t)hwPipe;
         auto it = mContexts.find(asCtxId);
         if (it == mContexts.end()) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -586,7 +586,7 @@ public:
         }
     }
 
-    int createContext(VirglCtxId handle, uint32_t nlen, const char* name) {
+    int createContext(VirtioGpuCtxId handle, uint32_t nlen, const char* name) {
         AutoLock lock(mLock);
         VGPLOG("ctxid: %u len: %u name: %s", handle, nlen, name);
         auto ops = ensureAndGetServiceOps();
@@ -612,7 +612,7 @@ public:
         return 0;
     }
 
-    int destroyContext(VirglCtxId handle) {
+    int destroyContext(VirtioGpuCtxId handle) {
         AutoLock lock(mLock);
         VGPLOG("ctxid: %u", handle);
 
@@ -641,7 +641,7 @@ public:
         return 0;
     }
 
-    void setContextAddressSpaceHandleLocked(VirglCtxId ctxId, uint32_t handle) {
+    void setContextAddressSpaceHandleLocked(VirtioGpuCtxId ctxId, uint32_t handle) {
         auto ctxIt = mContexts.find(ctxId);
         if (ctxIt == mContexts.end()) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -653,7 +653,7 @@ public:
         ctxEntry.hasAddressSpaceHandle = true;
     }
 
-    uint32_t getAddressSpaceHandleLocked(VirglCtxId ctxId) {
+    uint32_t getAddressSpaceHandleLocked(VirtioGpuCtxId ctxId) {
         auto ctxIt = mContexts.find(ctxId);
         if (ctxIt == mContexts.end()) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -689,7 +689,7 @@ public:
         memcpy(iovWords, dwords, sizeof(uint32_t) * dwordCount);
     }
 
-    void addressSpaceProcessCmd(VirglCtxId ctxId, uint32_t* dwords, int dwordCount) {
+    void addressSpaceProcessCmd(VirtioGpuCtxId ctxId, uint32_t* dwords, int dwordCount) {
         uint32_t opcode = dwords[0];
 
         switch (opcode) {
@@ -800,7 +800,7 @@ public:
         }
     }
 
-    int submitCmd(VirglCtxId ctxId, void* buffer, int dwordCount) {
+    int submitCmd(VirtioGpuCtxId ctxId, void* buffer, int dwordCount) {
         VGPLOG("ctxid: %u buffer: %p dwords: %d", ctxId, buffer, dwordCount);
 
         if (!buffer) {
@@ -1358,7 +1358,7 @@ public:
         auto contextsIt = mResourceContexts.find(resId);
 
         if (contextsIt == mResourceContexts.end()) {
-            std::vector<VirglCtxId> ids;
+            std::vector<VirtioGpuCtxId> ids;
             ids.push_back(ctxId);
             mResourceContexts[resId] = ids;
         } else {
@@ -1623,10 +1623,10 @@ private:
 
     const GoldfishPipeServiceOps* mServiceOps = nullptr;
 
-    std::unordered_map<VirglCtxId, PipeCtxEntry> mContexts;
+    std::unordered_map<VirtioGpuCtxId, PipeCtxEntry> mContexts;
     std::unordered_map<VirglResId, PipeResEntry> mResources;
-    std::unordered_map<VirglCtxId, std::vector<VirglResId>> mContextResources;
-    std::unordered_map<VirglResId, std::vector<VirglCtxId>> mResourceContexts;
+    std::unordered_map<VirtioGpuCtxId, std::vector<VirglResId>> mContextResources;
+    std::unordered_map<VirglResId, std::vector<VirtioGpuCtxId>> mResourceContexts;
 
     // For use with the async fence cb.
     // When we wait for gpu or wait for gpu vulkan, the next (and subsequent)
