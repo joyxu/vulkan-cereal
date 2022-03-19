@@ -159,7 +159,7 @@ using android::emulation::HostmemIdMapping;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
 
-using VirglResId = uint32_t;
+using VirtioGpuResId = uint32_t;
 
 static constexpr int kPipeTryAgain = -2;
 
@@ -1345,7 +1345,7 @@ public:
         auto resourcesIt = mContextResources.find(ctxId);
 
         if (resourcesIt == mContextResources.end()) {
-            std::vector<VirglResId> ids;
+            std::vector<VirtioGpuResId> ids;
             ids.push_back(resId);
             mContextResources[ctxId] = ids;
         } else {
@@ -1591,7 +1591,7 @@ private:
         auto it = mContextResources.find(ctxId);
         if (it == mContextResources.end()) return;
 
-        std::vector<VirglResId> withoutRes;
+        std::vector<VirtioGpuResId> withoutRes;
         for (auto resId : it->second) {
             if (resId != toUnrefId) {
                 withoutRes.push_back(resId);
@@ -1624,9 +1624,9 @@ private:
     const GoldfishPipeServiceOps* mServiceOps = nullptr;
 
     std::unordered_map<VirtioGpuCtxId, PipeCtxEntry> mContexts;
-    std::unordered_map<VirglResId, PipeResEntry> mResources;
-    std::unordered_map<VirtioGpuCtxId, std::vector<VirglResId>> mContextResources;
-    std::unordered_map<VirglResId, std::vector<VirtioGpuCtxId>> mResourceContexts;
+    std::unordered_map<VirtioGpuResId, PipeResEntry> mResources;
+    std::unordered_map<VirtioGpuCtxId, std::vector<VirtioGpuResId>> mContextResources;
+    std::unordered_map<VirtioGpuResId, std::vector<VirtioGpuCtxId>> mResourceContexts;
 
     // For use with the async fence cb.
     // When we wait for gpu or wait for gpu vulkan, the next (and subsequent)
