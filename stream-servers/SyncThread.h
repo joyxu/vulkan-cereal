@@ -16,70 +16,29 @@
 
 #pragma once
 
-#include "FenceSync.h"
-
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
-#include "base/Optional.h"
+#include <functional>
+#include <future>
+#include <string>
+#include <type_traits>
+
+#include "FenceSync.h"
 #include "base/ConditionVariable.h"
 #include "base/Lock.h"
+#include "base/MessageChannel.h"
+#include "base/Optional.h"
 #include "base/Thread.h"
 #include "base/ThreadPool.h"
-#include "base/MessageChannel.h"
-#include "vulkan/VkDecoderGlobalState.h"
 #include "virtio_gpu_ops.h"
+#include "vulkan/VkDecoderGlobalState.h"
 
 // SyncThread///////////////////////////////////////////////////////////////////
 // The purpose of SyncThread is to track sync device timelines and give out +
 // signal FD's that correspond to the completion of host-side GL fence commands.
 
-// We communicate with the sync thread in 3 ways:
-enum SyncThreadOpCode {
-    // Nonblocking command to initialize sync thread's EGL contexts for sync
-    // operations
-    SYNC_THREAD_EGL_INIT = 0,
-    // Nonblocking command to wait on a given FenceSync object
-    // and timeline handle.
-    // A fence FD object in the guest is signaled.
-    SYNC_THREAD_WAIT = 1,
-    // Blocking command to clean up and exit the sync thread.
-    SYNC_THREAD_EXIT = 2,
-    // Blocking command to wait on a given FenceSync object.
-    // No timeline handling is done.
-    SYNC_THREAD_BLOCKED_WAIT_NO_TIMELINE = 3,
-    // Nonblocking command to wait on a given VkFence
-    // and timeline handle.
-    // A fence FD object / Zircon eventpair in the guest is signaled.
-    SYNC_THREAD_WAIT_VK = 4,
-    // Command to wait on the presentation the given VkImage.
-    SYNC_THREAD_WAIT_VK_QSRI = 5,
-    // Command that consists only of a callback.
-    SYNC_THREAD_GENERAL = 6,
-};
-
-struct SyncThreadCmd {
-    // For use with initialization in multiple thread pools.
-    int workerId = 0;
-    // For use with ThreadPool::broadcastIndexed
-    void setIndex(int id) { workerId = id; }
-
-    SyncThreadOpCode opCode = SYNC_THREAD_EGL_INIT;
-    union {
-        FenceSync* fenceSync = nullptr;
-        VkFence vkFence;
-        VkImage vkImage;
-    };
-    uint64_t timeline = 0;
-
-    android::base::Lock* lock = nullptr;
-    android::base::ConditionVariable* cond = nullptr;
-    android::base::Optional<int>* result = nullptr;
-
-    bool useFenceCompletionCallback = false;
-    FenceCompletionCallback fenceCompletionCallback;;
-};
 
 struct RenderThreadInfo;
 class SyncThread : public android::base::Thread {
@@ -117,12 +76,7 @@ public:
     void triggerWaitWithCompletionCallback(FenceSync* fenceSync, FenceCompletionCallback);
     void triggerWaitVkWithCompletionCallback(VkFence fenceHandle, FenceCompletionCallback);
     void triggerWaitVkQsriWithCompletionCallback(VkImage image, FenceCompletionCallback);
-    void triggerWaitVkQsriBlockedNoTimeline(VkImage image);
-    // Similar to triggerGeneral, but will dispatch the task to the dedicated
-    // signalPresentCompleteWorkerThreadPool.
-    void triggerSignalVkPresentComplete(FenceCompletionCallback);
-
-    void triggerGeneral(FenceCompletionCallback);
+    void triggerGeneral(FenceCompletionCallback, std::string description);
 
     // |cleanup|: for use with destructors and other cleanup functions.
     // it destroys the sync context and exits the sync thread.
@@ -141,6 +95,13 @@ public:
     static void destroy();
 
    private:
+    using WorkerId = android::base::ThreadPoolWorkerId;
+    struct Command {
+        std::packaged_task<int(WorkerId)> mTask;
+        std::string mDescription;
+    };
+    using ThreadPool = android::base::ThreadPool<Command>;
+
     // |initSyncContext| creates an EGL context expressly for calling
     // eglClientWaitSyncKHR in the processing caused by |triggerWait|.
     // This is used by the constructor only. It is non-blocking.
@@ -151,25 +112,19 @@ public:
     // It keeps the workers runner until |mExiting| is set.
     virtual intptr_t main() override final;
 
-    // These two functions are used to communicate with the sync thread
-    // from another thread:
-    // - |sendAndWaitForResult| issues |cmd| to the sync thread,
-    //   and blocks until it receives the result of the command.
-    // - |sendAsync| issues |cmd| to the sync thread and does not
-    //   wait for the result, returning immediately after.
-    int sendAndWaitForResult(SyncThreadCmd& cmd);
-    void sendAsync(SyncThreadCmd& cmd);
+    // These two functions are used to communicate with the sync thread from another thread:
+    // - |sendAndWaitForResult| issues |job| to the sync thread, and blocks until it receives the
+    // result of the job.
+    // - |sendAsync| issues |job| to the sync thread and does not wait for the result, returning
+    // immediately after.
+    int sendAndWaitForResult(std::function<int(WorkerId)> job, std::string description);
+    void sendAsync(std::function<void(WorkerId)> job, std::string description);
 
-    // |doSyncThreadCmd| and related functions below
-    // execute the actual commands. These run on the sync thread.
-    int doSyncThreadCmd(SyncThreadCmd* cmd);
-    void doSyncEGLContextInit(SyncThreadCmd* cmd);
-    void doSyncWait(SyncThreadCmd* cmd);
-    int doSyncWaitVk(SyncThreadCmd* cmd);
-    int doSyncWaitVkQsri(SyncThreadCmd* cmd);
-    int doSyncGeneral(SyncThreadCmd* cmd);
-    void doSyncBlockedWaitNoTimeline(SyncThreadCmd* cmd);
-    void doExit(SyncThreadCmd* cmd);
+    // |doSyncThreadCmd| execute the actual task. These run on the sync thread.
+    static void doSyncThreadCmd(Command&& command, ThreadPool::WorkerId);
+
+    void doSyncWait(FenceSync* fenceSync, std::function<void()> onComplete);
+    static int doSyncWaitVk(VkFence, std::function<void()> onComplete);
 
     // EGL objects / object handles specific to
     // a sync thread.
@@ -182,8 +137,7 @@ public:
     bool mExiting = false;
     android::base::Lock mLock;
     android::base::ConditionVariable mCv;
-    android::base::ThreadPool<SyncThreadCmd> mWorkerThreadPool;
-    android::base::ThreadPool<SyncThreadCmd> mSignalPresentCompleteWorkerThreadPool;
+    ThreadPool mWorkerThreadPool;
     bool mNoGL;
 };
 
