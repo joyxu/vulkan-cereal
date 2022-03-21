@@ -132,7 +132,8 @@ add_executable(
     HostAddressSpace_unittest.cpp
     HostmemIdMapping_unittest.cpp
     logging_unittest.cpp
-    GfxstreamFatalError_unittest.cpp)
+    GfxstreamFatalError_unittest.cpp
+    RenderDoc_unittest.cpp)
 
 target_include_directories(
     gfxstream-host-common_unittests
@@ -147,3 +148,5 @@ target_link_libraries(
     gfxstream-host-common-testing-support
     gtest_main
     gmock_main)
+
+gtest_discover_tests(gfxstream-host-common_unittests)
