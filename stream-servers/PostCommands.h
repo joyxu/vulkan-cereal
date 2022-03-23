@@ -1,11 +1,8 @@
 #pragma once
 
-#include <GLES2/gl2.h>
-
-#include <functional>
-#include <future>
-#include <memory>
 #include <vector>
+
+#include <GLES2/gl2.h>
 
 class ColorBuffer;
 
@@ -20,12 +17,9 @@ enum class PostCmd {
 };
 
 struct Post {
-    using ComposeCallback =
-        std::function<void(std::shared_future<void> waitForGpu)>;
     PostCmd cmd;
     int composeVersion;
     std::vector<char> composeBuffer;
-    std::shared_ptr<ComposeCallback> composeCallback = nullptr;
     union {
         ColorBuffer* cb;
         struct {
@@ -43,3 +37,4 @@ struct Post {
         } screenshot;
     };
 };
+
