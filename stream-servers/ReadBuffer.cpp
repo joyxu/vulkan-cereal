@@ -15,7 +15,7 @@
 */
 #include "ReadBuffer.h"
 
-#include "host-common/logging.h"
+#include "ErrorLog.h"
 
 #include <algorithm>
 
@@ -36,21 +36,21 @@ ReadBuffer::~ReadBuffer() {
     free(m_buf);
 }
 
-void ReadBuffer::setNeededFreeTailSize(size_t size) {
+void ReadBuffer::setNeededFreeTailSize(int size) {
     m_neededFreeTailSize = size;
 }
 
-int ReadBuffer::getData(IOStream* stream, size_t minSize) {
+int ReadBuffer::getData(IOStream* stream, int minSize) {
     assert(stream);
-    assert(minSize > m_validData);
+    assert(minSize > (int)m_validData);
 
-    const size_t minSizeToRead = minSize - m_validData;
-    const size_t neededFreeTailThisTime =
+    const int minSizeToRead = minSize - m_validData;
+    const int neededFreeTailThisTime =
         std::max(minSizeToRead,
                  m_neededFreeTailSize);
 
-    size_t maxSizeToRead;
-    const size_t freeTailSize = m_buf + m_size - (m_readPtr + m_validData);
+    int maxSizeToRead;
+    const int freeTailSize = m_buf + m_size - (m_readPtr + m_validData);
     if (freeTailSize >= neededFreeTailThisTime) {
         maxSizeToRead = freeTailSize;
     } else {
@@ -63,8 +63,10 @@ int ReadBuffer::getData(IOStream* stream, size_t minSize) {
             // Note: make sure we can fit at least two of the requested packets
             //  into the new buffer to minimize the reallocations and
             //  memmove()-ing stuff around.
-          size_t new_size = std::max(2 * minSizeToRead + m_validData, 2 * m_size);
-          if (new_size < m_size) {  // overflow check
+            size_t new_size = std::max<size_t>(
+                    2 * minSizeToRead + m_validData,
+                    2 * m_size);
+            if (new_size < m_size) {  // overflow check
                 new_size = INT_MAX;
             }
 

@@ -15,7 +15,7 @@
 */
 #include "render_api.h"
 
-#include "host-common/logging.h"
+#include "ErrorLog.h"
 #include "RenderLibImpl.h"
 
 #include "OpenGLESDispatch/OpenGLDispatchLoader.h"
