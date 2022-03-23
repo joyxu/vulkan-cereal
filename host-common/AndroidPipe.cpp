@@ -21,7 +21,6 @@
 #include "base/Lock.h"
 #include "android_pipe_device.h"
 #include "android_pipe_host.h"
-#include "host-common/GfxstreamFatalError.h"
 #include "DeviceContextRunner.h"
 #include "VmLock.h"
 
@@ -66,8 +65,6 @@ using ServiceList = std::vector<std::unique_ptr<Service>>;
 using VmLock = android::VmLock;
 using android::base::MemStream;
 using android::base::StringFormat;
-using emugl::ABORT_REASON_OTHER;
-using emugl::FatalError;
 
 static BaseStream* asBaseStream(CStream* stream) {
     return reinterpret_cast<BaseStream*>(stream);
@@ -246,7 +243,7 @@ public:
             return PIPE_ERROR_INVAL;
         }
 
-        AndroidPipe* newPipe = svc->create(mHwPipe, pipeArgs, mFlags);
+        AndroidPipe* newPipe = svc->create(mHwPipe, pipeArgs);
         if (!newPipe) {
             D("%s: Initialization failed for %s pipe!", __FUNCTION__, pipeName);
             return PIPE_ERROR_INVAL;
@@ -303,8 +300,7 @@ class ConnectorService : public Service {
 public:
     ConnectorService() : Service("<connector>") {}
 
-    virtual AndroidPipe* create(void* hwPipe, const char* args,
-                                enum AndroidPipeFlags flags) override {
+    virtual AndroidPipe* create(void* hwPipe, const char* args) override {
         return new ConnectorPipe(hwPipe, this);
     }
 
@@ -444,9 +440,9 @@ AndroidPipe* loadPipeFromStreamCommon(BaseStream* stream,
     const int pendingFlags = stream->getBe32();
     if (pendingFlags && pipe && !*pForceClose) {
         if (!hwPipe) {
-            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-                << "fatal: AndroidPipe [" << pipe->name() << "] hwPipe is NULL(flags = 0x"
-                << std::hex << unsigned(pendingFlags) << " )";
+            fprintf(stderr, "fatal: AndroidPipe::%s [%s]: hwPipe is NULL (flags = 0x%x)\n",
+                    __func__, pipe->name(), unsigned(pendingFlags));
+            abort();
         }
         sGlobals()->pipeWaker.signalWake(hwPipe, pendingFlags);
         DD("%s: singalled wake flags %d for pipe hwpipe=%p", __func__,
@@ -502,9 +498,9 @@ void AndroidPipe::signalWake(int wakeFlags) {
     // i.e., pipe not using normal pipe device
     if (mFlags) return;
     if (!mHwPipe) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "AndroidPipe [" << name() << "]: hwPipe is NULL (flags = 0x" << std::hex
-            << unsigned(wakeFlags) << ")";
+        fprintf(stderr, "AndroidPipe::%s [%s]: hwPipe is NULL (flags = 0x%x)\n",
+                __func__, name(), (unsigned)wakeFlags);
+        abort();
     }
     sGlobals()->pipeWaker.signalWake(mHwPipe, wakeFlags);
 }
@@ -513,8 +509,8 @@ void AndroidPipe::closeFromHost() {
     // i.e., pipe not using normal pipe device
     if (mFlags) return;
     if (!mHwPipe) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "AndroidPipe [" << name() << "]: hwPipe is NULL";
+        fprintf(stderr, "AndroidPipe::%s [%s]: hwPipe is NULL\n", __func__, name());
+        abort();
     }
     sGlobals()->pipeWaker.closeFromHost(mHwPipe);
 }
@@ -524,8 +520,8 @@ void AndroidPipe::abortPendingOperation() {
     if (mFlags) return;
 
     if (!mHwPipe) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "AndroidPipe [" << name() << "]: hwPipe is NULL";
+        fprintf(stderr, "AndroidPipe::%s [%s]: hwPipe is NULL\n", __func__, name());
+        abort();
     }
     sGlobals()->pipeWaker.abortPending(mHwPipe);
 }
@@ -604,14 +600,13 @@ void android_pipe_reset_services() {
 void* android_pipe_guest_open(void* hwpipe) {
     CHECK_VM_STATE_LOCK();
     DD("%s: Creating new connector pipe for hwpipe=%p", __FUNCTION__, hwpipe);
-    return android::sGlobals()->connectorService.create(hwpipe, nullptr, (AndroidPipeFlags)0);
+    return android::sGlobals()->connectorService.create(hwpipe, nullptr);
 }
 
 void* android_pipe_guest_open_with_flags(void* hwpipe, uint32_t flags) {
     CHECK_VM_STATE_LOCK();
     DD("%s: Creating new connector pipe for hwpipe=%p", __FUNCTION__, hwpipe);
-    auto pipe =
-        android::sGlobals()->connectorService.create(hwpipe, nullptr, (AndroidPipeFlags)flags);
+    auto pipe = android::sGlobals()->connectorService.create(hwpipe, nullptr);
     pipe->setFlags((AndroidPipeFlags)flags);
     return pipe;
 }
@@ -819,9 +814,10 @@ void* android_pipe_lookup_by_id(const int id) {
         void* hwPipe = (*cb.first)(id);
         if (hwPipe) {
             if (hwPipeFound) {
-                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-                    << "Pipe id (" << id << ") is not unique, at least two pipes are found: `"
-                    << tagFound << "` and `" << cb.second << "`";
+                fprintf(stderr, "%s: Pipe id (%d) is not unique, at least two "
+                        "pipes are found: `%s` and `%s`\n",
+                        __func__, id, tagFound, cb.second);
+                abort();
             } else {
                 hwPipeFound = hwPipe;
                 tagFound = cb.second;

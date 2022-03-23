@@ -71,8 +71,7 @@ def banner_command(argv):
 
     def makeRelative(someArg):
         if os.path.exists(someArg):
-            # replace '\' with '/' to ensure the same output when running on Windows
-            return os.path.relpath(someArg).replace("\\", "/")
+            return os.path.relpath(someArg)
         return someArg
 
     return ' '.join(map(makeRelative, argv))
@@ -284,7 +283,6 @@ class IOStream;
 #include "goldfish_vk_private_defs.h"
 
 #include <log/log.h>
-#include <cstring>
 
 // Stuff we are not going to use but if included,
 // will cause compile errors. These are Android Vulkan
@@ -338,7 +336,6 @@ using OnFailCompareFunc = std::function<void(const char*)>;
         poolInclude = f"""
 #include "goldfish_vk_private_defs.h"
 #include "{self.baseLibDirPrefix}/BumpPool.h"
-using android::base::Allocator;
 using android::base::BumpPool;
 """
         handleMapInclude = """
@@ -364,7 +361,6 @@ using android::base::BumpPool;
         poolIncludeGuest = f"""
 #include "goldfish_vk_private_defs.h"
 #include "{self.guestBaseLibDirPrefix}/BumpPool.h"
-using android::base::Allocator;
 using android::base::BumpPool;
 // Stuff we are not going to use but if included,
 // will cause compile errors. These are Android Vulkan
@@ -419,8 +415,6 @@ using DlSymFunc = void* (void*, const char*);
         commonCerealImplIncludesGuest = """
 #include "goldfish_vk_extension_structs_guest.h"
 #include "goldfish_vk_private_defs.h"
-
-#include <cstring>
 """
         countingIncludes = """
 #include "vk_platform_compat.h"
@@ -467,7 +461,6 @@ class BumpPool;
 #include "{self.baseLibDirPrefix}/Tracing.h"
 #include "stream-servers/IOStream.h"
 #include "host-common/feature_control.h"
-#include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"
 
 #include "VkDecoderGlobalState.h"

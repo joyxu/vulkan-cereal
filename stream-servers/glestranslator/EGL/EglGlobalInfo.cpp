@@ -19,20 +19,16 @@
 #include "EglDisplay.h"
 #include "EglOsApi.h"
 
-#include "host-common/GfxstreamFatalError.h"
 #include "GLcommon/GLutils.h"
 
 #include <string.h>
-
-using emugl::ABORT_REASON_OTHER;
-using emugl::FatalError;
 
 namespace {
 
 static EGLBoolean sEgl2Egl = false;
 
-static EglGlobalInfo* sSingleton(bool nullEgl = false) {
-    static EglGlobalInfo* i = new EglGlobalInfo(nullEgl);
+static EglGlobalInfo* sSingleton() {
+    static EglGlobalInfo* i = new EglGlobalInfo;
     return i;
 }
 
@@ -40,14 +36,10 @@ static bool sEgl2EglSyncSafeToUse = false;
 
 }  // namespace
 
-void EglGlobalInfo::setEgl2Egl(EGLBoolean enable, bool nullEgl) {
-    if (nullEgl && enable == EGL_FALSE) {
-        // No point in nullEgl backend for non egl2egl cases.
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER));
-    }
+void EglGlobalInfo::setEgl2Egl(EGLBoolean enable) {
     sEgl2Egl = enable;
     setGles2Gles(enable);
-    sSingleton(nullEgl);
+    sSingleton();
 }
 
 bool EglGlobalInfo::isEgl2Egl() {
@@ -63,19 +55,18 @@ bool EglGlobalInfo::isEgl2EglSyncSafeToUse() {
 }
 
 // static
-EglGlobalInfo* EglGlobalInfo::getInstance(bool nullEgl) {
-    return sSingleton(nullEgl);
+EglGlobalInfo* EglGlobalInfo::getInstance() {
+    return sSingleton();
 }
 
-EglGlobalInfo::EglGlobalInfo(bool nullEgl) {
+EglGlobalInfo::EglGlobalInfo() {
 #ifdef ANDROID
     sEgl2Egl = true;
     sEgl2EglSyncSafeToUse = true;
-    m_engine = EglOS::
-        getEgl2EglHostInstance(nullEgl);
+    m_engine = EglOS::getEgl2EglHostInstance();
 #else
     if (sEgl2Egl) {
-        m_engine = EglOS::getEgl2EglHostInstance(nullEgl);
+        m_engine = EglOS::getEgl2EglHostInstance();
     } else {
         m_engine = EglOS::Engine::getHostInstance();
     }
@@ -94,7 +85,7 @@ EglDisplay* EglGlobalInfo::addDisplay(EGLNativeDisplayType dpy,
     //search if it already exists.
     android::base::AutoLock mutex(m_lock);
     for (size_t n = 0; n < m_displays.size(); ++n) {
-        if (m_displays[n]->getEglOsEngineDisplay() == dpy) {
+        if (m_displays[n]->getNativeDisplay() == dpy) {
             return m_displays[n];
         }
     }
@@ -122,7 +113,7 @@ bool  EglGlobalInfo::removeDisplay(EGLDisplay dpy) {
 EglDisplay* EglGlobalInfo::getDisplay(EGLNativeDisplayType dpy) const {
     android::base::AutoLock mutex(m_lock);
     for (size_t n = 0; n < m_displays.size(); ++n) {
-        if (m_displays[n]->getEglOsEngineDisplay() == dpy) {
+        if (m_displays[n]->getNativeDisplay() == dpy) {
             return m_displays[n];
         }
     }
