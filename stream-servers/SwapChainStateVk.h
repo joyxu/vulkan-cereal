@@ -13,20 +13,23 @@ class SwapChainStateVk {
    public:
     static std::vector<const char *> getRequiredInstanceExtensions();
     static std::vector<const char *> getRequiredDeviceExtensions();
-    static bool validateQueueFamilyProperties(const goldfish_vk::VulkanDispatch &, VkPhysicalDevice,
-                                              VkSurfaceKHR, uint32_t queueFamilyIndex);
+    static bool validateQueueFamilyProperties(
+        const goldfish_vk::VulkanDispatch &, VkPhysicalDevice, VkSurfaceKHR,
+        uint32_t queueFamilyIndex);
     using VkSwapchainCreateInfoKHRPtr =
-        std::unique_ptr<VkSwapchainCreateInfoKHR, std::function<void(VkSwapchainCreateInfoKHR *)>>;
+        std::unique_ptr<VkSwapchainCreateInfoKHR,
+                        std::function<void(VkSwapchainCreateInfoKHR *)>>;
     static VkSwapchainCreateInfoKHRPtr createSwapChainCi(
-        const goldfish_vk::VulkanDispatch &, VkSurfaceKHR, VkPhysicalDevice, uint32_t width,
-        uint32_t height, const std::unordered_set<uint32_t> &queueFamilyIndices);
+        const goldfish_vk::VulkanDispatch &, VkSurfaceKHR, VkPhysicalDevice,
+        uint32_t width, uint32_t height,
+        const std::unordered_set<uint32_t> &queueFamilyIndices);
 
     explicit SwapChainStateVk(const goldfish_vk::VulkanDispatch &, VkDevice,
-                              const VkSwapchainCreateInfoKHR &);
+                     const VkSwapchainCreateInfoKHR &);
     ~SwapChainStateVk();
     VkFormat getFormat();
-    const std::vector<VkImage> &getVkImages() const;
-    const std::vector<VkImageView> &getVkImageViews() const;
+    const std::vector<VkImage>& getVkImages() const;
+    const std::vector<VkImageView>& getVkImageViews() const;
     VkSwapchainKHR getSwapChain() const;
 
    private:

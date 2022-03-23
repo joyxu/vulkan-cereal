@@ -1,2 +1,0 @@
-add_library(renderdoc INTERFACE)
-target_include_directories(renderdoc INTERFACE include/)

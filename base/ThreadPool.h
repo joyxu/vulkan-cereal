@@ -14,18 +14,16 @@
 
 #pragma once
 
-#include <atomic>
-#include <cstdint>
-#include <functional>
-#include <memory>
-#include <type_traits>
-#include <utility>
-#include <vector>
-
 #include "base/Compiler.h"
 #include "base/Optional.h"
 #include "base/System.h"
 #include "base/WorkerThread.h"
+
+#include <atomic>
+#include <functional>
+#include <memory>
+#include <utility>
+#include <vector>
 
 //
 // ThreadPool<Item> - a simple collection of worker threads to process enqueued
@@ -60,51 +58,27 @@
 namespace android {
 namespace base {
 
-using ThreadPoolWorkerId = uint32_t;
-
 template <class ItemT>
 class ThreadPool {
     DISALLOW_COPY_AND_ASSIGN(ThreadPool);
 
 public:
     using Item = ItemT;
-    using WorkerId = ThreadPoolWorkerId;
-    using Processor = std::function<void(Item&&, WorkerId)>;
+    using Worker = WorkerThread<Optional<Item>>;
+    using Processor = std::function<void(Item&&)>;
 
-   private:
-    struct Command {
-        Item mItem;
-        WorkerId mWorkerId;
-
-        Command(Item&& item, WorkerId workerId) : mItem(std::move(item)), mWorkerId(workerId) {}
-        DISALLOW_COPY_AND_ASSIGN(Command);
-        Command(Command&&) = default;
-    };
-    using Worker = WorkerThread<Optional<Command>>;
-
-   public:
-    // Fn is the type of the processor, it can either have 2 parameters: 1 for the Item, 1 for the
-    // WorkerId, or have only 1 Item parameter.
-    template <class Fn, typename = std::enable_if_t<std::is_invocable_v<Fn, Item, WorkerId> ||
-                                                    std::is_invocable_v<Fn, Item>>>
-    ThreadPool(int threads, Fn&& processor) : mProcessor() {
-        if constexpr (std::is_invocable_v<Fn, Item, WorkerId>) {
-            mProcessor = std::move(processor);
-        } else if constexpr (std::is_invocable_v<Fn, Item>) {
-            using namespace std::placeholders;
-            mProcessor = std::bind(std::move(processor), _1);
-        }
+    ThreadPool(int threads, Processor&& processor)
+        : mProcessor(std::move(processor)) {
         if (threads < 1) {
             threads = android::base::getCpuCoreCount();
         }
         mWorkers = std::vector<Optional<Worker>>(threads);
         for (auto& workerPtr : mWorkers) {
-            workerPtr.emplace([this](Optional<Command>&& commandOpt) {
-                if (!commandOpt) {
+            workerPtr.emplace([this](Optional<Item>&& item) {
+                if (!item) {
                     return Worker::Result::Stop;
                 }
-                Command command = std::move(commandOpt.value());
-                mProcessor(std::move(command.mItem), command.mWorkerId);
+                mProcessor(std::move(item.value()));
                 return Worker::Result::Continue;
             });
         }
@@ -146,36 +120,16 @@ public:
     }
 
     void enqueue(Item&& item) {
+        // Iterate over the worker threads until we find a one that's running.
+        // TODO(b/187082169, warty): We rely on this round-robin strategy in SyncThread
         for (;;) {
             int currentIndex =
                     mNextWorkerIndex.fetch_add(1, std::memory_order_relaxed);
-            int workerIndex = currentIndex % mWorkers.size();
-            auto& workerPtr = mWorkers[workerIndex];
+            auto& workerPtr = mWorkers[currentIndex % mWorkers.size()];
             if (workerPtr) {
-                Command command(std::forward<Item>(item), workerIndex);
-                workerPtr->enqueue(std::move(command));
+                workerPtr->enqueue(std::move(item));
                 break;
             }
-        }
-    }
-
-    // The itemFactory will be called multiple times to generate one item for each worker thread.
-    template <class Fn, typename = std::enable_if_t<std::is_invocable_r_v<Item, Fn>>>
-    void broadcast(Fn&& itemFactory) {
-        int i = 0;
-        for (auto& workerOpt : mWorkers) {
-            if (!workerOpt) continue;
-            Command command(std::move(itemFactory()), i);
-            workerOpt->enqueue(std::move(command));
-            ++i;
-        }
-    }
-
-    void waitAllItems() {
-        if (0 == mValidWorkersCount) return;
-        for (auto& workerOpt : mWorkers) {
-            if (!workerOpt) continue;
-            workerOpt->waitQueuedItems();
         }
     }
 
