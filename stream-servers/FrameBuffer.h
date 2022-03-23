@@ -24,6 +24,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -44,10 +45,11 @@
 #include "base/Stream.h"
 #include "base/Thread.h"
 #include "base/WorkerThread.h"
+#include "host-common/RenderDoc.h"
 #include "render_api.h"
 #include "snapshot/common.h"
-#include "vulkan/vk_util.h"
 #include "virtio_gpu_ops.h"
+#include "vulkan/vk_util.h"
 
 struct ColorBufferRef {
     ColorBufferPtr cb;
@@ -786,11 +788,12 @@ class FrameBuffer {
     android::base::MessageChannel<HandleType, 1024>
         mOutstandingColorBufferDestroys;
 
-    // The implementation for Vulkan native swapchain. Only initialized when
-    // useVulkan is set when calling FrameBuffer::initialize().
-    std::shared_ptr<DisplayVk> m_displayVk;
+    // The implementation for Vulkan native swapchain. Only initialized when useVulkan is set when
+    // calling FrameBuffer::initialize(). DisplayVk is actually owned by VkEmulation.
+    DisplayVk *m_displayVk = nullptr;
     VkInstance m_vkInstance = VK_NULL_HANDLE;
     VkSurfaceKHR m_vkSurface = VK_NULL_HANDLE;
+    std::unique_ptr<emugl::RenderDoc> m_renderDoc = nullptr;
 
     // UUIDs of physical devices for Vulkan and GLES, respectively.  In most
     // cases, this determines whether we can support zero-copy interop.

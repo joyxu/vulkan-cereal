@@ -22,9 +22,11 @@
 #include <unordered_set>
 #include <vector>
 
+#include "DisplayVk.h"
 #include "base/Lock.h"
 #include "base/Optional.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
+#include "host-common/RenderDoc.h"
 
 namespace goldfish_vk {
 
@@ -74,6 +76,9 @@ struct VkEmulation {
     // Whether to fuse memory requirements getting with resource creation.
     bool useCreateResourcesWithRequirements = false;
 
+    // RenderDoc integration for guest VkInstances.
+    std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> guestRenderDoc = nullptr;
+
     // Instance and device for creating the system-wide shareable objects.
     VkInstance instance = VK_NULL_HANDLE;
     VkPhysicalDevice physdev = VK_NULL_HANDLE;
@@ -89,6 +94,7 @@ struct VkEmulation {
             getImageFormatProperties2Func = nullptr;
     PFN_vkGetPhysicalDeviceProperties2KHR
             getPhysicalDeviceProperties2Func = nullptr;
+    PFN_vkGetPhysicalDeviceFeatures2 getPhysicalDeviceFeatures2Func = nullptr;
 
     bool instanceSupportsMoltenVK = false;
     PFN_vkSetMTLTextureMVK setMTLTextureFunc = nullptr;
@@ -134,6 +140,8 @@ struct VkEmulation {
         bool hasComputeQueueFamily = false;
         bool supportsExternalMemory = false;
         bool supportsIdProperties = false;
+        bool hasSamplerYcbcrConversionExtension = false;
+        bool supportsSamplerYcbcrConversion = false;
         bool glInteropSupported = false;
 
         std::vector<uint32_t> graphicsQueueFamilyIndices;
@@ -333,12 +341,21 @@ struct VkEmulation {
     // Every command buffer in the pool is associated with a VkFence which is
     // signaled only if the command buffer completes.
     std::vector<std::tuple<VkCommandBuffer, VkFence>> transferQueueCommandBufferPool;
+
+    // The implementation for Vulkan native swapchain. Only initialized in initVkEmulationFeatures
+    // if useVulkanNativeSwapchain is set.
+    std::unique_ptr<DisplayVk> displayVk;
 };
 
-VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk);
-void setGlInteropSupported(bool supported);
-void setUseDeferredCommands(VkEmulation* emu, bool useDeferred);
-void setUseCreateResourcesWithRequirements(VkEmulation* emu, bool useCreateResourcesWithRequirements);
+VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk);
+struct VkEmulationFeatures {
+    bool glInteropSupported = false;
+    bool deferredCommands = false;
+    bool createResourceWithRequirements = false;
+    bool useVulkanNativeSwapchain = false;
+    std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> guestRenderDoc = nullptr;
+};
+void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures>);
 
 VkEmulation* getGlobalVkEmulation();
 void teardownGlobalVkEmulation();

@@ -16,36 +16,34 @@
 
 #include "FrameBuffer.h"
 
-#include "DispatchTables.h"
-#include "GLESVersionDetector.h"
-#include "NativeSubWindow.h"
-#include "RenderControl.h"
-#include "RenderThreadInfo.h"
-#include "YUVConverter.h"
-#include "gles2_dec/gles2_dec.h"
-
-#include "OpenGLESDispatch/EGLDispatch.h"
-#include "vulkan/VkCommonOperations.h"
-#include "vulkan/VkDecoderGlobalState.h"
-
-#include "base/LayoutResolver.h"
-#include "base/Lock.h"
-#include "base/Lookup.h"
-#include "base/StreamSerializing.h"
-#include "base/MemoryTracker.h"
-#include "base/System.h"
-#include "base/Tracing.h"
-
-#include "host-common/crash_reporter.h"
-#include "host-common/feature_control.h"
-#include "host-common/GfxstreamFatalError.h"
-#include "host-common/logging.h"
-#include "host-common/misc.h"
-#include "host-common/vm_operations.h"
-
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+
+#include "DispatchTables.h"
+#include "GLESVersionDetector.h"
+#include "NativeSubWindow.h"
+#include "OpenGLESDispatch/EGLDispatch.h"
+#include "RenderControl.h"
+#include "RenderThreadInfo.h"
+#include "YUVConverter.h"
+#include "base/LayoutResolver.h"
+#include "base/Lock.h"
+#include "base/Lookup.h"
+#include "base/MemoryTracker.h"
+#include "base/SharedLibrary.h"
+#include "base/StreamSerializing.h"
+#include "base/System.h"
+#include "base/Tracing.h"
+#include "gles2_dec/gles2_dec.h"
+#include "host-common/GfxstreamFatalError.h"
+#include "host-common/crash_reporter.h"
+#include "host-common/feature_control.h"
+#include "host-common/logging.h"
+#include "host-common/misc.h"
+#include "host-common/vm_operations.h"
+#include "vulkan/VkCommonOperations.h"
+#include "vulkan/VkDecoderGlobalState.h"
 
 using android::base::AutoLock;
 using android::base::Stream;
@@ -342,7 +340,6 @@ void FrameBuffer::finalize() {
     }
 
     m_readbackThread.enqueue({ReadbackCmd::Exit});
-    m_displayVk.reset();
     if (m_vkSurface != VK_NULL_HANDLE) {
         emugl::vkDispatch(false /* not for testing */)
             ->vkDestroySurfaceKHR(m_vkInstance, m_vkSurface, nullptr);
@@ -369,6 +366,25 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         return false;
     }
 
+    std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> renderDocMultipleVkInstances = nullptr;
+    if (!android::base::getEnvironmentVariable("ANDROID_EMU_RENDERDOC").empty()) {
+        SharedLibrary* renderdocLib = nullptr;
+#ifdef _WIN32
+        renderdocLib = SharedLibrary::open(R"(C:\Program Files\RenderDoc\renderdoc.dll)");
+#elif defined(__linux__)
+        renderdocLib = SharedLibrary::open("librenderdoc.so");
+#endif
+        fb->m_renderDoc = emugl::RenderDoc::create(renderdocLib);
+        if (fb->m_renderDoc) {
+            INFO("RenderDoc integration enabled.");
+            renderDocMultipleVkInstances =
+                std::make_unique<emugl::RenderDocWithMultipleVkInstances>(*fb->m_renderDoc);
+            if (!renderDocMultipleVkInstances) {
+                ERR("Failed to initialize RenderDoc with multiple VkInstances. Can't capture any "
+                    "information from guest VkInstances with RenderDoc.");
+            }
+        }
+    }
     // Initialize Vulkan emulation state
     //
     // Note: This must happen before any use of s_egl,
@@ -377,20 +393,16 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     // preventing new contexts from being created that share
     // against those contexts.
     goldfish_vk::VkEmulation* vkEmu = nullptr;
+    goldfish_vk::VulkanDispatch* vkDispatch = nullptr;
     if (feature_is_enabled(kFeature_Vulkan)) {
-        auto dispatch = emugl::vkDispatch(false /* not for testing */);
-        vkEmu = goldfish_vk::createOrGetGlobalVkEmulation(dispatch);
-        bool useDeferredCommands =
-            android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_DEFERRED_COMMANDS").empty();
-        bool useCreateResourcesWithRequirements =
-            android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_USE_CREATE_RESOURCES_WITH_REQUIREMENTS").empty();
-        goldfish_vk::setUseDeferredCommands(vkEmu, useDeferredCommands);
-        goldfish_vk::setUseCreateResourcesWithRequirements(vkEmu, useCreateResourcesWithRequirements);
+        vkDispatch = emugl::vkDispatch(false /* not for testing */);
+        vkEmu = goldfish_vk::createGlobalVkEmulation(vkDispatch);
+        if (!vkEmu) {
+            ERR("Failed to initialize global Vulkan emulation. Disable the Vulkan support.");
+        }
+    }
+    if (vkEmu) {
         if (feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
-            fb->m_displayVk = std::make_shared<DisplayVk>(
-                *dispatch, vkEmu->physdev, vkEmu->queueFamilyIndex,
-                vkEmu->queueFamilyIndex, vkEmu->device, vkEmu->queue,
-                vkEmu->queueLock, vkEmu->queue, vkEmu->queueLock);
             fb->m_vkInstance = vkEmu->instance;
         }
         if (vkEmu->deviceInfo.supportsIdProperties) {
@@ -494,6 +506,20 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     fb->m_guestUsesAngle =
         feature_is_enabled(
             kFeature_GuestUsesAngle);
+
+    std::unique_ptr<goldfish_vk::VkEmulationFeatures> vkEmulationFeatures =
+        std::make_unique<goldfish_vk::VkEmulationFeatures>(goldfish_vk::VkEmulationFeatures{
+            .glInteropSupported = false,  // Set later.
+            .deferredCommands =
+                android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_DEFERRED_COMMANDS")
+                    .empty(),
+            .createResourceWithRequirements =
+                android::base::getEnvironmentVariable(
+                    "ANDROID_EMU_VK_DISABLE_USE_CREATE_RESOURCES_WITH_REQUIREMENTS")
+                    .empty(),
+            .useVulkanNativeSwapchain = feature_is_enabled(kFeature_VulkanNativeSwapchain),
+            .guestRenderDoc = std::move(renderDocMultipleVkInstances),
+        });
 
     //
     // if GLES2 plugin has loaded - try to make GLES2 context and
@@ -797,7 +823,13 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     }
 
     GL_LOG("glvk interop final: %d", fb->m_vulkanInteropSupported);
-    goldfish_vk::setGlInteropSupported(fb->m_vulkanInteropSupported);
+    vkEmulationFeatures->glInteropSupported = fb->m_vulkanInteropSupported;
+    if (feature_is_enabled(kFeature_Vulkan)) {
+        goldfish_vk::initVkEmulationFeatures(std::move(vkEmulationFeatures));
+        if (vkEmu->displayVk) {
+            fb->m_displayVk = vkEmu->displayVk.get();
+        }
+    }
 
     // Start up the single sync thread. If we are using Vulkan native
     // swapchain, then don't initialize SyncThread worker threads with EGL
@@ -839,8 +871,12 @@ bool FrameBuffer::importMemoryToColorBuffer(
 
     auto& cb = *c->second.cb;
     std::shared_ptr<DisplayVk::DisplayBufferInfo> db = nullptr;
-    if (m_displayVk != nullptr) {
+    if (m_displayVk) {
         db = m_displayVk->createDisplayBuffer(image, imageCi);
+        if (!db) {
+            ERR("Fail to create display buffer for ColorBuffer %" PRIu64 ".",
+                static_cast<uint64_t>(colorBufferHandle));
+        }
     }
     return cb.importMemory(handle, size, dedicated, imageCi.tiling == VK_IMAGE_TILING_LINEAR,
                            vulkanOnly, std::move(db));
@@ -940,6 +976,7 @@ FrameBuffer::~FrameBuffer() {
     m_readbackWorker.reset();
 
     goldfish_vk::teardownGlobalVkEmulation();
+    SyncThread::destroy();
 }
 
 WorkerProcessingResult
@@ -980,15 +1017,15 @@ WorkerProcessingResult FrameBuffer::postWorkerFunc(Post& post) {
                                       post.composeBuffer.size(),
                                       std::move(post.composeCallback));
             } else {
-                auto composeCallback =
-                    std::make_shared<Post::ComposeCallback>(
-                        [composeCallback = std::move(post.composeCallback)]
-                            (std::shared_future<void> waitForGpu) {
-                                SyncThread::get()->triggerGeneral(
-                                    [composeCallback = std::move(composeCallback), waitForGpu]{
-                                        (*composeCallback)(waitForGpu);
-                                    });
-                            });
+                auto composeCallback = std::make_shared<Post::ComposeCallback>(
+                    [composeCallback =
+                         std::move(post.composeCallback)](std::shared_future<void> waitForGpu) {
+                        SyncThread::get()->triggerGeneral(
+                            [composeCallback = std::move(composeCallback), waitForGpu] {
+                                (*composeCallback)(waitForGpu);
+                            },
+                            "Wait for host composition");
+                    });
                 m_postWorker->compose(
                     (ComposeDevice_v2*)post.composeBuffer.data(),
                     post.composeBuffer.size(), std::move(composeCallback));
@@ -1039,9 +1076,8 @@ std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
                         return false;
                     }
                     INFO("Recreating swapchain...");
-                    m_displayVk->bindToSurface(
-                        m_vkSurface, static_cast<uint32_t>(m_windowWidth),
-                        static_cast<uint32_t>(m_windowHeight));
+                    m_displayVk->bindToSurface(m_vkSurface, static_cast<uint32_t>(m_windowWidth),
+                                             static_cast<uint32_t>(m_windowHeight));
                     INFO("Recreating swapchain completes.");
                     return true;
                 }
@@ -1234,6 +1270,11 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
                              ->vkCreateWin32SurfaceKHR(m_vkInstance, &surfaceCi,
                                                        nullptr, &m_vkSurface));
 #endif
+                if (m_renderDoc) {
+                    m_renderDoc->call(emugl::RenderDoc::kSetActiveWindow,
+                                      RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance),
+                                      reinterpret_cast<RENDERDOC_WindowHandle>(m_subWin));
+                }
             } else {
                 // create EGLSurface from the generated subwindow
                 m_eglSurface = s_egl.eglCreateWindowSurface(

@@ -3,6 +3,7 @@
 #include <cinttypes>
 #include <unordered_set>
 
+#include "host-common/logging.h"
 #include "vulkan/vk_enum_string_helper.h"
 #include "vulkan/vk_util.h"
 
@@ -91,8 +92,29 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
     VK_CHECK(
         vk.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr));
     std::vector<VkSurfaceFormatKHR> formats(formatCount);
-    VK_CHECK(vk.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount,
-                                                     formats.data()));
+    VkResult res = vk.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount,
+                                                           formats.data());
+    // b/217226027: drivers may return VK_INCOMPLETE with pSurfaceFormatCount returned by
+    // vkGetPhysicalDeviceSurfaceFormatsKHR. Retry here as a work around to the potential driver
+    // bug.
+    if (res == VK_INCOMPLETE) {
+        formatCount = (formatCount + 1) * 2;
+        INFO(
+            "VK_INCOMPLETE returned by vkGetPhysicalDeviceSurfaceFormatsKHR. A possible driver "
+            "bug. Retry with *pSurfaceFormatCount = %" PRIu32 ".",
+            formatCount);
+        formats.resize(formatCount);
+        res = vk.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount,
+                                                      formats.data());
+        formats.resize(formatCount);
+    }
+    if (res == VK_INCOMPLETE) {
+        INFO(
+            "VK_INCOMPLETE still returned by vkGetPhysicalDeviceSurfaceFormatsKHR with retry. A "
+            "possible driver bug.");
+    } else {
+        VK_CHECK(res);
+    }
     auto iSurfaceFormat =
         std::find_if(formats.begin(), formats.end(), [](const VkSurfaceFormatKHR &format) {
             return format.format == k_vkFormat && format.colorSpace == k_vkColorSpace;
@@ -164,6 +186,8 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
     VkSwapchainCreateInfoKHRPtr swapChainCi(
         new VkSwapchainCreateInfoKHR{
             .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+            .pNext = nullptr,
+            .flags = VkSwapchainCreateFlagsKHR{0},
             .surface = surface,
             .minImageCount = imageCount,
             .imageFormat = iSurfaceFormat->format,
@@ -171,6 +195,9 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
             .imageExtent = extent,
             .imageArrayLayers = 1,
             .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            .imageSharingMode = VkSharingMode{},
+            .queueFamilyIndexCount = 0,
+            .pQueueFamilyIndices = nullptr,
             .preTransform = surfaceCaps.currentTransform,
             .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
             .presentMode = presentMode,

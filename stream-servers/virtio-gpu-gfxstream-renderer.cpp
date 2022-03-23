@@ -159,7 +159,7 @@ using android::emulation::HostmemIdMapping;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
 
-using VirglResId = uint32_t;
+using VirtioGpuResId = uint32_t;
 
 static constexpr int kPipeTryAgain = -2;
 
@@ -170,7 +170,7 @@ struct VirtioGpuCmd {
 } __attribute__((packed));
 
 struct PipeCtxEntry {
-    VirglCtxId ctxId;
+    VirtioGpuCtxId ctxId;
     GoldfishHostPipe* hostPipe;
     int fence;
     uint32_t addressSpaceHandle;
@@ -184,7 +184,7 @@ struct PipeResEntry {
     void* linear;
     size_t linearSize;
     GoldfishHostPipe* hostPipe;
-    VirglCtxId ctxId;
+    VirtioGpuCtxId ctxId;
     uint64_t hva;
     uint64_t hvaSize;
     uint64_t hvaId;
@@ -555,7 +555,7 @@ public:
 
     void resetPipe(GoldfishHwPipe* hwPipe, GoldfishHostPipe* hostPipe) {
         VGPLOG("Want to reset hwpipe %p to hostpipe %p", hwPipe, hostPipe);
-        VirglCtxId asCtxId = (VirglCtxId)(uintptr_t)hwPipe;
+        VirtioGpuCtxId asCtxId = (VirtioGpuCtxId)(uintptr_t)hwPipe;
         auto it = mContexts.find(asCtxId);
         if (it == mContexts.end()) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -586,7 +586,7 @@ public:
         }
     }
 
-    int createContext(VirglCtxId handle, uint32_t nlen, const char* name) {
+    int createContext(VirtioGpuCtxId handle, uint32_t nlen, const char* name) {
         AutoLock lock(mLock);
         VGPLOG("ctxid: %u len: %u name: %s", handle, nlen, name);
         auto ops = ensureAndGetServiceOps();
@@ -612,7 +612,7 @@ public:
         return 0;
     }
 
-    int destroyContext(VirglCtxId handle) {
+    int destroyContext(VirtioGpuCtxId handle) {
         AutoLock lock(mLock);
         VGPLOG("ctxid: %u", handle);
 
@@ -641,7 +641,7 @@ public:
         return 0;
     }
 
-    void setContextAddressSpaceHandleLocked(VirglCtxId ctxId, uint32_t handle) {
+    void setContextAddressSpaceHandleLocked(VirtioGpuCtxId ctxId, uint32_t handle) {
         auto ctxIt = mContexts.find(ctxId);
         if (ctxIt == mContexts.end()) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -653,7 +653,7 @@ public:
         ctxEntry.hasAddressSpaceHandle = true;
     }
 
-    uint32_t getAddressSpaceHandleLocked(VirglCtxId ctxId) {
+    uint32_t getAddressSpaceHandleLocked(VirtioGpuCtxId ctxId) {
         auto ctxIt = mContexts.find(ctxId);
         if (ctxIt == mContexts.end()) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -689,7 +689,7 @@ public:
         memcpy(iovWords, dwords, sizeof(uint32_t) * dwordCount);
     }
 
-    void addressSpaceProcessCmd(VirglCtxId ctxId, uint32_t* dwords, int dwordCount) {
+    void addressSpaceProcessCmd(VirtioGpuCtxId ctxId, uint32_t* dwords, int dwordCount) {
         uint32_t opcode = dwords[0];
 
         switch (opcode) {
@@ -800,7 +800,7 @@ public:
         }
     }
 
-    int submitCmd(VirglCtxId ctxId, void* buffer, int dwordCount) {
+    int submitCmd(VirtioGpuCtxId ctxId, void* buffer, int dwordCount) {
         VGPLOG("ctxid: %u buffer: %p dwords: %d", ctxId, buffer, dwordCount);
 
         if (!buffer) {
@@ -1345,7 +1345,7 @@ public:
         auto resourcesIt = mContextResources.find(ctxId);
 
         if (resourcesIt == mContextResources.end()) {
-            std::vector<VirglResId> ids;
+            std::vector<VirtioGpuResId> ids;
             ids.push_back(resId);
             mContextResources[ctxId] = ids;
         } else {
@@ -1358,7 +1358,7 @@ public:
         auto contextsIt = mResourceContexts.find(resId);
 
         if (contextsIt == mResourceContexts.end()) {
-            std::vector<VirglCtxId> ids;
+            std::vector<VirtioGpuCtxId> ids;
             ids.push_back(ctxId);
             mResourceContexts[resId] = ids;
         } else {
@@ -1479,22 +1479,6 @@ public:
         mResources[res_handle] = e;
     }
 
-    uint64_t getResourceHva(uint32_t res_handle) {
-        AutoLock lock(mLock);
-        auto it = mResources.find(res_handle);
-        if (it == mResources.end()) return 0;
-        const auto& entry = it->second;
-        return entry.hva;
-    }
-
-    uint64_t getResourceHvaSize(uint32_t res_handle) {
-        AutoLock lock(mLock);
-        auto it = mResources.find(res_handle);
-        if (it == mResources.end()) return 0;
-        const auto& entry = it->second;
-        return entry.hvaSize;
-    }
-
     int resourceMap(uint32_t res_handle, void** hvaOut, uint64_t* sizeOut) {
         AutoLock lock(mLock);
         auto it = mResources.find(res_handle);
@@ -1531,22 +1515,6 @@ public:
         // TODO(lfy): Good place to run any registered cleanup callbacks.
         // No-op for now.
         return 0;
-    }
-
-    void setResourceHvSlot(uint32_t res_handle, uint32_t slot) {
-        AutoLock lock(mLock);
-        auto it = mResources.find(res_handle);
-        if (it == mResources.end()) return;
-        auto& entry = it->second;
-        entry.hvSlot = slot;
-    }
-
-    uint32_t getResourceHvSlot(uint32_t res_handle) {
-        AutoLock lock(mLock);
-        auto it = mResources.find(res_handle);
-        if (it == mResources.end()) return 0;
-        const auto& entry = it->second;
-        return entry.hvSlot;
     }
 
     int platformImportResource(int res_handle, int res_type, void* resource) {
@@ -1623,7 +1591,7 @@ private:
         auto it = mContextResources.find(ctxId);
         if (it == mContextResources.end()) return;
 
-        std::vector<VirglResId> withoutRes;
+        std::vector<VirtioGpuResId> withoutRes;
         for (auto resId : it->second) {
             if (resId != toUnrefId) {
                 withoutRes.push_back(resId);
@@ -1655,10 +1623,10 @@ private:
 
     const GoldfishPipeServiceOps* mServiceOps = nullptr;
 
-    std::unordered_map<VirglCtxId, PipeCtxEntry> mContexts;
-    std::unordered_map<VirglResId, PipeResEntry> mResources;
-    std::unordered_map<VirglCtxId, std::vector<VirglResId>> mContextResources;
-    std::unordered_map<VirglResId, std::vector<VirglCtxId>> mResourceContexts;
+    std::unordered_map<VirtioGpuCtxId, PipeCtxEntry> mContexts;
+    std::unordered_map<VirtioGpuResId, PipeResEntry> mResources;
+    std::unordered_map<VirtioGpuCtxId, std::vector<VirtioGpuResId>> mContextResources;
+    std::unordered_map<VirtioGpuResId, std::vector<VirtioGpuCtxId>> mResourceContexts;
 
     // For use with the async fence cb.
     // When we wait for gpu or wait for gpu vulkan, the next (and subsequent)
@@ -1782,11 +1750,6 @@ VG_EXPORT int pipe_virgl_renderer_resource_get_info(
     return sRenderer()->getResourceInfo(res_handle, info);
 }
 
-VG_EXPORT int pipe_virgl_renderer_resource_create_v2(uint32_t res_handle, uint64_t hvaId) {
-    sRenderer()->createResourceV2(res_handle, hvaId);
-    return 0;
-}
-
 VG_EXPORT int pipe_virgl_renderer_resource_map(uint32_t res_handle, void** hvaOut, uint64_t* sizeOut) {
     return sRenderer()->resourceMap(res_handle, hvaOut, sizeOut);
 }
@@ -1801,25 +1764,18 @@ VG_EXPORT void stream_renderer_flush_resource_and_readback(
     sRenderer()->flushResourceAndReadback(res_handle, x, y, width, height, pixels, max_bytes);
 }
 
-VG_EXPORT void stream_renderer_resource_create_v2(
-    uint32_t res_handle, uint64_t hvaId) {
-    sRenderer()->createResourceV2(res_handle, hvaId);
+VG_EXPORT int stream_renderer_create_blob(uint32_t ctx_id, uint32_t res_handle,
+                                          const struct stream_renderer_create_blob* create_blob,
+                                          const struct iovec* iovecs, uint32_t num_iovs,
+                                          const struct stream_renderer_handle* handle) {
+    sRenderer()->createResourceV2(res_handle, create_blob->blob_id);
+    return 0;
 }
 
-VG_EXPORT uint64_t stream_renderer_resource_get_hva(uint32_t res_handle) {
-    return sRenderer()->getResourceHva(res_handle);
-}
-
-VG_EXPORT uint64_t stream_renderer_resource_get_hva_size(uint32_t res_handle) {
-    return sRenderer()->getResourceHvaSize(res_handle);
-}
-
-VG_EXPORT void stream_renderer_resource_set_hv_slot(uint32_t res_handle, uint32_t slot) {
-    sRenderer()->setResourceHvSlot(res_handle, slot);
-}
-
-VG_EXPORT uint32_t stream_renderer_resource_get_hv_slot(uint32_t res_handle) {
-    return sRenderer()->getResourceHvSlot(res_handle);
+VG_EXPORT int stream_renderer_export_blob(uint32_t res_handle,
+                                          struct stream_renderer_handle* handle) {
+    // Unimplemented for now.
+    return -EINVAL;
 }
 
 VG_EXPORT int stream_renderer_resource_map(uint32_t res_handle, void** hvaOut, uint64_t* sizeOut) {

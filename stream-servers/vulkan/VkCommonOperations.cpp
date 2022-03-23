@@ -445,14 +445,19 @@ static std::vector<VkEmulation::ImageSupportInfo> getBasicImageSupportList() {
     return res;
 }
 
-VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
+VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
+#define VK_EMU_INIT_RETURN_ON_ERROR(...) \
+    do {                                 \
+        ERR(__VA_ARGS__);                \
+        return nullptr;                  \
+    } while (0)
+
     AutoLock lock(sVkEmulationLock);
 
     if (sVkEmulation) return sVkEmulation;
 
     if (!emugl::vkDispatchValid(vk)) {
-        fprintf(stderr, "%s: dispatch is invalid!\n", __func__);
-        return nullptr;
+        VK_EMU_INIT_RETURN_ON_ERROR("Dispatch is invalid.");
     }
 
     sVkEmulation = new VkEmulation;
@@ -546,8 +551,7 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
     VkResult res = gvk->vkCreateInstance(&instCi, nullptr, &sVkEmulation->instance);
 
     if (res != VK_SUCCESS) {
-        // LOG(ERROR) << "Failed to create Vulkan instance.";
-        return sVkEmulation;
+        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan instance.");
     }
 
     // Create instance level dispatch.
@@ -581,8 +585,7 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
             VkResult res = gvk->vkCreateInstance(&instCi, nullptr, &sVkEmulation->instance);
 
             if (res != VK_SUCCESS) {
-                // LOG(ERROR) << "Failed to create Vulkan 1.1 instance.";
-                return sVkEmulation;
+                VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan 1.1 instance.");
             }
 
             init_vulkan_dispatch_from_instance(
@@ -601,24 +604,16 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
     sVkEmulation->instanceSupportsMoltenVK = moltenVKSupported;
 
     if (sVkEmulation->instanceSupportsExternalMemoryCapabilities) {
-        sVkEmulation->getImageFormatProperties2Func = reinterpret_cast<
-                PFN_vkGetPhysicalDeviceImageFormatProperties2KHR>(
-                ivk->vkGetInstanceProcAddr(
-                        sVkEmulation->instance,
-                        "vkGetPhysicalDeviceImageFormatProperties2KHR"));
-        sVkEmulation->getPhysicalDeviceProperties2Func = reinterpret_cast<
-                PFN_vkGetPhysicalDeviceProperties2KHR>(
-                ivk->vkGetInstanceProcAddr(
-                        sVkEmulation->instance,
-                        "vkGetPhysicalDeviceProperties2KHR"));
-        if (!sVkEmulation->getPhysicalDeviceProperties2Func) {
-            sVkEmulation->getPhysicalDeviceProperties2Func = reinterpret_cast<
-                    PFN_vkGetPhysicalDeviceProperties2KHR>(
-                    ivk->vkGetInstanceProcAddr(
-                            sVkEmulation->instance,
-                            "vkGetPhysicalDeviceProperties2"));
-        }
+        sVkEmulation->getImageFormatProperties2Func = vk_util::getVkInstanceProcAddrWithFallback<
+            vk_util::vk_fn_info::GetPhysicalDeviceImageFormatProperties2>(
+            {ivk->vkGetInstanceProcAddr, vk->vkGetInstanceProcAddr}, sVkEmulation->instance);
+        sVkEmulation->getPhysicalDeviceProperties2Func = vk_util::getVkInstanceProcAddrWithFallback<
+            vk_util::vk_fn_info::GetPhysicalDeviceProperties2>(
+            {ivk->vkGetInstanceProcAddr, vk->vkGetInstanceProcAddr}, sVkEmulation->instance);
     }
+    sVkEmulation->getPhysicalDeviceFeatures2Func =
+        vk_util::getVkInstanceProcAddrWithFallback<vk_util::vk_fn_info::GetPhysicalDeviceFeatures2>(
+            {ivk->vkGetInstanceProcAddr, vk->vkGetInstanceProcAddr}, sVkEmulation->instance);
 
     if (sVkEmulation->instanceSupportsMoltenVK) {
         sVkEmulation->setMTLTextureFunc = reinterpret_cast<PFN_vkSetMTLTextureMVK>(
@@ -626,15 +621,13 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
                         sVkEmulation->instance, "vkSetMTLTextureMVK"));
 
         if (!sVkEmulation->setMTLTextureFunc) {
-            // LOG(ERROR) << "Cannot find vkSetMTLTextureMVK";
-            return sVkEmulation;
+            VK_EMU_INIT_RETURN_ON_ERROR("Cannot find vkSetMTLTextureMVK.");
         }
        sVkEmulation->getMTLTextureFunc = reinterpret_cast<PFN_vkGetMTLTextureMVK>(
                 vk->vkGetInstanceProcAddr(
                         sVkEmulation->instance, "vkGetMTLTextureMVK"));
         if (!sVkEmulation->getMTLTextureFunc) {
-            // LOG(ERROR) << "Cannot find vkGetMTLTextureMVK"
-            return sVkEmulation;
+            VK_EMU_INIT_RETURN_ON_ERROR("Cannot find vkGetMTLTextureMVK.");
         }
         // LOG(VERBOSE) << "Instance supports VK_MVK_moltenvk.";
     }
@@ -649,8 +642,7 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
     // LOG(VERBOSE) << "Found " << physdevCount << " Vulkan physical devices.";
 
     if (physdevCount == 0) {
-        // LOG(VERBOSE) << "No physical devices available.";
-        return sVkEmulation;
+        VK_EMU_INIT_RETURN_ON_ERROR("No physical devices available.");
     }
 
     std::vector<VkEmulation::DeviceSupportInfo> deviceInfos(physdevCount);
@@ -699,6 +691,23 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
                 physdevs[i],
                 &propsWithId);
             deviceInfos[i].idProps = idProps;
+        }
+
+        deviceInfos[i].hasSamplerYcbcrConversionExtension =
+            extensionsSupported(deviceExts, {VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME});
+        if (sVkEmulation->getPhysicalDeviceFeatures2Func) {
+            VkPhysicalDeviceFeatures2 features2 = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+            };
+            auto features2Chain = vk_make_chain_iterator(&features2);
+            VkPhysicalDeviceSamplerYcbcrConversionFeatures samplerYcbcrConversionFeatures = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES,
+            };
+            vk_append_struct(&features2Chain, &samplerYcbcrConversionFeatures);
+            sVkEmulation->getPhysicalDeviceFeatures2Func(physdevs[i], &features2);
+
+            deviceInfos[i].supportsSamplerYcbcrConversion =
+                samplerYcbcrConversionFeatures.samplerYcbcrConversion == VK_TRUE;
         }
 
         uint32_t queueFamilyCount = 0;
@@ -808,8 +817,7 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
     }
 
     if (!sVkEmulation->deviceInfo.hasGraphicsQueueFamily) {
-        // LOG(VERBOSE) << "No Vulkan devices with graphics queues found.";
-        return sVkEmulation;
+        VK_EMU_INIT_RETURN_ON_ERROR("No Vulkan devices with graphics queues found.");
     }
 
     auto deviceVersion = sVkEmulation->deviceInfo.physdevProps.apiVersion;
@@ -831,9 +839,6 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
         1, &priority,
     };
 
-    VkPhysicalDeviceFeatures2 features = {};
-    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-
     std::unordered_set<const char*> selectedDeviceExtensionNames_;
 
     if (sVkEmulation->deviceInfo.supportsExternalMemory) {
@@ -844,25 +849,44 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
     for (auto extension : SwapChainStateVk::getRequiredDeviceExtensions()) {
         selectedDeviceExtensionNames_.emplace(extension);
     }
+    if (sVkEmulation->deviceInfo.hasSamplerYcbcrConversionExtension) {
+        selectedDeviceExtensionNames_.emplace(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME);
+    }
     std::vector<const char*> selectedDeviceExtensionNames(
         selectedDeviceExtensionNames_.begin(),
         selectedDeviceExtensionNames_.end());
 
     VkDeviceCreateInfo dCi = {};
     dCi.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    dCi.pNext = &features;
     dCi.queueCreateInfoCount = 1;
     dCi.pQueueCreateInfos = &dqCi;
     dCi.enabledExtensionCount =
         static_cast<uint32_t>(selectedDeviceExtensionNames.size());
     dCi.ppEnabledExtensionNames = selectedDeviceExtensionNames.data();
 
+    // Setting up VkDeviceCreateInfo::pNext
+    auto deviceCiChain = vk_make_chain_iterator(&dCi);
+
+    VkPhysicalDeviceFeatures2 features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+    vk_append_struct(&deviceCiChain, &features);
+
+    std::unique_ptr<VkPhysicalDeviceSamplerYcbcrConversionFeatures> samplerYcbcrConversionFeatures =
+        nullptr;
+    if (sVkEmulation->deviceInfo.supportsSamplerYcbcrConversion) {
+        samplerYcbcrConversionFeatures =
+            std::make_unique<VkPhysicalDeviceSamplerYcbcrConversionFeatures>(
+                VkPhysicalDeviceSamplerYcbcrConversionFeatures{
+                    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES,
+                    .samplerYcbcrConversion = VK_TRUE,
+                });
+        vk_append_struct(&deviceCiChain, samplerYcbcrConversionFeatures.get());
+    }
+
     ivk->vkCreateDevice(sVkEmulation->physdev, &dCi, nullptr,
                         &sVkEmulation->device);
 
     if (res != VK_SUCCESS) {
-        // LOG(ERROR) << "Failed to create Vulkan device.";
-        return sVkEmulation;
+        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan device.");
     }
 
     // device created; populate dispatch table
@@ -888,16 +912,14 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
                 dvk->vkGetDeviceProcAddr(
                     sVkEmulation->device, "vkGetImageMemoryRequirements2KHR"));
         if (!sVkEmulation->deviceInfo.getImageMemoryRequirements2Func) {
-            // LOG(ERROR) << "Cannot find vkGetImageMemoryRequirements2KHR";
-            return sVkEmulation;
+            VK_EMU_INIT_RETURN_ON_ERROR("Cannot find vkGetImageMemoryRequirements2KHR.");
         }
         sVkEmulation->deviceInfo.getBufferMemoryRequirements2Func =
             reinterpret_cast<PFN_vkGetBufferMemoryRequirements2KHR>(
                 dvk->vkGetDeviceProcAddr(
                     sVkEmulation->device, "vkGetBufferMemoryRequirements2KHR"));
         if (!sVkEmulation->deviceInfo.getBufferMemoryRequirements2Func) {
-            // LOG(ERROR) << "Cannot find vkGetBufferMemoryRequirements2KHR";
-            return sVkEmulation;
+            VK_EMU_INIT_RETURN_ON_ERROR("Cannot find vkGetBufferMemoryRequirements2KHR");
         }
 #ifdef _WIN32
         sVkEmulation->deviceInfo.getMemoryHandleFunc =
@@ -911,8 +933,7 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
                                                 "vkGetMemoryFdKHR"));
 #endif
         if (!sVkEmulation->deviceInfo.getMemoryHandleFunc) {
-            // LOG(ERROR) << "Cannot find vkGetMemory(Fd|Win32Handle)KHR";
-            return sVkEmulation;
+            VK_EMU_INIT_RETURN_ON_ERROR("Cannot find vkGetMemory(Fd|Win32Handle)KHR");
         }
     }
 
@@ -942,8 +963,8 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
             sVkEmulation->device, &poolCi, nullptr, &sVkEmulation->commandPool);
 
     if (poolCreateRes != VK_SUCCESS) {
-        // LOG(ERROR) << "Failed to create command pool. Error: " << poolCreateRes;
-        return sVkEmulation;
+        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create command pool. Error: %s.",
+                                    string_VkResult(poolCreateRes));
     }
 
     VkCommandBufferAllocateInfo cbAi = {
@@ -955,8 +976,8 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
             sVkEmulation->device, &cbAi, &sVkEmulation->commandBuffer);
 
     if (cbAllocRes != VK_SUCCESS) {
-        // LOG(ERROR) << "Failed to allocate command buffer. Error: " << cbAllocRes;
-        return sVkEmulation;
+        VK_EMU_INIT_RETURN_ON_ERROR("Failed to allocate command buffer. Error: %s.",
+                                    string_VkResult(cbAllocRes));
     }
 
     VkFenceCreateInfo fenceCi = {
@@ -968,8 +989,8 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
         &sVkEmulation->commandBufferFence);
 
     if (fenceCreateRes != VK_SUCCESS) {
-        // LOG(ERROR) << "Failed to create fence for command buffer. Error: " << fenceCreateRes;
-        return sVkEmulation;
+        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create fence for command buffer. Error: %s.",
+                                    string_VkResult(fenceCreateRes));
     }
 
     // At this point, the global emulation state's logical device can alloc
@@ -992,8 +1013,8 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
                                &sVkEmulation->staging.buffer);
 
     if (bufCreateRes != VK_SUCCESS) {
-        // LOG(ERROR) << "Failed to create staging buffer index";
-        return sVkEmulation;
+        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create staging buffer index. Error: %s.",
+                                    string_VkResult(bufCreateRes));
     }
 
     VkMemoryRequirements memReqs;
@@ -1007,22 +1028,19 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
             &sVkEmulation->staging.memory.typeIndex);
 
     if (!gotStagingTypeIndex) {
-        // LOG(ERROR) << "Failed to determine staging memory type index";
-        return sVkEmulation;
+        VK_EMU_INIT_RETURN_ON_ERROR("Failed to determine staging memory type index.");
     }
 
     if (!((1 << sVkEmulation->staging.memory.typeIndex) &
           memReqs.memoryTypeBits)) {
-        // LOG(ERROR) << "Failed: Inconsistent determination of memory type "
-                        "index for staging buffer";
-        return sVkEmulation;
+        VK_EMU_INIT_RETURN_ON_ERROR(
+            "Failed: Inconsistent determination of memory type index for staging buffer");
     }
 
     if (!allocExternalMemory(dvk, &sVkEmulation->staging.memory,
                              false /* not external */,
                              kNullopt /* deviceAlignment */)) {
-        // LOG(ERROR) << "Failed to allocate memory for staging buffer";
-        return sVkEmulation;
+        VK_EMU_INIT_RETURN_ON_ERROR("Failed to allocate memory for staging buffer.");
     }
 
     VkResult stagingBufferBindRes = dvk->vkBindBufferMemory(
@@ -1031,8 +1049,7 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
         sVkEmulation->staging.memory.memory, 0);
 
     if (stagingBufferBindRes != VK_SUCCESS) {
-        // LOG(ERROR) << "Failed to bind memory for staging buffer";
-        return sVkEmulation;
+        VK_EMU_INIT_RETURN_ON_ERROR("Failed to bind memory for staging buffer.");
     }
 
     // LOG(VERBOSE) << "Vulkan global emulation state successfully initialized.";
@@ -1043,30 +1060,34 @@ VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk) {
     return sVkEmulation;
 }
 
-void setGlInteropSupported(bool supported) {
-    if (!sVkEmulation) {
-        // LOG(VERBOSE) << "Not setting vk/gl interop support, Vulkan not enabled";
+void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures> features) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        ERR("VkEmulation is either not initialized or destroyed.");
         return;
     }
 
-    // LOG(VERBOSE) << "Setting gl interop support for Vk to: " << supported;
-    sVkEmulation->deviceInfo.glInteropSupported = supported;
-}
+    AutoLock lock(sVkEmulationLock);
+    INFO("Initializing VkEmulation features:");
+    INFO("    glInteropSupported: %s", features->glInteropSupported ? "true" : "false");
+    INFO("    useDeferredCommands: %s", features->deferredCommands ? "true" : "false");
+    INFO("    createResourceWithRequirements: %s",
+         features->createResourceWithRequirements ? "true" : "false");
+    INFO("    useVulkanNativeSwapchain: %s", features->useVulkanNativeSwapchain ? "true" : "false");
+    INFO("    enable guestRenderDoc: %s", features->guestRenderDoc ? "true" : "false");
+    sVkEmulation->deviceInfo.glInteropSupported = features->glInteropSupported;
+    sVkEmulation->useDeferredCommands = features->deferredCommands;
+    sVkEmulation->useCreateResourcesWithRequirements = features->createResourceWithRequirements;
+    sVkEmulation->guestRenderDoc = std::move(features->guestRenderDoc);
 
-void setUseDeferredCommands(VkEmulation* emu, bool useDeferredCommands) {
-    if (!emu) return;
-    if (!emu->live) return;
-
-    // LOG(VERBOSE) << "Using deferred Vulkan commands: " << useDeferredCommands;
-    emu->useDeferredCommands = useDeferredCommands;
-}
-
-void setUseCreateResourcesWithRequirements(VkEmulation* emu, bool useCreateResourcesWithRequirements) {
-    if (!emu) return;
-    if (!emu->live) return;
-
-    /// LOG(VERBOSE) << "Using deferred Vulkan commands: " << useCreateResourcesWithRequirements;
-    emu->useCreateResourcesWithRequirements = useCreateResourcesWithRequirements;
+    if (features->useVulkanNativeSwapchain) {
+        if (sVkEmulation->displayVk) {
+            ERR("Reset VkEmulation::displayVk.");
+        }
+        sVkEmulation->displayVk = std::make_unique<DisplayVk>(
+            *sVkEmulation->ivk, sVkEmulation->physdev, sVkEmulation->queueFamilyIndex,
+            sVkEmulation->queueFamilyIndex, sVkEmulation->device, sVkEmulation->queue,
+            sVkEmulation->queueLock, sVkEmulation->queue, sVkEmulation->queueLock);
+    }
 }
 
 VkEmulation* getGlobalVkEmulation() {
@@ -1079,6 +1100,8 @@ void teardownGlobalVkEmulation() {
 
     // Don't try to tear down something that did not set up completely; too risky
     if (!sVkEmulation->live) return;
+
+    sVkEmulation->displayVk.reset();
 
     freeExternalMemoryLocked(sVkEmulation->dvk, &sVkEmulation->staging.memory);
 
@@ -2424,8 +2447,8 @@ transformExternalMemoryHandleTypeFlags_tohost(
         res |= VK_EXT_MEMORY_HANDLE_TYPE_BIT;
     }
 
-    if (bits & VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA) {
-        res &= ~VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA;
+    if (bits & VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA) {
+        res &= ~VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA;
         res |= VK_EXT_MEMORY_HANDLE_TYPE_BIT;
     }
 
