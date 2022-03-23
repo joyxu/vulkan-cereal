@@ -4,6 +4,7 @@
 #include <chrono>
 #include <glm/glm.hpp>
 #include <glm/gtx/matrix_transform_2d.hpp>
+#include <thread>
 
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"
@@ -45,9 +46,26 @@ bool shouldRecreateSwapchain(VkResult result) {
     }
 }
 
+VkResult waitForVkQueueIdleWithRetry(const goldfish_vk::VulkanDispatch& vk, VkQueue queue) {
+    using namespace std::chrono_literals;
+    constexpr uint32_t retryLimit = 5;
+    constexpr std::chrono::duration waitInterval = 4ms;
+    VkResult res = vk.vkQueueWaitIdle(queue);
+    for (uint32_t retryTimes = 1; retryTimes < retryLimit && res == VK_TIMEOUT; retryTimes++) {
+        INFO("VK_TIMEOUT returned from vkQueueWaitIdle with %" PRIu32 " attempt. Wait for %" PRIu32
+             "ms before another attempt.",
+             retryTimes,
+             static_cast<uint32_t>(
+                 std::chrono::duration_cast<std::chrono::milliseconds>(waitInterval).count()));
+        std::this_thread::sleep_for(waitInterval);
+        res = vk.vkQueueWaitIdle(queue);
+    }
+    return res;
+}
+
 }  // namespace
 
-DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk, VkPhysicalDevice vkPhysicalDevice,
+DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch& vk, VkPhysicalDevice vkPhysicalDevice,
                      uint32_t swapChainQueueFamilyIndex, uint32_t compositorQueueFamilyIndex,
                      VkDevice vkDevice, VkQueue compositorVkQueue,
                      std::shared_ptr<android::base::Lock> compositorVkQueueLock,
@@ -97,11 +115,11 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch &vk, VkPhysicalDevice vkP
 DisplayVk::~DisplayVk() {
     {
         android::base::AutoLock lock(*m_swapChainVkQueueLock);
-        VK_CHECK(m_vk.vkQueueWaitIdle(m_swapChainVkQueue));
+        VK_CHECK(waitForVkQueueIdleWithRetry(m_vk, m_swapChainVkQueue));
     }
     {
         android::base::AutoLock lock(*m_compositorVkQueueLock);
-        VK_CHECK(m_vk.vkQueueWaitIdle(m_compositorVkQueue));
+        VK_CHECK(waitForVkQueueIdleWithRetry(m_vk, m_compositorVkQueue));
     }
     m_postResourceFuture = std::nullopt;
     m_composeResourceFuture = std::nullopt;
@@ -116,11 +134,11 @@ DisplayVk::~DisplayVk() {
 void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t height) {
     {
         android::base::AutoLock lock(*m_compositorVkQueueLock);
-        VK_CHECK(m_vk.vkQueueWaitIdle(m_compositorVkQueue));
+        VK_CHECK(waitForVkQueueIdleWithRetry(m_vk, m_compositorVkQueue));
     }
     {
         android::base::AutoLock lock(*m_swapChainVkQueueLock);
-        VK_CHECK(m_vk.vkQueueWaitIdle(m_swapChainVkQueue));
+        VK_CHECK(waitForVkQueueIdleWithRetry(m_vk, m_swapChainVkQueue));
     }
     m_postResourceFuture = std::nullopt;
     m_composeResourceFuture = std::nullopt;
@@ -172,7 +190,7 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
 }
 
 std::shared_ptr<DisplayVk::DisplayBufferInfo> DisplayVk::createDisplayBuffer(
-    VkImage image, const VkImageCreateInfo &vkImageCreateInfo) {
+    VkImage image, const VkImageCreateInfo& vkImageCreateInfo) {
     return std::shared_ptr<DisplayBufferInfo>(
         new DisplayBufferInfo(m_vk, m_vkDevice, vkImageCreateInfo, image));
 }
@@ -372,7 +390,7 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
             DISPLAY_VK_ERROR("warning: null ptr passed to compose buffer for layer %d.", i);
             continue;
         }
-        const auto &db = *composeBuffers[i];
+        const auto& db = *composeBuffers[i];
         if (!canCompositeFrom(db.m_vkImageCreateInfo)) {
             DISPLAY_VK_ERROR("Can't composite from a display buffer. Skip the layer.");
             continue;
@@ -500,7 +518,7 @@ VkFormatFeatureFlags DisplayVk::getFormatFeatures(VkFormat format, VkImageTiling
         m_vk.vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, format, &formatProperties);
         i = m_vkFormatProperties.emplace(format, formatProperties).first;
     }
-    const VkFormatProperties &formatProperties = i->second;
+    const VkFormatProperties& formatProperties = i->second;
     VkFormatFeatureFlags formatFeatures = 0;
     if (tiling == VK_IMAGE_TILING_LINEAR) {
         formatFeatures = formatProperties.linearTilingFeatures;
@@ -512,7 +530,7 @@ VkFormatFeatureFlags DisplayVk::getFormatFeatures(VkFormat format, VkImageTiling
     return formatFeatures;
 }
 
-bool DisplayVk::canPost(const VkImageCreateInfo &postImageCi) {
+bool DisplayVk::canPost(const VkImageCreateInfo& postImageCi) {
     // According to VUID-vkCmdBlitImage-srcImage-01999, the format features of srcImage must contain
     // VK_FORMAT_FEATURE_BLIT_SRC_BIT.
     VkFormatFeatureFlags formatFeatures = getFormatFeatures(postImageCi.format, postImageCi.tiling);
@@ -603,7 +621,7 @@ bool DisplayVk::canPost(const VkImageCreateInfo &postImageCi) {
     return true;
 }
 
-bool DisplayVk::canCompositeFrom(const VkImageCreateInfo &imageCi) {
+bool DisplayVk::canCompositeFrom(const VkImageCreateInfo& imageCi) {
     VkFormatFeatureFlags formatFeatures = getFormatFeatures(imageCi.format, imageCi.tiling);
     if (!(formatFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) {
         DISPLAY_VK_ERROR(
@@ -616,7 +634,7 @@ bool DisplayVk::canCompositeFrom(const VkImageCreateInfo &imageCi) {
     return true;
 }
 
-bool DisplayVk::canCompositeTo(const VkImageCreateInfo &imageCi) {
+bool DisplayVk::canCompositeTo(const VkImageCreateInfo& imageCi) {
     VkFormatFeatureFlags formatFeatures = getFormatFeatures(imageCi.format, imageCi.tiling);
     if (!(formatFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT)) {
         DISPLAY_VK_ERROR(
@@ -645,14 +663,14 @@ bool DisplayVk::canCompositeTo(const VkImageCreateInfo &imageCi) {
 
 bool DisplayVk::compareAndSaveComposition(
     uint32_t renderTargetIndex, uint32_t numLayers, const ComposeLayer layers[],
-    const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers) {
+    const std::vector<std::shared_ptr<DisplayBufferInfo>>& composeBuffers) {
     if (!m_surfaceState) {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
             << "Haven't bound to a surface, can't compare and save composition.";
     }
     auto [iPrevComposition, compositionNotFound] =
         m_surfaceState->m_prevCompositions.emplace(renderTargetIndex, 0);
-    auto &prevComposition = iPrevComposition->second;
+    auto& prevComposition = iPrevComposition->second;
     bool compositionChanged = false;
     if (numLayers == prevComposition.size()) {
         for (int i = 0; i < numLayers; i++) {
@@ -674,7 +692,7 @@ bool DisplayVk::compareAndSaveComposition(
                 compositionChanged = true;
                 break;
             }
-            const auto &prevLayer = *prevComposition[i];
+            const auto& prevLayer = *prevComposition[i];
             const auto prevDisplayBufferPtr = prevLayer.m_displayBuffer.lock();
             // prevLayer.m_displayBuffer is a weak pointer, so if
             // prevDisplayBufferPtr is null, the color buffer
@@ -687,7 +705,7 @@ bool DisplayVk::compareAndSaveComposition(
                 compositionChanged = true;
                 break;
             }
-            const auto &prevHwc2Layer = prevLayer.m_hwc2Layer;
+            const auto& prevHwc2Layer = prevLayer.m_hwc2Layer;
             const auto hwc2Layer = layers[i];
             compositionChanged =
                 (prevHwc2Layer.cbHandle != hwc2Layer.cbHandle) ||
@@ -731,9 +749,9 @@ bool DisplayVk::compareAndSaveComposition(
     return needsSave;
 }
 
-DisplayVk::DisplayBufferInfo::DisplayBufferInfo(const goldfish_vk::VulkanDispatch &vk,
+DisplayVk::DisplayBufferInfo::DisplayBufferInfo(const goldfish_vk::VulkanDispatch& vk,
                                                 VkDevice vkDevice,
-                                                const VkImageCreateInfo &vkImageCreateInfo,
+                                                const VkImageCreateInfo& vkImageCreateInfo,
                                                 VkImage image)
     : m_vk(vk),
       m_vkDevice(vkDevice),
@@ -795,7 +813,7 @@ DisplayVk::PostResource::~PostResource() {
     m_vk.vkDestroySemaphore(m_vkDevice, m_swapchainImageReleaseSemaphore, nullptr);
 }
 
-DisplayVk::PostResource::PostResource(const goldfish_vk::VulkanDispatch &vk, VkDevice vkDevice,
+DisplayVk::PostResource::PostResource(const goldfish_vk::VulkanDispatch& vk, VkDevice vkDevice,
                                       VkCommandPool vkCommandPool,
                                       VkFence swapchainImageReleaseFence,
                                       VkSemaphore swapchainImageAcquireSemaphore,
@@ -835,7 +853,7 @@ DisplayVk::ComposeResource::~ComposeResource() {
     m_vk.vkDestroyFence(m_vkDevice, m_composeCompleteFence, nullptr);
 }
 
-DisplayVk::ComposeResource::ComposeResource(const goldfish_vk::VulkanDispatch &vk,
+DisplayVk::ComposeResource::ComposeResource(const goldfish_vk::VulkanDispatch& vk,
                                             VkDevice vkDevice, VkCommandPool vkCommandPool,
                                             VkFence composeCompleteFence,
                                             VkCommandBuffer vkCommandBuffer)
