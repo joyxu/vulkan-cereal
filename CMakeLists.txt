@@ -1,29 +1,13 @@
 project(gfx-streaming-kit)
 cmake_minimum_required(VERSION 3.11)
 
-option(BUILD_ASAN_WIN32 "Build with ASAN on Windows platform" OFF)
-
 if (WIN32)
     add_definitions("-DUNICODE -D_UNICODE -DNOMINMAX -DEMUGL_BUILD -DVK_USE_PLATFORM_WIN32_KHR -DBUILDING_EMUGL_COMMON_SHARED")
-
-    option(RECORDER_DELEGATE_LIB "Use recorder_delegate_lib dll" OFF)
-    if(RECORDER_DELEGATE_LIB)
-        add_definitions(-DRECORDER_DELEGATE_LIB)
-    endif()
-endif()
-
-option(VIRGL_RENDERER_UNSTABLE_APIS "Use unstable virglrenderer APIs" OFF)
-if(VIRGL_RENDERER_UNSTABLE_APIS)
-    add_definitions(-DVIRGL_RENDERER_UNSTABLE_APIS)
-endif()
-
-if(UNIX AND NOT APPLE)
-    set(LINUX TRUE)
+    add_definitions(/MP)
 endif()
 
 find_package(Threads)
 include(ExternalProject)
-include(GoogleTest)
 enable_testing()
 
 # set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
@@ -31,7 +15,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/distribution)
 if (WIN32)
-    SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi")
 else()
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -O3")
 endif()
@@ -61,23 +44,9 @@ endif()
 # set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
 # set (CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
 
-if (WIN32)
-    if (BUILD_ASAN_WIN32)
-        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
-        # ASAN does not work with flag /MDd, replace it with /MD
-        string(REPLACE "/MDd" "/MD" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-        set(CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-
-        # ASAN linker
-        # User needs to use -D ASAN_LIB_DIR:STRING=/path/to/asan_libs to add library directory
-        if (NOT DEFINED ASAN_LIB_DIR)
-            message(FATAL_ERROR "Please input ASAN library path with -D ASAN_LIB_DIR:STRING=/path/to/asan_lib_dir")
-        endif()
-        link_libraries(clang_rt.asan_dynamic-x86_64.lib clang_rt.asan_dynamic_runtime_thunk-x86_64.lib)
-        message("Linking ASAN libraries from: ${ASAN_LIB_DIR}")
-        link_directories(${ASAN_LIB_DIR})
-    endif()
-endif()
+# GoogleTest support: uses CMake ExternalProject to pull in external repo
+# without manual steps (during CMake build script generation phase)
+include(gtest.cmake)
 
 set(GFXSTREAM_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -105,3 +74,25 @@ add_subdirectory(protocols)
 if (NOT WIN32)
     add_subdirectory(fake-android-guest)
 endif()
+
+# Frontends#####################################################################
+
+# add_subdirectory(stream-clients)
+
+# Test environments#############################################################
+
+# add_subdirectory(testenvs)
+
+# Target: Host backend to consume real guest traffic############################
+
+# Target: Host front+back drivers for test environment##########################
+
+# Target: Host front+back drivers for app isolation#############################
+
+# Tests#################3#######################################################
+add_test(NAME gfxstream-base_unittests COMMAND gfxstream-base_unittests)
+add_test(NAME gfxstream-host-common_unittests COMMAND gfxstream-host-common_unittests)
+add_test(NAME gfxstream_backend_unittests COMMAND gfxstream_backend_unittests)
+add_test(NAME OpenglRender_unittests COMMAND OpenglRender_unittests)
+add_test(NAME OpenglRender_snapshot_unittests COMMAND OpenglRender_snapshot_unittests)
+add_test(NAME Vulkan_unittests COMMAND Vulkan_unittests)

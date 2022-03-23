@@ -20,13 +20,9 @@
 #include "host-common/crash_reporter.h"
 #include "host-common/debug.h"
 #include "host-common/dma_device.h"
-#include "host-common/GfxstreamFatalError.h"
 
 #include <assert.h>
 #include <memory.h>
-
-using emugl::ABORT_REASON_OTHER;
-using emugl::FatalError;
 
 namespace emugl {
 
@@ -280,7 +276,8 @@ void RingStream::type2Read(
     uint32_t available,
     size_t* count, char** current,const char* ptrEnd) {
 
-    GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "nyi. abort";
+    fprintf(stderr, "%s: nyi. abort\n", __func__);
+    abort();
 
     uint32_t xferTotal = available / sizeof(struct asg_type2_xfer);
 
@@ -349,7 +346,8 @@ int RingStream::writeFully(const void* buf, size_t len) {
 }
 
 const unsigned char *RingStream::readFully( void *buf, size_t len) {
-    GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "not intended for use with RingStream";
+    fprintf(stderr, "%s: FATAL: not intended for use with RingStream\n", __func__);
+    abort();
 }
 
 void RingStream::onSave(android::base::Stream* stream) {

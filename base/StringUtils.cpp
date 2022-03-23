@@ -25,7 +25,6 @@
 #include <string>
 #include <vector>
 
-
 #ifdef _WIN32
 const void* memmem(const void* haystack, size_t haystackLen,
                    const void* needle, size_t needleLen) {
@@ -125,11 +124,13 @@ void splitTokens(const std::string& input,
     split(input, splitBy, removeWhiteSpace);
 }
 
+#define CHECK_NE(a, b) \
+    if ((a) == (b))    \
+        abort();
+
 std::vector<std::string> Split(const std::string& s,
                                const std::string& delimiters) {
-    if (delimiters.empty()) {
-        return {}
-    }
+    CHECK_NE(delimiters.size(), 0U);
 
     std::vector<std::string> result;
 
