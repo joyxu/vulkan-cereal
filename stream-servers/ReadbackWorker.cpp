@@ -33,9 +33,8 @@ ReadbackWorker::recordDisplay::recordDisplay(uint32_t displayId, uint32_t w, uin
 
 void ReadbackWorker::initGL() {
     mFb = FrameBuffer::getFB();
-    mFb->createSharedTrivialContext(&mContext, &mSurf);
-    mFb->createSharedTrivialContext(&mFlushContext, &mFlushSurf);
-    s_egl.eglMakeCurrent(mFb->getDisplay(), mFlushSurf, mFlushSurf, mFlushContext);
+    mFb->createAndBindTrivialSharedContext(&mContext, &mSurf);
+    mFb->createAndBindTrivialSharedContext(&mFlushContext, &mFlushSurf);
 }
 
 ReadbackWorker::~ReadbackWorker() {
@@ -44,9 +43,8 @@ ReadbackWorker::~ReadbackWorker() {
     for (auto& r : mRecordDisplays) {
         s_gles2.glDeleteBuffers(r.second.mBuffers.size(), &r.second.mBuffers[0]);
     }
-    s_egl.eglMakeCurrent(mFb->getDisplay(), EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-    mFb->destroySharedTrivialContext(mContext, mSurf);
-    mFb->destroySharedTrivialContext(mFlushContext, mFlushSurf);
+    mFb->unbindAndDestroyTrivialSharedContext(mContext, mSurf);
+    mFb->unbindAndDestroyTrivialSharedContext(mFlushContext, mFlushSurf);
 }
 
 void ReadbackWorker::setRecordDisplay(uint32_t displayId, uint32_t w, uint32_t h, bool add) {

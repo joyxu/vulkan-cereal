@@ -98,8 +98,7 @@ public:
         // name (see add() below). |hwPipe| is the hardware-side
         // view of the pipe, and |args| potential arguments. Must
         // return nullptr on error.
-        virtual AndroidPipe* create(void* hwPipe, const char* args,
-                                    enum AndroidPipeFlags flags) = 0;
+        virtual AndroidPipe* create(void* hwPipe, const char* args) = 0;
 
         // Called once per whole vm save/load operation.
         virtual void preLoad(android::base::Stream* stream) {}

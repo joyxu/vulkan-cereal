@@ -64,13 +64,13 @@ public:
 
         bool canLoad() const override { return true; }
 
-        AndroidPipe* create(void* hwPipe, const char* args, enum AndroidPipeFlags flags) override {
-            return new GLProcessPipe(hwPipe, this, flags);
+        AndroidPipe* create(void* hwPipe, const char* args) override {
+            return new GLProcessPipe(hwPipe, this);
         }
 
         AndroidPipe* load(void* hwPipe, const char* args,
                          base::Stream* stream) override {
-            return new GLProcessPipe(hwPipe, this, (AndroidPipeFlags)0, stream);
+            return new GLProcessPipe(hwPipe, this, stream);
         }
 
         void preLoad(base::Stream* stream) override {
@@ -82,19 +82,14 @@ public:
         }
     };
 
-    GLProcessPipe(void* hwPipe, Service* service, enum AndroidPipeFlags flags,
+    GLProcessPipe(void* hwPipe, Service* service,
                   base::Stream* loadStream = nullptr)
         : AndroidPipe(hwPipe, service) {
         if (loadStream) {
             m_uniqueId = loadStream->getBe64();
             m_hasData = (loadStream->getByte() != 0);
         } else {
-            if (flags & ANDROID_PIPE_VIRTIO_GPU_BIT) {
-                m_uniqueId = (uint64_t)(uintptr_t)hwPipe;
-                s_headId = m_uniqueId;
-            } else {
-                m_uniqueId = ++s_headId;
-            }
+            m_uniqueId = ++s_headId;
         }
         AutoLock lock(sRegistry.lock);
         sRegistry.ids.insert(m_uniqueId);

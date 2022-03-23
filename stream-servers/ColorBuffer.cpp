@@ -15,7 +15,6 @@
 */
 #include "ColorBuffer.h"
 
-#include "Debug.h"
 #include "DispatchTables.h"
 #include "glestranslator/include/GLcommon/GLutils.h"
 #include "RenderThreadInfo.h"
@@ -37,9 +36,6 @@
 
 #define DEBUG_CB_FBO 0
 
-using emugl::ABORT_REASON_OTHER;
-using emugl::FatalError;
-
 namespace {
 
 // Lazily create and bind a framebuffer object to the current host context.
@@ -47,14 +43,10 @@ namespace {
 // |tex| is the name of a texture that is attached to the framebuffer object
 // on creation only. I.e. all rendering operations will target it.
 // returns true in case of success, false on failure.
-bool bindFbo(GLuint* fbo, GLuint tex, bool ensureTextureAttached) {
+bool bindFbo(GLuint* fbo, GLuint tex) {
     if (*fbo) {
         // fbo already exist - just bind
         s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, *fbo);
-        if (ensureTextureAttached) {
-            s_gles2.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_OES,
-                                           GL_TEXTURE_2D, tex, 0);
-        }
         return true;
     }
 
@@ -171,8 +163,8 @@ static bool sGetFormatParameters(GLint* internalFormat,
             return true;
         case GL_LUMINANCE:
             *texFormat = GL_LUMINANCE;
-            *pixelType = GL_UNSIGNED_BYTE;
-            *bytesPerPixel = 1;
+            *pixelType = GL_UNSIGNED_SHORT;
+            *bytesPerPixel = 2;
             *sizedInternalFormat = GL_R8;
             *isBlob = true;
             return true;
@@ -242,8 +234,6 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
     if (!context.isOk()) {
         return NULL;
     }
-
-    GL_SCOPED_DEBUG_GROUP("ColorBuffer::create(handle:%d)", hndl);
 
     ColorBuffer* cb = new ColorBuffer(p_display, hndl, helper);
 
@@ -379,15 +369,10 @@ void ColorBuffer::readPixels(int x,
     if (!context.isOk()) {
         return;
     }
-
-    GL_SCOPED_DEBUG_GROUP("ColorBuffer::readPixels(handle:%d fbo:%d tex:%d)", mHndl, m_fbo, m_tex);
-
     p_format = sGetUnsizedColorBufferFormat(p_format);
     touch();
-    waitSync();
 
-    if (bindFbo(&m_fbo, m_tex, m_needFboReattach)) {
-        m_needFboReattach = false;
+    if (bindFbo(&m_fbo, m_tex)) {
         GLint prevAlignment = 0;
         s_gles2.glGetIntegerv(GL_PACK_ALIGNMENT, &prevAlignment);
         s_gles2.glPixelStorei(GL_PACK_ALIGNMENT, 1);
@@ -409,10 +394,8 @@ void ColorBuffer::readPixelsScaled(int width,
     }
     p_format = sGetUnsizedColorBufferFormat(p_format);
     touch();
-    waitSync();
     GLuint tex = m_resizer->update(m_tex, width, height, rotation);
-    if (bindFbo(&m_scaleRotationFbo, tex, m_needFboReattach)) {
-        m_needFboReattach = false;
+    if (bindFbo(&m_scaleRotationFbo, tex)) {
         GLint prevAlignment = 0;
         s_gles2.glGetIntegerv(GL_PACK_ALIGNMENT, &prevAlignment);
         s_gles2.glPixelStorei(GL_PACK_ALIGNMENT, 1);
@@ -434,7 +417,6 @@ void ColorBuffer::readPixelsYUVCached(int x,
     }
 
     touch();
-    waitSync();
 
 #if DEBUG_CB_FBO
     fprintf(stderr, "%s %d request width %d height %d\n", __func__, __LINE__,
@@ -442,7 +424,6 @@ void ColorBuffer::readPixelsYUVCached(int x,
     memset(pixels, 0x00, pixels_size);
     assert(m_yuv_converter.get());
 #endif
-
 
     m_yuv_converter->readPixels((uint8_t*)pixels, pixels_size);
 
@@ -530,11 +511,10 @@ void ColorBuffer::subUpdate(int x,
                             void* pixels) {
     const GLenum p_unsizedFormat = sGetUnsizedColorBufferFormat(p_format);
     RecursiveScopedHelperContext context(m_helper);
+
     if (!context.isOk()) {
         return;
     }
-
-    GL_SCOPED_DEBUG_GROUP("ColorBuffer::subUpdate(handle:%d fbo:%d tex:%d)", mHndl, m_fbo, m_tex);
 
     touch();
 
@@ -550,7 +530,7 @@ void ColorBuffer::subUpdate(int x,
 
         // This FBO will convert the YUV frame to RGB
         // and render it to |m_tex|.
-        bindFbo(&m_yuv_conversion_fbo, m_tex, m_needFboReattach);
+        bindFbo(&m_yuv_conversion_fbo, m_tex);
         m_yuv_converter->drawConvert(x, y, width, height, (char*)pixels);
         unbindFbo();
 
@@ -762,7 +742,7 @@ bool ColorBuffer::blitFromCurrentReadBuffer() {
             return false;
         }
 
-        if (!bindFbo(&m_fbo, m_tex, m_needFboReattach)) {
+        if (!bindFbo(&m_fbo, m_tex)) {
             return false;
         }
 
@@ -867,8 +847,7 @@ void ColorBuffer::readback(unsigned char* img, bool readbackBgra) {
     touch();
     waitSync();
 
-    if (bindFbo(&m_fbo, m_tex, m_needFboReattach)) {
-        m_needFboReattach = false;
+    if (bindFbo(&m_fbo, m_tex)) {
         // Flip the readback format if RED/BLUE components are swizzled.
         bool shouldReadbackBgra = m_BRSwizzle ? !readbackBgra : readbackBgra;
         GLenum format = shouldReadbackBgra ? GL_BGRA_EXT : GL_RGBA;
@@ -886,8 +865,7 @@ void ColorBuffer::readbackAsync(GLuint buffer, bool readbackBgra) {
     touch();
     waitSync();
 
-    if (bindFbo(&m_fbo, m_tex, m_needFboReattach)) {
-        m_needFboReattach = false;
+    if (bindFbo(&m_fbo, m_tex)) {
         s_gles2.glBindBuffer(GL_PIXEL_PACK_BUFFER, buffer);
         bool shouldReadbackBgra = m_BRSwizzle ? !readbackBgra : readbackBgra;
         GLenum format = shouldReadbackBgra ? GL_BGRA_EXT : GL_RGBA;
@@ -1054,75 +1032,6 @@ bool ColorBuffer::importMemory(
     }
 
     return true;
-}
-
-bool ColorBuffer::importEglNativePixmap(void* pixmap) {
-
-    EGLImageKHR image = s_egl.eglCreateImageKHR(m_display, EGL_NO_CONTEXT, EGL_NATIVE_PIXMAP_KHR, pixmap, nullptr);
-
-    if (image == EGL_NO_IMAGE_KHR) {
-        fprintf(stderr, "%s: error: failed to import pixmap\n", __func__);
-        return false;
-    }
-
-    // Assume pixmap is compatible with ColorBuffer's current dimensions and internal format.
-    EGLBoolean setInfoRes = s_egl.eglSetImageInfoANDROID(m_display, image, m_width, m_height, m_internalFormat);
-
-    if (EGL_TRUE != setInfoRes) {
-        fprintf(stderr, "%s: error: failed to set image info\n", __func__);
-        s_egl.eglDestroyImageKHR(m_display, image);
-        return false;
-    }
-
-    rebindEglImage(image);
-    return true;
-}
-
-bool ColorBuffer::importEglImage(void* nativeEglImage) {
-    EGLImageKHR image = s_egl.eglImportImageANDROID(m_display, (EGLImage)nativeEglImage);
-
-    if (image == EGL_NO_IMAGE_KHR) return false;
-
-    // Assume nativeEglImage is compatible with ColorBuffer's current dimensions and internal format.
-    EGLBoolean setInfoRes = s_egl.eglSetImageInfoANDROID(m_display, image, m_width, m_height, m_internalFormat);
-
-    if (EGL_TRUE != setInfoRes) {
-        s_egl.eglDestroyImageKHR(m_display, image);
-        return false;
-    }
-
-    rebindEglImage(image);
-    return true;
-}
-
-std::vector<uint8_t> ColorBuffer::getContentsAndClearStorage() {
-    // Assume there is a current context.
-    size_t bytes;
-    readContents(&bytes, nullptr);
-    std::vector<uint8_t> prevContents(bytes);
-    readContents(&bytes, prevContents.data());
-    s_gles2.glDeleteTextures(1, &m_tex);
-    s_egl.eglDestroyImageKHR(m_display, m_eglImage);
-    m_tex = 0;
-    m_eglImage = (EGLImageKHR)0;
-    return prevContents;
-}
-
-void ColorBuffer::restoreContentsAndEglImage(const std::vector<uint8_t>& contents, EGLImageKHR image) {
-    s_gles2.glGenTextures(1, &m_tex);
-    s_gles2.glBindTexture(GL_TEXTURE_2D, m_tex);
-
-    m_eglImage = image;
-    s_gles2.glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, (GLeglImageOES)m_eglImage);
-    m_needFboReattach = true;
-
-    replaceContents(contents.data(), m_numBytes);
-}
-
-void ColorBuffer::rebindEglImage(EGLImageKHR image) {
-    RecursiveScopedHelperContext context(m_helper);
-    auto contents = getContentsAndClearStorage();
-    restoreContentsAndEglImage(contents, image);
 }
 
 void ColorBuffer::setInUse(bool inUse) {
