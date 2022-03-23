@@ -5,3 +5,5 @@ IncludeCategories:
   - Regex: '^(<(gtest|gmock))'
     Priority: -1
 FixNamespaceComments: true
+PointerAlignment: Left
+DerivePointerAlignment: false

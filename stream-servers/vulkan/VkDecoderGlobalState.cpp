@@ -44,6 +44,7 @@
 #include "common/goldfish_vk_reserved_marshaling.h"
 #include "compressedTextureFormats/etc.h"
 #include "host-common/GfxstreamFatalError.h"
+#include "host-common/RenderDoc.h"
 #include "host-common/address_space_device_control_ops.h"
 #include "host-common/feature_control.h"
 #include "host-common/vm_operations.h"
@@ -115,8 +116,7 @@ enum BoxedHandleTypeTag {
 
 template <class T>
 class BoxedHandleManager {
-public:
-
+   public:
     // The hybrid entity manager uses a sequence lock to protect access to
     // a working set of 16000 handles, allowing us to avoid using a regular
     // lock for those. Performance is degraded when going over this number,
@@ -224,12 +224,12 @@ static void releaseOrderMaintInfo(OrderMaintenanceInfo* ord) {
 
 template <class T>
 class DispatchableHandleInfo {
-    public:
-        T underlying;
-        VulkanDispatch* dispatch = nullptr;
-        bool ownDispatch = false;
-        OrderMaintenanceInfo* ordMaintInfo = nullptr;
-        VulkanMemReadingStream* readStream = nullptr;
+   public:
+    T underlying;
+    VulkanDispatch* dispatch = nullptr;
+    bool ownDispatch = false;
+    OrderMaintenanceInfo* ordMaintInfo = nullptr;
+    VulkanMemReadingStream* readStream = nullptr;
 };
 
 static BoxedHandleManager<DispatchableHandleInfo<uint64_t>> sBoxedHandleManager;
@@ -261,21 +261,22 @@ struct ReadStreamRegistry {
 static ReadStreamRegistry sReadStreamRegistry;
 
 class VkDecoderGlobalState::Impl {
-public:
-    Impl() :
-        m_vk(emugl::vkDispatch()),
-        m_emu(getGlobalVkEmulation()) {
-        mSnapshotsEnabled =
-            feature_is_enabled(kFeature_VulkanSnapshots);
+   public:
+    Impl()
+        : m_vk(emugl::vkDispatch()),
+          m_emu(getGlobalVkEmulation()),
+          mRenderDocWithMultipleVkInstances(m_emu->guestRenderDoc.get()) {
+        mSnapshotsEnabled = feature_is_enabled(kFeature_VulkanSnapshots);
         mVkCleanupEnabled = android::base::getEnvironmentVariable("ANDROID_EMU_VK_NO_CLEANUP") != "1";
         mLogging = android::base::getEnvironmentVariable("ANDROID_EMU_VK_LOG_CALLS") == "1";
         mVerbosePrints = android::base::getEnvironmentVariable("ANDROID_EMUGL_VERBOSE") == "1";
         if (get_emugl_address_space_device_control_ops().control_get_hw_funcs &&
             get_emugl_address_space_device_control_ops().control_get_hw_funcs()) {
-            mUseOldMemoryCleanupPath = 0 == get_emugl_address_space_device_control_ops().control_get_hw_funcs()->getPhysAddrStartLocked();
+            mUseOldMemoryCleanupPath = 0 == get_emugl_address_space_device_control_ops()
+                                                .control_get_hw_funcs()
+                                                ->getPhysAddrStartLocked();
         }
-        mGuestUsesAngle =
-            feature_is_enabled(kFeature_GuestUsesAngle);
+        mGuestUsesAngle = feature_is_enabled(kFeature_GuestUsesAngle);
     }
 
     ~Impl() = default;
@@ -512,6 +513,9 @@ public:
 
         teardownInstanceLocked(instance);
 
+        if (mRenderDocWithMultipleVkInstances) {
+            mRenderDocWithMultipleVkInstances->removeVkInstance(instance);
+        }
         m_vk->vkDestroyInstance(instance, pAllocator);
 
         auto it = mPhysicalDeviceToInstance.begin();
@@ -3501,6 +3505,12 @@ public:
             return VK_ERROR_INITIALIZATION_FAILED;
         }
 
+        if (mRenderDocWithMultipleVkInstances) {
+            VkPhysicalDevice vkPhysicalDevice = mDeviceToPhysicalDevice.at(queueInfo->device);
+            VkInstance vkInstance = mPhysicalDeviceToInstance.at(vkPhysicalDevice);
+            mRenderDocWithMultipleVkInstances->onFrameDelimiter(vkInstance);
+        }
+
         auto imageInfo = android::base::find(mImageInfo, image);
         auto anbInfo = imageInfo->anbInfo;
 
@@ -4740,9 +4750,7 @@ public:
         return vk->vkGetFenceStatus(device, fence);
     }
 
-    VkResult waitQsri(VkImage boxed_image, uint64_t timeout) {
-        (void)timeout; // TODO
-
+    VkResult registerQsriCallback(VkImage boxed_image, VkQsriTimeline::Callback callback) {
         AutoLock lock(mLock);
 
         VkImage image = unbox_VkImage(boxed_image);
@@ -4774,20 +4782,10 @@ public:
             return VK_SUCCESS;
         }
 
-        AutoLock qsriLock(anbInfo->qsriWaitInfo.lock);
-        uint64_t targetPresentCount = ++anbInfo->qsriWaitInfo.requestedPresentCount;
+        anbInfo->qsriTimeline->registerCallbackForNextPresentAndPoll(std::move(callback));
 
         if (mLogging) {
-            fprintf(stderr, "%s:%p New target present count %llu\n",
-                    __func__, anbInfo.get(), (unsigned long long)targetPresentCount);
-        }
-
-        anbInfo->qsriWaitInfo.cv.wait(&anbInfo->qsriWaitInfo.lock, [anbInfo, targetPresentCount] {
-            return targetPresentCount <= anbInfo->qsriWaitInfo.presentCount;
-        });
-
-        if (mLogging) {
-            fprintf(stderr, "%s:%p Done waiting\n", __func__, anbInfo.get());
+            fprintf(stderr, "%s:%p Done registering\n", __func__, anbInfo.get());
         }
         return VK_SUCCESS;
     }
@@ -5030,14 +5028,14 @@ public:
 
         VkDecoderSnapshot* snapshot() { return &mSnapshot; }
 
-private:
-    static const bool kEmulateAstc = true;
-    bool isEmulatedExtension(const char* name) const {
-        for (auto emulatedExt : kEmulatedExtensions) {
-            if (!strcmp(emulatedExt, name)) return true;
+       private:
+        static const bool kEmulateAstc = true;
+        bool isEmulatedExtension(const char* name) const {
+            for (auto emulatedExt : kEmulatedExtensions) {
+                if (!strcmp(emulatedExt, name)) return true;
+            }
+            return false;
         }
-        return false;
-    }
 
     bool supportEmulatedCompressedImageFormatProperty(
         VkFormat compressedFormat,
@@ -6451,6 +6449,7 @@ private:
 
     VulkanDispatch* m_vk;
     VkEmulation* m_emu;
+    emugl::RenderDocWithMultipleVkInstances* mRenderDocWithMultipleVkInstances = nullptr;
     bool mSnapshotsEnabled = false;
     bool mVkCleanupEnabled = true;
     bool mLogging = false;
@@ -6736,7 +6735,7 @@ private:
 
     template <class T>
     class NonDispatchableHandleInfo {
-    public:
+       public:
         T underlying;
     };
 
@@ -7926,8 +7925,9 @@ VkResult VkDecoderGlobalState::getFenceStatus(VkFence boxed_fence) {
     return mImpl->getFenceStatus(boxed_fence);
 }
 
-VkResult VkDecoderGlobalState::waitQsri(VkImage image, uint64_t timeout) {
-    return mImpl->waitQsri(image, timeout);
+VkResult VkDecoderGlobalState::registerQsriCallback(VkImage image,
+                                                    VkQsriTimeline::Callback callback) {
+    return mImpl->registerQsriCallback(image, std::move(callback));
 }
 
 void VkDecoderGlobalState::deviceMemoryTransform_tohost(
