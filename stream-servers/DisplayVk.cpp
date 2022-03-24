@@ -155,15 +155,20 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
     auto swapChainCi = SwapChainStateVk::createSwapChainCi(
         m_vk, surface, m_vkPhysicalDevice, width, height,
         {m_swapChainQueueFamilyIndex, m_compositorQueueFamilyIndex});
+    if (!swapChainCi) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Failed to create VkSwapchainCreateInfoKHR.";
+    }
     VkFormatProperties formatProps;
-    m_vk.vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, swapChainCi->imageFormat,
-                                             &formatProps);
+    m_vk.vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice,
+                                             swapChainCi->mCreateInfo.imageFormat, &formatProps);
     if (!(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT)) {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
             << "DisplayVk: The image format chosen for present VkImage can't be used as the color "
                "attachment, and therefore can't be used as the render target of CompositorVk.";
     }
-    m_swapChainStateVk = std::make_unique<SwapChainStateVk>(m_vk, m_vkDevice, *swapChainCi);
+    m_swapChainStateVk =
+        std::make_unique<SwapChainStateVk>(m_vk, m_vkDevice, swapChainCi->mCreateInfo);
     m_compositorVk = CompositorVk::create(
         m_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue, m_compositorVkQueueLock,
         k_compositorVkRenderTargetFormat, VK_IMAGE_LAYOUT_UNDEFINED,
