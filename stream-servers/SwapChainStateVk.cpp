@@ -3,15 +3,74 @@
 #include <cinttypes>
 #include <unordered_set>
 
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"
 #include "vulkan/vk_enum_string_helper.h"
 #include "vulkan/vk_util.h"
+
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 #define SWAPCHAINSTATE_VK_ERROR(fmt, ...)                                                     \
     do {                                                                                      \
         fprintf(stderr, "%s(%s:%d): " fmt "\n", __func__, __FILE__, __LINE__, ##__VA_ARGS__); \
         fflush(stderr);                                                                       \
     } while (0)
+
+namespace {
+
+void swap(SwapchainCreateInfoWrapper& a, SwapchainCreateInfoWrapper& b) {
+    std::swap(a.mQueueFamilyIndices, b.mQueueFamilyIndices);
+    std::swap(a.mCreateInfo, b.mCreateInfo);
+    // The C++ spec guarantees that after std::swap is called, all iterators and references of the
+    // container remain valid, and the past-the-end iterator is invalidated. Therefore, no need to
+    // reset the VkSwapchainCreateInfoKHR::pQueueFamilyIndices.
+}
+
+}  // namespace
+
+SwapchainCreateInfoWrapper::SwapchainCreateInfoWrapper(const VkSwapchainCreateInfoKHR& createInfo)
+    : mCreateInfo(createInfo) {
+    if (createInfo.pNext) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "VkSwapchainCreateInfoKHR with pNext in the chain is not supported.";
+    }
+
+    if (createInfo.pQueueFamilyIndices && (createInfo.queueFamilyIndexCount > 0)) {
+        setQueueFamilyIndices(std::vector<uint32_t>(
+            createInfo.pQueueFamilyIndices,
+            createInfo.pQueueFamilyIndices + createInfo.queueFamilyIndexCount));
+    } else {
+        setQueueFamilyIndices({});
+    }
+}
+
+SwapchainCreateInfoWrapper::SwapchainCreateInfoWrapper(const SwapchainCreateInfoWrapper& other)
+    : mCreateInfo(other.mCreateInfo) {
+    if (other.mCreateInfo.pNext) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "VkSwapchainCreateInfoKHR with pNext in the chain is not supported.";
+    }
+    setQueueFamilyIndices(other.mQueueFamilyIndices);
+}
+
+SwapchainCreateInfoWrapper& SwapchainCreateInfoWrapper::operator=(
+    const SwapchainCreateInfoWrapper& other) {
+    SwapchainCreateInfoWrapper tmp(other);
+    swap(*this, tmp);
+    return *this;
+}
+
+void SwapchainCreateInfoWrapper::setQueueFamilyIndices(
+    const std::vector<uint32_t>& queueFamilyIndices) {
+    mQueueFamilyIndices = queueFamilyIndices;
+    mCreateInfo.queueFamilyIndexCount = static_cast<uint32_t>(mQueueFamilyIndices.size());
+    if (mQueueFamilyIndices.empty()) {
+        mCreateInfo.pQueueFamilyIndices = nullptr;
+    } else {
+        mCreateInfo.pQueueFamilyIndices = queueFamilyIndices.data();
+    }
+}
 
 SwapChainStateVk::SwapChainStateVk(const goldfish_vk::VulkanDispatch &vk, VkDevice vkDevice,
                                    const VkSwapchainCreateInfoKHR &swapChainCi)
@@ -85,9 +144,9 @@ bool SwapChainStateVk::validateQueueFamilyProperties(const goldfish_vk::VulkanDi
     return presentSupport;
 }
 
-SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainCi(
-    const goldfish_vk::VulkanDispatch &vk, VkSurfaceKHR surface, VkPhysicalDevice physicalDevice,
-    uint32_t width, uint32_t height, const std::unordered_set<uint32_t> &queueFamilyIndices) {
+std::optional<SwapchainCreateInfoWrapper> SwapChainStateVk::createSwapChainCi(
+    const goldfish_vk::VulkanDispatch& vk, VkSurfaceKHR surface, VkPhysicalDevice physicalDevice,
+    uint32_t width, uint32_t height, const std::unordered_set<uint32_t>& queueFamilyIndices) {
     uint32_t formatCount = 0;
     VK_CHECK(
         vk.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr));
@@ -124,7 +183,7 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
                                 ") with color space(%#" PRIx64 ") not supported.",
                                 static_cast<uint64_t>(k_vkFormat),
                                 static_cast<uint64_t>(k_vkColorSpace));
-        return nullptr;
+        return std::nullopt;
     }
 
     uint32_t presentModeCount = 0;
@@ -137,7 +196,7 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
     VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
     if (!presentModes.count(VK_PRESENT_MODE_FIFO_KHR)) {
         SWAPCHAINSTATE_VK_ERROR("Fail to create swapchain: FIFO present mode not supported.");
-        return nullptr;
+        return std::nullopt;
     }
     VkFormatProperties formatProperties = {};
     vk.vkGetPhysicalDeviceFormatProperties(physicalDevice, k_vkFormat, &formatProperties);
@@ -151,7 +210,7 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
             "The format %s with the optimal tiling doesn't support VK_FORMAT_FEATURE_BLIT_DST_BIT. "
             "The supported features are %s.",
             string_VkFormat(k_vkFormat), string_VkFormatFeatureFlags(formatFeatures).c_str());
-        return nullptr;
+        return std::nullopt;
     }
     VkSurfaceCapabilitiesKHR surfaceCaps;
     VK_CHECK(vk.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCaps));
@@ -160,7 +219,7 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
             "The supported usage flags of the presentable images is %s, and don't contain "
             "VK_IMAGE_USAGE_TRANSFER_DST_BIT.",
             string_VkImageUsageFlags(surfaceCaps.supportedUsageFlags).c_str());
-        return nullptr;
+        return std::nullopt;
     }
     std::optional<VkExtent2D> maybeExtent = std::nullopt;
     if (surfaceCaps.currentExtent.width != UINT32_MAX && surfaceCaps.currentExtent.width == width &&
@@ -176,52 +235,43 @@ SwapChainStateVk::VkSwapchainCreateInfoKHRPtr SwapChainStateVk::createSwapChainC
         SWAPCHAINSTATE_VK_ERROR("Fail to create swapchain: extent(%" PRIu64 "x%" PRIu64
                                 ") not supported.",
                                 static_cast<uint64_t>(width), static_cast<uint64_t>(height));
-        return nullptr;
+        return std::nullopt;
     }
     auto extent = maybeExtent.value();
     uint32_t imageCount = surfaceCaps.minImageCount + 1;
     if (surfaceCaps.maxImageCount != 0 && surfaceCaps.maxImageCount < imageCount) {
         imageCount = surfaceCaps.maxImageCount;
     }
-    VkSwapchainCreateInfoKHRPtr swapChainCi(
-        new VkSwapchainCreateInfoKHR{
-            .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-            .pNext = nullptr,
-            .flags = VkSwapchainCreateFlagsKHR{0},
-            .surface = surface,
-            .minImageCount = imageCount,
-            .imageFormat = iSurfaceFormat->format,
-            .imageColorSpace = iSurfaceFormat->colorSpace,
-            .imageExtent = extent,
-            .imageArrayLayers = 1,
-            .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-            .imageSharingMode = VkSharingMode{},
-            .queueFamilyIndexCount = 0,
-            .pQueueFamilyIndices = nullptr,
-            .preTransform = surfaceCaps.currentTransform,
-            .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-            .presentMode = presentMode,
-            .clipped = VK_TRUE,
-            .oldSwapchain = VK_NULL_HANDLE},
-        [](VkSwapchainCreateInfoKHR *p) {
-            if (p->pQueueFamilyIndices != nullptr) {
-                delete[] p->pQueueFamilyIndices;
-            }
-        });
+    SwapchainCreateInfoWrapper swapChainCi(VkSwapchainCreateInfoKHR{
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .pNext = nullptr,
+        .flags = VkSwapchainCreateFlagsKHR{0},
+        .surface = surface,
+        .minImageCount = imageCount,
+        .imageFormat = iSurfaceFormat->format,
+        .imageColorSpace = iSurfaceFormat->colorSpace,
+        .imageExtent = extent,
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        .imageSharingMode = VkSharingMode{},
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr,
+        .preTransform = surfaceCaps.currentTransform,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = presentMode,
+        .clipped = VK_TRUE,
+        .oldSwapchain = VK_NULL_HANDLE});
     if (queueFamilyIndices.empty()) {
         SWAPCHAINSTATE_VK_ERROR("Fail to create swapchain: no Vulkan queue family specified.");
-        return nullptr;
+        return std::nullopt;
     }
     if (queueFamilyIndices.size() == 1) {
-        swapChainCi->imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        swapChainCi->queueFamilyIndexCount = 0;
-        swapChainCi->pQueueFamilyIndices = nullptr;
+        swapChainCi.mCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        swapChainCi.setQueueFamilyIndices({});
     } else {
-        swapChainCi->imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-        swapChainCi->queueFamilyIndexCount = static_cast<uint32_t>(queueFamilyIndices.size());
-        uint32_t *pQueueFamilyIndices = new uint32_t[queueFamilyIndices.size()];
-        std::copy(queueFamilyIndices.begin(), queueFamilyIndices.end(), pQueueFamilyIndices);
-        swapChainCi->pQueueFamilyIndices = pQueueFamilyIndices;
+        swapChainCi.mCreateInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        swapChainCi.setQueueFamilyIndices(
+            std::vector<uint32_t>(queueFamilyIndices.begin(), queueFamilyIndices.end()));
     }
     return swapChainCi;
 }
