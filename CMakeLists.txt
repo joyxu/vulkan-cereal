@@ -1,3 +1,4 @@
+cmake_policy(SET CMP0048 NEW)
 project(gfx-streaming-kit)
 cmake_minimum_required(VERSION 3.11)
 
@@ -56,6 +57,12 @@ if (MSVC)
     # ask msvc not to warn non C ISO POSIX functions
     add_compile_definitions(_CRT_NONSTDC_NO_DEPRECATE)
 endif()
+
+# Macro to easily set the TEST_INCLUDE_FILES properties to point to `test_properties.cmake`
+# This macro should be called at the end of any CMakeLists.txt file that defines test targets.
+macro("set_test_include_files")
+set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES ${CMAKE_SOURCE_DIR}/test_properties.cmake)
+endmacro()
 
 # Uncomment for ASAN support
 # set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
