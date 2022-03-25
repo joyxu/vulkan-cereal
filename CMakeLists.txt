@@ -1,6 +1,6 @@
 cmake_policy(SET CMP0048 NEW)
 project(gfx-streaming-kit)
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.18)
 
 option(BUILD_ASAN_WIN32 "Build with ASAN on Windows platform" OFF)
 
@@ -24,8 +24,13 @@ endif()
 
 find_package(Threads)
 include(ExternalProject)
+
 include(GoogleTest)
 enable_testing()
+# Disable test discovery after build.
+# By default, `gtest_discover_tests()` adds a post-build step to run the test executables in order to discover the test
+# targets. This is problematic in some build environments. (for example: if cross-compiling)
+set(CMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE "PRE_TEST")
 
 # set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
