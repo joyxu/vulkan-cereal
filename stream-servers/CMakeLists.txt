@@ -237,3 +237,5 @@ target_link_libraries(
     gtest
     gmock)
 gtest_discover_tests(Vulkan_unittests)
+
+set_test_include_files()
