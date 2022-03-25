@@ -16,6 +16,7 @@
 
 #include "FrameBuffer.h"
 
+#include <iomanip>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -413,7 +414,6 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
             GL_LOG("Doesn't support id properties, no vulkan device UUID");
             fprintf(stderr, "%s: Doesn't support id properties, no vulkan device UUID\n", __func__);
         }
-        fb->m_glRenderer = std::string(vkEmu->deviceInfo.physdevProps.deviceName);
     }
 
     if (s_egl.eglUseOsEglApi) {
@@ -752,10 +752,49 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     // Cache the GL strings so we don't have to think about threading or
     // current-context when asked for them.
     //
-    fb->m_glVendor = std::string((const char*)s_gles2.glGetString(GL_VENDOR));
-    fb->m_glRenderer = std::string((const char*)s_gles2.glGetString(GL_RENDERER));
-    fb->m_glVersion = std::string((const char*)s_gles2.glGetString(GL_VERSION));
-    fb->m_glExtensions = std::string((const char*)s_gles2.glGetString(GL_EXTENSIONS));
+    bool useVulkanGraphicsDiagInfo =
+        vkEmu && feature_is_enabled(kFeature_VulkanNativeSwapchain) && fb->m_guestUsesAngle;
+
+    if (useVulkanGraphicsDiagInfo) {
+        fb->m_graphicsAdapterVendor = vkEmu->deviceInfo.driverVendor;
+        fb->m_graphicsAdapterName = vkEmu->deviceInfo.physdevProps.deviceName;
+
+        uint32_t vkVersion = vkEmu->vulkanInstanceVersion;
+
+        std::stringstream versionStringBuilder;
+        versionStringBuilder << "Vulkan " << VK_API_VERSION_MAJOR(vkVersion) << "."
+                             << VK_API_VERSION_MINOR(vkVersion) << "."
+                             << VK_API_VERSION_PATCH(vkVersion) << " "
+                             << vkEmu->deviceInfo.driverVendor << " "
+                             << vkEmu->deviceInfo.driverVersion;
+        fb->m_graphicsApiVersion = versionStringBuilder.str();
+
+        std::stringstream instanceExtensionsStringBuilder;
+        for (auto& ext : vkEmu->instanceExtensions) {
+            if (instanceExtensionsStringBuilder.tellp() != 0) {
+                instanceExtensionsStringBuilder << " ";
+            }
+            instanceExtensionsStringBuilder << ext.extensionName;
+        }
+
+        fb->m_graphicsApiExtensions = instanceExtensionsStringBuilder.str();
+
+        std::stringstream deviceExtensionsStringBuilder;
+        for (auto& ext : vkEmu->deviceInfo.extensions) {
+            if (deviceExtensionsStringBuilder.tellp() != 0) {
+                deviceExtensionsStringBuilder << " ";
+            }
+            deviceExtensionsStringBuilder << ext.extensionName;
+        }
+
+        fb->m_graphicsDeviceExtensions = deviceExtensionsStringBuilder.str();
+    } else {
+        fb->m_graphicsAdapterVendor = (const char*)s_gles2.glGetString(GL_VENDOR);
+        fb->m_graphicsAdapterName = (const char*)s_gles2.glGetString(GL_RENDERER);
+        fb->m_graphicsApiVersion = (const char*)s_gles2.glGetString(GL_VERSION);
+        fb->m_graphicsApiExtensions = (const char*)s_gles2.glGetString(GL_EXTENSIONS);
+        fb->m_graphicsDeviceExtensions = "N/A";
+    }
 
     // Attempt to get the device UUID of the gles and match with Vulkan. If
     // they match, interop is possible. If they don't, then don't trust the
@@ -796,10 +835,11 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         }
     }
 
-    GL_LOG("GL Vendor %s", fb->m_glVendor.c_str());
-    GL_LOG("GL Renderer %s", fb->m_glRenderer.c_str());
-    GL_LOG("GL Version %s", fb->m_glVersion.c_str());
-    GL_LOG("GL Extensions %s", fb->m_glExtensions.c_str());
+    INFO("Graphics Adapter Vendor %s", fb->m_graphicsAdapterVendor.c_str());
+    INFO("Graphics Adapter %s", fb->m_graphicsAdapterName.c_str());
+    INFO("Graphics API Version %s", fb->m_graphicsApiVersion.c_str());
+    INFO("Graphics API Extensions %s", fb->m_graphicsApiExtensions.c_str());
+    INFO("Graphics Device Extensions %s", fb->m_graphicsDeviceExtensions.c_str());
 
     fb->m_textureDraw = new TextureDraw();
     if (!fb->m_textureDraw) {

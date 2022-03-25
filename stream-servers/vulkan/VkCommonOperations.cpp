@@ -368,6 +368,41 @@ static bool getImageFormatExternalMemorySupportInfo(
     return true;
 }
 
+// Vulkan driverVersions are bit-shift packs of their dotted versions
+// For example, nvidia driverversion 1934229504 unpacks to 461.40
+// note: while this is equivalent to VkPhysicalDeviceDriverProperties.driverInfo on NVIDIA,
+// on intel that value is simply "Intel driver".
+static std::string decodeDriverVersion(uint32_t vendorId, uint32_t driverVersion) {
+    std::stringstream result;
+    switch (vendorId) {
+        case 0x10DE: {
+            // Nvidia. E.g. driverVersion = 1934229504(0x734a0000) maps to 461.40
+            uint32_t major = driverVersion >> 22;
+            uint32_t minor = (driverVersion >> 14) & 0xff;
+            uint32_t build = (driverVersion >> 6) & 0xff;
+            uint32_t revision = driverVersion & 0x3f;
+            result << major << '.' << minor << '.' << build << '.' << revision;
+            break;
+        }
+        case 0x8086: {
+            // Intel. E.g. driverVersion = 1647866(0x1924fa) maps to 100.9466 (27.20.100.9466)
+            uint32_t high = driverVersion >> 14;
+            uint32_t low = driverVersion & 0x3fff;
+            result << high << '.' << low;
+            break;
+        }
+        case 0x002:  // amd
+        default: {
+            uint32_t major = VK_VERSION_MAJOR(driverVersion);
+            uint32_t minor = VK_VERSION_MINOR(driverVersion);
+            uint32_t patch = VK_VERSION_PATCH(driverVersion);
+            result << major << "." << minor << "." << patch;
+            break;
+        }
+    }
+    return result.str();
+}
+
 static std::vector<VkEmulation::ImageSupportInfo> getBasicImageSupportList() {
     std::vector<VkFormat> formats = {
         // Cover all the gralloc formats
@@ -483,7 +518,8 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
 
     uint32_t extCount = 0;
     gvk->vkEnumerateInstanceExtensionProperties(nullptr, &extCount, nullptr);
-    std::vector<VkExtensionProperties> exts(extCount);
+    std::vector<VkExtensionProperties>& exts = sVkEmulation->instanceExtensions;
+    exts.resize(extCount);
     gvk->vkEnumerateInstanceExtensionProperties(nullptr, &extCount, exts.data());
 
     bool externalMemoryCapabilitiesSupported =
@@ -599,6 +635,8 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
         }
     }
 
+    sVkEmulation->vulkanInstanceVersion = appInfo.apiVersion;
+
     sVkEmulation->instanceSupportsExternalMemoryCapabilities =
         externalMemoryCapabilitiesSupported;
     sVkEmulation->instanceSupportsMoltenVK = moltenVKSupported;
@@ -662,7 +700,8 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
         uint32_t deviceExtensionCount = 0;
         ivk->vkEnumerateDeviceExtensionProperties(
             physdevs[i], nullptr, &deviceExtensionCount, nullptr);
-        std::vector<VkExtensionProperties> deviceExts(deviceExtensionCount);
+        std::vector<VkExtensionProperties>& deviceExts = deviceInfos[i].extensions;
+        deviceExts.resize(deviceExtensionCount);
         ivk->vkEnumerateDeviceExtensionProperties(
             physdevs[i], nullptr, &deviceExtensionCount, deviceExts.data());
 
@@ -670,27 +709,70 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
         deviceInfos[i].glInteropSupported = 0; // set later
 
         if (sVkEmulation->instanceSupportsExternalMemoryCapabilities) {
-            deviceInfos[i].supportsExternalMemory = extensionsSupported(
-                    deviceExts, externalMemoryDeviceExtNames);
+            deviceInfos[i].supportsExternalMemory =
+                extensionsSupported(deviceExts, externalMemoryDeviceExtNames);
             deviceInfos[i].supportsIdProperties =
                 sVkEmulation->getPhysicalDeviceProperties2Func != nullptr;
+            deviceInfos[i].supportsDriverProperties =
+                extensionsSupported(deviceExts, {VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME}) ||
+                (deviceInfos[i].physdevProps.apiVersion >= VK_API_VERSION_1_2);
+
             if (!sVkEmulation->getPhysicalDeviceProperties2Func) {
                 fprintf(stderr, "%s: warning: device claims to support ID properties "
                         "but vkGetPhysicalDeviceProperties2 could not be found\n", __func__);
             }
         }
 
-        if (deviceInfos[i].supportsIdProperties) {
-            VkPhysicalDeviceIDPropertiesKHR idProps = {
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES_KHR, nullptr,
+        if (sVkEmulation->getPhysicalDeviceProperties2Func) {
+            VkPhysicalDeviceProperties2 deviceProps = {
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR,
             };
-            VkPhysicalDeviceProperties2KHR propsWithId = {
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR, &idProps,
+            VkPhysicalDeviceIDProperties idProps = {
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES_KHR,
             };
+            VkPhysicalDeviceDriverPropertiesKHR driverProps = {
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES_KHR,
+            };
+
+            auto devicePropsChain = vk_make_chain_iterator(&deviceProps);
+
+            if (deviceInfos[i].supportsIdProperties) {
+                vk_append_struct(&devicePropsChain, &idProps);
+            }
+
+            if (deviceInfos[i].supportsDriverProperties) {
+                vk_append_struct(&devicePropsChain, &driverProps);
+            }
+
             sVkEmulation->getPhysicalDeviceProperties2Func(
                 physdevs[i],
-                &propsWithId);
-            deviceInfos[i].idProps = idProps;
+                &deviceProps);
+
+            deviceInfos[i].idProps = vk_make_orphan_copy(idProps);
+
+            std::stringstream driverVendorBuilder;
+            driverVendorBuilder << "Vendor " << std::hex << std::setfill('0') << std::showbase
+                                << deviceInfos[i].physdevProps.vendorID;
+
+            std::string decodedDriverVersion = decodeDriverVersion(
+                deviceInfos[i].physdevProps.vendorID,
+                deviceInfos[i].physdevProps.driverVersion);
+
+            std::stringstream driverVersionBuilder;
+            driverVersionBuilder << "Driver Version " << std::hex << std::setfill('0')
+                                 << std::showbase << deviceInfos[i].physdevProps.driverVersion
+                                 << " Decoded As " << decodedDriverVersion;
+
+            std::string driverVendor = driverVendorBuilder.str();
+            std::string driverVersion = driverVersionBuilder.str();
+            if (deviceInfos[i].supportsDriverProperties && driverProps.driverID) {
+                driverVendor = std::string{driverProps.driverName} + " (" + driverVendor + ")";
+                driverVersion = std::string{driverProps.driverInfo} + " (" +
+                                string_VkDriverId(driverProps.driverID) + " " + driverVersion + ")";
+            }
+
+            deviceInfos[i].driverVendor = driverVendor;
+            deviceInfos[i].driverVersion = driverVersion;
         }
 
         deviceInfos[i].hasSamplerYcbcrConversionExtension =
