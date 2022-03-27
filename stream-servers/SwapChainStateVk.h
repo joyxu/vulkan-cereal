@@ -4,10 +4,31 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <type_traits>
 #include <unordered_set>
 #include <vector>
 
 #include "vulkan/cereal/common/goldfish_vk_dispatch.h"
+
+struct SwapchainCreateInfoWrapper {
+    VkSwapchainCreateInfoKHR mCreateInfo;
+    std::vector<uint32_t> mQueueFamilyIndices;
+
+    SwapchainCreateInfoWrapper(const SwapchainCreateInfoWrapper&);
+    SwapchainCreateInfoWrapper(SwapchainCreateInfoWrapper&&) = delete;
+    SwapchainCreateInfoWrapper& operator=(const SwapchainCreateInfoWrapper&);
+    SwapchainCreateInfoWrapper& operator=(SwapchainCreateInfoWrapper&&) = delete;
+
+    SwapchainCreateInfoWrapper(const VkSwapchainCreateInfoKHR&);
+
+    void setQueueFamilyIndices(const std::vector<uint32_t>& queueFamilyIndices);
+};
+
+// Assert SwapchainCreateInfoWrapper is a copy only class.
+static_assert(std::is_copy_assignable_v<SwapchainCreateInfoWrapper> &&
+              std::is_copy_constructible_v<SwapchainCreateInfoWrapper> &&
+              !std::is_move_constructible_v<SwapchainCreateInfoWrapper> &&
+              !std::is_move_assignable_v<SwapchainCreateInfoWrapper>);
 
 class SwapChainStateVk {
    public:
@@ -15,11 +36,9 @@ class SwapChainStateVk {
     static std::vector<const char *> getRequiredDeviceExtensions();
     static bool validateQueueFamilyProperties(const goldfish_vk::VulkanDispatch &, VkPhysicalDevice,
                                               VkSurfaceKHR, uint32_t queueFamilyIndex);
-    using VkSwapchainCreateInfoKHRPtr =
-        std::unique_ptr<VkSwapchainCreateInfoKHR, std::function<void(VkSwapchainCreateInfoKHR *)>>;
-    static VkSwapchainCreateInfoKHRPtr createSwapChainCi(
-        const goldfish_vk::VulkanDispatch &, VkSurfaceKHR, VkPhysicalDevice, uint32_t width,
-        uint32_t height, const std::unordered_set<uint32_t> &queueFamilyIndices);
+    static std::optional<SwapchainCreateInfoWrapper> createSwapChainCi(
+        const goldfish_vk::VulkanDispatch&, VkSurfaceKHR, VkPhysicalDevice, uint32_t width,
+        uint32_t height, const std::unordered_set<uint32_t>& queueFamilyIndices);
 
     explicit SwapChainStateVk(const goldfish_vk::VulkanDispatch &, VkDevice,
                               const VkSwapchainCreateInfoKHR &);
