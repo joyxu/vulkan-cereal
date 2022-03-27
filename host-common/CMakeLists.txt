@@ -150,3 +150,5 @@ target_link_libraries(
     gmock_main)
 
 gtest_discover_tests(gfxstream-host-common_unittests)
+
+set_test_include_files()
