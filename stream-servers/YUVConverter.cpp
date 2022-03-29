@@ -37,10 +37,199 @@
 #define YUV_DEBUG_LOG(fmt, ...)
 #endif
 
+bool isInterleaved(FrameworkFormat format) {
+    switch (format) {
+    case FRAMEWORK_FORMAT_NV12:
+        return true;
+    case FRAMEWORK_FORMAT_YUV_420_888:
+        return feature_is_enabled(kFeature_YUV420888toNV21);
+    case FRAMEWORK_FORMAT_YV12:
+        return false;
+    default:
+        FATAL("Invalid for format:%d", format);
+        return false;
+    }
+}
+
 enum class YUVInterleaveDirection {
     VU = 0,
     UV = 1,
 };
+
+YUVInterleaveDirection getInterleaveDirection(FrameworkFormat format) {
+    if (!isInterleaved(format)) {
+        FATAL("Format:%d not interleaved", format);
+    }
+
+    switch (format) {
+    case FRAMEWORK_FORMAT_NV12:
+        return YUVInterleaveDirection::UV;
+    case FRAMEWORK_FORMAT_YUV_420_888:
+        if (feature_is_enabled(kFeature_YUV420888toNV21)) {
+            return YUVInterleaveDirection::VU;
+        }
+        FATAL("Format:%d not interleaved", format);
+        return YUVInterleaveDirection::UV;
+    case FRAMEWORK_FORMAT_YV12:
+    default:
+        FATAL("Format:%d not interleaved", format);
+        return YUVInterleaveDirection::UV;
+    }
+}
+
+GLint getGlTextureFormat(FrameworkFormat format, YUVPlane plane) {
+    switch (format) {
+    case FRAMEWORK_FORMAT_YV12:
+        switch (plane) {
+        case YUVPlane::Y:
+        case YUVPlane::U:
+        case YUVPlane::V:
+            return GL_R8;
+        case YUVPlane::UV:
+            FATAL("Invalid plane:%d for format:%d", plane, format);
+            return 0;
+        }
+    case FRAMEWORK_FORMAT_YUV_420_888:
+        if (feature_is_enabled(kFeature_YUV420888toNV21)) {
+            switch (plane) {
+            case YUVPlane::Y:
+                return GL_R8;
+            case YUVPlane::UV:
+                return GL_RG8;
+            case YUVPlane::U:
+            case YUVPlane::V:
+                FATAL("Invalid plane:%d for format:%d", plane, format);
+                return 0;
+            }
+        } else {
+            switch (plane) {
+            case YUVPlane::Y:
+            case YUVPlane::U:
+            case YUVPlane::V:
+                return GL_R8;
+            case YUVPlane::UV:
+                FATAL("Invalid plane:%d for format:%d", plane, format);
+                return 0;
+            }
+        }
+    case FRAMEWORK_FORMAT_NV12:
+        switch (plane) {
+        case YUVPlane::Y:
+            return GL_R8;
+        case YUVPlane::UV:
+            return GL_RG8;
+        case YUVPlane::U:
+        case YUVPlane::V:
+            FATAL("Invalid plane:%d for format:%d", plane, format);
+            return 0;
+        }
+    default:
+        FATAL("Invalid format:%d", format);
+        return 0;
+    }
+}
+
+GLenum getGlPixelFormat(FrameworkFormat format, YUVPlane plane) {
+    switch (format) {
+    case FRAMEWORK_FORMAT_YV12:
+        switch (plane) {
+        case YUVPlane::Y:
+        case YUVPlane::U:
+        case YUVPlane::V:
+            return GL_RED;
+        case YUVPlane::UV:
+            FATAL("Invalid plane:%d for format:%d", plane, format);
+            return 0;
+        }
+    case FRAMEWORK_FORMAT_YUV_420_888:
+        if (feature_is_enabled(kFeature_YUV420888toNV21)) {
+            switch (plane) {
+            case YUVPlane::Y:
+                return GL_RED;
+            case YUVPlane::UV:
+                return GL_RG;
+            case YUVPlane::U:
+            case YUVPlane::V:
+                FATAL("Invalid plane:%d for format:%d", plane, format);
+                return 0;
+            }
+        } else {
+            switch (plane) {
+            case YUVPlane::Y:
+            case YUVPlane::U:
+            case YUVPlane::V:
+                return GL_RED;
+            case YUVPlane::UV:
+                FATAL("Invalid plane:%d for format:%d", plane, format);
+                return 0;
+            }
+        }
+    case FRAMEWORK_FORMAT_NV12:
+        switch (plane) {
+        case YUVPlane::Y:
+            return GL_RED;
+        case YUVPlane::UV:
+            return GL_RG;
+        case YUVPlane::U:
+        case YUVPlane::V:
+            FATAL("Invalid plane:%d for format:%d", plane, format);
+            return 0;
+        }
+    default:
+        FATAL("Invalid format:%d", format);
+        return 0;
+    }
+}
+
+GLsizei getGlPixelType(FrameworkFormat format, YUVPlane plane) {
+    switch (format) {
+    case FRAMEWORK_FORMAT_YV12:
+        switch (plane) {
+        case YUVPlane::Y:
+        case YUVPlane::U:
+        case YUVPlane::V:
+            return GL_UNSIGNED_BYTE;
+        case YUVPlane::UV:
+            FATAL("Invalid plane:%d for format:%d", plane, format);
+            return 0;
+        }
+    case FRAMEWORK_FORMAT_YUV_420_888:
+        if (feature_is_enabled(kFeature_YUV420888toNV21)) {
+            switch (plane) {
+            case YUVPlane::Y:
+            case YUVPlane::UV:
+                return GL_UNSIGNED_BYTE;
+            case YUVPlane::U:
+            case YUVPlane::V:
+                FATAL("Invalid plane:%d for format:%d", plane, format);
+                return 0;
+            }
+        } else {
+            switch (plane) {
+            case YUVPlane::Y:
+            case YUVPlane::U:
+            case YUVPlane::V:
+                return GL_UNSIGNED_BYTE;
+            case YUVPlane::UV:
+                FATAL("Invalid plane:%d for format:%d", plane, format);
+                return 0;
+            }
+        }
+    case FRAMEWORK_FORMAT_NV12:
+        switch (plane) {
+        case YUVPlane::Y:
+        case YUVPlane::UV:
+            return GL_UNSIGNED_BYTE;
+        case YUVPlane::U:
+        case YUVPlane::V:
+            FATAL("Invalid plane:%d for format:%d", plane, format);
+            return 0;
+        }
+    default:
+        FATAL("Invalid format:%d", format);
+        return 0;
+    }
+}
 
 // NV12 and YUV420 are all packed
 static void NV12ToYUV420PlanarInPlaceConvert(int nWidth,
