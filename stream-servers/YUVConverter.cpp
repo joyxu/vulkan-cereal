@@ -253,6 +253,10 @@ static void NV12ToYUV420PlanarInPlaceConvert(int nWidth,
     memcpy(pv, pQuad, nWidth * nHeight / 4);
 }
 
+inline uint32_t alignToPower2(uint32_t val, uint32_t align) {
+    return (val + (align - 1)) & ~(align - 1);
+}
+
 // getYUVOffsets(), given a YUV-formatted buffer that is arranged
 // according to the spec
 // https://developer.android.com/reference/android/graphics/ImageFormat.html#YUV
@@ -271,15 +275,13 @@ static void getYUVOffsets(int width,
                           uint32_t* vOffset,
                           uint32_t* yWidth,
                           uint32_t* cWidth) {
-    uint32_t yStride, cStride, cHeight, cSize, align;
+    uint32_t yStride, cStride, cHeight, cSize;
     switch (format) {
     case FRAMEWORK_FORMAT_YV12:
         // Luma stride is 32 bytes aligned.
-        align = 32;
-        yStride = (width + (align - 1)) & ~(align - 1);
+        yStride = alignToPower2(width, 32);
         // Chroma stride is 16 bytes aligned.
-        align = 16;
-        cStride = (yStride / 2 + (align - 1)) & ~(align - 1);
+        cStride = alignToPower2(yStride, 16);
         cHeight = height / 2;
         cSize = cStride * cHeight;
         *yOffset = 0;
@@ -289,10 +291,8 @@ static void getYUVOffsets(int width,
         *cWidth = cStride;
         break;
     case FRAMEWORK_FORMAT_YUV_420_888:
-        if (feature_is_enabled(
-                kFeature_YUV420888toNV21)) {
-            align = 1;
-            yStride = (width + (align - 1)) & ~(align - 1);
+        if (feature_is_enabled(kFeature_YUV420888toNV21)) {
+            yStride = width;
             cStride = yStride;
             cHeight = height / 2;
             *yOffset = 0;
@@ -301,9 +301,8 @@ static void getYUVOffsets(int width,
             *yWidth = yStride;
             *cWidth = cStride / 2;
         } else {
-            align = 1;
-            yStride = (width + (align - 1)) & ~(align - 1);
-            cStride = (yStride / 2 + (align - 1)) & ~(align - 1);
+            yStride = width;
+            cStride = yStride / 2;
             cHeight = height / 2;
             cSize = cStride * cHeight;
             *yOffset = 0;
@@ -314,7 +313,6 @@ static void getYUVOffsets(int width,
         }
         break;
     case FRAMEWORK_FORMAT_NV12:
-        align = 1;
         yStride = width;
         cStride = yStride;
         cHeight = height / 2;
