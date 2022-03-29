@@ -315,14 +315,9 @@ static bool shouldEnableHostComposition() {
 }
 
 static bool shouldEnableVulkan() {
-    auto supportInfo =
-        goldfish_vk::VkDecoderGlobalState::get()->
-            getHostFeatureSupport();
-    bool flagEnabled =
-        feature_is_enabled(kFeature_Vulkan);
     // TODO: Restrict further to devices supporting external memory.
-    return supportInfo.supportsVulkan &&
-           flagEnabled;
+    return feature_is_enabled(kFeature_Vulkan) &&
+           goldfish_vk::VkDecoderGlobalState::get()->getHostFeatureSupport().supportsVulkan;
 }
 
 static bool shouldEnableDeferredVulkanCommands() {
