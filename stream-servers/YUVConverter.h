@@ -54,7 +54,7 @@ public:
     // call when gralloc_unlock updates
     // the host color buffer
     // (rcUpdateColorBuffer)
-    void drawConvert(int x, int y, int width, int height, char* pixels);
+    void drawConvert(int x, int y, int width, int height, const char* pixels);
 
     uint32_t getDataSize();
     // read YUV data into pixels, exactly pixels_size bytes;
@@ -79,25 +79,25 @@ private:
     int mHeight = 0;
     FrameworkFormat mFormat;
     // colorbuffer w/h/format, could be different
-    FrameworkFormat mCbFormat;
+    FrameworkFormat mColorBufferFormat;
     // We need the following GL objects:
     GLuint mProgram = 0;
-    GLuint mVbuf = 0;
-    GLuint mIbuf = 0;
-    GLuint mYtex = 0;
-    GLuint mUtex = 0;
-    GLuint mVtex = 0;
-    GLuint mVUtex = 0;
-    GLuint mUVtex = 0;
+    GLuint mQuadVertexBuffer = 0;
+    GLuint mQuadIndexBuffer = 0;
+    GLuint mTextureY = 0;
+    GLuint mTextureU = 0;
+    GLuint mTextureV = 0;
+    GLuint mTextureVU = 0;
+    GLuint mTextureUV = 0;
     // shader uniform locations
-    GLint mYWidthCutoffLoc = -1;
-    GLint mCWidthCutoffLoc = -1;
-    GLint mYSamplerLoc = -1;
-    GLint mUSamplerLoc = -1;
-    GLint mVSamplerLoc = -1;
-    GLint mVUSamplerLoc = -1;
-    GLint mInCoordLoc = -1;
-    GLint mPosLoc = -1;
+    GLint mUniformLocYWidthCutoff = -1;
+    GLint mUniformLocCWidthCutoff = -1;
+    GLint mUniformLocSamplerY = -1;
+    GLint mUniformLocSamplerU = -1;
+    GLint mUniformLocSamplerV = -1;
+    GLint mUniformLocSamplerVU = -1;
+    GLint mAttributeLocTexCoord = -1;
+    GLint mAttributeLocPos = -1;
     float mYWidthCutoff = 1.0;
     float mCWidthCutoff = 1.0;
 
