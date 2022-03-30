@@ -586,12 +586,13 @@ public:
         }
     }
 
-    int createContext(VirtioGpuCtxId handle, uint32_t nlen, const char* name) {
+    int createContext(VirtioGpuCtxId ctx_id, uint32_t nlen, const char* name,
+                      uint32_t context_init) {
         AutoLock lock(mLock);
-        VGPLOG("ctxid: %u len: %u name: %s", handle, nlen, name);
+        VGPLOG("ctxid: %u len: %u name: %s", ctx_id, nlen, name);
         auto ops = ensureAndGetServiceOps();
         auto hostPipe = ops->guest_open_with_flags(
-            reinterpret_cast<GoldfishHwPipe*>(handle),
+            reinterpret_cast<GoldfishHwPipe*>(ctx_id),
             0x1 /* is virtio */);
 
         if (!hostPipe) {
@@ -600,15 +601,15 @@ public:
         }
 
         PipeCtxEntry res = {
-            handle, // ctxId
+            ctx_id, // ctxId
             hostPipe, // hostPipe
             0, // fence
             0, // AS handle
             false, // does not have an AS handle
         };
 
-        VGPLOG("initial host pipe for ctxid %u: %p", handle, hostPipe);
-        mContexts[handle] = res;
+        VGPLOG("initial host pipe for ctxid %u: %p", ctx_id, hostPipe);
+        mContexts[ctx_id] = res;
         return 0;
     }
 
@@ -1673,7 +1674,7 @@ VG_EXPORT void pipe_virgl_renderer_resource_unref(uint32_t res_handle) {
 
 VG_EXPORT int pipe_virgl_renderer_context_create(
     uint32_t handle, uint32_t nlen, const char *name) {
-    return sRenderer()->createContext(handle, nlen, name);
+    return sRenderer()->createContext(handle, nlen, name, 0);
 }
 
 VG_EXPORT void pipe_virgl_renderer_context_destroy(uint32_t handle) {
@@ -1784,6 +1785,11 @@ VG_EXPORT int stream_renderer_resource_map(uint32_t res_handle, void** hvaOut, u
 
 VG_EXPORT int stream_renderer_resource_unmap(uint32_t res_handle) {
     return sRenderer()->resourceUnmap(res_handle);
+}
+
+VG_EXPORT int stream_renderer_create_context(uint32_t ctx_id, uint32_t nlen, const char *name,
+                                             uint32_t context_init) {
+    return sRenderer()->createContext(ctx_id, nlen, name, context_init);
 }
 
 VG_EXPORT int stream_renderer_context_create_fence(
