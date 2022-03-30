@@ -202,6 +202,7 @@ static inline uint32_t align_up_power_of_2(uint32_t n, uint32_t a) {
 
 #define VIRGL_FORMAT_NV12 166
 #define VIRGL_FORMAT_YV12 163
+#define VIRGL_FORMAT_P010 314
 
 const uint32_t kGlBgra = 0x80e1;
 const uint32_t kGlRgba = 0x1908;
@@ -220,6 +221,7 @@ constexpr uint32_t kFwkFormatGlCompat = 0;
 constexpr uint32_t kFwkFormatYV12 = 1;
 // constexpr uint32_t kFwkFormatYUV420888 = 2;
 constexpr uint32_t kFwkFormatNV12 = 3;
+constexpr uint32_t kFwkFormatP010 = 4;
 
 static inline bool virgl_format_is_yuv(uint32_t format) {
     switch (format) {
@@ -235,6 +237,7 @@ static inline bool virgl_format_is_yuv(uint32_t format) {
         case VIRGL_FORMAT_R10G10B10A2_UNORM:
             return false;
         case VIRGL_FORMAT_NV12:
+        case VIRGL_FORMAT_P010:
         case VIRGL_FORMAT_YV12:
             return true;
         default:
@@ -262,6 +265,7 @@ static inline uint32_t virgl_format_to_gl(uint32_t virgl_format) {
         case VIRGL_FORMAT_R8G8_UNORM:
             return kGlRg8;
         case VIRGL_FORMAT_NV12:
+        case VIRGL_FORMAT_P010:
         case VIRGL_FORMAT_YV12:
             // emulated as RGBA8888
             return kGlRgba;
@@ -276,6 +280,8 @@ static inline uint32_t virgl_format_to_fwk_format(uint32_t virgl_format) {
     switch (virgl_format) {
         case VIRGL_FORMAT_NV12:
             return kFwkFormatNV12;
+        case VIRGL_FORMAT_P010:
+            return kFwkFormatP010;
         case VIRGL_FORMAT_YV12:
             return kFwkFormatYV12;
         case VIRGL_FORMAT_R8_UNORM:
@@ -349,16 +355,20 @@ static inline size_t virgl_format_to_total_xfer_len(
     uint32_t totalWidth, uint32_t totalHeight,
     uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
     if (virgl_format_is_yuv(format)) {
+        uint32_t bpp = format == VIRGL_FORMAT_P010 ? 2 : 1;
         uint32_t yAlign = (format == VIRGL_FORMAT_YV12) ?  32 : 16;
         uint32_t yWidth = totalWidth;
         uint32_t yHeight = totalHeight;
-        uint32_t yStride = align_up_power_of_2(yWidth, yAlign);
+        uint32_t yStride = align_up_power_of_2(yWidth, yAlign) * bpp;
         uint32_t ySize = yStride * yHeight;
 
         uint32_t uvAlign = 16;
         uint32_t uvWidth;
         uint32_t uvPlaneCount;
         if (format == VIRGL_FORMAT_NV12) {
+            uvWidth = totalWidth;
+            uvPlaneCount = 1;
+        } else if (format == VIRGL_FORMAT_P010) {
             uvWidth = totalWidth;
             uvPlaneCount = 1;
         } else if (format == VIRGL_FORMAT_YV12) {
@@ -368,7 +378,7 @@ static inline size_t virgl_format_to_total_xfer_len(
             VGP_FATAL() << "Unknown yuv virgl format: 0x" << std::hex << format;
         }
         uint32_t uvHeight = totalHeight / 2;
-        uint32_t uvStride = align_up_power_of_2(uvWidth, uvAlign);
+        uint32_t uvStride = align_up_power_of_2(uvWidth, uvAlign) * bpp;
         uint32_t uvSize = uvStride * uvHeight * uvPlaneCount;
 
         uint32_t dataSize = ySize + uvSize;
