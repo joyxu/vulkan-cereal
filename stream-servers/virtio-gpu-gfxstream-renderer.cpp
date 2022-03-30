@@ -27,12 +27,12 @@
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/opengles.h"
 #include "host-common/vm_operations.h"
+#include "host-common/linux_types.h"
 
 extern "C" {
 #include "virtio-gpu-gfxstream-renderer.h"
 #include "drm_fourcc.h"
 #include "virgl_hw.h"
-#include "host-common/virtio_gpu.h"
 #include "host-common/goldfish_pipe.h"
 }  // extern "C"
 
