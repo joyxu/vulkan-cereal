@@ -403,6 +403,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         }
     }
     if (vkEmu) {
+        fb->m_vulkanEnabled = true;
         if (feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
             fb->m_vkInstance = vkEmu->instance;
         }
