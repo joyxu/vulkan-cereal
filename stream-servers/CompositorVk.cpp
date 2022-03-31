@@ -438,10 +438,12 @@ void CompositorVk::setUpVertexBuffers() {
     m_vk.vkFreeMemory(m_vkDevice, indexStagingBufferMemory, nullptr);
 }
 
-// We don't see composition requests with more than 10 layers from the guest for
-// now. If we see rendering error or significant time spent on updating
+// We do see a composition requests with 12 layers. (b/222700096)
+// Inside hwc2, we will ask for surfaceflinger to 
+// do the composition, if the layers more than 16.
+// If we see rendering error or significant time spent on updating
 // descriptors in setComposition, we should tune this number.
-static const uint32_t kMaxLayersPerFrame = 10;
+static const uint32_t kMaxLayersPerFrame = 16;
 
 void CompositorVk::setUpDescriptorSets() {
     uint32_t setsPerDescriptorType = m_maxFramesInFlight * kMaxLayersPerFrame;
@@ -555,10 +557,10 @@ void CompositorVk::setComposition(uint32_t rtIndex, std::unique_ptr<Composition>
     m_currentCompositions[rtIndex] = std::move(composition);
     const auto &currentComposition = *m_currentCompositions[rtIndex];
     if (currentComposition.m_composeLayers.size() > kMaxLayersPerFrame) {
-        ERR("%s(%s:%d): CompositorVk can't compose more than %" PRIu32 " layers, %" PRIu32
-            " layers asked.\n",
-            __FUNCTION__, __FILE__, static_cast<int>(__LINE__), kMaxLayersPerFrame,
-            static_cast<uint32_t>(currentComposition.m_composeLayers.size()));
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "CompositorVk can't compose more than " << kMaxLayersPerFrame
+            << " layers. layers asked: "
+            << static_cast<uint32_t>(currentComposition.m_composeLayers.size());
     }
 
     memset(reinterpret_cast<uint8_t *>(m_uniformStorage.m_data) +
