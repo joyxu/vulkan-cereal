@@ -2614,8 +2614,9 @@ static std::tuple<VkCommandBuffer, VkFence> allocateQueueTransferCommandBuffer_l
         if (res == VK_NOT_READY) {
             continue;
         }
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "Invalid fence state: " << static_cast<int>(res);
+        // We either have a device lost, or an invalid fence state. For the device lost case,
+        // VK_CHECK will ensure we capture the relevant streams.
+        VK_CHECK(res);
     }
     VkCommandBuffer commandBuffer;
     VkCommandBufferAllocateInfo allocateInfo = {
