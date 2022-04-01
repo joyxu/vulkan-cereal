@@ -475,7 +475,7 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         feature_is_enabled(kFeature_YUV420888toNV21);
     bool YUVCacheEnabled =
         feature_is_enabled(kFeature_YUVCache);
-    bool AsyncUnmapBufferEnabled = false;
+    bool AsyncUnmapBufferEnabled = feature_is_enabled(kFeature_AsyncComposeSupport);
     bool vulkanIgnoredHandlesEnabled =
         shouldEnableVulkan() && feature_is_enabled(kFeature_VulkanIgnoredHandles);
     bool virtioGpuNextEnabled =
@@ -664,9 +664,11 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         glStr += kHostSideTracing;
         glStr += " ";
 
-        // Async makecurrent support.
-       // glStr += kAsyncFrameCommands;
-       // glStr += " ";
+        if (feature_is_enabled(kFeature_AsyncComposeSupport)) {
+            // Async makecurrent support.
+            glStr += kAsyncFrameCommands;
+            glStr += " ";
+        }
 
         if (feature_is_enabled(kFeature_IgnoreHostOpenGLErrors)) {
             glStr += kGLESNoHostError;
