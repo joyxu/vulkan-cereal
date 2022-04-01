@@ -4,17 +4,19 @@
 # Actually right now it is written by hand - TODO(gregschlom): auto-generate this
 #####################################################################################################
 
+def OP_vkCmdBeginRenderPass(printer, indent: int):
+    printer.write_struct("pRenderPassBegin", struct_VkRenderPassBeginInfo, indent)
+    printer.write_enum("contents", VkSubpassContents, indent)
+
 def OP_vkCmdBindPipeline(printer, indent: int):
     printer.write_enum("pipelineBindPoint", VkPipelineBindPoint, indent)
     printer.write_int("pipeline", 8, indent)
-
 
 def OP_vkCmdCopyBufferToImage(printer, indent: int):
     printer.write_int("srcBuffer", 8, indent)
     printer.write_int("dstImage", 8, indent)
     printer.write_enum("dstImageLayout", VkImageLayout, indent)
     printer.write_repeated("regionCount", "pRegions", struct_VkBufferImageCopy, indent)
-
 
 def OP_vkCmdPipelineBarrier(printer, indent: int):
     printer.write_int("srcStageMask", 4, indent)
@@ -44,6 +46,12 @@ def struct_VkBufferMemoryBarrier(printer, indent: int):
     printer.write_int("offset", 8, indent)
     printer.write_int("size", 8, indent)
 
+def struct_VkClearValue(printer, indent: int):
+    printer.write_struct("color", struct_VkClearColorValue, indent)
+
+def struct_VkClearColorValue(printer, indent: int):
+    printer.write("0x{:04X}, 0x{:04X}, 0x{:04X}, 0x{:04X}\n".format(
+        printer.read_int(4), printer.read_int(4), printer.read_int(4), printer.read_int(4)), indent)
 
 def struct_VkImageMemoryBarrier(printer, indent: int):
     printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER", indent)
@@ -56,13 +64,15 @@ def struct_VkImageMemoryBarrier(printer, indent: int):
     printer.write_int("image", 8, indent)
     printer.write_struct("subresourceRange", struct_VkImageSubresourceRange, indent)
 
+def struct_VkExtent2D(printer, indent: int):
+    printer.write_int("width", 4, indent)
+    printer.write_int("height", 4, indent)
 
 def struct_VkImageSubresourceLayers(printer, indent: int):
     printer.write_int("aspectMask", 4, indent)
     printer.write_int("mipLevel", 4, indent)
     printer.write_int("baseArrayLayer", 4, indent)
     printer.write_int("layerCount", 4, indent)
-
 
 def struct_VkImageSubresourceRange(printer, indent: int):
     printer.write_int("aspectMask", 4, indent)
@@ -71,17 +81,29 @@ def struct_VkImageSubresourceRange(printer, indent: int):
     printer.write_int("baseArrayLayer", 4, indent)
     printer.write_int("layerCount", 4, indent)
 
-
 def struct_VkMemoryBarrier(printer, indent: int):
     printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_MEMORY_BARRIER", indent)
     printer.write_int("srcAccessMask", 4, indent)
     printer.write_int("dstAccessMask", 4, indent)
 
+def struct_VkOffset2D(printer, indent: int):
+    printer.write_int("x", 4, indent, signed=True)
+    printer.write_int("y", 4, indent, signed=True)
 
 def struct_VkOffset3D(printer, indent: int):
     printer.write("x: {}, y: {}, z: {}\n".format(printer.read_int(4), printer.read_int(4), printer.read_int(4)), indent)
 
+def struct_VkRect2D(printer, indent: int):
+    printer.write_struct("offset", struct_VkOffset2D, indent)
+    printer.write_struct("extent", struct_VkExtent2D, indent)
 
+def struct_VkRenderPassBeginInfo(printer, indent: int):
+    printer.write_stype_and_pnext("VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO", indent)
+    printer.write_int("renderPass", 8, indent)
+    printer.write_int("framebuffer", 8, indent)
+    printer.write_struct("renderArea", struct_VkRect2D, indent)
+    printer.write_repeated("clearValueCount", "pClearValues", struct_VkClearValue, indent,
+                           "pClearValuesPtr")
 VkImageLayout = {
     0: "VK_IMAGE_LAYOUT_UNDEFINED",
     1: "VK_IMAGE_LAYOUT_GENERAL",
@@ -754,6 +776,11 @@ VkStructureType = {
     1000425001: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_OFFSET_PROPERTIES_QCOM",
     1000425002: "VK_STRUCTURE_TYPE_SUBPASS_FRAGMENT_DENSITY_MAP_OFFSET_END_INFO_QCOM",
     1000430000: "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINEAR_COLOR_ATTACHMENT_FEATURES_NV",
+}
+
+VkSubpassContents = {
+    0: "VK_SUBPASS_CONTENTS_INLINE",
+    1: "VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS",
 }
 
 opcodes = {
