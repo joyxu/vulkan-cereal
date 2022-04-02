@@ -836,12 +836,6 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         }
     }
 
-    INFO("Graphics Adapter Vendor %s", fb->m_graphicsAdapterVendor.c_str());
-    INFO("Graphics Adapter %s", fb->m_graphicsAdapterName.c_str());
-    INFO("Graphics API Version %s", fb->m_graphicsApiVersion.c_str());
-    INFO("Graphics API Extensions %s", fb->m_graphicsApiExtensions.c_str());
-    INFO("Graphics Device Extensions %s", fb->m_graphicsDeviceExtensions.c_str());
-
     fb->m_textureDraw = new TextureDraw();
     if (!fb->m_textureDraw) {
         ERR("Failed: creation of TextureDraw instance");
@@ -871,6 +865,12 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
             fb->m_displayVk = vkEmu->displayVk.get();
         }
     }
+
+    INFO("Graphics Adapter Vendor %s", fb->m_graphicsAdapterVendor.c_str());
+    INFO("Graphics Adapter %s", fb->m_graphicsAdapterName.c_str());
+    INFO("Graphics API Version %s", fb->m_graphicsApiVersion.c_str());
+    INFO("Graphics API Extensions %s", fb->m_graphicsApiExtensions.c_str());
+    INFO("Graphics Device Extensions %s", fb->m_graphicsDeviceExtensions.c_str());
 
     // Start up the single sync thread. If we are using Vulkan native
     // swapchain, then don't initialize SyncThread worker threads with EGL
