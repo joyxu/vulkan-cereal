@@ -30,11 +30,11 @@
 #define YUV_CONVERTER_DEBUG 0
 
 #if YUV_CONVERTER_DEBUG
-#define DDD(fmt, ...)                                                     \
+#define YUV_DEBUG_LOG(fmt, ...)                                                     \
     fprintf(stderr, "yuv-converter: %s:%d " fmt "\n", __func__, __LINE__, \
             ##__VA_ARGS__);
 #else
-#define DDD(fmt, ...)
+#define YUV_DEBUG_LOG(fmt, ...)
 #endif
 
 enum class YUVInterleaveDirection {
@@ -71,12 +71,17 @@ static void NV12ToYUV420PlanarInPlaceConvert(int nWidth,
 // Inputs:
 // |yv12|: the YUV-formatted buffer
 // Outputs:
-// |yoff|: offset into |yv12| of the start of the Y component
-// |uoff|: offset into |yv12| of the start of the U component
-// |voff|: offset into |yv12| of the start of the V component
-static void getYUVOffsets(int width, int height, FrameworkFormat format,
-                          uint32_t* yoff, uint32_t* uoff, uint32_t* voff,
-                          uint32_t* alignwidth, uint32_t* alignwidthc) {
+// |yOffset|: offset into |yv12| of the start of the Y component
+// |uOffset|: offset into |yv12| of the start of the U component
+// |vOffset|: offset into |yv12| of the start of the V component
+static void getYUVOffsets(int width,
+                          int height,
+                          FrameworkFormat format,
+                          uint32_t* yOffset,
+                          uint32_t* uOffset,
+                          uint32_t* vOffset,
+                          uint32_t* yWidth,
+                          uint32_t* cWidth) {
     uint32_t yStride, cStride, cHeight, cSize, align;
     switch (format) {
     case FRAMEWORK_FORMAT_YV12:
@@ -88,11 +93,11 @@ static void getYUVOffsets(int width, int height, FrameworkFormat format,
         cStride = (yStride / 2 + (align - 1)) & ~(align - 1);
         cHeight = height / 2;
         cSize = cStride * cHeight;
-        *yoff = 0;
-        *voff = yStride * height;
-        *uoff = (*voff) + cSize;
-        *alignwidth = yStride;
-        *alignwidthc = cStride;
+        *yOffset = 0;
+        *vOffset = yStride * height;
+        *uOffset = (*vOffset) + cSize;
+        *yWidth = yStride;
+        *cWidth = cStride;
         break;
     case FRAMEWORK_FORMAT_YUV_420_888:
         if (feature_is_enabled(
@@ -101,22 +106,22 @@ static void getYUVOffsets(int width, int height, FrameworkFormat format,
             yStride = (width + (align - 1)) & ~(align - 1);
             cStride = yStride;
             cHeight = height / 2;
-            *yoff = 0;
-            *voff = yStride * height;
-            *uoff = (*voff) + 1;
-            *alignwidth = yStride;
-            *alignwidthc = cStride / 2;
+            *yOffset = 0;
+            *vOffset = yStride * height;
+            *uOffset = (*vOffset) + 1;
+            *yWidth = yStride;
+            *cWidth = cStride / 2;
         } else {
             align = 1;
             yStride = (width + (align - 1)) & ~(align - 1);
             cStride = (yStride / 2 + (align - 1)) & ~(align - 1);
             cHeight = height / 2;
             cSize = cStride * cHeight;
-            *yoff = 0;
-            *uoff = yStride * height;
-            *voff = (*uoff) + cSize;
-            *alignwidth = yStride;
-            *alignwidthc = cStride;
+            *yOffset = 0;
+            *uOffset = yStride * height;
+            *vOffset = (*uOffset) + cSize;
+            *yWidth = yStride;
+            *cWidth = cStride;
         }
         break;
     case FRAMEWORK_FORMAT_NV12:
@@ -125,11 +130,11 @@ static void getYUVOffsets(int width, int height, FrameworkFormat format,
         cStride = yStride;
         cHeight = height / 2;
         cSize = cStride * cHeight;
-        *yoff = 0;
-        *uoff = yStride * height;
-        *voff = (*uoff) + 1;
-        *alignwidth = yStride;
-        *alignwidthc = cStride / 2;
+        *yOffset = 0;
+        *uOffset = yStride * height;
+        *vOffset = (*uOffset) + 1;
+        *yWidth = yStride;
+        *cWidth = cStride / 2;
         break;
     case FRAMEWORK_FORMAT_GL_COMPATIBLE:
         FATAL("Input not a YUV format! (FRAMEWORK_FORMAT_GL_COMPATIBLE)");
@@ -146,19 +151,19 @@ static void getYUVOffsets(int width, int height, FrameworkFormat format,
 // In order to process all Y, U, V components
 // simultaneously in conversion, the simple thing to do
 // is to use multiple texture units, hence
-// the |texture_unit| argument.
-// Returns a new OpenGL texture object in |texName_out|
+// the |textureUnit| argument.
+// Returns a new OpenGL texture object in |outTextureName|
 // that is to be cleaned up by the caller.
-void YUVConverter::createYUVGLTex(GLenum texture_unit,
+void YUVConverter::createYUVGLTex(GLenum textureUnit,
                                   GLsizei width,
                                   GLsizei height,
-                                  GLuint* texName_out,
+                                  GLuint* outTextureName,
                                   bool uvInterleaved) {
-    assert(texName_out);
+    assert(outTextureName);
 
-    s_gles2.glActiveTexture(texture_unit);
-    s_gles2.glGenTextures(1, texName_out);
-    s_gles2.glBindTexture(GL_TEXTURE_2D, *texName_out);
+    s_gles2.glActiveTexture(textureUnit);
+    s_gles2.glGenTextures(1, outTextureName);
+    s_gles2.glBindTexture(GL_TEXTURE_2D, *outTextureName);
     s_gles2.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     s_gles2.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     GLint unprevAlignment = 0;
@@ -191,14 +196,14 @@ static void readYUVTex(GLuint tex, void* pixels, bool uvInterleaved) {
             s_gles2.glGetTexImage(GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA,
                                   GL_UNSIGNED_BYTE, pixels);
         } else {
-            DDD("empty glGetTexImage");
+            YUV_DEBUG_LOG("empty glGetTexImage");
         }
     } else {
         if (s_gles2.glGetTexImage) {
             s_gles2.glGetTexImage(GL_TEXTURE_2D, 0, GL_LUMINANCE,
                                   GL_UNSIGNED_BYTE, pixels);
         } else {
-            DDD("empty glGetTexImage");
+            YUV_DEBUG_LOG("empty glGetTexImage");
         }
     }
     s_gles2.glPixelStorei(GL_PACK_ALIGNMENT, prevAlignment);
@@ -211,11 +216,11 @@ static void readYUVTex(GLuint tex, void* pixels, bool uvInterleaved) {
 // We cannot view the result properly until
 // after conversion; this is to be used only
 // as input to the conversion shader.
-static void subUpdateYUVGLTex(GLenum texture_unit,
+static void subUpdateYUVGLTex(GLenum textureUnit,
                               GLuint tex,
                               int x, int y, int width, int height,
-                              void* pixels, bool uvInterleaved) {
-    s_gles2.glActiveTexture(texture_unit);
+                              const void* pixels, bool uvInterleaved) {
+    s_gles2.glActiveTexture(textureUnit);
     s_gles2.glBindTexture(GL_TEXTURE_2D, tex);
     GLint unprevAlignment = 0;
     s_gles2.glGetIntegerv(GL_UNPACK_ALIGNMENT, &unprevAlignment);
@@ -239,16 +244,16 @@ static void subUpdateYUVGLTex(GLenum texture_unit,
 
 // createYUVGLShader() defines the vertex/fragment
 // shader that does the actual work of converting
-// YUV to RGB. The resulting program is stored in |program_out|.
-static void createYUVGLShader(GLuint* program_out,
-                              GLint* ywidthcutoffloc_out,
-                              GLint* cwidthcutoffloc_out,
-                              GLint* ysamplerloc_out,
-                              GLint* usamplerloc_out,
-                              GLint* vsamplerloc_out,
-                              GLint* incoordloc_out,
-                              GLint* posloc_out) {
-    assert(program_out);
+// YUV to RGB. The resulting program is stored in |outProgram|.
+static void createYUVGLShader(GLuint* outProgram,
+                              GLint* outUniformLocYWidthCutoff,
+                              GLint* outUniformLocCWidthCutoff,
+                              GLint* outUniformLocSamplerY,
+                              GLint* outUniformLocSamplerU,
+                              GLint* outUniformLocSamplerV,
+                              GLint* outAttributeLocTexCoord,
+                              GLint* outAttributeLocPos) {
+    assert(outProgram);
 
     static const char kVShader[] = R"(
 precision highp float;
@@ -311,32 +316,32 @@ void main(void) {
     s_gles2.glCompileShader(vshader);
     s_gles2.glCompileShader(fshader);
 
-    *program_out = s_gles2.glCreateProgram();
-    s_gles2.glAttachShader(*program_out, vshader);
-    s_gles2.glAttachShader(*program_out, fshader);
-    s_gles2.glLinkProgram(*program_out);
+    *outProgram = s_gles2.glCreateProgram();
+    s_gles2.glAttachShader(*outProgram, vshader);
+    s_gles2.glAttachShader(*outProgram, fshader);
+    s_gles2.glLinkProgram(*outProgram);
 
-    *ywidthcutoffloc_out = s_gles2.glGetUniformLocation(*program_out, "yWidthCutoff");
-    *cwidthcutoffloc_out = s_gles2.glGetUniformLocation(*program_out, "cWidthCutoff");
-    *ysamplerloc_out = s_gles2.glGetUniformLocation(*program_out, "ysampler");
-    *usamplerloc_out = s_gles2.glGetUniformLocation(*program_out, "usampler");
-    *vsamplerloc_out = s_gles2.glGetUniformLocation(*program_out, "vsampler");
-    *posloc_out = s_gles2.glGetAttribLocation(*program_out, "position");
-    *incoordloc_out = s_gles2.glGetAttribLocation(*program_out, "inCoord");
+    *outUniformLocYWidthCutoff = s_gles2.glGetUniformLocation(*outProgram, "yWidthCutoff");
+    *outUniformLocCWidthCutoff = s_gles2.glGetUniformLocation(*outProgram, "cWidthCutoff");
+    *outUniformLocSamplerY = s_gles2.glGetUniformLocation(*outProgram, "ysampler");
+    *outUniformLocSamplerU = s_gles2.glGetUniformLocation(*outProgram, "usampler");
+    *outUniformLocSamplerV = s_gles2.glGetUniformLocation(*outProgram, "vsampler");
+    *outAttributeLocPos = s_gles2.glGetAttribLocation(*outProgram, "position");
+    *outAttributeLocTexCoord = s_gles2.glGetAttribLocation(*outProgram, "inCoord");
 
     s_gles2.glDeleteShader(vshader);
     s_gles2.glDeleteShader(fshader);
 }
 
-static void createYUVInterleavedGLShader(GLuint* program_out,
-                                         GLint* ywidthcutoffloc_out,
-                                         GLint* cwidthcutoffloc_out,
-                                         GLint* ysamplerloc_out,
-                                         GLint* vusamplerloc_out,
-                                         GLint* incoordloc_out,
-                                         GLint* posloc_out,
+static void createYUVInterleavedGLShader(GLuint* outProgram,
+                                         GLint* outUniformLocYWidthCutoff,
+                                         GLint* outUniformLocCWidthCutoff,
+                                         GLint* outUniformLocSamplerY,
+                                         GLint* outUniformLocSamplerVU,
+                                         GLint* outAttributeLocTexCoord,
+                                         GLint* outAttributeLocPos,
                                          YUVInterleaveDirection interleaveDir) {
-    assert(program_out);
+    assert(outProgram);
 
     static const char kVShader[] = R"(
 precision highp float;
@@ -432,18 +437,18 @@ void main(void) {
     s_gles2.glCompileShader(vshader);
     s_gles2.glCompileShader(fshader);
 
-    *program_out = s_gles2.glCreateProgram();
-    s_gles2.glAttachShader(*program_out, vshader);
-    s_gles2.glAttachShader(*program_out, fshader);
-    s_gles2.glLinkProgram(*program_out);
+    *outProgram = s_gles2.glCreateProgram();
+    s_gles2.glAttachShader(*outProgram, vshader);
+    s_gles2.glAttachShader(*outProgram, fshader);
+    s_gles2.glLinkProgram(*outProgram);
 
-    *ywidthcutoffloc_out = s_gles2.glGetUniformLocation(*program_out, "yWidthCutoff");
-    *cwidthcutoffloc_out = s_gles2.glGetUniformLocation(*program_out, "cWidthCutoff");
-    *ysamplerloc_out = s_gles2.glGetUniformLocation(*program_out, "ysampler");
-    *vusamplerloc_out = s_gles2.glGetUniformLocation(
-            *program_out, interleaveDir == YUVInterleaveDirection::VU ? "vusampler" : "uvsampler");
-    *posloc_out = s_gles2.glGetAttribLocation(*program_out, "position");
-    *incoordloc_out = s_gles2.glGetAttribLocation(*program_out, "inCoord");
+    *outUniformLocYWidthCutoff = s_gles2.glGetUniformLocation(*outProgram, "yWidthCutoff");
+    *outUniformLocCWidthCutoff = s_gles2.glGetUniformLocation(*outProgram, "cWidthCutoff");
+    *outUniformLocSamplerY = s_gles2.glGetUniformLocation(*outProgram, "ysampler");
+    *outUniformLocSamplerVU = s_gles2.glGetUniformLocation(
+            *outProgram, interleaveDir == YUVInterleaveDirection::VU ? "vusampler" : "uvsampler");
+    *outAttributeLocPos = s_gles2.glGetAttribLocation(*outProgram, "position");
+    *outAttributeLocTexCoord = s_gles2.glGetAttribLocation(*outProgram, "inCoord");
 
     s_gles2.glDeleteShader(vshader);
     s_gles2.glDeleteShader(fshader);
@@ -457,15 +462,13 @@ void main(void) {
 // The quad will be textured with the resulting RGB colors,
 // and we will read back the pixels from the framebuffer
 // to retrieve our RGB result.
-static void createYUVGLFullscreenQuad(GLuint* vbuf_out,
-                                      GLuint* ibuf_out,
-                                      int picture_width,
-                                      int aligned_width) {
-    assert(vbuf_out);
-    assert(ibuf_out);
+static void createYUVGLFullscreenQuad(GLuint* outVertexBuffer,
+                                      GLuint* outIndexBuffer) {
+    assert(outVertexBuffer);
+    assert(outIndexBuffer);
 
-    s_gles2.glGenBuffers(1, vbuf_out);
-    s_gles2.glGenBuffers(1, ibuf_out);
+    s_gles2.glGenBuffers(1, outVertexBuffer);
+    s_gles2.glGenBuffers(1, outIndexBuffer);
 
     static const float kVertices[] = {
         +1, -1, +0, +1, +0,
@@ -476,10 +479,10 @@ static void createYUVGLFullscreenQuad(GLuint* vbuf_out,
 
     static const GLubyte kIndices[] = { 0, 1, 2, 2, 3, 0 };
 
-    s_gles2.glBindBuffer(GL_ARRAY_BUFFER, *vbuf_out);
+    s_gles2.glBindBuffer(GL_ARRAY_BUFFER, *outVertexBuffer);
     s_gles2.glBufferData(GL_ARRAY_BUFFER, sizeof(kVertices), kVertices,
                          GL_STATIC_DRAW);
-    s_gles2.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *ibuf_out);
+    s_gles2.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *outIndexBuffer);
     s_gles2.glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(kIndices), kIndices,
                          GL_STATIC_DRAW);
 }
@@ -491,15 +494,16 @@ static void createYUVGLFullscreenQuad(GLuint* vbuf_out,
 // Note, however, that it is up to the caller to dig out
 // the result of the draw.
 static void doYUVConversionDraw(GLuint program,
-                                GLint yWidthCutoffLoc,
-                                GLint cWidthCutoffLoc,
-                                GLint ySamplerLoc,
-                                GLint uSamplerLoc,
-                                GLint vSamplerLoc,
-                                GLint vuSamplerLoc,
-                                GLint inCoordLoc,
-                                GLint posLoc,
-                                GLuint vbuf, GLuint ibuf,
+                                GLint uniformLocYWidthCutoff,
+                                GLint uniformLocCWidthCutoff,
+                                GLint uniformLocYSampler,
+                                GLint uniformLocUSampler,
+                                GLint uniformLocVSampler,
+                                GLint uniformLocVUSampler,
+                                GLint attributeLocTexCoord,
+                                GLint attributeLocPos,
+                                GLuint quadVertexBuffer,
+                                GLuint quadIndexBuffer,
                                 int width, int ywidth,
                                 int halfwidth, int cwidth,
                                 float yWidthCutoff,
@@ -512,33 +516,33 @@ static void doYUVConversionDraw(GLuint program,
 
     s_gles2.glUseProgram(program);
 
-    s_gles2.glUniform1f(yWidthCutoffLoc, yWidthCutoff);
-    s_gles2.glUniform1f(cWidthCutoffLoc, cWidthCutoff);
+    s_gles2.glUniform1f(uniformLocYWidthCutoff, yWidthCutoff);
+    s_gles2.glUniform1f(uniformLocCWidthCutoff, cWidthCutoff);
 
-    s_gles2.glUniform1i(ySamplerLoc, 0);
+    s_gles2.glUniform1i(uniformLocYSampler, 0);
     if (uvInterleaved) {
-        s_gles2.glUniform1i(vuSamplerLoc, 1);
+        s_gles2.glUniform1i(uniformLocVUSampler, 1);
     } else {
-        s_gles2.glUniform1i(uSamplerLoc, 1);
-        s_gles2.glUniform1i(vSamplerLoc, 2);
+        s_gles2.glUniform1i(uniformLocUSampler, 1);
+        s_gles2.glUniform1i(uniformLocVSampler, 2);
     }
 
-    s_gles2.glBindBuffer(GL_ARRAY_BUFFER, vbuf);
-    s_gles2.glEnableVertexAttribArray(posLoc);
-    s_gles2.glEnableVertexAttribArray(inCoordLoc);
+    s_gles2.glBindBuffer(GL_ARRAY_BUFFER, quadVertexBuffer);
+    s_gles2.glEnableVertexAttribArray(attributeLocPos);
+    s_gles2.glEnableVertexAttribArray(attributeLocTexCoord);
 
-    s_gles2.glVertexAttribPointer(posLoc, 3, GL_FLOAT, false,
+    s_gles2.glVertexAttribPointer(attributeLocPos, 3, GL_FLOAT, false,
                                   kVertexAttribStride,
                                   kVertexAttribPosOffset);
-    s_gles2.glVertexAttribPointer(inCoordLoc, 2, GL_FLOAT, false,
+    s_gles2.glVertexAttribPointer(attributeLocTexCoord, 2, GL_FLOAT, false,
                                   kVertexAttribStride,
                                   kVertexAttribCoordOffset);
 
-    s_gles2.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
+    s_gles2.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadIndexBuffer);
     s_gles2.glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, 0);
 
-    s_gles2.glDisableVertexAttribArray(posLoc);
-    s_gles2.glDisableVertexAttribArray(inCoordLoc);
+    s_gles2.glDisableVertexAttribArray(attributeLocPos);
+    s_gles2.glDisableVertexAttribArray(attributeLocTexCoord);
 }
 
 // initialize(): allocate GPU memory for YUV components,
@@ -547,79 +551,79 @@ YUVConverter::YUVConverter(int width, int height, FrameworkFormat format)
     : mWidth(width),
       mHeight(height),
       mFormat(format),
-      mCbFormat(format) {}
+      mColorBufferFormat(format) {}
 
 void YUVConverter::init(int width, int height, FrameworkFormat format) {
-    uint32_t yoff, uoff, voff, ywidth, cwidth, cheight;
+    uint32_t yOffset, uOffset, vOffset, ywidth, cwidth, cheight;
     getYUVOffsets(width, height, mFormat,
-                  &yoff, &uoff, &voff,
+                  &yOffset, &uOffset, &vOffset,
                   &ywidth, &cwidth);
     cheight = height / 2;
 
     mWidth = width;
     mHeight = height;
-    if (!mYtex)
-        createYUVGLTex(GL_TEXTURE0, ywidth, height, &mYtex, false);
+    if (!mTextureY)
+        createYUVGLTex(GL_TEXTURE0, ywidth, height, &mTextureY, false);
     switch (mFormat) {
         case FRAMEWORK_FORMAT_YV12:
-            if (!mUtex)
-                createYUVGLTex(GL_TEXTURE1, cwidth, cheight, &mUtex, false);
-            if (!mVtex)
-                createYUVGLTex(GL_TEXTURE2, cwidth, cheight, &mVtex, false);
+            if (!mTextureU)
+                createYUVGLTex(GL_TEXTURE1, cwidth, cheight, &mTextureU, false);
+            if (!mTextureV)
+                createYUVGLTex(GL_TEXTURE2, cwidth, cheight, &mTextureV, false);
             createYUVGLShader(&mProgram,
-                              &mYWidthCutoffLoc,
-                              &mCWidthCutoffLoc,
-                              &mYSamplerLoc,
-                              &mUSamplerLoc,
-                              &mVSamplerLoc,
-                              &mInCoordLoc,
-                              &mPosLoc);
+                              &mUniformLocYWidthCutoff,
+                              &mUniformLocCWidthCutoff,
+                              &mUniformLocSamplerY,
+                              &mUniformLocSamplerU,
+                              &mUniformLocSamplerV,
+                              &mAttributeLocTexCoord,
+                              &mAttributeLocPos);
             break;
         case FRAMEWORK_FORMAT_YUV_420_888:
             if (feature_is_enabled(
                     kFeature_YUV420888toNV21)) {
-                if (!mVUtex)
-                    createYUVGLTex(GL_TEXTURE1, cwidth, cheight, &mVUtex, true);
+                if (!mTextureVU)
+                    createYUVGLTex(GL_TEXTURE1, cwidth, cheight, &mTextureVU, true);
                 createYUVInterleavedGLShader(&mProgram,
-                                             &mYWidthCutoffLoc,
-                                             &mCWidthCutoffLoc,
-                                             &mYSamplerLoc,
-                                             &mVUSamplerLoc,
-                                             &mInCoordLoc,
-                                             &mPosLoc,
+                                             &mUniformLocYWidthCutoff,
+                                             &mUniformLocCWidthCutoff,
+                                             &mUniformLocSamplerY,
+                                             &mUniformLocSamplerVU,
+                                             &mAttributeLocTexCoord,
+                                             &mAttributeLocPos,
                                              YUVInterleaveDirection::VU);
             } else {
-                if (!mUtex)
-                    createYUVGLTex(GL_TEXTURE1, cwidth, cheight, &mUtex, false);
-                if (!mVtex)
-                    createYUVGLTex(GL_TEXTURE2, cwidth, cheight, &mVtex, false);
+                if (!mTextureU)
+                    createYUVGLTex(GL_TEXTURE1, cwidth, cheight, &mTextureU, false);
+                if (!mTextureV)
+                    createYUVGLTex(GL_TEXTURE2, cwidth, cheight, &mTextureV, false);
                 createYUVGLShader(&mProgram,
-                                  &mYWidthCutoffLoc,
-                                  &mCWidthCutoffLoc,
-                                  &mYSamplerLoc,
-                                  &mUSamplerLoc,
-                                  &mVSamplerLoc,
-                                  &mInCoordLoc,
-                                  &mPosLoc);
+                                  &mUniformLocYWidthCutoff,
+                                  &mUniformLocCWidthCutoff,
+                                  &mUniformLocSamplerY,
+                                  &mUniformLocSamplerU,
+                                  &mUniformLocSamplerV,
+                                  &mAttributeLocTexCoord,
+                                  &mAttributeLocPos);
             }
             break;
         case FRAMEWORK_FORMAT_NV12:
-            if (!mUVtex)
-                createYUVGLTex(GL_TEXTURE1, cwidth, cheight, &mUVtex, true);
+            if (!mTextureUV)
+                createYUVGLTex(GL_TEXTURE1, cwidth, cheight, &mTextureUV, true);
             createYUVInterleavedGLShader(&mProgram,
-                                         &mYWidthCutoffLoc,
-                                         &mCWidthCutoffLoc,
-                                         &mYSamplerLoc,
-                                         &mVUSamplerLoc,
-                                         &mInCoordLoc,
-                                         &mPosLoc,
+                                         &mUniformLocYWidthCutoff,
+                                         &mUniformLocCWidthCutoff,
+                                         &mUniformLocSamplerY,
+                                         &mUniformLocSamplerVU,
+                                         &mAttributeLocTexCoord,
+                                         &mAttributeLocPos,
                                          YUVInterleaveDirection::UV);
             break;
         default:
             FATAL("Unknown format: 0x%x", mFormat);
     }
 
-    createYUVGLFullscreenQuad(&mVbuf, &mIbuf, width, ywidth);
+    createYUVGLFullscreenQuad(&mQuadVertexBuffer, &mQuadIndexBuffer);
 }
 
 void YUVConverter::saveGLState() {
@@ -653,8 +657,7 @@ void YUVConverter::readPixels(uint8_t* pixels, uint32_t pixels_size) {
     int width = mWidth;
     int height = mHeight;
 
-    DDD("calling %s %d\n texture: width %d height %d\n", __func__, __LINE__,
-        width, height);
+    YUV_DEBUG_LOG("texture: width %d height %d\n", width, height);
     {
         uint32_t align = (mFormat == FRAMEWORK_FORMAT_YV12) ? 16 : 1;
         uint32_t yStride = (width + (align - 1)) & ~(align - 1);
@@ -662,56 +665,56 @@ void YUVConverter::readPixels(uint8_t* pixels, uint32_t pixels_size) {
         uint32_t uvHeight = height / 2;
         uint32_t dataSize = yStride * height + 2 * (uvHeight * uvStride);
         if (pixels_size != dataSize) {
-            DDD("failed %s %d\n", __func__, __LINE__);
+            YUV_DEBUG_LOG("failed\n");
             return;
         }
-        DDD("%s %d reading %d bytes\n", __func__, __LINE__, (int)dataSize);
+        YUV_DEBUG_LOG("reading %d bytes\n", (int)dataSize);
     }
 
-    uint32_t yoff, uoff, voff, ywidth, cwidth;
-    getYUVOffsets(width, height, mFormat, &yoff, &uoff, &voff, &ywidth,
+    uint32_t yOffset, uOffset, vOffset, ywidth, cwidth;
+    getYUVOffsets(width, height, mFormat, &yOffset, &uOffset, &vOffset, &ywidth,
                   &cwidth);
 
     if (mFormat == FRAMEWORK_FORMAT_YUV_420_888) {
         if (feature_is_enabled(
                 kFeature_YUV420888toNV21)) {
-            readYUVTex(mVUtex, pixels + voff, true);
-            DDD("done");
+            readYUVTex(mTextureVU, pixels + vOffset, true);
+            YUV_DEBUG_LOG("done");
         } else {
-            readYUVTex(mUtex, pixels + uoff, false);
-            readYUVTex(mVtex, pixels + voff, false);
-            DDD("done");
+            readYUVTex(mTextureU, pixels + uOffset, false);
+            readYUVTex(mTextureV, pixels + vOffset, false);
+            YUV_DEBUG_LOG("done");
         }
     } else if (mFormat == FRAMEWORK_FORMAT_NV12) {
-        readYUVTex(mUVtex, pixels + uoff, true);
-        if (mCbFormat == FRAMEWORK_FORMAT_YUV_420_888) {
+        readYUVTex(mTextureUV, pixels + uOffset, true);
+        if (mColorBufferFormat == FRAMEWORK_FORMAT_YUV_420_888) {
             // do a conversion here inplace: NV12 to YUV 420 888
             uint8_t* scrath_memory = pixels;
             NV12ToYUV420PlanarInPlaceConvert(width, height, pixels,
                                              scrath_memory);
-            DDD("done");
+            YUV_DEBUG_LOG("done");
         }
-        DDD("done");
+        YUV_DEBUG_LOG("done");
     } else if (mFormat == FRAMEWORK_FORMAT_YV12) {
-            readYUVTex(mUtex, pixels + uoff, false);
-            readYUVTex(mVtex, pixels + voff, false);
-            DDD("done");
+            readYUVTex(mTextureU, pixels + uOffset, false);
+            readYUVTex(mTextureV, pixels + vOffset, false);
+            YUV_DEBUG_LOG("done");
     }
     // read Y the last, because we can might used it as a scratch space
-    readYUVTex(mYtex, pixels + yoff, false);
-    DDD("done");
+    readYUVTex(mTextureY, pixels + yOffset, false);
+    YUV_DEBUG_LOG("done");
 }
 
 void YUVConverter::swapTextures(uint32_t type, uint32_t* textures) {
     if (type == FRAMEWORK_FORMAT_NV12) {
         mFormat = FRAMEWORK_FORMAT_NV12;
-        std::swap(textures[0], mYtex);
-        std::swap(textures[1], mUVtex);
+        std::swap(textures[0], mTextureY);
+        std::swap(textures[1], mTextureUV);
     } else if (type == FRAMEWORK_FORMAT_YUV_420_888) {
         mFormat = FRAMEWORK_FORMAT_YUV_420_888;
-        std::swap(textures[0], mYtex);
-        std::swap(textures[1], mUtex);
-        std::swap(textures[2], mVtex);
+        std::swap(textures[0], mTextureY);
+        std::swap(textures[1], mTextureU);
+        std::swap(textures[2], mTextureV);
     } else {
         FATAL("Unknown format: 0x%x", type);
     }
@@ -721,9 +724,7 @@ void YUVConverter::swapTextures(uint32_t type, uint32_t* textures) {
 // Update YUV textures, then draw the fullscreen
 // quad set up above, which results in a framebuffer
 // with the RGB colors.
-void YUVConverter::drawConvert(int x, int y,
-                               int width, int height,
-                               char* pixels) {
+void YUVConverter::drawConvert(int x, int y, int width, int height, const char* pixels) {
     saveGLState();
     if (pixels && (width != mWidth || height != mHeight)) {
         reset();
@@ -733,9 +734,8 @@ void YUVConverter::drawConvert(int x, int y,
         init(width, height, mFormat);
     }
     s_gles2.glViewport(x, y, width, height);
-    uint32_t yoff, uoff, voff, ywidth, cwidth, cheight;
-    getYUVOffsets(width, height, mFormat, &yoff, &uoff, &voff, &ywidth,
-                  &cwidth);
+    uint32_t yOffset, uOffset, vOffset, ywidth, cwidth, cheight;
+    getYUVOffsets(width, height, mFormat, &yOffset, &uOffset, &vOffset, &ywidth, &cwidth);
     cheight = height / 2;
     updateCutoffs(width, ywidth, width / 2, cwidth);
 
@@ -745,42 +745,56 @@ void YUVConverter::drawConvert(int x, int y,
         // TODO: add more formats if there are such needs in the future.
         assert(mFormat == FRAMEWORK_FORMAT_NV12);
         s_gles2.glActiveTexture(GL_TEXTURE1);
-        s_gles2.glBindTexture(GL_TEXTURE_2D, mUVtex);
+        s_gles2.glBindTexture(GL_TEXTURE_2D, mTextureUV);
         s_gles2.glActiveTexture(GL_TEXTURE0);
-        s_gles2.glBindTexture(GL_TEXTURE_2D, mYtex);
+        s_gles2.glBindTexture(GL_TEXTURE_2D, mTextureY);
 
-        doYUVConversionDraw(mProgram, mYWidthCutoffLoc, mCWidthCutoffLoc,
-                            mYSamplerLoc, mUSamplerLoc, mVSamplerLoc,
-                            mVUSamplerLoc, mInCoordLoc, mPosLoc, mVbuf, mIbuf,
-                            width, ywidth, width / 2, cwidth, mYWidthCutoff,
-                            mCWidthCutoff, true);
+        doYUVConversionDraw(mProgram,
+                            mUniformLocYWidthCutoff,
+                            mUniformLocCWidthCutoff,
+                            mUniformLocSamplerY,
+                            mUniformLocSamplerU,
+                            mUniformLocSamplerV,
+                            mUniformLocSamplerVU,
+                            mAttributeLocTexCoord,
+                            mAttributeLocPos,
+                            mQuadVertexBuffer,
+                            mQuadIndexBuffer,
+                            width,
+                            ywidth,
+                            width / 2,
+                            cwidth,
+                            mYWidthCutoff,
+                            mCWidthCutoff,
+                            true);
 
         restoreGLState();
         return;
     }
 
-    subUpdateYUVGLTex(GL_TEXTURE0, mYtex,
+    subUpdateYUVGLTex(GL_TEXTURE0, mTextureY,
                       x, y, ywidth, height,
-                      pixels + yoff, false);
+                      pixels + yOffset, false);
 
     switch (mFormat) {
         case FRAMEWORK_FORMAT_YV12:
-            subUpdateYUVGLTex(GL_TEXTURE1, mUtex,
+            subUpdateYUVGLTex(GL_TEXTURE1, mTextureU,
                               x, y, cwidth, cheight,
-                              pixels + uoff, false);
-            subUpdateYUVGLTex(GL_TEXTURE2, mVtex,
+                              pixels + uOffset, false);
+            subUpdateYUVGLTex(GL_TEXTURE2, mTextureV,
                               x, y, cwidth, cheight,
-                              pixels + voff, false);
+                              pixels + vOffset, false);
             doYUVConversionDraw(mProgram,
-                                mYWidthCutoffLoc,
-                                mCWidthCutoffLoc,
-                                mYSamplerLoc,
-                                mUSamplerLoc,
-                                mVSamplerLoc,
-                                mVUSamplerLoc,
-                                mInCoordLoc,
-                                mPosLoc,
-                                mVbuf, mIbuf,
+                                mUniformLocYWidthCutoff,
+                                mUniformLocCWidthCutoff,
+                                mUniformLocSamplerY,
+                                mUniformLocSamplerU,
+                                mUniformLocSamplerV,
+                                mUniformLocSamplerVU,
+                                mAttributeLocTexCoord,
+                                mAttributeLocPos,
+                                mQuadVertexBuffer,
+                                mQuadIndexBuffer,
                                 width, ywidth,
                                 width / 2, cwidth,
                                 mYWidthCutoff,
@@ -790,41 +804,43 @@ void YUVConverter::drawConvert(int x, int y,
         case FRAMEWORK_FORMAT_YUV_420_888:
             if (feature_is_enabled(
                     kFeature_YUV420888toNV21)) {
-                subUpdateYUVGLTex(GL_TEXTURE1, mVUtex,
+                subUpdateYUVGLTex(GL_TEXTURE1, mTextureVU,
                                   x, y, cwidth, cheight,
-                                  pixels + voff, true);
+                                  pixels + vOffset, true);
                 doYUVConversionDraw(mProgram,
-                                    mYWidthCutoffLoc,
-                                    mCWidthCutoffLoc,
-                                    mYSamplerLoc,
-                                    mUSamplerLoc,
-                                    mVSamplerLoc,
-                                    mVUSamplerLoc,
-                                    mInCoordLoc,
-                                    mPosLoc,
-                                    mVbuf, mIbuf,
+                                    mUniformLocYWidthCutoff,
+                                    mUniformLocCWidthCutoff,
+                                    mUniformLocSamplerY,
+                                    mUniformLocSamplerU,
+                                    mUniformLocSamplerV,
+                                    mUniformLocSamplerVU,
+                                    mAttributeLocTexCoord,
+                                    mAttributeLocPos,
+                                    mQuadVertexBuffer,
+                                    mQuadIndexBuffer,
                                     width, ywidth,
                                     width / 2, cwidth,
                                     mYWidthCutoff,
                                     mCWidthCutoff,
                                     true);
             } else {
-                subUpdateYUVGLTex(GL_TEXTURE1, mUtex,
+                subUpdateYUVGLTex(GL_TEXTURE1, mTextureU,
                                   x, y, cwidth, cheight,
-                                  pixels + uoff, false);
-                subUpdateYUVGLTex(GL_TEXTURE2, mVtex,
+                                  pixels + uOffset, false);
+                subUpdateYUVGLTex(GL_TEXTURE2, mTextureV,
                                   x, y, cwidth, cheight,
-                                  pixels + voff, false);
+                                  pixels + vOffset, false);
                 doYUVConversionDraw(mProgram,
-                                    mYWidthCutoffLoc,
-                                    mCWidthCutoffLoc,
-                                    mYSamplerLoc,
-                                    mUSamplerLoc,
-                                    mVSamplerLoc,
-                                    mVUSamplerLoc,
-                                    mInCoordLoc,
-                                    mPosLoc,
-                                    mVbuf, mIbuf,
+                                    mUniformLocYWidthCutoff,
+                                    mUniformLocCWidthCutoff,
+                                    mUniformLocSamplerY,
+                                    mUniformLocSamplerU,
+                                    mUniformLocSamplerV,
+                                    mUniformLocSamplerVU,
+                                    mAttributeLocTexCoord,
+                                    mAttributeLocPos,
+                                    mQuadVertexBuffer,
+                                    mQuadIndexBuffer,
                                     width, ywidth,
                                     width / 2, cwidth,
                                     mYWidthCutoff,
@@ -833,19 +849,20 @@ void YUVConverter::drawConvert(int x, int y,
             }
             break;
         case FRAMEWORK_FORMAT_NV12:
-            subUpdateYUVGLTex(GL_TEXTURE1, mUVtex,
+            subUpdateYUVGLTex(GL_TEXTURE1, mTextureUV,
                               x, y, cwidth, cheight,
-                              pixels + uoff, true);
+                              pixels + uOffset, true);
             doYUVConversionDraw(mProgram,
-                                mYWidthCutoffLoc,
-                                mCWidthCutoffLoc,
-                                mYSamplerLoc,
-                                mUSamplerLoc,
-                                mVSamplerLoc,
-                                mVUSamplerLoc,
-                                mInCoordLoc,
-                                mPosLoc,
-                                mVbuf, mIbuf,
+                                mUniformLocYWidthCutoff,
+                                mUniformLocCWidthCutoff,
+                                mUniformLocSamplerY,
+                                mUniformLocSamplerU,
+                                mUniformLocSamplerV,
+                                mUniformLocSamplerVU,
+                                mAttributeLocTexCoord,
+                                mAttributeLocPos,
+                                mQuadVertexBuffer,
+                                mQuadIndexBuffer,
                                 width, ywidth,
                                 width / 2, cwidth,
                                 mYWidthCutoff,
@@ -880,22 +897,22 @@ void YUVConverter::updateCutoffs(float width, float ywidth,
 }
 
 void YUVConverter::reset() {
-    if (mIbuf) s_gles2.glDeleteBuffers(1, &mIbuf);
-    if (mVbuf) s_gles2.glDeleteBuffers(1, &mVbuf);
+    if (mQuadIndexBuffer) s_gles2.glDeleteBuffers(1, &mQuadIndexBuffer);
+    if (mQuadVertexBuffer) s_gles2.glDeleteBuffers(1, &mQuadVertexBuffer);
     if (mProgram) s_gles2.glDeleteProgram(mProgram);
-    if (mYtex) s_gles2.glDeleteTextures(1, &mYtex);
-    if (mUtex) s_gles2.glDeleteTextures(1, &mUtex);
-    if (mVtex) s_gles2.glDeleteTextures(1, &mVtex);
-    if (mVUtex) s_gles2.glDeleteTextures(1, &mVUtex);
-    if (mUVtex) s_gles2.glDeleteTextures(1, &mUVtex);
-    mIbuf = 0;
-    mVbuf = 0;
+    if (mTextureY) s_gles2.glDeleteTextures(1, &mTextureY);
+    if (mTextureU) s_gles2.glDeleteTextures(1, &mTextureU);
+    if (mTextureV) s_gles2.glDeleteTextures(1, &mTextureV);
+    if (mTextureVU) s_gles2.glDeleteTextures(1, &mTextureVU);
+    if (mTextureUV) s_gles2.glDeleteTextures(1, &mTextureUV);
+    mQuadIndexBuffer = 0;
+    mQuadVertexBuffer = 0;
     mProgram = 0;
-    mYtex = 0;
-    mUtex = 0;
-    mVtex = 0;
-    mVUtex = 0;
-    mUVtex = 0;
+    mTextureY = 0;
+    mTextureU = 0;
+    mTextureV = 0;
+    mTextureVU = 0;
+    mTextureUV = 0;
 }
 
 YUVConverter::~YUVConverter() {
