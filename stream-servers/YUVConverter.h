@@ -24,6 +24,14 @@
 #include <stdint.h>
 #include <cstring>
 #include <vector>
+
+enum class YUVPlane {
+    Y = 0,
+    U = 1,
+    V = 2,
+    UV = 3,
+};
+
 // The purpose of YUVConverter is to use
 // OpenGL shaders to convert YUV images to RGB
 // images that can be displayed on screen.

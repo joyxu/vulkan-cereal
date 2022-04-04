@@ -37,10 +37,199 @@
 #define YUV_DEBUG_LOG(fmt, ...)
 #endif
 
+bool isInterleaved(FrameworkFormat format) {
+    switch (format) {
+    case FRAMEWORK_FORMAT_NV12:
+        return true;
+    case FRAMEWORK_FORMAT_YUV_420_888:
+        return feature_is_enabled(kFeature_YUV420888toNV21);
+    case FRAMEWORK_FORMAT_YV12:
+        return false;
+    default:
+        FATAL("Invalid for format:%d", format);
+        return false;
+    }
+}
+
 enum class YUVInterleaveDirection {
     VU = 0,
     UV = 1,
 };
+
+YUVInterleaveDirection getInterleaveDirection(FrameworkFormat format) {
+    if (!isInterleaved(format)) {
+        FATAL("Format:%d not interleaved", format);
+    }
+
+    switch (format) {
+    case FRAMEWORK_FORMAT_NV12:
+        return YUVInterleaveDirection::UV;
+    case FRAMEWORK_FORMAT_YUV_420_888:
+        if (feature_is_enabled(kFeature_YUV420888toNV21)) {
+            return YUVInterleaveDirection::VU;
+        }
+        FATAL("Format:%d not interleaved", format);
+        return YUVInterleaveDirection::UV;
+    case FRAMEWORK_FORMAT_YV12:
+    default:
+        FATAL("Format:%d not interleaved", format);
+        return YUVInterleaveDirection::UV;
+    }
+}
+
+GLint getGlTextureFormat(FrameworkFormat format, YUVPlane plane) {
+    switch (format) {
+    case FRAMEWORK_FORMAT_YV12:
+        switch (plane) {
+        case YUVPlane::Y:
+        case YUVPlane::U:
+        case YUVPlane::V:
+            return GL_R8;
+        case YUVPlane::UV:
+            FATAL("Invalid plane:%d for format:%d", plane, format);
+            return 0;
+        }
+    case FRAMEWORK_FORMAT_YUV_420_888:
+        if (feature_is_enabled(kFeature_YUV420888toNV21)) {
+            switch (plane) {
+            case YUVPlane::Y:
+                return GL_R8;
+            case YUVPlane::UV:
+                return GL_RG8;
+            case YUVPlane::U:
+            case YUVPlane::V:
+                FATAL("Invalid plane:%d for format:%d", plane, format);
+                return 0;
+            }
+        } else {
+            switch (plane) {
+            case YUVPlane::Y:
+            case YUVPlane::U:
+            case YUVPlane::V:
+                return GL_R8;
+            case YUVPlane::UV:
+                FATAL("Invalid plane:%d for format:%d", plane, format);
+                return 0;
+            }
+        }
+    case FRAMEWORK_FORMAT_NV12:
+        switch (plane) {
+        case YUVPlane::Y:
+            return GL_R8;
+        case YUVPlane::UV:
+            return GL_RG8;
+        case YUVPlane::U:
+        case YUVPlane::V:
+            FATAL("Invalid plane:%d for format:%d", plane, format);
+            return 0;
+        }
+    default:
+        FATAL("Invalid format:%d", format);
+        return 0;
+    }
+}
+
+GLenum getGlPixelFormat(FrameworkFormat format, YUVPlane plane) {
+    switch (format) {
+    case FRAMEWORK_FORMAT_YV12:
+        switch (plane) {
+        case YUVPlane::Y:
+        case YUVPlane::U:
+        case YUVPlane::V:
+            return GL_RED;
+        case YUVPlane::UV:
+            FATAL("Invalid plane:%d for format:%d", plane, format);
+            return 0;
+        }
+    case FRAMEWORK_FORMAT_YUV_420_888:
+        if (feature_is_enabled(kFeature_YUV420888toNV21)) {
+            switch (plane) {
+            case YUVPlane::Y:
+                return GL_RED;
+            case YUVPlane::UV:
+                return GL_RG;
+            case YUVPlane::U:
+            case YUVPlane::V:
+                FATAL("Invalid plane:%d for format:%d", plane, format);
+                return 0;
+            }
+        } else {
+            switch (plane) {
+            case YUVPlane::Y:
+            case YUVPlane::U:
+            case YUVPlane::V:
+                return GL_RED;
+            case YUVPlane::UV:
+                FATAL("Invalid plane:%d for format:%d", plane, format);
+                return 0;
+            }
+        }
+    case FRAMEWORK_FORMAT_NV12:
+        switch (plane) {
+        case YUVPlane::Y:
+            return GL_RED;
+        case YUVPlane::UV:
+            return GL_RG;
+        case YUVPlane::U:
+        case YUVPlane::V:
+            FATAL("Invalid plane:%d for format:%d", plane, format);
+            return 0;
+        }
+    default:
+        FATAL("Invalid format:%d", format);
+        return 0;
+    }
+}
+
+GLsizei getGlPixelType(FrameworkFormat format, YUVPlane plane) {
+    switch (format) {
+    case FRAMEWORK_FORMAT_YV12:
+        switch (plane) {
+        case YUVPlane::Y:
+        case YUVPlane::U:
+        case YUVPlane::V:
+            return GL_UNSIGNED_BYTE;
+        case YUVPlane::UV:
+            FATAL("Invalid plane:%d for format:%d", plane, format);
+            return 0;
+        }
+    case FRAMEWORK_FORMAT_YUV_420_888:
+        if (feature_is_enabled(kFeature_YUV420888toNV21)) {
+            switch (plane) {
+            case YUVPlane::Y:
+            case YUVPlane::UV:
+                return GL_UNSIGNED_BYTE;
+            case YUVPlane::U:
+            case YUVPlane::V:
+                FATAL("Invalid plane:%d for format:%d", plane, format);
+                return 0;
+            }
+        } else {
+            switch (plane) {
+            case YUVPlane::Y:
+            case YUVPlane::U:
+            case YUVPlane::V:
+                return GL_UNSIGNED_BYTE;
+            case YUVPlane::UV:
+                FATAL("Invalid plane:%d for format:%d", plane, format);
+                return 0;
+            }
+        }
+    case FRAMEWORK_FORMAT_NV12:
+        switch (plane) {
+        case YUVPlane::Y:
+        case YUVPlane::UV:
+            return GL_UNSIGNED_BYTE;
+        case YUVPlane::U:
+        case YUVPlane::V:
+            FATAL("Invalid plane:%d for format:%d", plane, format);
+            return 0;
+        }
+    default:
+        FATAL("Invalid format:%d", format);
+        return 0;
+    }
+}
 
 // NV12 and YUV420 are all packed
 static void NV12ToYUV420PlanarInPlaceConvert(int nWidth,
@@ -64,6 +253,10 @@ static void NV12ToYUV420PlanarInPlaceConvert(int nWidth,
     memcpy(pv, pQuad, nWidth * nHeight / 4);
 }
 
+inline uint32_t alignToPower2(uint32_t val, uint32_t align) {
+    return (val + (align - 1)) & ~(align - 1);
+}
+
 // getYUVOffsets(), given a YUV-formatted buffer that is arranged
 // according to the spec
 // https://developer.android.com/reference/android/graphics/ImageFormat.html#YUV
@@ -82,15 +275,13 @@ static void getYUVOffsets(int width,
                           uint32_t* vOffset,
                           uint32_t* yWidth,
                           uint32_t* cWidth) {
-    uint32_t yStride, cStride, cHeight, cSize, align;
+    uint32_t yStride, cStride, cHeight, cSize;
     switch (format) {
     case FRAMEWORK_FORMAT_YV12:
         // Luma stride is 32 bytes aligned.
-        align = 32;
-        yStride = (width + (align - 1)) & ~(align - 1);
+        yStride = alignToPower2(width, 32);
         // Chroma stride is 16 bytes aligned.
-        align = 16;
-        cStride = (yStride / 2 + (align - 1)) & ~(align - 1);
+        cStride = alignToPower2(yStride, 16);
         cHeight = height / 2;
         cSize = cStride * cHeight;
         *yOffset = 0;
@@ -100,10 +291,8 @@ static void getYUVOffsets(int width,
         *cWidth = cStride;
         break;
     case FRAMEWORK_FORMAT_YUV_420_888:
-        if (feature_is_enabled(
-                kFeature_YUV420888toNV21)) {
-            align = 1;
-            yStride = (width + (align - 1)) & ~(align - 1);
+        if (feature_is_enabled(kFeature_YUV420888toNV21)) {
+            yStride = width;
             cStride = yStride;
             cHeight = height / 2;
             *yOffset = 0;
@@ -112,9 +301,8 @@ static void getYUVOffsets(int width,
             *yWidth = yStride;
             *cWidth = cStride / 2;
         } else {
-            align = 1;
-            yStride = (width + (align - 1)) & ~(align - 1);
-            cStride = (yStride / 2 + (align - 1)) & ~(align - 1);
+            yStride = width;
+            cStride = yStride / 2;
             cHeight = height / 2;
             cSize = cStride * cHeight;
             *yOffset = 0;
@@ -125,7 +313,6 @@ static void getYUVOffsets(int width,
         }
         break;
     case FRAMEWORK_FORMAT_NV12:
-        align = 1;
         yStride = width;
         cStride = yStride;
         cHeight = height / 2;
