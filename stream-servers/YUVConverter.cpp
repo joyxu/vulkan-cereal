@@ -37,10 +37,32 @@
 #define DDD(fmt, ...)
 #endif
 
-enum YUVInterleaveDirection {
-    YUVInterleaveDirectionVU = 0,
-    YUVInterleaveDirectionUV = 1,
+enum class YUVInterleaveDirection {
+    VU = 0,
+    UV = 1,
 };
+
+// NV12 and YUV420 are all packed
+static void NV12ToYUV420PlanarInPlaceConvert(int nWidth,
+                                             int nHeight,
+                                             uint8_t* pFrame,
+                                             uint8_t* pQuad) {
+    std::vector<uint8_t> tmp;
+    if (pQuad == nullptr) {
+        tmp.resize(nWidth * nHeight / 4);
+        pQuad = tmp.data();
+    }
+    int nPitch = nWidth;
+    uint8_t *puv = pFrame + nPitch * nHeight, *pu = puv,
+            *pv = puv + nPitch * nHeight / 4;
+    for (int y = 0; y < nHeight / 2; y++) {
+        for (int x = 0; x < nWidth / 2; x++) {
+            pu[y * nPitch / 2 + x] = puv[y * nPitch + x * 2];
+            pQuad[y * nWidth / 2 + x] = puv[y * nPitch + x * 2 + 1];
+        }
+    }
+    memcpy(pv, pQuad, nWidth * nHeight / 4);
+}
 
 // getYUVOffsets(), given a YUV-formatted buffer that is arranged
 // according to the spec
@@ -398,7 +420,7 @@ void main(void) {
     )";
 
     const GLchar* const kFShaders =
-        interleaveDir == YUVInterleaveDirectionVU ? kFShaderVu : kFShaderUv;
+        interleaveDir == YUVInterleaveDirection::VU ? kFShaderVu : kFShaderUv;
 
     GLuint vshader = s_gles2.glCreateShader(GL_VERTEX_SHADER);
     GLuint fshader = s_gles2.glCreateShader(GL_FRAGMENT_SHADER);
@@ -419,7 +441,7 @@ void main(void) {
     *cwidthcutoffloc_out = s_gles2.glGetUniformLocation(*program_out, "cWidthCutoff");
     *ysamplerloc_out = s_gles2.glGetUniformLocation(*program_out, "ysampler");
     *vusamplerloc_out = s_gles2.glGetUniformLocation(
-            *program_out, YUVInterleaveDirectionVU ? "vusampler" : "uvsampler");
+            *program_out, interleaveDir == YUVInterleaveDirection::VU ? "vusampler" : "uvsampler");
     *posloc_out = s_gles2.glGetAttribLocation(*program_out, "position");
     *incoordloc_out = s_gles2.glGetAttribLocation(*program_out, "inCoord");
 
@@ -565,7 +587,7 @@ void YUVConverter::init(int width, int height, FrameworkFormat format) {
                                              &mVUSamplerLoc,
                                              &mInCoordLoc,
                                              &mPosLoc,
-                                             YUVInterleaveDirectionVU);
+                                             YUVInterleaveDirection::VU);
             } else {
                 if (!mUtex)
                     createYUVGLTex(GL_TEXTURE1, cwidth, cheight, &mUtex, false);
@@ -591,7 +613,7 @@ void YUVConverter::init(int width, int height, FrameworkFormat format) {
                                          &mVUSamplerLoc,
                                          &mInCoordLoc,
                                          &mPosLoc,
-                                         YUVInterleaveDirectionUV);
+                                         YUVInterleaveDirection::UV);
             break;
         default:
             FATAL("Unknown format: 0x%x", mFormat);
