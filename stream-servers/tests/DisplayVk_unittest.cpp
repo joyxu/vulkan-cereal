@@ -129,7 +129,7 @@ class DisplayVkTest : public ::testing::Test {
                     SwapChainStateVk::validateQueueFamilyProperties(*k_vk, device, m_vkSurface,
                                                                     queueFamilyIndex) &&
                     SwapChainStateVk::createSwapChainCi(*k_vk, m_vkSurface, device, k_width,
-                                                        k_height, {queueFamilyIndex}) != nullptr) {
+                                                        k_height, {queueFamilyIndex})) {
                     maybeSwapChainQueueFamilyIndex = queueFamilyIndex;
                 }
                 if (!maybeCompositorQueueFamilyIndex.has_value() &&
