@@ -63,28 +63,6 @@ public:
 
     void swapTextures(uint32_t type, uint32_t* textures);
 
-    // NV12 and YUV420 are all packed
-    static void NV12ToYUV420PlanarInPlaceConvert(int nWidth,
-                                                 int nHeight,
-                                                 uint8_t* pFrame,
-                                                 uint8_t* pQuad) {
-        std::vector<uint8_t> tmp;
-        if (pQuad == nullptr) {
-            tmp.resize(nWidth * nHeight / 4);
-            pQuad = tmp.data();
-        }
-        int nPitch = nWidth;
-        uint8_t *puv = pFrame + nPitch * nHeight, *pu = puv,
-                *pv = puv + nPitch * nHeight / 4;
-        for (int y = 0; y < nHeight / 2; y++) {
-            for (int x = 0; x < nWidth / 2; x++) {
-                pu[y * nPitch / 2 + x] = puv[y * nPitch + x * 2];
-                pQuad[y * nWidth / 2 + x] = puv[y * nPitch + x * 2 + 1];
-            }
-        }
-        memcpy(pv, pQuad, nWidth * nHeight / 4);
-    }
-
     // public so other classes can call
     static void createYUVGLTex(GLenum texture_unit,
                                GLsizei width,
