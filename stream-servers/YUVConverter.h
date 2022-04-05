@@ -72,11 +72,12 @@ public:
     void swapTextures(uint32_t type, uint32_t* textures);
 
     // public so other classes can call
-    static void createYUVGLTex(GLenum texture_unit,
+    static void createYUVGLTex(GLenum textureUnit,
                                GLsizei width,
                                GLsizei height,
-                               GLuint* texName_out,
-                               bool uvInterleaved);
+                               FrameworkFormat format,
+                               YUVPlane plane,
+                               GLuint* outTextureName);
 private:
     void init(int w, int h, FrameworkFormat format);
     void reset();
@@ -95,15 +96,12 @@ private:
     GLuint mTextureY = 0;
     GLuint mTextureU = 0;
     GLuint mTextureV = 0;
-    GLuint mTextureVU = 0;
-    GLuint mTextureUV = 0;
     // shader uniform locations
     GLint mUniformLocYWidthCutoff = -1;
     GLint mUniformLocCWidthCutoff = -1;
     GLint mUniformLocSamplerY = -1;
     GLint mUniformLocSamplerU = -1;
     GLint mUniformLocSamplerV = -1;
-    GLint mUniformLocSamplerVU = -1;
     GLint mAttributeLocTexCoord = -1;
     GLint mAttributeLocPos = -1;
     float mYWidthCutoff = 1.0;
