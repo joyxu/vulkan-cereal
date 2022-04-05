@@ -22,9 +22,6 @@ namespace emugl {
 // Line width settings to attempt
 static const GLfloat kGLES2TestLineWidths[] = {2.0f};
 
-// Polygon offset settings to attempt
-static const GLfloat kGLES2TestPolygonOffset[] = {0.5f, 0.5f};
-
 class SnapshotGlLineWidthTest : public SnapshotSetValueTest<GLfloat>,
                                 public ::testing::WithParamInterface<GLfloat> {
     void stateCheck(GLfloat expected) override {
