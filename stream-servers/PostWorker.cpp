@@ -97,8 +97,6 @@ void PostWorker::postImpl(ColorBuffer* cb) {
         }
         goldfish_vk::acquireColorBuffersForHostComposing({}, cb->getHndl());
         auto [success, waitForGpu] = m_displayVk->post(cb->getDisplayBufferVk());
-        goldfish_vk::setColorBufferCurrentLayout(cb->getHndl(),
-                                                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         goldfish_vk::releaseColorBufferFromHostComposing({cb->getHndl()});
         if (success) {
             waitForGpu.wait();
