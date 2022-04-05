@@ -82,8 +82,12 @@ private:
     void init(int w, int h, FrameworkFormat format);
     void reset();
 
+    void createYUVGLShader();
+    void createYUVGLFullscreenQuad();
+
     // For dealing with n-pixel-aligned buffers
     void updateCutoffs(float width, float ywidth, float halfwidth, float cwidth);
+
     int mWidth = 0;
     int mHeight = 0;
     FrameworkFormat mFormat;
@@ -96,16 +100,17 @@ private:
     GLuint mTextureY = 0;
     GLuint mTextureU = 0;
     GLuint mTextureV = 0;
-    // shader uniform locations
     GLint mUniformLocYWidthCutoff = -1;
     GLint mUniformLocCWidthCutoff = -1;
     GLint mUniformLocSamplerY = -1;
     GLint mUniformLocSamplerU = -1;
     GLint mUniformLocSamplerV = -1;
-    GLint mAttributeLocTexCoord = -1;
     GLint mAttributeLocPos = -1;
+    GLint mAttributeLocTexCoord = -1;
+
     float mYWidthCutoff = 1.0;
     float mCWidthCutoff = 1.0;
+    bool mHasGlsl3Support = false;
 
     // YUVConverter can end up being used
     // in a TextureDraw / subwindow context, and subsequently
