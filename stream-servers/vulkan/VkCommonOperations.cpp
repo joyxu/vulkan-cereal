@@ -2658,7 +2658,8 @@ void acquireColorBuffersForHostComposing(const std::vector<uint32_t>& layerColor
         colorBuffersAndLayouts.emplace_back(
             layerColorBuffer, FrameBuffer::getFB()->getVkImageLayoutForComposeLayer());
     }
-    colorBuffersAndLayouts.emplace_back(renderTargetColorBuffer, VK_IMAGE_LAYOUT_UNDEFINED);
+    colorBuffersAndLayouts.emplace_back(renderTargetColorBuffer,
+                                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     AutoLock lock(sVkEmulationLock);
     auto vk = sVkEmulation->dvk;
 
@@ -2712,8 +2713,7 @@ void acquireColorBuffersForHostComposing(const std::vector<uint32_t>& layerColor
 
     std::vector<VkImageMemoryBarrier> layoutTransitionBarriers;
     for (auto [infoPtr, newLayout] : colorBufferInfosAndLayouts) {
-        infoPtr->currentLayout = newLayout;
-        if (newLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+        if (newLayout == VK_IMAGE_LAYOUT_UNDEFINED || infoPtr->currentLayout == newLayout) {
             continue;
         }
         VkImageMemoryBarrier layoutTransitionBarrier = {
@@ -2738,6 +2738,7 @@ void acquireColorBuffersForHostComposing(const std::vector<uint32_t>& layerColor
                 },
         };
         layoutTransitionBarriers.emplace_back(layoutTransitionBarrier);
+        infoPtr->currentLayout = newLayout;
     }
 
     auto [commandBuffer, fence] = allocateQueueTransferCommandBuffer_locked();
