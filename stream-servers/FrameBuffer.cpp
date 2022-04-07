@@ -367,6 +367,8 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         return false;
     }
 
+    std::unique_ptr<ScopedBind> eglColorBufferBind;
+
     std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> renderDocMultipleVkInstances = nullptr;
     if (!android::base::getEnvironmentVariable("ANDROID_EMU_RENDERDOC").empty()) {
         SharedLibrary* renderdocLib = nullptr;
@@ -624,8 +626,8 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
 
     GL_LOG("attempting to make context current");
     // Make the context current
-    ScopedBind bind(fb->m_colorBufferHelper);
-    if (!bind.isOk()) {
+    eglColorBufferBind = std::make_unique<ScopedBind>(fb->m_colorBufferHelper);
+    if (!eglColorBufferBind->isOk()) {
         ERR("Failed to make current");
         return false;
     }
