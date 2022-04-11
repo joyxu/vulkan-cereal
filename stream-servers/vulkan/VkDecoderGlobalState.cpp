@@ -1696,7 +1696,9 @@ class VkDecoderGlobalState::Impl {
              pCreateInfo->addressModeV == VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER ||
              pCreateInfo->addressModeW == VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER) &&
             (pCreateInfo->borderColor == VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK ||
-             pCreateInfo->borderColor == VK_BORDER_COLOR_INT_TRANSPARENT_BLACK);
+             pCreateInfo->borderColor == VK_BORDER_COLOR_INT_TRANSPARENT_BLACK ||
+             pCreateInfo->borderColor == VK_BORDER_COLOR_FLOAT_CUSTOM_EXT ||
+             pCreateInfo->borderColor == VK_BORDER_COLOR_INT_CUSTOM_EXT);
 
         *pSampler = new_boxed_non_dispatchable_VkSampler(*pSampler);
 
@@ -2325,7 +2327,10 @@ class VkDecoderGlobalState::Impl {
                     SamplerInfo& samplerInfo = samplerIt->second;
                     if (samplerInfo.emulatedborderSampler == VK_NULL_HANDLE) {
                         // create the emulated sampler
-                        VkSamplerCreateInfo createInfo = samplerInfo.createInfo;
+                        VkSamplerCreateInfo createInfo;
+                        deepcopy_VkSamplerCreateInfo(
+                                pool, VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+                                &samplerInfo.createInfo, &createInfo);
                         switch (createInfo.borderColor) {
                             case VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK:
                                 createInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
@@ -2333,6 +2338,30 @@ class VkDecoderGlobalState::Impl {
                             case VK_BORDER_COLOR_INT_TRANSPARENT_BLACK:
                                 createInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
                                 break;
+                            case VK_BORDER_COLOR_FLOAT_CUSTOM_EXT:
+                            case VK_BORDER_COLOR_INT_CUSTOM_EXT: {
+                                VkSamplerCustomBorderColorCreateInfoEXT*
+                                        customBorderColorCreateInfo = vk_find_struct<
+                                                VkSamplerCustomBorderColorCreateInfoEXT>(
+                                                &createInfo);
+                                if (customBorderColorCreateInfo) {
+                                    switch (createInfo.borderColor) {
+                                        case VK_BORDER_COLOR_FLOAT_CUSTOM_EXT:
+                                            customBorderColorCreateInfo
+                                                    ->customBorderColor
+                                                    .float32[3] = 1.0f;
+                                            break;
+                                        case VK_BORDER_COLOR_INT_CUSTOM_EXT:
+                                            customBorderColorCreateInfo
+                                                    ->customBorderColor
+                                                    .int32[3] = 128;
+                                            break;
+                                        default:
+                                            break;
+                                    }
+                                }
+                                break;
+                            }
                             default:
                                 break;
                         }
