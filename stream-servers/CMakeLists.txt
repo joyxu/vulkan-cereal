@@ -213,7 +213,8 @@ target_link_libraries(
     gfxstream_backend_static
     stream-server-testing-support
     gfxstream-base-testing-support
-    gfxstream-host-common-testing-support)
+    gfxstream-host-common-testing-support
+    gtest_main)
 gtest_discover_tests(OpenglRender_snapshot_unittests)
 
 # Vulkan tests##################################################################
@@ -235,6 +236,7 @@ target_link_libraries(
     gfxstream-base-testing-support
     gfxstream-host-common-testing-support
     gtest
+    gtest_main
     gmock)
 gtest_discover_tests(Vulkan_unittests)
 
