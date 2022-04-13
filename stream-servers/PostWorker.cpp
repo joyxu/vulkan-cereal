@@ -20,6 +20,7 @@
 #include <chrono>
 
 #include "ColorBuffer.h"
+#include "CompositorGl.h"
 #include "Debug.h"
 #include "DispatchTables.h"
 #include "FrameBuffer.h"
@@ -57,7 +58,7 @@ static void sDefaultRunOnUiThread(UiUpdateFunc f, void* data, bool wait) {
 }
 
 PostWorker::PostWorker(PostWorker::BindSubwinCallback&& cb, bool mainThreadPostingOnly,
-                       EGLContext eglContext, EGLSurface,
+                       EGLContext eglContext, EGLSurface, Compositor* compositor,
                        DisplayVk* displayVk)
     : mFb(FrameBuffer::getFB()),
       mBindSubwin(cb),
@@ -65,6 +66,7 @@ PostWorker::PostWorker(PostWorker::BindSubwinCallback&& cb, bool mainThreadPosti
       m_runOnUiThread(m_mainThreadPostingOnly ? emugl::get_emugl_window_operations().runOnUiThread
                                               : sDefaultRunOnUiThread),
       mContext(eglContext),
+      m_compositor(compositor),
       m_displayVk(displayVk) {}
 
 void PostWorker::fillMultiDisplayPostStruct(ComposeLayer* l,
@@ -252,6 +254,7 @@ std::shared_future<void> PostWorker::composeImpl(const FlatComposeRequest& compo
     std::shared_future<void> completedFuture =
         std::async(std::launch::deferred, [] {}).share();
     completedFuture.wait();
+
     // bind the subwindow eglSurface
     if (!m_mainThreadPostingOnly && m_needsToRebindWindow) {
         m_needsToRebindWindow = !mBindSubwin();
@@ -263,7 +266,7 @@ std::shared_future<void> PostWorker::composeImpl(const FlatComposeRequest& compo
 
     auto targetColorBufferPtr = mFb->findColorBuffer(composeRequest.targetHandle);
     if (m_displayVk) {
-
+        auto targetColorBufferPtr = mFb->findColorBuffer(composeRequest.targetHandle);
         if (!targetColorBufferPtr) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
                                 "Failed to retrieve the composition target buffer";
@@ -309,53 +312,15 @@ std::shared_future<void> PostWorker::composeImpl(const FlatComposeRequest& compo
         return waitForGpu;
     }
 
-    GLint vport[4] = { 0, };
-    s_gles2.glGetIntegerv(GL_VIEWPORT, vport);
-    uint32_t w, h;
-    emugl::get_emugl_multi_display_operations().getMultiDisplay(composeRequest.displayId,
-                                                                nullptr,
-                                                                nullptr,
-                                                                &w,
-                                                                &h,
-                                                                nullptr,
-                                                                nullptr,
-                                                                nullptr);
-    s_gles2.glViewport(0, 0, w, h);
-    if (!m_composeFbo) {
-        s_gles2.glGenFramebuffers(1, &m_composeFbo);
-    }
-    s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, m_composeFbo);
-
-    if (!targetColorBufferPtr) {
-        s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        s_gles2.glViewport(vport[0], vport[1], vport[2], vport[3]);
-        return completedFuture;
+    Compositor::CompositionRequest compositorRequest = {};
+    compositorRequest.target = mFb->borrowColorBufferForComposition(composeRequest.targetHandle);
+    for (const ComposeLayer& guestLayer : composeRequest.layers) {
+        auto& compositorLayer = compositorRequest.layers.emplace_back();
+        compositorLayer.props = guestLayer;
+        compositorLayer.source = mFb->borrowColorBufferForComposition(guestLayer.cbHandle);
     }
 
-    s_gles2.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_OES,
-                                   GL_TEXTURE_2D,
-                                   targetColorBufferPtr->getTexture(), 0);
-
-    DD("worker compose %d layers\n", static_cast<int>(composeRequest.layers.size()));
-    mFb->getTextureDraw()->prepareForDrawLayer();
-    for (const ComposeLayer& layer : composeRequest.layers) {
-        DD("\tcomposeMode %d color %d %d %d %d blendMode "
-               "%d alpha %f transform %d %d %d %d %d "
-               "%f %f %f %f\n",
-               layer.composeMode, layer.color.r, layer.color.g, layer.color.b,
-               layer.color.a, layer.blendMode, layer.alpha, layer.transform,
-               layer.displayFrame.left, layer.displayFrame.top,
-               layer.displayFrame.right, layer.displayFrame.bottom,
-               layer.crop.left, layer.crop.top, layer.crop.right,
-               layer.crop.bottom);
-        glesComposeLayer(layer, w, h);
-    }
-
-    targetColorBufferPtr->setSync();
-    s_gles2.glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    s_gles2.glViewport(vport[0], vport[1], vport[2], vport[3]);
-    mFb->getTextureDraw()->cleanupForDrawLayer();
-    return completedFuture;
+    return m_compositor->compose(compositorRequest);
 }
 
 void PostWorker::bind() {
@@ -378,28 +343,6 @@ void PostWorker::unbind() {
     if (mFb->getDisplay() != EGL_NO_DISPLAY) {
         s_egl.eglMakeCurrent(mFb->getDisplay(), EGL_NO_SURFACE, EGL_NO_SURFACE,
                              EGL_NO_CONTEXT);
-    }
-}
-
-void PostWorker::glesComposeLayer(const ComposeLayer& layer, uint32_t w, uint32_t h) {
-    if (m_displayVk) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
-                            "Should not reach with native vulkan swapchain enabled.";
-    }
-    if (layer.composeMode == HWC2_COMPOSITION_DEVICE) {
-        ColorBufferPtr cb = mFb->findColorBuffer(layer.cbHandle);
-        if (!cb) {
-            // bad colorbuffer handle
-            // ERR("%s: fail to find colorbuffer %d\n", __FUNCTION__, l->cbHandle);
-            return;
-        }
-
-        GL_SCOPED_DEBUG_GROUP("PostWorker::glesComposeLayer(layer ColorBuffer{hndl:%d tex:%d})", cb->getHndl(), cb->getTexture());
-        cb->postLayer(layer, w, h);
-    }
-    else {
-        // no Colorbuffer associated with SOLID_COLOR mode
-        mFb->getTextureDraw()->drawLayer(layer, w, h, 1, 1, 0);
     }
 }
 

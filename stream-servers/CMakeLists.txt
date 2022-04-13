@@ -25,6 +25,7 @@ set(stream-server-core-sources
     VirtioGpuTimelines.cpp
     ChannelStream.cpp
     ColorBuffer.cpp
+    CompositorGl.cpp
     Debug.cpp
     FbConfig.cpp
     FenceSync.cpp

@@ -24,6 +24,7 @@
 // #include "android/skin/rect.h"
 #include <memory>
 
+#include "BorrowedImage.h"
 #include "DisplayVk.h"
 #include "FrameworkFormats.h"
 #include "Hwc2.h"
@@ -258,6 +259,7 @@ public:
         const {
         return m_displayBufferVk;
     };
+    std::unique_ptr<BorrowedImageInfo> getBorrowedImageInfo();
 
     // ColorBuffer backing change methods
     //
