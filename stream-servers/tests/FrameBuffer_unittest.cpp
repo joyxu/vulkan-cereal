@@ -19,6 +19,7 @@
 #include "base/testing/TestSystem.h"
 #include "host-common/AndroidAgentFactory.h"
 #include "host-common/multi_display_agent.h"
+#include "host-common/testing/MockAndroidAgentFactory.h"
 #include "host-common/window_agent.h"
 #include "host-common/MultiDisplay.h"
 #include "snapshot/TextureLoader.h"
@@ -52,6 +53,13 @@ public:
     FrameBufferTest() = default;
 
 protected:
+
+    static void SetUpTestSuite() {
+        android::emulation::injectConsoleAgents(
+                android::emulation::MockAndroidConsoleFactory());
+    }
+
+    static void TearDownTestSuite() { }
 
     virtual void SetUp() override {
         // setupStandaloneLibrarySearchPaths();
