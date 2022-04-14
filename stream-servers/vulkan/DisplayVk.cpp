@@ -6,7 +6,6 @@
 
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"
-#include "vulkan/VkCommonOperations.h"
 #include "vulkan/VkFormatUtils.h"
 #include "vulkan/vk_enum_string_helper.h"
 
@@ -63,7 +62,6 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch& vk, VkPhysicalDevice vkP
       m_swapChainVkQueueLock(swapChainVkQueueLock),
       m_vkCommandPool(VK_NULL_HANDLE),
       m_swapChainStateVk(nullptr),
-      m_compositorVk(nullptr),
       m_surfaceState(nullptr) {
     // TODO(kaiyili): validate the capabilites of the passed in Vulkan
     // components.
@@ -73,24 +71,6 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch& vk, VkPhysicalDevice vkP
         .queueFamilyIndex = m_compositorQueueFamilyIndex,
     };
     VK_CHECK(m_vk.vkCreateCommandPool(m_vkDevice, &commandPoolCi, nullptr, &m_vkCommandPool));
-
-    VkSamplerCreateInfo samplerCi = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-                                     .magFilter = VK_FILTER_LINEAR,
-                                     .minFilter = VK_FILTER_LINEAR,
-                                     .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-                                     .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                                     .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                                     .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                                     .mipLodBias = 0.0f,
-                                     .anisotropyEnable = VK_FALSE,
-                                     .maxAnisotropy = 1.0f,
-                                     .compareEnable = VK_FALSE,
-                                     .compareOp = VK_COMPARE_OP_ALWAYS,
-                                     .minLod = 0.0f,
-                                     .maxLod = 0.0f,
-                                     .borderColor = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK,
-                                     .unnormalizedCoordinates = VK_FALSE};
-    VK_CHECK(m_vk.vkCreateSampler(m_vkDevice, &samplerCi, nullptr, &m_compositionVkSampler));
 }
 
 DisplayVk::~DisplayVk() {
@@ -103,11 +83,7 @@ DisplayVk::~DisplayVk() {
         VK_CHECK(vk_util::waitForVkQueueIdleWithRetry(m_vk, m_compositorVkQueue));
     }
     m_postResourceFuture = std::nullopt;
-    m_composeResourceFuture = std::nullopt;
-    m_compositorVkRenderTargets.clear();
-    m_vk.vkDestroySampler(m_vkDevice, m_compositionVkSampler, nullptr);
     m_surfaceState.reset();
-    m_compositorVk.reset();
     m_swapChainStateVk.reset();
     m_vk.vkDestroyCommandPool(m_vkDevice, m_vkCommandPool, nullptr);
 }
@@ -122,10 +98,6 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
         VK_CHECK(vk_util::waitForVkQueueIdleWithRetry(m_vk, m_swapChainVkQueue));
     }
     m_postResourceFuture = std::nullopt;
-    m_composeResourceFuture = std::nullopt;
-    m_compositorVkRenderTargets = std::deque<std::shared_ptr<CompositorVkRenderTarget>>(
-        k_compositorVkRenderTargetCacheSize, nullptr);
-    m_compositorVk.reset();
     m_swapChainStateVk.reset();
 
     if (!SwapChainStateVk::validateQueueFamilyProperties(m_vk, m_vkPhysicalDevice, surface,
@@ -150,11 +122,6 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
     }
     m_swapChainStateVk =
         std::make_unique<SwapChainStateVk>(m_vk, m_vkDevice, swapChainCi->mCreateInfo);
-    m_compositorVk = CompositorVk::create(
-        m_vk, m_vkDevice, m_vkPhysicalDevice, m_compositorVkQueue, m_compositorVkQueueLock,
-        k_compositorVkRenderTargetFormat, VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_swapChainStateVk->getVkImageViews().size(),
-        m_vkCommandPool, m_compositionVkSampler);
 
     int numSwapChainImages = m_swapChainStateVk->getVkImages().size();
 
@@ -165,35 +132,24 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
 
     m_inFlightFrameIndex = 0;
 
-    m_composeResourceFuture = std::async(std::launch::deferred, [this] {
-        return ComposeResource::create(m_vk, m_vkDevice, m_vkCommandPool);
-    });
-    m_composeResourceFuture.value().wait();
     auto surfaceState = std::make_unique<SurfaceState>();
     surfaceState->m_height = height;
     surfaceState->m_width = width;
     m_surfaceState = std::move(surfaceState);
 }
 
-std::shared_ptr<DisplayVk::DisplayBufferInfo> DisplayVk::createDisplayBuffer(
-    VkImage image, const VkImageCreateInfo& vkImageCreateInfo) {
-    return std::shared_ptr<DisplayBufferInfo>(
-        new DisplayBufferInfo(m_vk, m_vkDevice, vkImageCreateInfo, image));
-}
-
 std::tuple<bool, std::shared_future<void>> DisplayVk::post(
-    std::shared_ptr<DisplayBufferInfo> displayBufferPtr) {
+    const BorrowedImageInfo* sourceImageInfo) {
     auto completedFuture = std::async(std::launch::deferred, [] {}).share();
     completedFuture.wait();
-    if (!displayBufferPtr) {
-        fprintf(stderr, "%s: warning: null ptr passed to post buffer\n", __func__);
-        return std::make_tuple(true, std::move(completedFuture));
-    }
+
     if (!m_swapChainStateVk || !m_surfaceState) {
         DISPLAY_VK_ERROR("Haven't bound to a surface, can't post ColorBuffer.");
         return std::make_tuple(true, std::move(completedFuture));
     }
-    if (!canPost(displayBufferPtr->m_vkImageCreateInfo)) {
+
+    const auto* sourceImageInfoVk = static_cast<const BorrowedImageInfoVk*>(sourceImageInfo);
+    if (!canPost(sourceImageInfoVk->imageCreateInfo)) {
         DISPLAY_VK_ERROR("Can't post ColorBuffer.");
         return std::make_tuple(true, std::move(completedFuture));
     }
@@ -212,37 +168,81 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
 
     VkCommandBuffer cmdBuff = postResource->m_vkCommandBuffer;
     VK_CHECK(m_vk.vkResetCommandBuffer(cmdBuff, 0));
-    VkCommandBufferBeginInfo beginInfo = {
+
+    const VkCommandBufferBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
     VK_CHECK(m_vk.vkBeginCommandBuffer(cmdBuff, &beginInfo));
-    VkImageMemoryBarrier presentToXferDstBarrier = {
+
+    std::vector<VkImageMemoryBarrier> preBlitQueueTransferBarriers;
+    std::vector<VkImageMemoryBarrier> preBlitLayoutTransitionBarriers;
+    std::vector<VkImageMemoryBarrier> postBlitLayoutTransitionBarriers;
+    std::vector<VkImageMemoryBarrier> postBlitQueueTransferBarriers;
+    addNeededBarriersToUseBorrowedImage(
+        *sourceImageInfoVk, m_compositorQueueFamilyIndex,
+        /*usedInitialImageLayout=*/VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        /*usedFinalImageLayout=*/VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        &preBlitQueueTransferBarriers, &preBlitLayoutTransitionBarriers,
+        &postBlitLayoutTransitionBarriers, &postBlitQueueTransferBarriers);
+    preBlitLayoutTransitionBarriers.push_back(
+        VkImageMemoryBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                             .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+                             .dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+                             .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                             .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                             .image = m_swapChainStateVk->getVkImages()[imageIndex],
+                             .subresourceRange = {
+                                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                 .baseMipLevel = 0,
+                                 .levelCount = 1,
+                                 .baseArrayLayer = 0,
+                                 .layerCount = 1,
+                             }});
+    postBlitLayoutTransitionBarriers.push_back(VkImageMemoryBarrier{
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = m_swapChainStateVk->getVkImages()[imageIndex],
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                             .baseMipLevel = 0,
-                             .levelCount = 1,
-                             .baseArrayLayer = 0,
-                             .layerCount = 1}};
-    m_vk.vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                              VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1,
-                              &presentToXferDstBarrier);
-    VkImageBlit region = {
+        .subresourceRange =
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    });
+
+    if (!preBlitQueueTransferBarriers.empty()) {
+        m_vk.vkCmdPipelineBarrier(
+            cmdBuff, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr,
+            static_cast<uint32_t>(preBlitQueueTransferBarriers.size()),
+            preBlitQueueTransferBarriers.data());
+    }
+    if (!preBlitLayoutTransitionBarriers.empty()) {
+        m_vk.vkCmdPipelineBarrier(
+            cmdBuff, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr,
+            static_cast<uint32_t>(preBlitLayoutTransitionBarriers.size()),
+            preBlitLayoutTransitionBarriers.data());
+    }
+
+    const VkImageBlit region = {
         .srcSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                            .mipLevel = 0,
                            .baseArrayLayer = 0,
                            .layerCount = 1},
         .srcOffsets = {{0, 0, 0},
-                       {static_cast<int32_t>(displayBufferPtr->m_vkImageCreateInfo.extent.width),
-                        static_cast<int32_t>(displayBufferPtr->m_vkImageCreateInfo.extent.height),
-                        1}},
+                       {static_cast<int32_t>(sourceImageInfoVk->imageCreateInfo.extent.width),
+                        static_cast<int32_t>(sourceImageInfoVk->imageCreateInfo.extent.height), 1}},
         .dstSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                            .mipLevel = 0,
                            .baseArrayLayer = 0,
@@ -251,8 +251,8 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
                        {static_cast<int32_t>(m_surfaceState->m_width),
                         static_cast<int32_t>(m_surfaceState->m_height), 1}},
     };
-    VkFormat displayBufferFormat = displayBufferPtr->m_vkImageCreateInfo.format;
-    VkImageTiling displayBufferTiling = displayBufferPtr->m_vkImageCreateInfo.tiling;
+    VkFormat displayBufferFormat = sourceImageInfoVk->imageCreateInfo.format;
+    VkImageTiling displayBufferTiling = sourceImageInfoVk->imageCreateInfo.tiling;
     VkFilter filter = VK_FILTER_NEAREST;
     VkFormatFeatureFlags displayBufferFormatFeatures =
         getFormatFeatures(displayBufferFormat, displayBufferTiling);
@@ -274,26 +274,23 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
     } else {
         filter = VK_FILTER_LINEAR;
     }
-    m_vk.vkCmdBlitImage(cmdBuff, displayBufferPtr->m_vkImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    m_vk.vkCmdBlitImage(cmdBuff, sourceImageInfoVk->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                         m_swapChainStateVk->getVkImages()[imageIndex],
                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, filter);
-    VkImageMemoryBarrier xferDstToPresentBarrier = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = m_swapChainStateVk->getVkImages()[imageIndex],
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                             .baseMipLevel = 0,
-                             .levelCount = 1,
-                             .baseArrayLayer = 0,
-                             .layerCount = 1}};
-    m_vk.vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                              VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1,
-                              &xferDstToPresentBarrier);
+
+    if (!postBlitLayoutTransitionBarriers.empty()) {
+        m_vk.vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                  VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr,
+                                  static_cast<uint32_t>(postBlitLayoutTransitionBarriers.size()),
+                                  postBlitLayoutTransitionBarriers.data());
+    }
+    if (!postBlitQueueTransferBarriers.empty()) {
+        m_vk.vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                  VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr,
+                                  static_cast<uint32_t>(postBlitQueueTransferBarriers.size()),
+                                  postBlitQueueTransferBarriers.data());
+    }
+
     VK_CHECK(m_vk.vkEndCommandBuffer(cmdBuff));
 
     VkFence postCompleteFence = postResource->m_swapchainImageReleaseFence;
@@ -313,13 +310,8 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
         VK_CHECK(m_vk.vkQueueSubmit(m_compositorVkQueue, 1, &submitInfo, postCompleteFence));
     }
     std::shared_future<std::shared_ptr<PostResource>> postResourceFuture =
-        std::async(std::launch::deferred, [postCompleteFence, postResource, displayBufferPtr,
-                                           this]() mutable {
+        std::async(std::launch::deferred, [postCompleteFence, postResource, this]() mutable {
             VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &postCompleteFence, VK_TRUE, UINT64_MAX));
-            // Explicitly reset displayBufferPtr here to make sure the lambda actually capture
-            // displayBufferPtr to correctly extend the lifetime of displayBufferPtr until the
-            // rendering completes.
-            displayBufferPtr.reset();
             return postResource;
         }).share();
     m_postResourceFuture = postResourceFuture;
@@ -349,152 +341,6 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
                                      // frame starts to be drawn before this future is waited.
                                      postResourceFuture.wait();
                                  }).share());
-}
-
-std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
-    const std::vector<ComposeLayer>& composeLayers,
-    std::vector<std::shared_ptr<DisplayBufferInfo>> composeBuffers,
-    std::shared_ptr<DisplayBufferInfo> targetBuffer) {
-    std::shared_future<void> completedFuture = std::async(std::launch::deferred, [] {}).share();
-    completedFuture.wait();
-
-    if (!m_swapChainStateVk || !m_compositorVk) {
-        DISPLAY_VK_ERROR("Haven't bound to a surface, can't compose color buffer.");
-        // The surface hasn't been created yet, hence we don't return
-        // std::nullopt to request rebinding.
-        return std::make_tuple(true, std::move(completedFuture));
-    }
-
-    std::vector<std::unique_ptr<ComposeLayerVk>> composeLayerVks;
-    for (int i = 0; i < composeLayers.size(); ++i) {
-        if (composeLayers[i].cbHandle == 0) {
-            // When ColorBuffer handle is 0, it's expected that no ColorBuffer
-            // is not found.
-            continue;
-        }
-        if (!composeBuffers[i]) {
-            DISPLAY_VK_ERROR("warning: null ptr passed to compose buffer for layer %d.", i);
-            continue;
-        }
-        const auto& db = *composeBuffers[i];
-        if (!canCompositeFrom(db.m_vkImageCreateInfo)) {
-            DISPLAY_VK_ERROR("Can't composite from a display buffer. Skip the layer.");
-            continue;
-        }
-        auto composeLayerVk = ComposeLayerVk::createFromHwc2ComposeLayer(
-            m_compositionVkSampler, composeBuffers[i]->m_vkImageView, composeLayers[i],
-            composeBuffers[i]->m_vkImageCreateInfo.extent.width,
-            composeBuffers[i]->m_vkImageCreateInfo.extent.height,
-            targetBuffer->m_vkImageCreateInfo.extent.width,
-            targetBuffer->m_vkImageCreateInfo.extent.height);
-        composeLayerVks.emplace_back(std::move(composeLayerVk));
-    }
-
-    if (composeLayerVks.empty()) {
-        return std::make_tuple(true, std::move(completedFuture));
-    }
-
-    if (!targetBuffer) {
-        DISPLAY_VK_ERROR("warning null ptr passed to compose target.");
-        return std::make_tuple(true, std::move(completedFuture));
-    }
-    if (!canCompositeTo(targetBuffer->m_vkImageCreateInfo)) {
-        DISPLAY_VK_ERROR("Can't write the result of the composition to the display buffer.");
-        return std::make_tuple(true, std::move(completedFuture));
-    }
-
-    std::shared_ptr<CompositorVkRenderTarget> compositorVkRenderTarget =
-        targetBuffer->m_compositorVkRenderTarget.lock();
-    if (!compositorVkRenderTarget) {
-        compositorVkRenderTarget = m_compositorVk->createRenderTarget(
-            targetBuffer->m_vkImageView, targetBuffer->m_vkImageCreateInfo.extent.width,
-            targetBuffer->m_vkImageCreateInfo.extent.height);
-        if (!compositorVkRenderTarget) {
-            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-                << "Failed to create CompositorVkRenderTarget for the target display buffer.";
-        }
-        m_compositorVkRenderTargets.pop_back();
-        m_compositorVkRenderTargets.push_front(compositorVkRenderTarget);
-        targetBuffer->m_compositorVkRenderTarget = compositorVkRenderTarget;
-    }
-
-    std::future<std::unique_ptr<ComposeResource>> composeResourceFuture =
-        std::move(m_composeResourceFuture.value());
-    if (!composeResourceFuture.valid()) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "Invalid composeResourceFuture in m_postResourceFutures.";
-    }
-    std::unique_ptr<ComposeResource> composeResource = composeResourceFuture.get();
-
-    if (compareAndSaveComposition(m_inFlightFrameIndex, composeLayers, composeBuffers)) {
-        auto composition = std::make_unique<Composition>(std::move(composeLayerVks));
-        m_compositorVk->setComposition(m_inFlightFrameIndex, std::move(composition));
-    }
-
-    VkCommandBuffer cmdBuff = composeResource->m_vkCommandBuffer;
-    VK_CHECK(m_vk.vkResetCommandBuffer(cmdBuff, 0));
-
-    VkCommandBufferBeginInfo beginInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-    };
-    VK_CHECK(m_vk.vkBeginCommandBuffer(cmdBuff, &beginInfo));
-    m_compositorVk->recordCommandBuffers(m_inFlightFrameIndex, cmdBuff, *compositorVkRenderTarget);
-    // Insert a VkImageMemoryBarrier so that the vkCmdBlitImage in post will wait for the rendering
-    // to the render target to complete.
-    VkImageMemoryBarrier renderTargetBarrier = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = targetBuffer->m_vkImage,
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                             .baseMipLevel = 0,
-                             .levelCount = 1,
-                             .baseArrayLayer = 0,
-                             .layerCount = 1}};
-    m_vk.vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                              VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1,
-                              &renderTargetBarrier);
-    VK_CHECK(m_vk.vkEndCommandBuffer(cmdBuff));
-
-    VkFence composeCompleteFence = composeResource->m_composeCompleteFence;
-    VK_CHECK(m_vk.vkResetFences(m_vkDevice, 1, &composeCompleteFence));
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_TRANSFER_BIT};
-    VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-                               .waitSemaphoreCount = 0,
-                               .pWaitSemaphores = nullptr,
-                               .pWaitDstStageMask = waitStages,
-                               .commandBufferCount = 1,
-                               .pCommandBuffers = &cmdBuff,
-                               .signalSemaphoreCount = 0,
-                               .pSignalSemaphores = nullptr};
-    {
-        android::base::AutoLock lock(*m_compositorVkQueueLock);
-        VK_CHECK(m_vk.vkQueueSubmit(m_compositorVkQueue, 1, &submitInfo, composeCompleteFence));
-    }
-
-    m_composeResourceFuture =
-        std::async(std::launch::deferred,
-                   [composeCompleteFence, composeResource = std::move(composeResource),
-                    composeBuffers = std::move(composeBuffers), targetBuffer, this]() mutable {
-                       VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &composeCompleteFence, VK_TRUE,
-                                                     UINT64_MAX));
-                       // Explicitly clear the composeBuffers here to ensure the lambda does
-                       // caputure composeBuffers and correctly extend the lifetime of related
-                       // DisplayBufferInfo until the render completes.
-                       composeBuffers.clear();
-                       // Explicitly reset the targetBuffer here to ensure the lambda does caputure
-                       // targetBuffer and correctly extend the lifetime of the DisplayBufferInfo
-                       // until the render completes.
-                       targetBuffer.reset();
-                       return std::move(composeResource);
-                   });
-    m_inFlightFrameIndex = (m_inFlightFrameIndex + 1) % m_swapChainStateVk->getVkImages().size();
-    return post(targetBuffer);
 }
 
 VkFormatFeatureFlags DisplayVk::getFormatFeatures(VkFormat format, VkImageTiling tiling) {
@@ -607,165 +453,6 @@ bool DisplayVk::canPost(const VkImageCreateInfo& postImageCi) {
     return true;
 }
 
-bool DisplayVk::canCompositeFrom(const VkImageCreateInfo& imageCi) {
-    VkFormatFeatureFlags formatFeatures = getFormatFeatures(imageCi.format, imageCi.tiling);
-    if (!(formatFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) {
-        DISPLAY_VK_ERROR(
-            "The format, %s, with tiling, %s, doesn't support the "
-            "VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT feature. All supported features are %s.",
-            string_VkFormat(imageCi.format), string_VkImageTiling(imageCi.tiling),
-            string_VkFormatFeatureFlags(formatFeatures).c_str());
-        return false;
-    }
-    return true;
-}
-
-bool DisplayVk::canCompositeTo(const VkImageCreateInfo& imageCi) {
-    VkFormatFeatureFlags formatFeatures = getFormatFeatures(imageCi.format, imageCi.tiling);
-    if (!(formatFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT)) {
-        DISPLAY_VK_ERROR(
-            "The format, %s, with tiling, %s, doesn't support the "
-            "VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT feature. All supported features are %s.",
-            string_VkFormat(imageCi.format), string_VkImageTiling(imageCi.tiling),
-            string_VkFormatFeatureFlags(formatFeatures).c_str());
-        return false;
-    }
-    if (!(imageCi.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)) {
-        DISPLAY_VK_ERROR(
-            "The VkImage is not created with the VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT usage flag. "
-            "The usage flags are %s.",
-            string_VkImageUsageFlags(imageCi.usage).c_str());
-        return false;
-    }
-    if (imageCi.format != k_compositorVkRenderTargetFormat) {
-        DISPLAY_VK_ERROR(
-            "The format of the image, %s, is not supported by the CompositorVk as the render "
-            "target.",
-            string_VkFormat(imageCi.format));
-        return false;
-    }
-    return true;
-}
-
-bool DisplayVk::compareAndSaveComposition(
-    uint32_t renderTargetIndex, const std::vector<ComposeLayer>& composeLayers,
-    const std::vector<std::shared_ptr<DisplayBufferInfo>>& composeBuffers) {
-    if (!m_surfaceState) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "Haven't bound to a surface, can't compare and save composition.";
-    }
-    auto [iPrevComposition, compositionNotFound] =
-        m_surfaceState->m_prevCompositions.emplace(renderTargetIndex, 0);
-    auto& prevComposition = iPrevComposition->second;
-    bool compositionChanged = false;
-    if (composeLayers.size() == prevComposition.size()) {
-        for (int i = 0; i < composeLayers.size(); i++) {
-            if (composeBuffers[i] == nullptr) {
-                // If the display buffer of the current layer doesn't exist, we
-                // check if the layer at the same index in the previous
-                // composition doesn't exist either.
-                if (prevComposition[i] == nullptr) {
-                    continue;
-                } else {
-                    compositionChanged = true;
-                    break;
-                }
-            }
-            if (prevComposition[i] == nullptr) {
-                // If the display buffer of the current layer exists but the
-                // layer at the same index in the previous composition doesn't
-                // exist, the composition is changed.
-                compositionChanged = true;
-                break;
-            }
-            const auto& prevLayer = *prevComposition[i];
-            const auto prevDisplayBufferPtr = prevLayer.m_displayBuffer.lock();
-            // prevLayer.m_displayBuffer is a weak pointer, so if
-            // prevDisplayBufferPtr is null, the color buffer
-            // prevDisplayBufferPtr pointed to should have been released or
-            // re-allocated, and we should consider the composition is changed.
-            // If prevDisplayBufferPtr exists and it points to the same display
-            // buffer as the input composeBuffers[i] we consider the composition
-            // not changed.
-            if (!prevDisplayBufferPtr || prevDisplayBufferPtr != composeBuffers[i]) {
-                compositionChanged = true;
-                break;
-            }
-            const auto& prevHwc2Layer = prevLayer.m_hwc2Layer;
-            const auto& hwc2Layer = composeLayers[i];
-            compositionChanged =
-                (prevHwc2Layer.cbHandle != hwc2Layer.cbHandle) ||
-                (prevHwc2Layer.composeMode != hwc2Layer.composeMode) ||
-                (prevHwc2Layer.displayFrame.left != hwc2Layer.displayFrame.left) ||
-                (prevHwc2Layer.displayFrame.top != hwc2Layer.displayFrame.top) ||
-                (prevHwc2Layer.displayFrame.right != hwc2Layer.displayFrame.right) ||
-                (prevHwc2Layer.displayFrame.bottom != hwc2Layer.displayFrame.bottom) ||
-                (prevHwc2Layer.crop.left != hwc2Layer.crop.left) ||
-                (prevHwc2Layer.crop.top != hwc2Layer.crop.top) ||
-                (prevHwc2Layer.crop.right != hwc2Layer.crop.right) ||
-                (prevHwc2Layer.crop.bottom != hwc2Layer.crop.bottom) ||
-                (prevHwc2Layer.blendMode != hwc2Layer.blendMode) ||
-                (prevHwc2Layer.alpha != hwc2Layer.alpha) ||
-                (prevHwc2Layer.color.r != hwc2Layer.color.r) ||
-                (prevHwc2Layer.color.g != hwc2Layer.color.g) ||
-                (prevHwc2Layer.color.b != hwc2Layer.color.b) ||
-                (prevHwc2Layer.color.a != hwc2Layer.color.a) ||
-                (prevHwc2Layer.transform != hwc2Layer.transform);
-            if (compositionChanged) {
-                break;
-            }
-        }
-    } else {
-        compositionChanged = true;
-    }
-    bool needsSave = compositionNotFound || compositionChanged;
-    if (needsSave) {
-        prevComposition.clear();
-        for (int i = 0; i < composeLayers.size(); i++) {
-            if (composeBuffers[i] == nullptr) {
-                prevComposition.emplace_back(nullptr);
-                continue;
-            }
-            auto layer = std::make_unique<SurfaceState::Layer>();
-            layer->m_hwc2Layer = composeLayers[i];
-            layer->m_displayBuffer = composeBuffers[i];
-            prevComposition.emplace_back(std::move(layer));
-        }
-    }
-    return needsSave;
-}
-
-DisplayVk::DisplayBufferInfo::DisplayBufferInfo(const goldfish_vk::VulkanDispatch& vk,
-                                                VkDevice vkDevice,
-                                                const VkImageCreateInfo& vkImageCreateInfo,
-                                                VkImage image)
-    : m_vk(vk),
-      m_vkDevice(vkDevice),
-      m_vkImageCreateInfo(vk_make_orphan_copy(vkImageCreateInfo)),
-      m_vkImage(image),
-      m_vkImageView(VK_NULL_HANDLE),
-      m_compositorVkRenderTarget() {
-    VkImageViewCreateInfo imageViewCi = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .image = image,
-        .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        .format = m_vkImageCreateInfo.format,
-        .components = {.r = VK_COMPONENT_SWIZZLE_IDENTITY,
-                       .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-                       .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-                       .a = VK_COMPONENT_SWIZZLE_IDENTITY},
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                             .baseMipLevel = 0,
-                             .levelCount = 1,
-                             .baseArrayLayer = 0,
-                             .layerCount = 1}};
-    VK_CHECK(m_vk.vkCreateImageView(m_vkDevice, &imageViewCi, nullptr, &m_vkImageView));
-}
-
-DisplayVk::DisplayBufferInfo::~DisplayBufferInfo() {
-    m_vk.vkDestroyImageView(m_vkDevice, m_vkImageView, nullptr);
-}
-
 std::shared_ptr<DisplayVk::PostResource> DisplayVk::PostResource::create(
     const goldfish_vk::VulkanDispatch& vk, VkDevice vkDevice, VkCommandPool vkCommandPool) {
     VkFenceCreateInfo fenceCi = {
@@ -808,42 +495,6 @@ DisplayVk::PostResource::PostResource(const goldfish_vk::VulkanDispatch& vk, VkD
     : m_swapchainImageReleaseFence(swapchainImageReleaseFence),
       m_swapchainImageAcquireSemaphore(swapchainImageAcquireSemaphore),
       m_swapchainImageReleaseSemaphore(swapchainImageReleaseSemaphore),
-      m_vkCommandBuffer(vkCommandBuffer),
-      m_vk(vk),
-      m_vkDevice(vkDevice),
-      m_vkCommandPool(vkCommandPool) {}
-
-std::unique_ptr<DisplayVk::ComposeResource> DisplayVk::ComposeResource::create(
-    const goldfish_vk::VulkanDispatch& vk, VkDevice vkDevice, VkCommandPool vkCommandPool) {
-    VkFenceCreateInfo fenceCi = {
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-    };
-    VkFence fence;
-    VK_CHECK(vk.vkCreateFence(vkDevice, &fenceCi, nullptr, &fence));
-
-    VkCommandBuffer commandBuffer;
-    VkCommandBufferAllocateInfo commandBufferAllocInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = vkCommandPool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1,
-    };
-    VK_CHECK(vk.vkAllocateCommandBuffers(vkDevice, &commandBufferAllocInfo, &commandBuffer));
-
-    return std::unique_ptr<ComposeResource>(
-        new ComposeResource(vk, vkDevice, vkCommandPool, fence, commandBuffer));
-}
-
-DisplayVk::ComposeResource::~ComposeResource() {
-    m_vk.vkFreeCommandBuffers(m_vkDevice, m_vkCommandPool, 1, &m_vkCommandBuffer);
-    m_vk.vkDestroyFence(m_vkDevice, m_composeCompleteFence, nullptr);
-}
-
-DisplayVk::ComposeResource::ComposeResource(const goldfish_vk::VulkanDispatch& vk,
-                                            VkDevice vkDevice, VkCommandPool vkCommandPool,
-                                            VkFence composeCompleteFence,
-                                            VkCommandBuffer vkCommandBuffer)
-    : m_composeCompleteFence(composeCompleteFence),
       m_vkCommandBuffer(vkCommandBuffer),
       m_vk(vk),
       m_vkDevice(vkDevice),

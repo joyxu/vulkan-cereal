@@ -308,7 +308,6 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
         }
     }
 
-
     // First we make some agents available.
 
 

@@ -22,6 +22,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include "BorrowedImageVk.h"
+#include "CompositorVk.h"
 #include "DisplayVk.h"
 #include "base/Lock.h"
 #include "base/Optional.h"
@@ -250,21 +252,18 @@ struct VkEmulation {
         int frameworkStride;
 
         VkImage image = VK_NULL_HANDLE;
+        VkImageView imageView = VK_NULL_HANDLE;
         VkImageCreateInfo imageCreateInfoShallow = {};
         VkMemoryRequirements memReqs;
 
         VkImageLayout currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        uint32_t currentQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL;
 
         bool glExported = false;
 
         VulkanMode vulkanMode = VulkanMode::Default;
 
         MTLTextureRef mtlTexture = nullptr;
-        // shared_ptr is required so that ColorBufferInfo::ownedByHost can have
-        // an uninitialized default value that is neither true or false. The
-        // actual value will be set by setupVkColorBuffer when creating
-        // ColorBufferInfo.
-        std::shared_ptr<std::atomic_bool> ownedByHost = nullptr;
     };
 
     struct BufferInfo {
@@ -337,6 +336,8 @@ struct VkEmulation {
     // signaled only if the command buffer completes.
     std::vector<std::tuple<VkCommandBuffer, VkFence>> transferQueueCommandBufferPool;
 
+    std::unique_ptr<CompositorVk> compositorVk;
+
     // The implementation for Vulkan native swapchain. Only initialized in initVkEmulationFeatures
     // if useVulkanNativeSwapchain is set.
     std::unique_ptr<DisplayVk> displayVk;
@@ -347,6 +348,7 @@ struct VkEmulationFeatures {
     bool glInteropSupported = false;
     bool deferredCommands = false;
     bool createResourceWithRequirements = false;
+    bool useVulkanComposition = false;
     bool useVulkanNativeSwapchain = false;
     std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> guestRenderDoc = nullptr;
 };
@@ -409,13 +411,12 @@ VkExternalMemoryProperties transformExternalMemoryProperties_tohost(
 VkExternalMemoryProperties transformExternalMemoryProperties_fromhost(
     VkExternalMemoryProperties props, VkExternalMemoryHandleTypeFlags wantedGuestHandleType);
 
-void acquireColorBuffersForHostComposing(const std::vector<uint32_t>& layerColorBuffers,
-                                         uint32_t renderTargetColorBuffer);
-
-void releaseColorBufferFromHostComposing(const std::vector<uint32_t>& colorBufferHandles);
-
-void releaseColorBufferFromHostComposingSync(const std::vector<uint32_t>& colorBufferHandles);
-
 void setColorBufferCurrentLayout(uint32_t colorBufferHandle, VkImageLayout);
+
+void releaseColorBufferForGuestUse(uint32_t colorBufferHandle);
+
+std::unique_ptr<BorrowedImageInfoVk> borrowColorBufferForComposition(uint32_t colorBufferHandle,
+                                                                     bool colorBufferIsTarget);
+std::unique_ptr<BorrowedImageInfoVk> borrowColorBufferForDisplay(uint32_t colorBufferHandle);
 
 }  // namespace goldfish_vk
