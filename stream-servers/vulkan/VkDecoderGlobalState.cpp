@@ -715,6 +715,7 @@ class VkDecoderGlobalState::Impl {
         auto vk = dispatch_VkPhysicalDevice(boxed_physicalDevice);
         bool emulatedEtc2 = needEmulatedEtc2(physicalDevice, vk);
         bool emulatedAstc = needEmulatedAstc(physicalDevice, vk);
+        bool needEmulateCompressedImage = false;
         if (emulatedEtc2 || emulatedAstc) {
             CompressedImageInfo cmpInfo = createCompressedImageInfo(format);
             if (cmpInfo.isCompressed &&
@@ -728,10 +729,19 @@ class VkDecoderGlobalState::Impl {
                 flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
                 usage |= VK_IMAGE_USAGE_STORAGE_BIT;
                 format = cmpInfo.sizeCompFormat;
+                needEmulateCompressedImage = true;
             }
         }
-        return vk->vkGetPhysicalDeviceImageFormatProperties(physicalDevice, format, type, tiling,
-                                                            usage, flags, pImageFormatProperties);
+        VkResult res = vk->vkGetPhysicalDeviceImageFormatProperties(
+                physicalDevice, format, type, tiling, usage, flags,
+                pImageFormatProperties);
+        if (res != VK_SUCCESS) {
+            return res;
+        }
+        if (needEmulateCompressedImage) {
+            maskImageFormatPropertiesForEmulatedEtc2(pImageFormatProperties);
+        }
+        return res;
     }
 
     VkResult on_vkGetPhysicalDeviceImageFormatProperties2(
@@ -743,6 +753,7 @@ class VkDecoderGlobalState::Impl {
         VkPhysicalDeviceImageFormatInfo2 imageFormatInfo;
         bool emulatedEtc2 = needEmulatedEtc2(physicalDevice, vk);
         bool emulatedAstc = needEmulatedAstc(physicalDevice, vk);
+        bool needEmulateCompressedImage = false;
         if (emulatedEtc2 || emulatedAstc) {
             CompressedImageInfo cmpInfo = createCompressedImageInfo(pImageFormatInfo->format);
             if (cmpInfo.isCompressed &&
@@ -760,6 +771,7 @@ class VkDecoderGlobalState::Impl {
                 imageFormatInfo.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
                 imageFormatInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
                 imageFormatInfo.format = cmpInfo.sizeCompFormat;
+                needEmulateCompressedImage = true;
             }
         }
         AutoLock lock(mLock);
@@ -803,6 +815,9 @@ class VkDecoderGlobalState::Impl {
                 pImageFormatInfo->tiling, pImageFormatInfo->usage, pImageFormatInfo->flags,
                 &pImageFormatProperties->imageFormatProperties);
         }
+        if (res != VK_SUCCESS) {
+            return res;
+        }
 
         const VkPhysicalDeviceExternalImageFormatInfo* extImageFormatInfo =
             vk_find_struct<VkPhysicalDeviceExternalImageFormatInfo>(pImageFormatInfo);
@@ -813,6 +828,11 @@ class VkDecoderGlobalState::Impl {
         if (extImageFormatInfo && extImageFormatProps) {
             extImageFormatProps->externalMemoryProperties.externalMemoryFeatures |=
                 VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT;
+        }
+
+        if (needEmulateCompressedImage) {
+            maskImageFormatPropertiesForEmulatedEtc2(
+                    &pImageFormatProperties->imageFormatProperties);
         }
 
         return res;
@@ -5947,6 +5967,12 @@ class VkDecoderGlobalState::Impl {
 
     void maskFormatPropertiesForEmulatedAstc(VkFormatProperties2* pFormatProperties) {
         maskFormatPropertiesForEmulatedEtc2(pFormatProperties);
+    }
+
+    void maskImageFormatPropertiesForEmulatedEtc2(
+            VkImageFormatProperties* pProperties) {
+        // dEQP-VK.api.info.image_format_properties.2d.optimal#etc2_r8g8b8_unorm_block
+        pProperties->sampleCounts &= VK_SAMPLE_COUNT_1_BIT;
     }
 
     template <class VkFormatProperties1or2>
