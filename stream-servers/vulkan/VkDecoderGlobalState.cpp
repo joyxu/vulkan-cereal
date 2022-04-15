@@ -5909,31 +5909,44 @@ class VkDecoderGlobalState::Impl {
     }
 
     static const VkFormatFeatureFlags kEmulatedEtc2BufferFeatureMask =
-        VK_FORMAT_FEATURE_TRANSFER_DST_BIT | VK_FORMAT_FEATURE_BLIT_SRC_BIT |
+        VK_FORMAT_FEATURE_TRANSFER_SRC_BIT |
+        VK_FORMAT_FEATURE_TRANSFER_DST_BIT |
+        VK_FORMAT_FEATURE_BLIT_SRC_BIT |
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
 
     static const VkFormatFeatureFlags kEmulatedEtc2OptimalTilingFeatureMask =
-        kEmulatedEtc2BufferFeatureMask | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
+        VK_FORMAT_FEATURE_TRANSFER_SRC_BIT |
+        VK_FORMAT_FEATURE_TRANSFER_DST_BIT |
+        VK_FORMAT_FEATURE_BLIT_SRC_BIT |
+        VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT |
+        VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
 
-    void maskFormatPropertiesForEmulatedEtc2(VkFormatProperties* pFormatProperties) {
-        pFormatProperties->bufferFeatures &= kEmulatedEtc2BufferFeatureMask;
-        pFormatProperties->optimalTilingFeatures &= kEmulatedEtc2BufferFeatureMask;
+    void maskFormatPropertiesForEmulatedEtc2(
+            VkFormatProperties* pFormatProperties) {
+        pFormatProperties->linearTilingFeatures &=
+            kEmulatedEtc2BufferFeatureMask;
+        pFormatProperties->optimalTilingFeatures &=
+            kEmulatedEtc2OptimalTilingFeatureMask;
+        pFormatProperties->bufferFeatures &=
+            kEmulatedEtc2BufferFeatureMask;
     }
 
-    void maskFormatPropertiesForEmulatedEtc2(VkFormatProperties2* pFormatProperties) {
-        pFormatProperties->formatProperties.bufferFeatures &= kEmulatedEtc2BufferFeatureMask;
-        pFormatProperties->formatProperties.optimalTilingFeatures &= kEmulatedEtc2BufferFeatureMask;
+    void maskFormatPropertiesForEmulatedEtc2(
+            VkFormatProperties2* pFormatProperties) {
+        pFormatProperties->formatProperties.linearTilingFeatures &=
+            kEmulatedEtc2BufferFeatureMask;
+        pFormatProperties->formatProperties.optimalTilingFeatures &=
+            kEmulatedEtc2OptimalTilingFeatureMask;
+        pFormatProperties->formatProperties.bufferFeatures &=
+            kEmulatedEtc2BufferFeatureMask;
     }
 
     void maskFormatPropertiesForEmulatedAstc(VkFormatProperties* pFormatProperties) {
-        pFormatProperties->bufferFeatures &= kEmulatedEtc2BufferFeatureMask;
-        pFormatProperties->optimalTilingFeatures &= kEmulatedEtc2OptimalTilingFeatureMask;
+        maskFormatPropertiesForEmulatedEtc2(pFormatProperties);
     }
 
     void maskFormatPropertiesForEmulatedAstc(VkFormatProperties2* pFormatProperties) {
-        pFormatProperties->formatProperties.bufferFeatures &= kEmulatedEtc2BufferFeatureMask;
-        pFormatProperties->formatProperties.optimalTilingFeatures &=
-            kEmulatedEtc2OptimalTilingFeatureMask;
+        maskFormatPropertiesForEmulatedEtc2(pFormatProperties);
     }
 
     template <class VkFormatProperties1or2>
