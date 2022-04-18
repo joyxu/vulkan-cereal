@@ -212,7 +212,7 @@ class VulkanReservedMarshalingCodegen(VulkanTypeIterator):
                 self.genStreamCall(handle64VarType, handle64VarAccess, handle64Bytes)
                 self.cgen.stmt("*%s%s = (%s)%s((%s)(*%s))" % (
                     self.makeCastExpr(vulkanType.getForNonConstAccess()), access,
-                    vulkanType.typeName,mapFunc, vulkanType.typeName, handle64VarAccess))
+                    vulkanType.typeName, mapFunc, vulkanType.typeName, handle64VarAccess))
             else:
                 self.genPtrIncr("8 * %s" % lenAccess)
                 if lenAccessGuard is not None:
@@ -233,8 +233,7 @@ class VulkanReservedMarshalingCodegen(VulkanTypeIterator):
         if self.dynAlloc and self.direction == "read":
             access = self.exprAccessor(vulkanType)
             lenAccess = self.lenAccessor(vulkanType)
-            sizeof = self.cgen.sizeofExpr( \
-                         vulkanType.getForValueAccess())
+            sizeof = self.cgen.sizeofExpr(vulkanType.getForValueAccess())
             if lenAccess:
                 bytesExpr = "%s * %s" % (lenAccess, sizeof)
             else:
@@ -245,7 +244,7 @@ class VulkanReservedMarshalingCodegen(VulkanTypeIterator):
                 if self.stackArrSize != lenAccess:
                     self.cgen.beginIf("%s <= %s" % (lenAccess, self.stackArrSize))
 
-                self.cgen.stmt( \
+                self.cgen.stmt(
                         "%s = %s%s" % (access, self.makeCastExpr(vulkanType.getForNonConstAccess()), self.stackVar))
 
                 if self.stackArrSize != lenAccess:
@@ -253,7 +252,7 @@ class VulkanReservedMarshalingCodegen(VulkanTypeIterator):
                     self.cgen.beginElse()
 
                 if self.stackArrSize != lenAccess:
-                    self.cgen.stmt( \
+                    self.cgen.stmt(
                             "%s->alloc((void**)&%s, %s)" %
                             (self.streamVarName,
                                 access, bytesExpr))
@@ -261,7 +260,7 @@ class VulkanReservedMarshalingCodegen(VulkanTypeIterator):
                 if self.stackArrSize != lenAccess:
                     self.cgen.endIf()
             else:
-                self.cgen.stmt( \
+                self.cgen.stmt(
                         "%s->alloc((void**)&%s, %s)" %
                         (self.streamVarName,
                             access, bytesExpr))
@@ -275,16 +274,12 @@ class VulkanReservedMarshalingCodegen(VulkanTypeIterator):
         return None
 
     def onCheck(self, vulkanType):
-
         if self.forApiOutput:
             return
 
-        featureExpr = self.getOptionalStringFeatureExpr(vulkanType);
-
+        featureExpr = self.getOptionalStringFeatureExpr(vulkanType)
         self.checked = True
-
         access = self.exprAccessor(vulkanType)
-
         needConsistencyCheck = False
 
         self.cgen.line("// WARNING PTR CHECK")
