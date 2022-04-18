@@ -119,7 +119,7 @@ class CerealGenerator(OutputGenerator):
 
         init_suppress_option()
 
-        self.typeInfo = cereal.VulkanTypeInfo()
+        self.typeInfo = cereal.VulkanTypeInfo(self)
 
         self.modules = {}
         self.protos = {}
