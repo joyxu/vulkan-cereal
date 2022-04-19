@@ -587,7 +587,8 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     VkResult res = gvk->vkCreateInstance(&instCi, nullptr, &sVkEmulation->instance);
 
     if (res != VK_SUCCESS) {
-        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan instance.");
+        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan instance. Error %s.",
+                                    string_VkResult(res));
     }
 
     // Create instance level dispatch.
@@ -621,7 +622,8 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
             VkResult res = gvk->vkCreateInstance(&instCi, nullptr, &sVkEmulation->instance);
 
             if (res != VK_SUCCESS) {
-                VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan 1.1 instance.");
+                VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan 1.1 instance. Error %s.",
+                                            string_VkResult(res));
             }
 
             init_vulkan_dispatch_from_instance(
@@ -968,7 +970,8 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
                         &sVkEmulation->device);
 
     if (res != VK_SUCCESS) {
-        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan device.");
+        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan device. Error %s.",
+                                    string_VkResult(res));
     }
 
     // device created; populate dispatch table
