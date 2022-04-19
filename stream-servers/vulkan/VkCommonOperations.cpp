@@ -26,6 +26,7 @@
 #include <unordered_set>
 
 #include "FrameBuffer.h"
+#include "VkFormatUtils.h"
 #include "VulkanDispatch.h"
 #include "base/Lock.h"
 #include "base/Lookup.h"
@@ -1849,332 +1850,407 @@ VkEmulation::ColorBufferInfo getColorBufferInfo(uint32_t colorBufferHandle) {
     return res;
 }
 
-bool updateColorBufferFromVkImage(uint32_t colorBufferHandle) {
-    if (!sVkEmulation || !sVkEmulation->live) return false;
-
-    auto vk = sVkEmulation->dvk;
-
-    AutoLock lock(sVkEmulationLock);
-
-    auto infoPtr = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
-
-    if (!infoPtr) {
-        // Color buffer not found; this is usually OK.
+bool colorBufferNeedsTransferBetweenGlAndVk(const VkEmulation::ColorBufferInfo& colorBufferInfo) {
+    // GL is not used.
+    if (colorBufferInfo.vulkanMode == VkEmulation::VulkanMode::VulkanOnly) {
         return false;
     }
 
-    if (!infoPtr->image) {
-        fprintf(stderr, "%s: error: ColorBuffer 0x%x has no VkImage\n", __func__,
-                colorBufferHandle);
-        return false;
-    }
-
-    if (infoPtr->glExported || (infoPtr->vulkanMode == VkEmulation::VulkanMode::VulkanOnly) ||
-        infoPtr->frameworkFormat != FrameworkFormat::FRAMEWORK_FORMAT_GL_COMPATIBLE) {
-        // No sync needed if exported to GL or in Vulkan-only mode
+    // YUV formats require extra conversions.
+    if (colorBufferInfo.frameworkFormat != FrameworkFormat::FRAMEWORK_FORMAT_GL_COMPATIBLE) {
         return true;
     }
 
-    // Record our synchronization commands.
-    VkCommandBufferBeginInfo beginInfo = {
-        VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        0,
-        VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-        nullptr /* no inheritance info */,
-    };
-
-    vk->vkBeginCommandBuffer(sVkEmulation->commandBuffer, &beginInfo);
-
-    // From the spec: If an application does not need the contents of a resource
-    // to remain valid when transferring from one queue family to another, then
-    // the ownership transfer should be skipped.
-
-    // We definitely need to transition the image to
-    // VK_TRANSFER_SRC_OPTIMAL and back.
-
-    VkImageMemoryBarrier presentToTransferSrc = {
-        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        0,
-        0,
-        VK_ACCESS_HOST_READ_BIT,
-        infoPtr->currentLayout,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        VK_QUEUE_FAMILY_IGNORED,
-        VK_QUEUE_FAMILY_IGNORED,
-        infoPtr->image,
-        {
-            VK_IMAGE_ASPECT_COLOR_BIT,
-            0,
-            1,
-            0,
-            1,
-        },
-    };
-
-    vk->vkCmdPipelineBarrier(sVkEmulation->commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1,
-                             &presentToTransferSrc);
-
-    infoPtr->currentLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-
-    // Copy to staging buffer
-    uint32_t bpp = 4; /* format always rgba8...not */
-    switch (infoPtr->imageCreateInfoShallow.format) {
-        case VK_FORMAT_R5G6B5_UNORM_PACK16:
-            bpp = 2;
-            break;
-        case VK_FORMAT_R8G8B8_UNORM:
-            bpp = 3;
-            break;
-        default:
-        case VK_FORMAT_R8G8B8A8_UNORM:
-            bpp = 4;
-            break;
+    // GL and VK are sharing the same underlying memory.
+    if (colorBufferInfo.glExported) {
+        return false;
     }
-    VkBufferImageCopy region = {
-        0 /* buffer offset */,
-        infoPtr->imageCreateInfoShallow.extent.width,
-        infoPtr->imageCreateInfoShallow.extent.height,
-        {
-            VK_IMAGE_ASPECT_COLOR_BIT,
-            0,
-            0,
-            1,
-        },
-        {0, 0, 0},
-        infoPtr->imageCreateInfoShallow.extent,
-    };
-
-    vk->vkCmdCopyImageToBuffer(sVkEmulation->commandBuffer, infoPtr->image,
-                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, sVkEmulation->staging.buffer,
-                               1, &region);
-
-    vk->vkEndCommandBuffer(sVkEmulation->commandBuffer);
-
-    VkSubmitInfo submitInfo = {
-        VK_STRUCTURE_TYPE_SUBMIT_INFO, 0, 0,       nullptr, nullptr, 1,
-        &sVkEmulation->commandBuffer,  0, nullptr,
-    };
-
-    {
-        android::base::AutoLock lock(*sVkEmulation->queueLock);
-        vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo, sVkEmulation->commandBufferFence);
-    }
-
-    static constexpr uint64_t ANB_MAX_WAIT_NS = 5ULL * 1000ULL * 1000ULL * 1000ULL;
-
-    vk->vkWaitForFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence, VK_TRUE,
-                        ANB_MAX_WAIT_NS);
-    vk->vkResetFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence);
-
-    VkMappedMemoryRange toInvalidate = {
-        VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
-        0,
-        sVkEmulation->staging.memory.memory,
-        0,
-        VK_WHOLE_SIZE,
-    };
-
-    vk->vkInvalidateMappedMemoryRanges(sVkEmulation->device, 1, &toInvalidate);
-
-    const std::size_t copiedSize = infoPtr->imageCreateInfoShallow.extent.width *
-                                   infoPtr->imageCreateInfoShallow.extent.height * bpp;
-
-    FrameBuffer::getFB()->replaceColorBufferContents(
-        colorBufferHandle, sVkEmulation->staging.memory.mappedPtr, copiedSize);
 
     return true;
 }
 
-bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
-    if (!sVkEmulation || !sVkEmulation->live) return false;
+bool readColorBufferToGl(uint32_t colorBufferHandle) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
+        return false;
+    }
 
     auto vk = sVkEmulation->dvk;
 
     AutoLock lock(sVkEmulationLock);
 
-    auto infoPtr = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
-
-    if (!infoPtr) {
-        // Color buffer not found; this is usually OK.
+    auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
+    if (!colorBufferInfo) {
+        VK_COMMON_ERROR("Failed to read from ColorBuffer:%d, not found.", colorBufferHandle);
         return false;
     }
 
-    if (infoPtr->frameworkFormat == FrameworkFormat::FRAMEWORK_FORMAT_GL_COMPATIBLE &&
-        (infoPtr->glExported || infoPtr->vulkanMode == VkEmulation::VulkanMode::VulkanOnly)) {
-        // No sync needed if exported to GL or in Vulkan-only mode
+    if (!colorBufferNeedsTransferBetweenGlAndVk(*colorBufferInfo)) {
         return true;
     }
 
-    size_t cbNumBytes = 0;
-    bool readRes =
-        FrameBuffer::getFB()->readColorBufferContents(colorBufferHandle, &cbNumBytes, nullptr);
-    if (!readRes) {
-        fprintf(stderr, "%s: Failed to read color buffer 0x%x\n", __func__, colorBufferHandle);
+    VkDeviceSize bytesNeeded = 0;
+    bool result = getFormatTransferInfo(colorBufferInfo->imageCreateInfoShallow.format,
+                                        colorBufferInfo->imageCreateInfoShallow.extent.width,
+                                        colorBufferInfo->imageCreateInfoShallow.extent.height,
+                                        &bytesNeeded, nullptr);
+    if (!result) {
+        VK_COMMON_ERROR("Failed to read from ColorBuffer:%d, failed to get read size.",
+                        colorBufferHandle);
         return false;
     }
 
-    if (cbNumBytes > sVkEmulation->staging.memory.size) {
-        fprintf(stderr,
-                "%s: Not enough space to read to staging buffer. "
-                "Wanted: 0x%llx Have: 0x%llx\n",
-                __func__, (unsigned long long)cbNumBytes,
-                (unsigned long long)(sVkEmulation->staging.memory.size));
+    std::vector<uint8_t> bytes(bytesNeeded);
+
+    result = readColorBufferToBytes(
+        colorBufferHandle, 0, 0, colorBufferInfo->imageCreateInfoShallow.extent.width,
+        colorBufferInfo->imageCreateInfoShallow.extent.height, bytes.data());
+    if (!result) {
+        VK_COMMON_ERROR("Failed to read from ColorBuffer:%d, failed to get read size.",
+                        colorBufferHandle);
         return false;
     }
 
-    readRes = FrameBuffer::getFB()->readColorBufferContents(colorBufferHandle, &cbNumBytes,
-                                                            sVkEmulation->staging.memory.mappedPtr);
+    return FrameBuffer::getFB()->replaceColorBufferContents(colorBufferHandle, bytes.data(),
+                                                            bytes.size());
+}
 
-    if (!readRes) {
-        fprintf(stderr, "%s: Failed to read color buffer 0x%x (at glReadPixels)\n", __func__,
-                colorBufferHandle);
+bool readColorBufferToBytes(uint32_t colorBufferHandle, uint32_t x, uint32_t y, uint32_t w,
+                            uint32_t h, void* outPixels) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
         return false;
+    }
+
+    auto vk = sVkEmulation->dvk;
+
+    AutoLock lock(sVkEmulationLock);
+    return readColorBufferToBytesLocked(colorBufferHandle, x, y, w, h, outPixels);
+}
+
+bool readColorBufferToBytesLocked(uint32_t colorBufferHandle, uint32_t x, uint32_t y, uint32_t w,
+                                  uint32_t h, void* outPixels) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
+        return false;
+    }
+
+    auto vk = sVkEmulation->dvk;
+
+    auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
+    if (!colorBufferInfo) {
+        VK_COMMON_ERROR("Failed to read from ColorBuffer:%d, not found.", colorBufferHandle);
+        return false;
+    }
+
+    if (!colorBufferInfo->image) {
+        VK_COMMON_ERROR("Failed to read from ColorBuffer:%d, no VkImage.", colorBufferHandle);
+        return false;
+    }
+
+    if (x != 0 || y != 0 || w != colorBufferInfo->imageCreateInfoShallow.extent.width ||
+        h != colorBufferInfo->imageCreateInfoShallow.extent.height) {
+        VK_COMMON_ERROR("Failed to read from ColorBuffer:%d, unhandled subrect.",
+                        colorBufferHandle);
+        return false;
+    }
+
+    std::size_t bufferCopySize = 0;
+    std::vector<VkBufferImageCopy> bufferImageCopies;
+    if (!getFormatTransferInfo(colorBufferInfo->imageCreateInfoShallow.format,
+                               colorBufferInfo->imageCreateInfoShallow.extent.width,
+                               colorBufferInfo->imageCreateInfoShallow.extent.height,
+                               &bufferCopySize, &bufferImageCopies)) {
+        VK_COMMON_ERROR("Failed to read ColorBuffer:%d, unable to get transfer info.",
+                        colorBufferHandle);
+        return false;
+    }
+
+    // Avoid transitioning from VK_IMAGE_LAYOUT_UNDEFINED. Unfortunetly, Android does not
+    // yet have a mechanism for sharing the expected VkImageLayout. However, the Vulkan
+    // spec's image layout transition sections says "If the old layout is
+    // VK_IMAGE_LAYOUT_UNDEFINED, the contents of that range may be discarded." Some
+    // Vulkan drivers have been observed to actually perform the discard which leads to
+    // ColorBuffer-s being unintentionally cleared. See go/ahb-vkimagelayout for a more
+    // thorough write up.
+    if (colorBufferInfo->currentLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+        colorBufferInfo->currentLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     }
 
     // Record our synchronization commands.
-    VkCommandBufferBeginInfo beginInfo = {
-        VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        0,
-        VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-        nullptr /* no inheritance info */,
+    const VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = nullptr,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
 
-    vk->vkBeginCommandBuffer(sVkEmulation->commandBuffer, &beginInfo);
+    VkCommandBuffer commandBuffer = sVkEmulation->commandBuffer;
 
-    // From the spec: If an application does not need the contents of a resource
-    // to remain valid when transferring from one queue family to another, then
-    // the ownership transfer should be skipped.
+    VK_CHECK(vk->vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
-    // We definitely need to transition the image to
-    // VK_TRANSFER_SRC_OPTIMAL and back.
-
-    VkImageMemoryBarrier presentToTransferSrc = {
-        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        0,
-        0,
-        VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
-        infoPtr->currentLayout,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_QUEUE_FAMILY_IGNORED,
-        VK_QUEUE_FAMILY_IGNORED,
-        infoPtr->image,
-        {
-            VK_IMAGE_ASPECT_COLOR_BIT,
-            0,
-            1,
-            0,
-            1,
-        },
+    const VkImageMemoryBarrier toTransferSrcImageBarrier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_HOST_READ_BIT,
+        .oldLayout = colorBufferInfo->currentLayout,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = colorBufferInfo->image,
+        .subresourceRange =
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
     };
 
-    infoPtr->currentLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-
-    vk->vkCmdPipelineBarrier(sVkEmulation->commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+    vk->vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1,
-                             &presentToTransferSrc);
+                             &toTransferSrcImageBarrier);
 
-    // Copy to staging buffer
-    std::vector<VkBufferImageCopy> regions;
-    if (infoPtr->frameworkFormat == FrameworkFormat::FRAMEWORK_FORMAT_GL_COMPATIBLE) {
-        regions.push_back({
-            0 /* buffer offset */,
-            infoPtr->imageCreateInfoShallow.extent.width,
-            infoPtr->imageCreateInfoShallow.extent.height,
-            {
-                VK_IMAGE_ASPECT_COLOR_BIT,
-                0,
-                0,
-                1,
-            },
-            {0, 0, 0},
-            infoPtr->imageCreateInfoShallow.extent,
-        });
-    } else {
-        // YUV formats
-        bool swapUV = infoPtr->frameworkFormat == FRAMEWORK_FORMAT_YV12;
-        VkExtent3D subplaneExtent = {infoPtr->imageCreateInfoShallow.extent.width / 2,
-                                     infoPtr->imageCreateInfoShallow.extent.height / 2, 1};
-        regions.push_back({
-            0 /* buffer offset */,
-            infoPtr->imageCreateInfoShallow.extent.width,
-            infoPtr->imageCreateInfoShallow.extent.height,
-            {
-                VK_IMAGE_ASPECT_PLANE_0_BIT,
-                0,
-                0,
-                1,
-            },
-            {0, 0, 0},
-            infoPtr->imageCreateInfoShallow.extent,
-        });
-        regions.push_back({
-            infoPtr->imageCreateInfoShallow.extent.width *
-                infoPtr->imageCreateInfoShallow.extent.height /* buffer offset */,
-            subplaneExtent.width,
-            subplaneExtent.height,
-            {
-                (VkImageAspectFlags)(swapUV ? VK_IMAGE_ASPECT_PLANE_2_BIT
-                                            : VK_IMAGE_ASPECT_PLANE_1_BIT),
-                0,
-                0,
-                1,
-            },
-            {0, 0, 0},
-            subplaneExtent,
-        });
-        if (infoPtr->frameworkFormat == FRAMEWORK_FORMAT_YUV_420_888 ||
-            infoPtr->frameworkFormat == FRAMEWORK_FORMAT_YV12) {
-            regions.push_back({
-                infoPtr->imageCreateInfoShallow.extent.width *
-                        infoPtr->imageCreateInfoShallow.extent.height +
-                    subplaneExtent.width * subplaneExtent.height,
-                subplaneExtent.width,
-                subplaneExtent.height,
-                {
-                    (VkImageAspectFlags)(swapUV ? VK_IMAGE_ASPECT_PLANE_1_BIT
-                                                : VK_IMAGE_ASPECT_PLANE_2_BIT),
-                    0,
-                    0,
-                    1,
-                },
-                {0, 0, 0},
-                subplaneExtent,
-            });
-        }
-    }
+    colorBufferInfo->currentLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
-    vk->vkCmdCopyBufferToImage(sVkEmulation->commandBuffer, sVkEmulation->staging.buffer,
-                               infoPtr->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, regions.size(),
-                               regions.data());
+    vk->vkCmdCopyImageToBuffer(commandBuffer, colorBufferInfo->image,
+                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, sVkEmulation->staging.buffer,
+                               bufferImageCopies.size(), bufferImageCopies.data());
 
-    vk->vkEndCommandBuffer(sVkEmulation->commandBuffer);
+    VK_CHECK(vk->vkEndCommandBuffer(commandBuffer));
 
-    VkSubmitInfo submitInfo = {
-        VK_STRUCTURE_TYPE_SUBMIT_INFO, 0, 0,       nullptr, nullptr, 1,
-        &sVkEmulation->commandBuffer,  0, nullptr,
+    const VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 0,
+        .pWaitSemaphores = nullptr,
+        .pWaitDstStageMask = nullptr,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores = nullptr,
     };
 
     {
         android::base::AutoLock lock(*sVkEmulation->queueLock);
-        vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo, sVkEmulation->commandBufferFence);
+        VK_CHECK(vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
+                                   sVkEmulation->commandBufferFence));
     }
 
     static constexpr uint64_t ANB_MAX_WAIT_NS = 5ULL * 1000ULL * 1000ULL * 1000ULL;
 
-    vk->vkWaitForFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence, VK_TRUE,
-                        ANB_MAX_WAIT_NS);
-    vk->vkResetFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence);
+    VK_CHECK(vk->vkWaitForFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence,
+                                 VK_TRUE, ANB_MAX_WAIT_NS));
 
-    VkMappedMemoryRange toInvalidate = {
-        VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
-        0,
-        sVkEmulation->staging.memory.memory,
-        0,
-        VK_WHOLE_SIZE,
+    VK_CHECK(vk->vkResetFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence));
+
+    const VkMappedMemoryRange toInvalidate = {
+        .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+        .pNext = nullptr,
+        .memory = sVkEmulation->staging.memory.memory,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE,
     };
 
-    vk->vkInvalidateMappedMemoryRanges(sVkEmulation->device, 1, &toInvalidate);
+    VK_CHECK(vk->vkInvalidateMappedMemoryRanges(sVkEmulation->device, 1, &toInvalidate));
+
+    const auto* stagingBufferPtr = sVkEmulation->staging.memory.mappedPtr;
+    std::memcpy(outPixels, stagingBufferPtr, bufferCopySize);
+
+    return true;
+}
+
+bool updateColorBufferFromGl(uint32_t colorBufferHandle) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
+        return false;
+    }
+
+    AutoLock lock(sVkEmulationLock);
+
+    auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
+    if (!colorBufferInfo) {
+        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, not found.", colorBufferHandle);
+        return false;
+    }
+
+    if (!colorBufferNeedsTransferBetweenGlAndVk(*colorBufferInfo)) {
+        return true;
+    }
+
+    size_t bytesNeeded = 0;
+    bool result =
+        FrameBuffer::getFB()->readColorBufferContents(colorBufferHandle, &bytesNeeded, nullptr);
+    if (!result) {
+        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, failed to get read contents size.",
+                        colorBufferHandle);
+        return false;
+    }
+
+    std::vector<uint8_t> bytes(bytesNeeded);
+    result = FrameBuffer::getFB()->readColorBufferContents(colorBufferHandle, &bytesNeeded,
+                                                           bytes.data());
+    if (!result) {
+        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, failed to read contents.",
+                        colorBufferHandle);
+        return false;
+    }
+
+    return updateColorBufferFromBytesLocked(
+        colorBufferHandle, 0, 0, colorBufferInfo->imageCreateInfoShallow.extent.width,
+        colorBufferInfo->imageCreateInfoShallow.extent.height, bytes.data());
+}
+
+bool updateColorBufferFromBytes(uint32_t colorBufferHandle, uint32_t x, uint32_t y, uint32_t w,
+                                uint32_t h, const void* pixels) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
+        return false;
+    }
+
+    auto vk = sVkEmulation->dvk;
+    AutoLock lock(sVkEmulationLock);
+    return updateColorBufferFromBytesLocked(colorBufferHandle, x, y, w, h, pixels);
+}
+
+bool updateColorBufferFromBytesLocked(uint32_t colorBufferHandle, uint32_t x, uint32_t y,
+                                      uint32_t w, uint32_t h, const void* pixels) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
+        return false;
+    }
+
+    auto vk = sVkEmulation->dvk;
+
+    auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
+    if (!colorBufferInfo) {
+        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, not found.", colorBufferHandle);
+        return false;
+    }
+
+    if (!colorBufferInfo->image) {
+        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, no VkImage.", colorBufferHandle);
+        return false;
+    }
+
+    if (x != 0 || y != 0 || w != colorBufferInfo->imageCreateInfoShallow.extent.width ||
+        h != colorBufferInfo->imageCreateInfoShallow.extent.height) {
+        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, unhandled subrect.", colorBufferHandle);
+        return false;
+    }
+
+    std::size_t bufferCopySize = 0;
+    std::vector<VkBufferImageCopy> bufferImageCopies;
+    if (!getFormatTransferInfo(colorBufferInfo->imageCreateInfoShallow.format,
+                               colorBufferInfo->imageCreateInfoShallow.extent.width,
+                               colorBufferInfo->imageCreateInfoShallow.extent.height,
+                               &bufferCopySize, &bufferImageCopies)) {
+        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, unable to get transfer info.",
+                        colorBufferHandle);
+        return false;
+    }
+
+    const VkDeviceSize stagingBufferSize = sVkEmulation->staging.size;
+    if (bufferCopySize > stagingBufferSize) {
+        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, transfer size %" PRIu64
+                        " too large for staging buffer size:%" PRIu64 ".",
+                        colorBufferHandle, bufferCopySize, stagingBufferSize);
+        return false;
+    }
+
+    auto* stagingBufferPtr = sVkEmulation->staging.memory.mappedPtr;
+    std::memcpy(stagingBufferPtr, pixels, bufferCopySize);
+
+    // Avoid transitioning from VK_IMAGE_LAYOUT_UNDEFINED. Unfortunetly, Android does not
+    // yet have a mechanism for sharing the expected VkImageLayout. However, the Vulkan
+    // spec's image layout transition sections says "If the old layout is
+    // VK_IMAGE_LAYOUT_UNDEFINED, the contents of that range may be discarded." Some
+    // Vulkan drivers have been observed to actually perform the discard which leads to
+    // ColorBuffer-s being unintentionally cleared. See go/ahb-vkimagelayout for a more
+    // thorough write up.
+    if (colorBufferInfo->currentLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+        colorBufferInfo->currentLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    }
+
+    // Record our synchronization commands.
+    const VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = nullptr,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+
+    VkCommandBuffer commandBuffer = sVkEmulation->commandBuffer;
+
+    VK_CHECK(vk->vkBeginCommandBuffer(commandBuffer, &beginInfo));
+
+    const VkImageMemoryBarrier toTransferDstImageBarrier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_HOST_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+        .oldLayout = colorBufferInfo->currentLayout,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = colorBufferInfo->image,
+        .subresourceRange =
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+
+    vk->vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                             &toTransferDstImageBarrier);
+
+    colorBufferInfo->currentLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+    // Copy to staging buffer
+    vk->vkCmdCopyBufferToImage(commandBuffer, sVkEmulation->staging.buffer, colorBufferInfo->image,
+                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, bufferImageCopies.size(),
+                               bufferImageCopies.data());
+
+    VK_CHECK(vk->vkEndCommandBuffer(commandBuffer));
+
+    const VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 0,
+        .pWaitSemaphores = nullptr,
+        .pWaitDstStageMask = nullptr,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores = nullptr,
+    };
+
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        VK_CHECK(vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
+                                   sVkEmulation->commandBufferFence));
+    }
+
+    static constexpr uint64_t ANB_MAX_WAIT_NS = 5ULL * 1000ULL * 1000ULL * 1000ULL;
+
+    VK_CHECK(vk->vkWaitForFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence,
+                                 VK_TRUE, ANB_MAX_WAIT_NS));
+
+    VK_CHECK(vk->vkResetFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence));
+
+    const VkMappedMemoryRange toInvalidate = {
+        .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+        .pNext = nullptr,
+        .memory = sVkEmulation->staging.memory.memory,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE,
+    };
+    VK_CHECK(vk->vkInvalidateMappedMemoryRanges(sVkEmulation->device, 1, &toInvalidate));
+
     return true;
 }
 

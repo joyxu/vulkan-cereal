@@ -2205,6 +2205,11 @@ void FrameBuffer::readColorBuffer(HandleType p_colorbuffer,
                                   GLenum format,
                                   GLenum type,
                                   void* pixels) {
+    if (m_guestUsesAngle) {
+        goldfish_vk::readColorBufferToBytes(p_colorbuffer, x, y, width, height, pixels);
+        return;
+    }
+
     AutoLock mutex(m_lock);
 
     ColorBufferPtr colorBuffer = findColorBuffer(p_colorbuffer);
@@ -2223,6 +2228,11 @@ void FrameBuffer::readColorBufferYUV(HandleType p_colorbuffer,
                                      int height,
                                      void* pixels,
                                      uint32_t pixels_size) {
+    if (m_guestUsesAngle) {
+        goldfish_vk::readColorBufferToBytes(p_colorbuffer, x, y, width, height, pixels);
+        return;
+    }
+
     AutoLock mutex(m_lock);
 
     ColorBufferPtr colorBuffer = findColorBuffer(p_colorbuffer);
@@ -2332,6 +2342,10 @@ bool FrameBuffer::updateColorBuffer(HandleType p_colorbuffer,
                                     void* pixels) {
     if (width == 0 || height == 0) {
         return false;
+    }
+
+    if (m_guestUsesAngle) {
+        return goldfish_vk::updateColorBufferFromBytes(p_colorbuffer, x, y, width, height, pixels);
     }
 
     AutoLock mutex(m_lock);
@@ -2735,7 +2749,7 @@ void FrameBuffer::destroySharedTrivialContext(EGLContext context,
 
 bool FrameBuffer::post(HandleType p_colorbuffer, bool needLockAndBind) {
     if (m_guestUsesAngle) {
-        goldfish_vk::updateColorBufferFromVkImage(p_colorbuffer);
+        goldfish_vk::updateColorBufferFromGl(p_colorbuffer);
     }
 
     bool res = postImpl(p_colorbuffer, needLockAndBind);
