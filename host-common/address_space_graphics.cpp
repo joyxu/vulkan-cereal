@@ -572,17 +572,16 @@ void AddressSpaceGraphicsContext::setConsumer(
     sGlobals()->setConsumer(iface);
 }
 
-AddressSpaceGraphicsContext::AddressSpaceGraphicsContext(bool isVirtio, bool fromSnapshot) :
-    mConsumerCallbacks((ConsumerCallbacks){
-        [this] { return onUnavailableRead(); },
-        [](uint64_t physAddr) {
-            return (char*)sGlobals()->controlOps()->get_host_ptr(physAddr);
-        },
-    }),
-    mConsumerInterface(sGlobals()->getConsumerInterface()),
-    mIsVirtio(isVirtio) {
-
-    if (fromSnapshot) {
+AddressSpaceGraphicsContext::AddressSpaceGraphicsContext(
+    const struct AddressSpaceCreateInfo& create)
+    : mConsumerCallbacks((ConsumerCallbacks){
+          [this] { return onUnavailableRead(); },
+          [](uint64_t physAddr) { return (char*)sGlobals()->controlOps()->get_host_ptr(physAddr); },
+      }),
+      mConsumerInterface(sGlobals()->getConsumerInterface()),
+      mIsVirtio(false) {
+    mIsVirtio = (create.type == AddressSpaceDeviceType::VirtioGpuGraphics);
+    if (create.fromSnapshot) {
         // Use load() instead to initialize
         return;
     }
