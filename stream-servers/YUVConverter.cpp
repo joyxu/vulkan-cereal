@@ -318,7 +318,7 @@ static void getYUVOffsets(int width,
         // Luma stride is 32 bytes aligned.
         yStride = alignToPower2(width, 32);
         // Chroma stride is 16 bytes aligned.
-        cStride = alignToPower2(yStride, 16);
+        cStride = alignToPower2(yStride / 2, 16);
         cHeight = height / 2;
         cSize = cStride * cHeight;
         *yOffset = 0;
@@ -330,13 +330,13 @@ static void getYUVOffsets(int width,
     case FRAMEWORK_FORMAT_YUV_420_888:
         if (feature_is_enabled(kFeature_YUV420888toNV21)) {
             yStride = width;
-            cStride = yStride;
+            cStride = yStride / 2;
             cHeight = height / 2;
             *yOffset = 0;
             *vOffset = yStride * height;
             *uOffset = (*vOffset) + 1;
             *yWidth = yStride;
-            *cWidth = cStride / 2;
+            *cWidth = cStride;
         } else {
             yStride = width;
             cStride = yStride / 2;
@@ -351,14 +351,14 @@ static void getYUVOffsets(int width,
         break;
     case FRAMEWORK_FORMAT_NV12:
         yStride = width;
-        cStride = yStride;
+        cStride = yStride / 2;
         cHeight = height / 2;
         cSize = cStride * cHeight;
         *yOffset = 0;
         *uOffset = yStride * height;
         *vOffset = (*uOffset) + 1;
         *yWidth = yStride;
-        *cWidth = cStride / 2;
+        *cWidth = cStride;
         break;
     case FRAMEWORK_FORMAT_P010:
         *yWidth = width;
