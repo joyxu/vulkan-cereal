@@ -1797,6 +1797,7 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
     }
 
     if (sVkEmulation->deviceInfo.supportsExternalMemory &&
+        sVkEmulation->deviceInfo.glInteropSupported &&
         glCompatible &&
         FrameBuffer::getFB()->importMemoryToColorBuffer(
             dupExternalMemory(res.memory.exportedHandle), res.memory.size, false /* dedicated */,
