@@ -1,4 +1,5 @@
 import io
+import sys
 import textwrap
 from typing import Dict, Optional
 import vulkan_printer
@@ -9,12 +10,14 @@ import struct
 class CommandPrinter:
     """This class is responsible for printing the commands found in the minidump file to the terminal."""
 
-    def __init__(self, opcode: int, original_size: int, data: bytes, stream_idx: int, cmd_idx: int):
+    def __init__(self, opcode: int, original_size: int, data: bytes, stream_idx: int, cmd_idx: int,
+                 out=sys.stdout):
         self.opcode = opcode
         self.original_size = original_size
         self.data = io.BytesIO(data)
         self.stream_idx = stream_idx
         self.cmd_idx = cmd_idx
+        self.out = out
 
     def print_cmd(self):
         """
@@ -24,7 +27,7 @@ class CommandPrinter:
 
         # Print out the command name
         print("\n{}.{} - {}: ({} bytes)".format(self.stream_idx, self.cmd_idx, self.cmd_name(),
-                                                self.original_size - 8))
+                                                self.original_size - 8), file=self.out)
 
         if len(self.data.getbuffer()) == 0:
             return
@@ -36,16 +39,22 @@ class CommandPrinter:
 
         try:
             pretty_printer(self, indent=4)
-            # Check that we processed all the bytes, otherwise there's probably a bug in the pretty printing logic
-            if self.data.tell() != len(self.data.getbuffer()):
-                raise BufferError(
-                    "Not all data was decoded. Decoded {} bytes but command had {}".format(
-                        self.data.tell(), len(self.data.getbuffer())))
+            self.check_no_more_bytes()
         except Exception as ex:
-            print("Error while processing {}: {}".format(self.cmd_name(), repr(ex)))
-            print("Command raw data:")
+            print("Error while processing {}: {}".format(self.cmd_name(), repr(ex)), file=self.out)
+            print("Command raw data:", file=self.out)
             self.print_raw()
             raise ex
+
+    def check_no_more_bytes(self):
+        """
+        Checks that we processed all the bytes, otherwise there's probably a bug in the decoding
+        logic
+        """
+        if self.data.tell() != len(self.data.getbuffer()):
+            raise BufferError(
+                "Not all data was decoded. Decoded {} bytes but command had {}".format(
+                    self.data.tell(), len(self.data.getbuffer())))
 
     def cmd_name(self) -> str:
         """Returns the command name (e.g.: "OP_vkBeginCommandBuffer", or the opcode as a string if unknown"""
@@ -61,7 +70,7 @@ class CommandPrinter:
         lines = textwrap.wrap(hex, width=16 * 3 + indent, initial_indent=' ' * indent,
                               subsequent_indent=' ' * indent)
         for l in lines:
-            print(l)
+            print(l, file=self.out)
 
     def read_bytes(self, size: int):
         buf = self.data.read(size)
@@ -83,7 +92,7 @@ class CommandPrinter:
         """Prints a string at a given indentation level"""
         assert type(msg) == str
         assert type(indent) == int and indent >= 0
-        print("  " * indent + msg, end='')
+        print("  " * indent + msg, end='', file=self.out)
 
     def write_int(self,
                   field_name: str,
@@ -139,12 +148,18 @@ class CommandPrinter:
 
     def write_flags(self, field_name: str, enum: Dict[int, str], indent: int):
         """Reads and prints Vulkan flags (byte masks)"""
-        flags = self.read_int(4)
+        remaining_flags = flags = self.read_int(4)
         flags_list = []
-        if flags != 0xffffffff:  # When the value is set to all flags, don't bother listing them all
+        if remaining_flags == 0xffffffff:
+            # When the value is set to all flags, don't bother listing them all
+            flags_list.append("(all flags)")
+        else:
             for (value, flag) in enum.items():
-                if value & flags:
+                if value & remaining_flags:
+                    remaining_flags ^= value
                     flags_list.append(flag)
+            if remaining_flags != 0:
+                flags_list.insert(0, "0x{:x}".format(remaining_flags))
         self.write("{}: {} (0x{:x})\n".format(field_name, " | ".join(flags_list), flags), indent)
 
     def write_stype_and_pnext(self, expected_stype: str, indent: int):
@@ -188,7 +203,7 @@ class CommandPrinter:
         Reads a null-terminated string from the stream.
         size: if specified, reads up to this many characters
         """
-        buf = b''
+        buf = bytearray()
         if size is not None:
             buf = self.read_bytes(size)
             buf = buf.rstrip(b'\x00')
@@ -199,6 +214,6 @@ class CommandPrinter:
                 c = self.read_int(1)
                 if c == 0:
                     break
-                buf += c
+                buf.append(c)
 
         self.write("{}: \"{}\"\n".format(field_name, buf.decode('utf-8')), indent)
