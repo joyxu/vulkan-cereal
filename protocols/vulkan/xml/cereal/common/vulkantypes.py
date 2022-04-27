@@ -333,6 +333,15 @@ class VulkanType(object):
     def isNextPointer(self):
         return self.paramName == "pNext"
 
+    def isSigned(self):
+        return self.typeName in ["int", "int8_t", "int16_t", "int32_t", "int64_t"]
+
+    def isEnum(self, typeInfo):
+        return typeInfo.categoryOf(self.typeName) == "enum"
+
+    def isBitmask(self, typeInfo):
+        return typeInfo.categoryOf(self.typeName) == "enum"
+
     # Only deals with 'core' handle types here.
     def isDispatchableHandleType(self):
         return self.typeName in DISPATCHABLE_HANDLE_TYPES
@@ -843,6 +852,7 @@ class VulkanTypeInfo(object):
             "int64_t": 8,
             "size_t": 8,
             "ssize_t": 8,
+            "VkBool32": 4,
         }
 
         if name in baseEncodingSizes:
