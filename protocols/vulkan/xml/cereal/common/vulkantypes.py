@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from typing import Dict, Optional, List, Set, Union
+from xml.etree.ElementTree import Element
 
 from generator import noneStr
 
@@ -185,7 +186,7 @@ TRANSFORMED_TYPES = TRIVIAL_TRANSFORMED_TYPES + NON_TRIVIAL_TRANSFORMED_TYPES
 class VulkanType(object):
 
     def __init__(self):
-        self.parent = None
+        self.parent: Optional[VulkanType] = None
         self.typeName: str = ""
 
         self.isTransformed = False
@@ -493,7 +494,7 @@ def parseLetBodyExpr(expr):
     return res
 
 
-def makeVulkanTypeFromXMLTag(typeInfo, tag) -> VulkanType:
+def makeVulkanTypeFromXMLTag(typeInfo, tag: Element) -> VulkanType:
     res = VulkanType()
 
     # Process the length expression
@@ -528,7 +529,6 @@ def makeVulkanTypeFromXMLTag(typeInfo, tag) -> VulkanType:
         res.isConst = True
 
     # Calculate type and pointer info
-
     for elem in tag:
         if elem.tag == "name":
             res.paramName = elem.text
@@ -783,7 +783,8 @@ def vulkanTypeforEachSubType(structOrApi, f):
 # Parses everything about Vulkan types into a Python readable format.
 class VulkanTypeInfo(object):
 
-    def __init__(self,):
+    def __init__(self, generator):
+        self.generator = generator
         self.categories: Set[str] = set([])
 
         # Tracks what Vulkan type is part of what category.
@@ -794,6 +795,14 @@ class VulkanTypeInfo(object):
 
         self.structs: Dict[str, VulkanCompoundType] = {}
         self.apis: Dict[str, VulkanAPI] = {}
+
+        # Maps bitmask types to the enum type used for the flags
+        # E.g. "VkImageAspectFlags" -> "VkImageAspectFlagBits"
+        self.bitmasks: Dict[str, str] = {}
+
+        # Maps all enum names to their values.
+        # For aliases, the value is the name of the canonical enum
+        self.enumValues: Dict[str, Union[int, str]] = {}
 
         self.feature = None
 
@@ -874,6 +883,9 @@ class VulkanTypeInfo(object):
         if category in ["struct", "union"]:
             self.onGenStruct(typeinfo, name, alias)
 
+        if category == "bitmask":
+            self.bitmasks[name] = typeinfo.elem.get("requires")
+
     def onGenStruct(self, typeinfo, typeName, alias):
         if not alias:
             members: List[VulkanType] = []
@@ -932,11 +944,28 @@ class VulkanTypeInfo(object):
                     optional = typeinfo.elem.get("optional", None))
             self.structs[typeName].initCopies()
 
-    def onGenGroup(self, _groupinfo, groupName, _alias=None):
+    def onGenGroup(self, groupinfo, groupName, _alias=None):
         self.initType(groupName, "enum")
+        enums = groupinfo.elem.findall("enum")
+        for enum in enums:
+            intVal, strVal = self.generator.enumToValue(enum, True)
+            self.enumValues[enum.get('name')] = intVal if intVal is not None else strVal
 
-    def onGenEnum(self, _enuminfo, name, _alias):
+
+    def onGenEnum(self, enuminfo, name: str, alias):
         self.initType(name, "enum")
+        value: str = enuminfo.elem.get("value")
+        if value and value.isdigit():
+            self.enumValues[name] = int(value)
+        elif value and value[0] == '"' and value[-1] == '"':
+            self.enumValues[name] = value[1:-1]
+        elif alias is not None:
+            self.enumValues[name] = alias
+        else:
+            # There's about a dozen cases of using the bitwise NOT operator (e.g.: `(~0U)`, `(~0ULL)`)
+            # to concisely represent large values. Just ignore them for now.
+            # In the future, we can add a lookup table to convert these to int
+            return
 
     def onGenCmd(self, cmdinfo, name, _alias):
         self.initType(name, "api")
