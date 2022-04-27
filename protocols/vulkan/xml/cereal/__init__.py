@@ -15,3 +15,4 @@ from .dispatch import *
 from .unbox import *
 from .decodersnapshot import *
 from .subdecode import *
+from .api_log_decoder import *
