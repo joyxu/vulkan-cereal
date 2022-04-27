@@ -1,18 +1,17 @@
-from .common.codegen import CodeGen, VulkanWrapperGenerator, VulkanAPIWrapper
-from .common.vulkantypes import \
-        VulkanAPI, makeVulkanTypeSimple, iterateVulkanType, DISPATCHABLE_HANDLE_TYPES, NON_DISPATCHABLE_HANDLE_TYPES
+from .common.codegen import CodeGen, VulkanWrapperGenerator
+from .common.vulkantypes import VulkanAPI, makeVulkanTypeSimple, iterateVulkanType, VulkanTypeInfo,\
+    VulkanType
 
 from .marshaling import VulkanMarshalingCodegen
 from .reservedmarshaling import VulkanReservedMarshalingCodegen
-from .transform import TransformCodegen, genTransformsForVulkanType
+from .transform import TransformCodegen
 
 from .wrapperdefs import API_PREFIX_MARSHAL
-from .wrapperdefs import API_PREFIX_UNMARSHAL, API_PREFIX_RESERVEDUNMARSHAL
+from .wrapperdefs import API_PREFIX_RESERVEDUNMARSHAL
 from .wrapperdefs import VULKAN_STREAM_TYPE
 from .wrapperdefs import ROOT_TYPE_DEFAULT_VALUE
 from .wrapperdefs import RELAXED_APIS
 
-from copy import copy
 
 SKIPPED_DECODER_DELETES = [
     "vkFreeDescriptorSets",
@@ -150,44 +149,37 @@ def emit_unmarshal(typeInfo, param, cgen, output = False, destroy = False, noUnb
             direction="read",
             dynAlloc=True))
 
-def emit_dispatch_unmarshal(typeInfo, param, cgen, globalWrapped):
-    if globalWrapped:
-        cgen.stmt("// Begin global wrapped dispatchable handle unboxing for %s" % param.paramName)
-        iterateVulkanType(typeInfo, param, VulkanReservedMarshalingCodegen(
-            cgen,
-            READ_STREAM,
-            ROOT_TYPE_DEFAULT_VALUE,
-            param.paramName,
-            "readStreamPtrPtr",
-            API_PREFIX_RESERVEDUNMARSHAL,
-            "",
-            direction="read",
-            dynAlloc=True))
-    else:
-        cgen.stmt("// Begin non wrapped dispatchable handle unboxing for %s" % param.paramName)
-        # cgen.stmt("%s->unsetHandleMapping()" % READ_STREAM)
-        iterateVulkanType(typeInfo, param, VulkanReservedMarshalingCodegen(
-            cgen,
-            READ_STREAM,
-            ROOT_TYPE_DEFAULT_VALUE,
-            param.paramName,
-            "readStreamPtrPtr",
-            API_PREFIX_RESERVEDUNMARSHAL,
-            "",
-            direction="read",
-            dynAlloc=True))
+
+def emit_dispatch_unmarshal(typeInfo: VulkanTypeInfo, param: VulkanType, cgen, globalWrapped):
+    cgen.stmt("// Begin {} wrapped dispatchable handle unboxing for {}".format(
+        "global" if globalWrapped else "non",
+        param.paramName))
+
+    iterateVulkanType(typeInfo, param, VulkanReservedMarshalingCodegen(
+        cgen,
+        READ_STREAM,
+        ROOT_TYPE_DEFAULT_VALUE,
+        param.paramName,
+        "readStreamPtrPtr",
+        API_PREFIX_RESERVEDUNMARSHAL,
+        "",
+        direction="read",
+        dynAlloc=True))
+
+    if not globalWrapped:
         cgen.stmt("auto unboxed_%s = unbox_%s(%s)" %
                   (param.paramName, param.typeName, param.paramName))
         cgen.stmt("auto vk = dispatch_%s(%s)" %
                   (param.typeName, param.paramName))
         cgen.stmt("// End manual dispatchable handle unboxing for %s" % param.paramName)
 
+
 def emit_transform(typeInfo, param, cgen, variant="tohost"):
-    res = \
-        iterateVulkanType(typeInfo, param, TransformCodegen( \
-            cgen, param.paramName, "m_state", "transform_%s_" % variant, variant))
+    res = iterateVulkanType(typeInfo, param, TransformCodegen(
+        cgen, param.paramName, "m_state", "transform_%s_" % variant, variant))
     if not res:
         cgen.stmt("(void)%s" % param.paramName)
+
 
 def emit_marshal(typeInfo, param, cgen, handleMapOverwrites=False):
     iterateVulkanType(typeInfo, param, VulkanMarshalingCodegen(
@@ -199,21 +191,14 @@ def emit_marshal(typeInfo, param, cgen, handleMapOverwrites=False):
         direction="write",
         handleMapOverwrites=handleMapOverwrites))
 
+
 class DecodingParameters(object):
-    def __init__(self, api):
-        self.params = []
-        self.toRead = []
-        self.toWrite = []
+    def __init__(self, api: VulkanAPI):
+        self.params: list[VulkanType] = []
+        self.toRead: list[VulkanType] = []
+        self.toWrite: list[VulkanType] = []
 
-        i = 0
-
-        for param in api.parameters:
-            param.nonDispatchableHandleCreate = False
-            param.nonDispatchableHandleDestroy = False
-            param.dispatchHandle = False
-            param.dispatchableHandleCreate = False
-            param.dispatchableHandleDestroy = False
-
+        for i, param in enumerate(api.parameters):
             if i == 0 and param.isDispatchableHandleType():
                 param.dispatchHandle = True
 
@@ -236,7 +221,6 @@ class DecodingParameters(object):
 
             self.params.append(param)
 
-            i += 1
 
 def emit_call_log(api, cgen):
     decodingParams = DecodingParameters(api)
@@ -252,8 +236,7 @@ def emit_call_log(api, cgen):
     cgen.stmt("fprintf(stderr, \"stream %%p: call %s %s\\n\", ioStream, %s)" % (api.name, paramLogFormat, ", ".join(paramLogArgs)))
     cgen.endIf()
 
-def emit_decode_parameters(typeInfo, api, cgen, globalWrapped=False):
-
+def emit_decode_parameters(typeInfo: VulkanTypeInfo, api: VulkanAPI, cgen, globalWrapped=False):
     decodingParams = DecodingParameters(api)
 
     paramsToRead = decodingParams.toRead
@@ -261,9 +244,8 @@ def emit_decode_parameters(typeInfo, api, cgen, globalWrapped=False):
     for p in paramsToRead:
         emit_param_decl_for_reading(p, cgen)
 
-    i = 0
-    for p in paramsToRead:
-        lenAccess =  cgen.generalLengthAccess(p)
+    for i, p in enumerate(paramsToRead):
+        lenAccess = cgen.generalLengthAccess(p)
 
         if p.dispatchHandle:
             emit_dispatch_unmarshal(typeInfo, p, cgen, globalWrapped)
@@ -284,10 +266,9 @@ def emit_decode_parameters(typeInfo, api, cgen, globalWrapped=False):
                 cgen.stmt("%s->unsetHandleMapping()" % READ_STREAM)
 
             emit_unmarshal(typeInfo, p, cgen, output = p.possiblyOutput(), destroy = destroy, noUnbox = noUnbox)
-        i += 1
 
     for p in paramsToRead:
-        emit_transform(typeInfo, p, cgen, variant="tohost");
+        emit_transform(typeInfo, p, cgen, variant="tohost")
 
     emit_call_log(api, cgen)
 
@@ -299,7 +280,7 @@ def emit_dispatch_call(api, cgen):
 
     delay = api.name in DELAYED_DECODER_DELETES
 
-    for (i, p) in enumerate(api.parameters):
+    for i, p in enumerate(api.parameters):
         customParam = p.paramName
         if decodingParams.params[i].dispatchHandle:
             customParam = "unboxed_%s" % p.paramName
@@ -500,7 +481,7 @@ def emit_global_state_wrapped_decoding(typeInfo, api, cgen):
         emit_seqno_incr(api, cgen)
 
 ## Custom decoding definitions##################################################
-def decode_vkFlushMappedMemoryRanges(typeInfo, api, cgen):
+def decode_vkFlushMappedMemoryRanges(typeInfo: VulkanTypeInfo, api, cgen):
     emit_decode_parameters(typeInfo, api, cgen)
 
     cgen.beginIf("!m_state->usingDirectMapping()")
@@ -709,7 +690,7 @@ custom_decodes = {
 class VulkanDecoder(VulkanWrapperGenerator):
     def __init__(self, module, typeInfo):
         VulkanWrapperGenerator.__init__(self, module, typeInfo)
-        self.typeInfo = typeInfo
+        self.typeInfo: VulkanTypeInfo = typeInfo
         self.cgen = CodeGen()
 
     def onBegin(self,):
@@ -755,14 +736,14 @@ class VulkanDecoder(VulkanWrapperGenerator):
         self.cgen.stmt("auto vk = m_vk")
 
         self.cgen.line("switch (opcode)")
-        self.cgen.beginBlock() # switch stmt
+        self.cgen.beginBlock()  # switch stmt
 
         self.module.appendImpl(self.cgen.swapCode())
 
     def onGenCmd(self, cmdinfo, name, alias):
         typeInfo = self.typeInfo
         cgen = self.cgen
-        api = typeInfo.apis[name]
+        api: VulkanAPI = typeInfo.apis[name]
 
         cgen.line("case OP_%s:" % name)
         cgen.beginBlock()
