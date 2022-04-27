@@ -92,7 +92,6 @@ target_include_directories(
 
 if (WIN32)
     target_link_libraries(gfxstream_backend_static PRIVATE D3d9.lib)
-    target_link_options(gfxstream_backend_static PRIVATE /DEBUG)
 endif()
 
 # gfxstream_backend.dll
@@ -106,6 +105,10 @@ target_link_libraries(
     gfxstream_backend
     PUBLIC
     gfxstream_backend_static)
+
+if (WIN32)
+    target_link_options(gfxstream_backend PRIVATE /DEBUG)
+endif()
 
 android_install_shared(gfxstream_backend)
 
@@ -123,6 +126,7 @@ target_link_libraries(
     gfxstream_backend
     gfxstream-base
     gtest_main)
+gtest_discover_tests(gfxstream_backend_unittests)
 
 # More functional tests#########################################################
 
@@ -183,7 +187,7 @@ if (LINUX)
         OpenglRender_unittests
         PRIVATE x11_testing_support)
 endif()
-
+gtest_discover_tests(OpenglRender_unittests)
 
 # Snapshot tests################################################################
 add_executable(
@@ -209,7 +213,9 @@ target_link_libraries(
     gfxstream_backend_static
     stream-server-testing-support
     gfxstream-base-testing-support
-    gfxstream-host-common-testing-support)
+    gfxstream-host-common-testing-support
+    gtest_main)
+gtest_discover_tests(OpenglRender_snapshot_unittests)
 
 # Vulkan tests##################################################################
 add_executable(
@@ -220,6 +226,7 @@ add_executable(
     tests/DisplayVk_unittest.cpp
     tests/VirtioGpuTimelines_unittest.cpp
     vulkan/vk_util_unittest.cpp
+    vulkan/VkQsriTimeline_unittest.cpp
 )
 target_link_libraries(
     Vulkan_unittests
@@ -229,4 +236,8 @@ target_link_libraries(
     gfxstream-base-testing-support
     gfxstream-host-common-testing-support
     gtest
+    gtest_main
     gmock)
+gtest_discover_tests(Vulkan_unittests)
+
+set_test_include_files()

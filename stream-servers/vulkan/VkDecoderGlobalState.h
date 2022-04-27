@@ -13,13 +13,13 @@
 // limitations under the License.
 #pragma once
 
-#include "VulkanHandleMapping.h"
-#include "VulkanDispatch.h"
-
 #include <vulkan/vulkan.h>
 
 #include <memory>
 
+#include "VkQsriTimeline.h"
+#include "VulkanDispatch.h"
+#include "VulkanHandleMapping.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 #include "cereal/common/goldfish_vk_transform.h"
 
@@ -791,7 +791,7 @@ public:
     // presented so far, so it ends up incrementing a "target present count"
     // for this image, and then waiting for the image to get vkQSRI'ed at least
     // that many times.
-    VkResult waitQsri(VkImage boxed_image, uint64_t timeout);
+    VkResult registerQsriCallback(VkImage boxed_image, VkQsriTimeline::Callback callback);
 
     // Transformations
     void deviceMemoryTransform_tohost(
