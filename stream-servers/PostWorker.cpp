@@ -17,6 +17,8 @@
 
 #include <string.h>
 
+#include <chrono>
+
 #include "ColorBuffer.h"
 #include "Debug.h"
 #include "DispatchTables.h"
@@ -26,6 +28,7 @@
 #include "RenderThreadInfo.h"
 #include "base/Tracing.h"
 #include "host-common/GfxstreamFatalError.h"
+#include "host-common/logging.h"
 #include "host-common/misc.h"
 #include "vulkan/VkCommonOperations.h"
 
@@ -94,8 +97,6 @@ void PostWorker::postImpl(ColorBuffer* cb) {
         }
         goldfish_vk::acquireColorBuffersForHostComposing({}, cb->getHndl());
         auto [success, waitForGpu] = m_displayVk->post(cb->getDisplayBufferVk());
-        goldfish_vk::setColorBufferCurrentLayout(cb->getHndl(),
-                                                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         goldfish_vk::releaseColorBufferFromHostComposing({cb->getHndl()});
         if (success) {
             waitForGpu.wait();
@@ -499,7 +500,11 @@ void PostWorker::compose(ComposeDevice* p, uint32_t bufferSize,
         auto completedFuture = std::async(std::launch::deferred, [] {}).share();
         auto composeDevice =
             reinterpret_cast<const ComposeDevice*>(buffer.data());
+        if (!isComposeTargetReady(composeDevice->targetHandle)) {
+            ERR("The last composition on the target buffer hasn't completed.");
+        }
         composeImpl(composeDevice);
+        m_composeTargetToComposeFuture.emplace(composeDevice->targetHandle, completedFuture);
         (*callback)(completedFuture);
     }));
 }
@@ -512,7 +517,12 @@ void PostWorker::compose(ComposeDevice_v2* p, uint32_t bufferSize,
                                         callback = std::move(callback), this] {
         auto composeDevice =
             reinterpret_cast<const ComposeDevice_v2*>(buffer.data());
-        (*callback)(composev2Impl(composeDevice));
+        if (!isComposeTargetReady(composeDevice->targetHandle)) {
+            ERR("The last composition on the target buffer hasn't completed.");
+        }
+        auto completedFuture = composev2Impl(composeDevice);
+        m_composeTargetToComposeFuture.emplace(composeDevice->targetHandle, completedFuture);
+        (*callback)(completedFuture);
     }));
 }
 
@@ -533,4 +543,22 @@ void PostWorker::runTask(std::packaged_task<void()> task) {
     } else {
         (*taskPtr)();
     }
+}
+
+bool PostWorker::isComposeTargetReady(uint32_t targetHandle) {
+    // Even if the target ColorBuffer has already been destroyed, the compose future should have
+    // been waited and set to the ready state.
+    for (auto i = m_composeTargetToComposeFuture.begin();
+         i != m_composeTargetToComposeFuture.end();) {
+        auto& composeFuture = i->second;
+        if (composeFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+            i = m_composeTargetToComposeFuture.erase(i);
+        } else {
+            i++;
+        }
+    }
+    if (m_composeTargetToComposeFuture.find(targetHandle) == m_composeTargetToComposeFuture.end()) {
+        return true;
+    }
+    return false;
 }
