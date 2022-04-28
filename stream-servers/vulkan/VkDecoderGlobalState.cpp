@@ -44,6 +44,7 @@
 #include "common/goldfish_vk_reserved_marshaling.h"
 #include "compressedTextureFormats/etc.h"
 #include "host-common/GfxstreamFatalError.h"
+#include "host-common/RenderDoc.h"
 #include "host-common/address_space_device_control_ops.h"
 #include "host-common/feature_control.h"
 #include "host-common/vm_operations.h"
@@ -115,8 +116,7 @@ enum BoxedHandleTypeTag {
 
 template <class T>
 class BoxedHandleManager {
-public:
-
+   public:
     // The hybrid entity manager uses a sequence lock to protect access to
     // a working set of 16000 handles, allowing us to avoid using a regular
     // lock for those. Performance is degraded when going over this number,
@@ -224,12 +224,12 @@ static void releaseOrderMaintInfo(OrderMaintenanceInfo* ord) {
 
 template <class T>
 class DispatchableHandleInfo {
-    public:
-        T underlying;
-        VulkanDispatch* dispatch = nullptr;
-        bool ownDispatch = false;
-        OrderMaintenanceInfo* ordMaintInfo = nullptr;
-        VulkanMemReadingStream* readStream = nullptr;
+   public:
+    T underlying;
+    VulkanDispatch* dispatch = nullptr;
+    bool ownDispatch = false;
+    OrderMaintenanceInfo* ordMaintInfo = nullptr;
+    VulkanMemReadingStream* readStream = nullptr;
 };
 
 static BoxedHandleManager<DispatchableHandleInfo<uint64_t>> sBoxedHandleManager;
@@ -261,21 +261,22 @@ struct ReadStreamRegistry {
 static ReadStreamRegistry sReadStreamRegistry;
 
 class VkDecoderGlobalState::Impl {
-public:
-    Impl() :
-        m_vk(emugl::vkDispatch()),
-        m_emu(getGlobalVkEmulation()) {
-        mSnapshotsEnabled =
-            feature_is_enabled(kFeature_VulkanSnapshots);
+   public:
+    Impl()
+        : m_vk(emugl::vkDispatch()),
+          m_emu(getGlobalVkEmulation()),
+          mRenderDocWithMultipleVkInstances(m_emu->guestRenderDoc.get()) {
+        mSnapshotsEnabled = feature_is_enabled(kFeature_VulkanSnapshots);
         mVkCleanupEnabled = android::base::getEnvironmentVariable("ANDROID_EMU_VK_NO_CLEANUP") != "1";
         mLogging = android::base::getEnvironmentVariable("ANDROID_EMU_VK_LOG_CALLS") == "1";
         mVerbosePrints = android::base::getEnvironmentVariable("ANDROID_EMUGL_VERBOSE") == "1";
         if (get_emugl_address_space_device_control_ops().control_get_hw_funcs &&
             get_emugl_address_space_device_control_ops().control_get_hw_funcs()) {
-            mUseOldMemoryCleanupPath = 0 == get_emugl_address_space_device_control_ops().control_get_hw_funcs()->getPhysAddrStartLocked();
+            mUseOldMemoryCleanupPath = 0 == get_emugl_address_space_device_control_ops()
+                                                .control_get_hw_funcs()
+                                                ->getPhysAddrStartLocked();
         }
-        mGuestUsesAngle =
-            feature_is_enabled(kFeature_GuestUsesAngle);
+        mGuestUsesAngle = feature_is_enabled(kFeature_GuestUsesAngle);
     }
 
     ~Impl() = default;
@@ -512,6 +513,9 @@ public:
 
         teardownInstanceLocked(instance);
 
+        if (mRenderDocWithMultipleVkInstances) {
+            mRenderDocWithMultipleVkInstances->removeVkInstance(instance);
+        }
         m_vk->vkDestroyInstance(instance, pAllocator);
 
         auto it = mPhysicalDeviceToInstance.begin();
@@ -3501,6 +3505,12 @@ public:
             return VK_ERROR_INITIALIZATION_FAILED;
         }
 
+        if (mRenderDocWithMultipleVkInstances) {
+            VkPhysicalDevice vkPhysicalDevice = mDeviceToPhysicalDevice.at(queueInfo->device);
+            VkInstance vkInstance = mPhysicalDeviceToInstance.at(vkPhysicalDevice);
+            mRenderDocWithMultipleVkInstances->onFrameDelimiter(vkInstance);
+        }
+
         auto imageInfo = android::base::find(mImageInfo, image);
         auto anbInfo = imageInfo->anbInfo;
 
@@ -4411,27 +4421,57 @@ public:
         VkFormat format,
         VkDeviceSize* pOffset,
         VkDeviceSize* pRowPitchAlignment) {
+        if (mPerFormatLinearImageProperties.find(format) == mPerFormatLinearImageProperties.end()) {
+            VkDeviceSize offset = 0u;
+            VkDeviceSize rowPitchAlignment = UINT_MAX;
 
-        if (!mLinearImageProperties.hasValue()) {
+            for (uint32_t width = 64; width <= 256; width++) {
+                LinearImageCreateInfo linearImageCreateInfo = {
+                    .extent =
+                        {
+                            .width = width,
+                            .height = 64,
+                            .depth = 1,
+                        },
+                    .format = format,
+                    .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+                };
+
+                VkDeviceSize currOffset = 0u;
+                VkDeviceSize currRowPitchAlignment = UINT_MAX;
+
+                VkImageCreateInfo defaultVkImageCreateInfo = linearImageCreateInfo.toDefaultVk();
+                on_vkGetLinearImageLayout2GOOGLE(pool, boxed_device, &defaultVkImageCreateInfo,
+                                                 &currOffset, &currRowPitchAlignment);
+
+                offset = currOffset;
+                rowPitchAlignment = std::min(currRowPitchAlignment, rowPitchAlignment);
+            }
+            mPerFormatLinearImageProperties[format] = LinearImageProperties{
+                .offset = offset,
+                .rowPitchAlignment = rowPitchAlignment,
+            };
+        }
+
+        if (pOffset) {
+            *pOffset = mPerFormatLinearImageProperties[format].offset;
+        }
+        if (pRowPitchAlignment) {
+            *pRowPitchAlignment = mPerFormatLinearImageProperties[format].rowPitchAlignment;
+        }
+    }
+
+    void on_vkGetLinearImageLayout2GOOGLE(android::base::BumpPool* pool, VkDevice boxed_device,
+                                          const VkImageCreateInfo* pCreateInfo,
+                                          VkDeviceSize* pOffset, VkDeviceSize* pRowPitchAlignment) {
+        LinearImageCreateInfo linearImageCreateInfo = {
+            .extent = pCreateInfo->extent,
+            .format = pCreateInfo->format,
+            .usage = pCreateInfo->usage,
+        };
+        if (mLinearImageProperties.find(linearImageCreateInfo) == mLinearImageProperties.end()) {
             auto device = unbox_VkDevice(boxed_device);
             auto vk = dispatch_VkDevice(boxed_device);
-
-            VkImageCreateInfo createInfo;
-            createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-            createInfo.pNext = nullptr;
-            createInfo.flags = {};
-            createInfo.imageType = VK_IMAGE_TYPE_2D;
-            createInfo.format = format;
-            createInfo.extent = {/*width*/ 1, /*height*/ 64, 1};
-            createInfo.mipLevels = 1;
-            createInfo.arrayLayers = 1;
-            createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-            createInfo.tiling = VK_IMAGE_TILING_LINEAR;
-            createInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-            createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-            createInfo.queueFamilyIndexCount = 0;
-            createInfo.pQueueFamilyIndices = nullptr;
-            createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
             VkImageSubresource subresource = {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -4442,47 +4482,32 @@ public:
             VkImage image;
             VkSubresourceLayout subresourceLayout;
 
-            VkDeviceSize offset = 0u;
-            VkDeviceSize rowPitchAlignment = UINT_MAX;
-
-            constexpr VkDeviceSize kMinWidth = 64;
-            constexpr VkDeviceSize kMaxWidth = 2048;
-            for (VkDeviceSize width = kMinWidth; width <= kMaxWidth; ++width) {
-                createInfo.extent.width = width;
-                VkResult result =
-                        vk->vkCreateImage(device, &createInfo, nullptr, &image);
-                if (result != VK_SUCCESS) {
-                    // fprintf(stderr, "%s: vkCreateImage failed. w h %u %u result 0x%x\n", __func__,
-                            // width, createInfo.extent.height,
-                            // result);
-                    continue;
-                }
-                vk->vkGetImageSubresourceLayout(device, image, &subresource, &subresourceLayout);
-                vk->vkDestroyImage(device, image, nullptr);
-
-                if (width > kMinWidth && subresourceLayout.offset != offset) {
-                    // fprintf(stderr, "Image size %u x %u has a different offset (%u), offset of other images %u, returned pOffset might be invalid.\n", width, createInfo.extent.height, offset);
-                }
-                offset = subresourceLayout.offset;
-
-                uint64_t rowPitch = subresourceLayout.rowPitch;
-                uint64_t currentAlignment = rowPitch & (~rowPitch + 1);
-                if (currentAlignment < rowPitchAlignment) {
-                    rowPitchAlignment = currentAlignment;
-                }
+            VkImageCreateInfo defaultVkImageCreateInfo = linearImageCreateInfo.toDefaultVk();
+            VkResult result = vk->vkCreateImage(device, &defaultVkImageCreateInfo, nullptr, &image);
+            if (result != VK_SUCCESS) {
+                fprintf(stderr, "vkCreateImage failed. size: (%u x %u) result: %d\n",
+                        linearImageCreateInfo.extent.width, linearImageCreateInfo.extent.height,
+                        result);
+                return;
             }
+            vk->vkGetImageSubresourceLayout(device, image, &subresource, &subresourceLayout);
+            vk->vkDestroyImage(device, image, nullptr);
 
-            mLinearImageProperties.emplace(LinearImageProperties {
+            VkDeviceSize offset = subresourceLayout.offset;
+            uint64_t rowPitch = subresourceLayout.rowPitch;
+            VkDeviceSize rowPitchAlignment = rowPitch & (~rowPitch + 1);
+
+            mLinearImageProperties[linearImageCreateInfo] = {
                 .offset = offset,
                 .rowPitchAlignment = rowPitchAlignment,
-            });
+            };
         }
 
         if (pOffset != nullptr) {
-            *pOffset = mLinearImageProperties->offset;
+            *pOffset = mLinearImageProperties[linearImageCreateInfo].offset;
         }
         if (pRowPitchAlignment != nullptr) {
-            *pRowPitchAlignment = mLinearImageProperties->rowPitchAlignment;
+            *pRowPitchAlignment = mLinearImageProperties[linearImageCreateInfo].rowPitchAlignment;
         }
     }
 
@@ -4697,6 +4722,13 @@ public:
         });
         fenceLock.unlock();
 
+        lock.lock();
+        if (mFenceInfo.find(fence) == mFenceInfo.end()) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                "Fence was destroyed before vkWaitForFences call.";
+        }
+        lock.unlock();
+
         return vk->vkWaitForFences(device, /* fenceCount */ 1u, &fence,
                                    /* waitAll */ false, timeout);
     }
@@ -4718,9 +4750,7 @@ public:
         return vk->vkGetFenceStatus(device, fence);
     }
 
-    VkResult waitQsri(VkImage boxed_image, uint64_t timeout) {
-        (void)timeout; // TODO
-
+    VkResult registerQsriCallback(VkImage boxed_image, VkQsriTimeline::Callback callback) {
         AutoLock lock(mLock);
 
         VkImage image = unbox_VkImage(boxed_image);
@@ -4752,20 +4782,10 @@ public:
             return VK_SUCCESS;
         }
 
-        AutoLock qsriLock(anbInfo->qsriWaitInfo.lock);
-        uint64_t targetPresentCount = ++anbInfo->qsriWaitInfo.requestedPresentCount;
+        anbInfo->qsriTimeline->registerCallbackForNextPresentAndPoll(std::move(callback));
 
         if (mLogging) {
-            fprintf(stderr, "%s:%p New target present count %llu\n",
-                    __func__, anbInfo.get(), (unsigned long long)targetPresentCount);
-        }
-
-        anbInfo->qsriWaitInfo.cv.wait(&anbInfo->qsriWaitInfo.lock, [anbInfo, targetPresentCount] {
-            return targetPresentCount <= anbInfo->qsriWaitInfo.presentCount;
-        });
-
-        if (mLogging) {
-            fprintf(stderr, "%s:%p Done waiting\n", __func__, anbInfo.get());
+            fprintf(stderr, "%s:%p Done registering\n", __func__, anbInfo.get());
         }
         return VK_SUCCESS;
     }
@@ -5008,14 +5028,14 @@ public:
 
         VkDecoderSnapshot* snapshot() { return &mSnapshot; }
 
-private:
-    static const bool kEmulateAstc = true;
-    bool isEmulatedExtension(const char* name) const {
-        for (auto emulatedExt : kEmulatedExtensions) {
-            if (!strcmp(emulatedExt, name)) return true;
+       private:
+        static const bool kEmulateAstc = true;
+        bool isEmulatedExtension(const char* name) const {
+            for (auto emulatedExt : kEmulatedExtensions) {
+                if (!strcmp(emulatedExt, name)) return true;
+            }
+            return false;
         }
-        return false;
-    }
 
     bool supportEmulatedCompressedImageFormatProperty(
         VkFormat compressedFormat,
@@ -6429,6 +6449,7 @@ private:
 
     VulkanDispatch* m_vk;
     VkEmulation* m_emu;
+    emugl::RenderDocWithMultipleVkInstances* mRenderDocWithMultipleVkInstances = nullptr;
     bool mSnapshotsEnabled = false;
     bool mVkCleanupEnabled = true;
     bool mLogging = false;
@@ -6714,7 +6735,7 @@ private:
 
     template <class T>
     class NonDispatchableHandleInfo {
-    public:
+       public:
         T underlying;
     };
 
@@ -6780,11 +6801,61 @@ private:
     };
     std::unordered_map<uint64_t, OccupiedGpaInfo> mOccupiedGpas;
 
+    struct LinearImageCreateInfo {
+        VkExtent3D extent;
+        VkFormat format;
+        VkImageUsageFlags usage;
+
+        VkImageCreateInfo toDefaultVk() const {
+            return VkImageCreateInfo{
+                .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = {},
+                .imageType = VK_IMAGE_TYPE_2D,
+                .format = format,
+                .extent = extent,
+                .mipLevels = 1,
+                .arrayLayers = 1,
+                .samples = VK_SAMPLE_COUNT_1_BIT,
+                .tiling = VK_IMAGE_TILING_LINEAR,
+                .usage = usage,
+                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                .queueFamilyIndexCount = 0,
+                .pQueueFamilyIndices = nullptr,
+                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            };
+        }
+
+        struct Hash {
+            std::size_t operator()(const LinearImageCreateInfo& ci) const {
+                std::size_t s = 0;
+                // Magic number used in boost::hash_combine().
+                constexpr size_t kHashMagic = 0x9e3779b9;
+                s ^= std::hash<uint32_t>{}(ci.extent.width) + kHashMagic + (s << 6) + (s >> 2);
+                s ^= std::hash<uint32_t>{}(ci.extent.height) + kHashMagic + (s << 6) + (s >> 2);
+                s ^= std::hash<uint32_t>{}(ci.extent.depth) + kHashMagic + (s << 6) + (s >> 2);
+                s ^= std::hash<VkFormat>{}(ci.format) + kHashMagic + (s << 6) + (s >> 2);
+                s ^= std::hash<VkImageUsageFlags>{}(ci.usage) + kHashMagic + (s << 6) + (s >> 2);
+                return s;
+            }
+        };
+    };
+
+    friend bool operator==(const LinearImageCreateInfo& a, const LinearImageCreateInfo& b) {
+        return a.extent.width == b.extent.width && a.extent.height == b.extent.height &&
+               a.extent.depth == b.extent.depth && a.format == b.format && a.usage == b.usage;
+    }
+
     struct LinearImageProperties {
         VkDeviceSize offset;
         VkDeviceSize rowPitchAlignment;
     };
-    android::base::Optional<LinearImageProperties> mLinearImageProperties;
+
+    // TODO(liyl): Remove after removing the old vkGetLinearImageLayoutGOOGLE.
+    std::unordered_map<VkFormat, LinearImageProperties> mPerFormatLinearImageProperties;
+
+    std::unordered_map<LinearImageCreateInfo, LinearImageProperties, LinearImageCreateInfo::Hash>
+        mLinearImageProperties;
 };
 
 VkDecoderGlobalState::VkDecoderGlobalState()
@@ -7783,6 +7854,14 @@ void VkDecoderGlobalState::on_vkGetLinearImageLayoutGOOGLE(
     mImpl->on_vkGetLinearImageLayoutGOOGLE(pool, device, format, pOffset, pRowPitchAlignment);
 }
 
+void VkDecoderGlobalState::on_vkGetLinearImageLayout2GOOGLE(android::base::BumpPool* pool,
+                                                            VkDevice device,
+                                                            const VkImageCreateInfo* pCreateInfo,
+                                                            VkDeviceSize* pOffset,
+                                                            VkDeviceSize* pRowPitchAlignment) {
+    mImpl->on_vkGetLinearImageLayout2GOOGLE(pool, device, pCreateInfo, pOffset, pRowPitchAlignment);
+}
+
 void VkDecoderGlobalState::on_vkQueueFlushCommandsGOOGLE(
     android::base::BumpPool* pool,
     VkQueue queue,
@@ -7846,8 +7925,9 @@ VkResult VkDecoderGlobalState::getFenceStatus(VkFence boxed_fence) {
     return mImpl->getFenceStatus(boxed_fence);
 }
 
-VkResult VkDecoderGlobalState::waitQsri(VkImage image, uint64_t timeout) {
-    return mImpl->waitQsri(image, timeout);
+VkResult VkDecoderGlobalState::registerQsriCallback(VkImage image,
+                                                    VkQsriTimeline::Callback callback) {
+    return mImpl->registerQsriCallback(image, std::move(callback));
 }
 
 void VkDecoderGlobalState::deviceMemoryTransform_tohost(

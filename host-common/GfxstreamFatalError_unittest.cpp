@@ -33,13 +33,8 @@ TEST(GFXSTREAM_ABORT, WithVkResult) {
 }
 
 TEST(GFXSTREAM_ABORT, WithCustomizedDeathFunction) {
-    ::testing::MockFunction<void()> customDie;
-
-    EXPECT_CALL(customDie, Call());
-
-    setDieFunction(customDie.AsStdFunction());
-    GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER));
-
+    emugl::setDieFunction([] { exit(42); });
+    EXPECT_EXIT(GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER));, testing::ExitedWithCode(42), "");
     setDieFunction(std::nullopt);
 }
 }  // namespace
