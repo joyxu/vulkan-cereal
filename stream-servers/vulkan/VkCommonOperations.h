@@ -140,9 +140,12 @@ struct VkEmulation {
         bool hasComputeQueueFamily = false;
         bool supportsExternalMemory = false;
         bool supportsIdProperties = false;
+        bool supportsDriverProperties = false;
         bool hasSamplerYcbcrConversionExtension = false;
         bool supportsSamplerYcbcrConversion = false;
         bool glInteropSupported = false;
+
+        std::vector<VkExtensionProperties> extensions;
 
         std::vector<uint32_t> graphicsQueueFamilyIndices;
         std::vector<uint32_t> computeQueueFamilyIndices;
@@ -150,6 +153,9 @@ struct VkEmulation {
         VkPhysicalDeviceProperties physdevProps;
         VkPhysicalDeviceMemoryProperties memProps;
         VkPhysicalDeviceIDPropertiesKHR idProps;
+
+        std::string driverVendor;
+        std::string driverVersion;
 
         PFN_vkGetImageMemoryRequirements2KHR getImageMemoryRequirements2Func = nullptr;
         PFN_vkGetBufferMemoryRequirements2KHR getBufferMemoryRequirements2Func = nullptr;
@@ -295,6 +301,10 @@ struct VkEmulation {
 
     // Track what is supported on whatever device was selected.
     DeviceSupportInfo deviceInfo;
+
+    // Track additional vulkan diagnostics
+    uint32_t vulkanInstanceVersion;
+    std::vector<VkExtensionProperties> instanceExtensions;
 
     // A single staging buffer to perform most transfers to/from OpenGL on the
     // host. It is shareable across instances. The memory is shareable but the
