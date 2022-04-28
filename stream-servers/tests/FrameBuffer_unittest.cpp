@@ -70,8 +70,7 @@ protected:
         ASSERT_NE(nullptr, egl);
         ASSERT_NE(nullptr, LazyLoadedGLESv2Dispatch::get());
 
-        // bool useHostGpu = shouldUseHostGpu();
-        bool useHostGpu = false;
+        bool useHostGpu = shouldUseHostGpu();
         mWindow = createOrGetTestWindow(mXOffset, mYOffset, mWidth, mHeight);
         mUseSubWindow = mWindow != nullptr;
 
