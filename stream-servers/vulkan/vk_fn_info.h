@@ -28,7 +28,7 @@ struct GetVkFnInfo;
 #define REGISTER_VK_FN_INFO(coreName, allNames)                 \
     struct coreName;                                            \
     template <>                                                 \
-    struct ::vk_util::vk_fn_info::GetVkFnInfo<coreName> {       \
+    struct GetVkFnInfo<coreName> {                              \
         static constexpr auto names = std::make_tuple allNames; \
         using type = PFN_vk##coreName;                          \
     };
@@ -38,6 +38,8 @@ REGISTER_VK_FN_INFO(GetPhysicalDeviceProperties2,
 REGISTER_VK_FN_INFO(GetPhysicalDeviceImageFormatProperties2,
                     ("vkGetPhysicalDeviceImageFormatProperties2KHR",
                      "vkGetPhysicalDeviceImageFormatProperties2"))
+REGISTER_VK_FN_INFO(GetPhysicalDeviceFeatures2,
+                    ("vkGetPhysicalDeviceFeatures2", "vkGetPhysicalDeviceFeatures2KHR"));
 }  // namespace vk_fn_info
 }  // namespace vk_util
 

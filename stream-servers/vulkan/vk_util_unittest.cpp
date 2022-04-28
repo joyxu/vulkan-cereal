@@ -17,9 +17,12 @@
 
 #include "vk_util.h"
 
+#include <vulkan/vulkan_core.h>
+
 #include <tuple>
 
 namespace vk_util {
+namespace vk_fn_info {
 
 // Register a fake Vulkan function for testing.
 using PFN_vkGfxstreamTestFunc = PFN_vkCreateDevice;
@@ -131,10 +134,40 @@ TEST(getVkInstanceProcAddrWithFallbackTest, firstNameShouldTakeThePriority) {
                   {vkGetInstanceProcAddrMock.AsStdFunction()}, instance),
               validFps[0]);
 }
-}  // namespace
-}  // namespace vk_util
 
-int main(int argc, char** argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+TEST(VkCheckCallbacksDeathTest, deviceLostCallbackShouldBeCalled) {
+    setVkCheckCallbacks(std::make_unique<VkCheckCallbacks>(VkCheckCallbacks{
+        .onVkErrorDeviceLost = [] { exit(43); },
+    }));
+
+    EXPECT_EXIT(VK_CHECK(VK_ERROR_DEVICE_LOST), testing::ExitedWithCode(43), "");
 }
+
+TEST(VkCheckCallbacksDeathTest, deviceLostCallbackShouldNotBeCalled) {
+    // Default death function uses exit code 42
+    emugl::setDieFunction([] { exit(42); });
+
+    // Device lost death function uses exit code 43
+    setVkCheckCallbacks(std::make_unique<VkCheckCallbacks>(VkCheckCallbacks{
+        .onVkErrorDeviceLost = [] { exit(43); },
+    }));
+
+    EXPECT_EXIT(VK_CHECK(VK_ERROR_OUT_OF_DEVICE_MEMORY), testing::ExitedWithCode(42), "");
+}
+
+TEST(VkCheckCallbacksDeathTest, nullCallbacksShouldntCrash) {
+    emugl::setDieFunction([] { exit(42); });
+    setVkCheckCallbacks(nullptr);
+    EXPECT_EXIT(VK_CHECK(VK_ERROR_DEVICE_LOST), testing::ExitedWithCode(42), "");
+}
+
+TEST(VkCheckCallbacksDeathTest, nullVkDeviceLostErrorCallbackShouldntCrash) {
+    emugl::setDieFunction([] { exit(42); });
+    setVkCheckCallbacks(
+        std::make_unique<VkCheckCallbacks>(VkCheckCallbacks{.onVkErrorDeviceLost = nullptr}));
+    EXPECT_EXIT(VK_CHECK(VK_ERROR_DEVICE_LOST), testing::ExitedWithCode(42), "");
+}
+
+}  // namespace
+}  // namespace vk_fn_info
+}  // namespace vk_util

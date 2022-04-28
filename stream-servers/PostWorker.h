@@ -41,9 +41,8 @@ class PostWorker {
    public:
     using BindSubwinCallback = std::function<bool(void)>;
 
-    PostWorker(BindSubwinCallback&& cb, bool mainThreadPostingOnly,
-               EGLContext eglContext, EGLSurface eglSurface,
-               std::shared_ptr<DisplayVk>);
+    PostWorker(BindSubwinCallback&& cb, bool mainThreadPostingOnly, EGLContext eglContext,
+               EGLSurface eglSurface, DisplayVk*);
     ~PostWorker();
 
     // post: posts the next color buffer.
@@ -120,11 +119,15 @@ class PostWorker {
     EGLContext mContext = EGL_NO_CONTEXT;
 
     // The implementation for Vulkan native swapchain. Only initialized when
-    // useVulkan is set when calling FrameBuffer::initialize().
-    std::shared_ptr<DisplayVk> m_displayVk;
+    // useVulkan is set when calling FrameBuffer::initialize(). PostWorker
+    // doesn't take the ownership of this DisplayVk object.
+    DisplayVk* const m_displayVk;
     // With Vulkan swapchain, compose also means to post to the WSI surface.
     // In this case, don't do anything in the subsequent resource flush.
     std::optional<uint32_t> m_lastVkComposeColorBuffer = std::nullopt;
+    std::unordered_map<uint32_t, std::shared_future<void>> m_composeTargetToComposeFuture;
+
+    bool isComposeTargetReady(uint32_t targetHandle);
 
     DISALLOW_COPY_AND_ASSIGN(PostWorker);
 };
