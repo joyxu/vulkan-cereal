@@ -44,22 +44,10 @@ else()
         ${gfxstream-base-posix-sources})
 endif()
 
-if (RECORDER_DELEGATE_LIB)
-    set(gfxstream-base-metrics-sources
-        MetricsRecorderDelegate.cpp)
-    set(gfxstream-base-metrics-link-libraries
-        recorder_delegate_lib)
-else()
-    set(gfxstream-base-metrics-sources
-        MetricsNoOp.cpp)
-    set(gfxstream-base-metrics-link-libraries)
-endif()
-
 add_library(
     gfxstream-base
     ${gfxstream-base-common-sources}
-    ${gfxstream-platform-sources}
-    ${gfxstream-base-metrics-sources})
+    ${gfxstream-platform-sources})
 
 if (WIN32)
     set(gfxstream-base-platform-deps "")
@@ -69,11 +57,12 @@ endif()
 
 target_link_libraries(
     gfxstream-base
+    PUBLIC
+    renderdoc
     PRIVATE
     lz4
     perfetto-tracing-only
-    ${gfxstream-base-platform-deps}
-    ${gfxstream-base-metrics-link-libraries})
+    ${gfxstream-base-platform-deps})
 
 target_include_directories(
     gfxstream-base PUBLIC ${GFXSTREAM_REPO_ROOT})
@@ -93,9 +82,7 @@ endif()
 # Tests
 add_library(
     gfxstream-base-testing-support
-    testing/file_io.cpp
-    ${GFXSTREAM_REPO_ROOT}/host-common/GfxstreamFatalError.cpp
-    ${GFXSTREAM_REPO_ROOT}/host-common/logging.cpp)
+    testing/file_io.cpp)
 target_include_directories(
     gfxstream-base-testing-support
     PRIVATE
@@ -118,11 +105,12 @@ add_executable(
     ring_buffer_unittest.cpp
     StringFormat_unittest.cpp
     SubAllocator_unittest.cpp
-    TypeTraits_unittest.cpp
-    ${gfxstream-base-platform-test-sources})
+    TypeTraits_unittest.cpp)
 target_link_libraries(
     gfxstream-base_unittests
     PRIVATE
     gfxstream-base
+    logging-base
     gfxstream-base-testing-support
     gtest_main)
+gtest_discover_tests(gfxstream-base_unittests)

@@ -16,36 +16,35 @@
 
 #include "FrameBuffer.h"
 
-#include "DispatchTables.h"
-#include "GLESVersionDetector.h"
-#include "NativeSubWindow.h"
-#include "RenderControl.h"
-#include "RenderThreadInfo.h"
-#include "YUVConverter.h"
-#include "gles2_dec/gles2_dec.h"
-
-#include "OpenGLESDispatch/EGLDispatch.h"
-#include "vulkan/VkCommonOperations.h"
-#include "vulkan/VkDecoderGlobalState.h"
-
-#include "base/LayoutResolver.h"
-#include "base/Lock.h"
-#include "base/Lookup.h"
-#include "base/StreamSerializing.h"
-#include "base/MemoryTracker.h"
-#include "base/System.h"
-#include "base/Tracing.h"
-
-#include "host-common/crash_reporter.h"
-#include "host-common/feature_control.h"
-#include "host-common/GfxstreamFatalError.h"
-#include "host-common/logging.h"
-#include "host-common/misc.h"
-#include "host-common/vm_operations.h"
-
+#include <iomanip>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+
+#include "DispatchTables.h"
+#include "GLESVersionDetector.h"
+#include "NativeSubWindow.h"
+#include "OpenGLESDispatch/EGLDispatch.h"
+#include "RenderControl.h"
+#include "RenderThreadInfo.h"
+#include "YUVConverter.h"
+#include "base/LayoutResolver.h"
+#include "base/Lock.h"
+#include "base/Lookup.h"
+#include "base/MemoryTracker.h"
+#include "base/SharedLibrary.h"
+#include "base/StreamSerializing.h"
+#include "base/System.h"
+#include "base/Tracing.h"
+#include "gles2_dec/gles2_dec.h"
+#include "host-common/GfxstreamFatalError.h"
+#include "host-common/crash_reporter.h"
+#include "host-common/feature_control.h"
+#include "host-common/logging.h"
+#include "host-common/misc.h"
+#include "host-common/vm_operations.h"
+#include "vulkan/VkCommonOperations.h"
+#include "vulkan/VkDecoderGlobalState.h"
 
 using android::base::AutoLock;
 using android::base::Stream;
@@ -368,6 +367,27 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         return false;
     }
 
+    std::unique_ptr<ScopedBind> eglColorBufferBind;
+
+    std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> renderDocMultipleVkInstances = nullptr;
+    if (!android::base::getEnvironmentVariable("ANDROID_EMU_RENDERDOC").empty()) {
+        SharedLibrary* renderdocLib = nullptr;
+#ifdef _WIN32
+        renderdocLib = SharedLibrary::open(R"(C:\Program Files\RenderDoc\renderdoc.dll)");
+#elif defined(__linux__)
+        renderdocLib = SharedLibrary::open("librenderdoc.so");
+#endif
+        fb->m_renderDoc = emugl::RenderDoc::create(renderdocLib);
+        if (fb->m_renderDoc) {
+            INFO("RenderDoc integration enabled.");
+            renderDocMultipleVkInstances =
+                std::make_unique<emugl::RenderDocWithMultipleVkInstances>(*fb->m_renderDoc);
+            if (!renderDocMultipleVkInstances) {
+                ERR("Failed to initialize RenderDoc with multiple VkInstances. Can't capture any "
+                    "information from guest VkInstances with RenderDoc.");
+            }
+        }
+    }
     // Initialize Vulkan emulation state
     //
     // Note: This must happen before any use of s_egl,
@@ -385,6 +405,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         }
     }
     if (vkEmu) {
+        fb->m_vulkanEnabled = true;
         if (feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
             fb->m_vkInstance = vkEmu->instance;
         }
@@ -396,7 +417,6 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
             GL_LOG("Doesn't support id properties, no vulkan device UUID");
             fprintf(stderr, "%s: Doesn't support id properties, no vulkan device UUID\n", __func__);
         }
-        fb->m_glRenderer = std::string(vkEmu->deviceInfo.physdevProps.deviceName);
     }
 
     if (s_egl.eglUseOsEglApi) {
@@ -490,17 +510,19 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         feature_is_enabled(
             kFeature_GuestUsesAngle);
 
-    goldfish_vk::VkEmulationFeatures vkEmulationFeatures = {
-        .glInteropSupported = false,  // Set later.
-        .deferredCommands =
-            android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_DEFERRED_COMMANDS")
-                .empty(),
-        .createResourceWithRequirements =
-            android::base::getEnvironmentVariable(
-                "ANDROID_EMU_VK_DISABLE_USE_CREATE_RESOURCES_WITH_REQUIREMENTS")
-                .empty(),
-        .useVulkanNativeSwapchain = feature_is_enabled(kFeature_VulkanNativeSwapchain),
-    };
+    std::unique_ptr<goldfish_vk::VkEmulationFeatures> vkEmulationFeatures =
+        std::make_unique<goldfish_vk::VkEmulationFeatures>(goldfish_vk::VkEmulationFeatures{
+            .glInteropSupported = false,  // Set later.
+            .deferredCommands =
+                android::base::getEnvironmentVariable("ANDROID_EMU_VK_DISABLE_DEFERRED_COMMANDS")
+                    .empty(),
+            .createResourceWithRequirements =
+                android::base::getEnvironmentVariable(
+                    "ANDROID_EMU_VK_DISABLE_USE_CREATE_RESOURCES_WITH_REQUIREMENTS")
+                    .empty(),
+            .useVulkanNativeSwapchain = feature_is_enabled(kFeature_VulkanNativeSwapchain),
+            .guestRenderDoc = std::move(renderDocMultipleVkInstances),
+        });
 
     //
     // if GLES2 plugin has loaded - try to make GLES2 context and
@@ -604,8 +626,8 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
 
     GL_LOG("attempting to make context current");
     // Make the context current
-    ScopedBind bind(fb->m_colorBufferHelper);
-    if (!bind.isOk()) {
+    eglColorBufferBind = std::make_unique<ScopedBind>(fb->m_colorBufferHelper);
+    if (!eglColorBufferBind->isOk()) {
         ERR("Failed to make current");
         return false;
     }
@@ -733,10 +755,49 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     // Cache the GL strings so we don't have to think about threading or
     // current-context when asked for them.
     //
-    fb->m_glVendor = std::string((const char*)s_gles2.glGetString(GL_VENDOR));
-    fb->m_glRenderer = std::string((const char*)s_gles2.glGetString(GL_RENDERER));
-    fb->m_glVersion = std::string((const char*)s_gles2.glGetString(GL_VERSION));
-    fb->m_glExtensions = std::string((const char*)s_gles2.glGetString(GL_EXTENSIONS));
+    bool useVulkanGraphicsDiagInfo =
+        vkEmu && feature_is_enabled(kFeature_VulkanNativeSwapchain) && fb->m_guestUsesAngle;
+
+    if (useVulkanGraphicsDiagInfo) {
+        fb->m_graphicsAdapterVendor = vkEmu->deviceInfo.driverVendor;
+        fb->m_graphicsAdapterName = vkEmu->deviceInfo.physdevProps.deviceName;
+
+        uint32_t vkVersion = vkEmu->vulkanInstanceVersion;
+
+        std::stringstream versionStringBuilder;
+        versionStringBuilder << "Vulkan " << VK_API_VERSION_MAJOR(vkVersion) << "."
+                             << VK_API_VERSION_MINOR(vkVersion) << "."
+                             << VK_API_VERSION_PATCH(vkVersion) << " "
+                             << vkEmu->deviceInfo.driverVendor << " "
+                             << vkEmu->deviceInfo.driverVersion;
+        fb->m_graphicsApiVersion = versionStringBuilder.str();
+
+        std::stringstream instanceExtensionsStringBuilder;
+        for (auto& ext : vkEmu->instanceExtensions) {
+            if (instanceExtensionsStringBuilder.tellp() != 0) {
+                instanceExtensionsStringBuilder << " ";
+            }
+            instanceExtensionsStringBuilder << ext.extensionName;
+        }
+
+        fb->m_graphicsApiExtensions = instanceExtensionsStringBuilder.str();
+
+        std::stringstream deviceExtensionsStringBuilder;
+        for (auto& ext : vkEmu->deviceInfo.extensions) {
+            if (deviceExtensionsStringBuilder.tellp() != 0) {
+                deviceExtensionsStringBuilder << " ";
+            }
+            deviceExtensionsStringBuilder << ext.extensionName;
+        }
+
+        fb->m_graphicsDeviceExtensions = deviceExtensionsStringBuilder.str();
+    } else {
+        fb->m_graphicsAdapterVendor = (const char*)s_gles2.glGetString(GL_VENDOR);
+        fb->m_graphicsAdapterName = (const char*)s_gles2.glGetString(GL_RENDERER);
+        fb->m_graphicsApiVersion = (const char*)s_gles2.glGetString(GL_VERSION);
+        fb->m_graphicsApiExtensions = (const char*)s_gles2.glGetString(GL_EXTENSIONS);
+        fb->m_graphicsDeviceExtensions = "N/A";
+    }
 
     // Attempt to get the device UUID of the gles and match with Vulkan. If
     // they match, interop is possible. If they don't, then don't trust the
@@ -777,11 +838,6 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         }
     }
 
-    GL_LOG("GL Vendor %s", fb->m_glVendor.c_str());
-    GL_LOG("GL Renderer %s", fb->m_glRenderer.c_str());
-    GL_LOG("GL Version %s", fb->m_glVersion.c_str());
-    GL_LOG("GL Extensions %s", fb->m_glExtensions.c_str());
-
     fb->m_textureDraw = new TextureDraw();
     if (!fb->m_textureDraw) {
         ERR("Failed: creation of TextureDraw instance");
@@ -804,13 +860,19 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     }
 
     GL_LOG("glvk interop final: %d", fb->m_vulkanInteropSupported);
-    vkEmulationFeatures.glInteropSupported = fb->m_vulkanInteropSupported;
+    vkEmulationFeatures->glInteropSupported = fb->m_vulkanInteropSupported;
     if (feature_is_enabled(kFeature_Vulkan)) {
-        goldfish_vk::initVkEmulationFeatures(vkEmulationFeatures);
+        goldfish_vk::initVkEmulationFeatures(std::move(vkEmulationFeatures));
         if (vkEmu->displayVk) {
             fb->m_displayVk = vkEmu->displayVk.get();
         }
     }
+
+    INFO("Graphics Adapter Vendor %s", fb->m_graphicsAdapterVendor.c_str());
+    INFO("Graphics Adapter %s", fb->m_graphicsAdapterName.c_str());
+    INFO("Graphics API Version %s", fb->m_graphicsApiVersion.c_str());
+    INFO("Graphics API Extensions %s", fb->m_graphicsApiExtensions.c_str());
+    INFO("Graphics Device Extensions %s", fb->m_graphicsDeviceExtensions.c_str());
 
     // Start up the single sync thread. If we are using Vulkan native
     // swapchain, then don't initialize SyncThread worker threads with EGL
@@ -998,15 +1060,15 @@ WorkerProcessingResult FrameBuffer::postWorkerFunc(Post& post) {
                                       post.composeBuffer.size(),
                                       std::move(post.composeCallback));
             } else {
-                auto composeCallback =
-                    std::make_shared<Post::ComposeCallback>(
-                        [composeCallback = std::move(post.composeCallback)]
-                            (std::shared_future<void> waitForGpu) {
-                                SyncThread::get()->triggerGeneral(
-                                    [composeCallback = std::move(composeCallback), waitForGpu]{
-                                        (*composeCallback)(waitForGpu);
-                                    });
-                            });
+                auto composeCallback = std::make_shared<Post::ComposeCallback>(
+                    [composeCallback =
+                         std::move(post.composeCallback)](std::shared_future<void> waitForGpu) {
+                        SyncThread::get()->triggerGeneral(
+                            [composeCallback = std::move(composeCallback), waitForGpu] {
+                                (*composeCallback)(waitForGpu);
+                            },
+                            "Wait for host composition");
+                    });
                 m_postWorker->compose(
                     (ComposeDevice_v2*)post.composeBuffer.data(),
                     post.composeBuffer.size(), std::move(composeCallback));
@@ -1251,6 +1313,11 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
                              ->vkCreateWin32SurfaceKHR(m_vkInstance, &surfaceCi,
                                                        nullptr, &m_vkSurface));
 #endif
+                if (m_renderDoc) {
+                    m_renderDoc->call(emugl::RenderDoc::kSetActiveWindow,
+                                      RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance),
+                                      reinterpret_cast<RENDERDOC_WindowHandle>(m_subWin));
+                }
             } else {
                 // create EGLSurface from the generated subwindow
                 m_eglSurface = s_egl.eglCreateWindowSurface(
@@ -2152,23 +2219,22 @@ void FrameBuffer::createYUVTextures(uint32_t type,
                                     int width,
                                     int height,
                                     uint32_t* output) {
-    constexpr bool kIsInterleaved = true;
-    constexpr bool kIsNotInterleaved = false;
+    FrameworkFormat format = static_cast<FrameworkFormat>(type);
     AutoLock mutex(m_lock);
     ScopedBind bind(m_colorBufferHelper);
     for (uint32_t i = 0; i < count; ++i) {
-        if (type == FRAMEWORK_FORMAT_NV12) {
+        if (format == FRAMEWORK_FORMAT_NV12) {
             YUVConverter::createYUVGLTex(GL_TEXTURE0, width, height,
-                                         &output[2 * i], kIsNotInterleaved);
+                                         format, YUVPlane::Y, &output[2 * i]);
             YUVConverter::createYUVGLTex(GL_TEXTURE1, width / 2, height / 2,
-                                         &output[2 * i + 1], kIsInterleaved);
-        } else if (type == FRAMEWORK_FORMAT_YUV_420_888) {
+                                         format, YUVPlane::UV, &output[2 * i + 1]);
+        } else if (format == FRAMEWORK_FORMAT_YUV_420_888) {
             YUVConverter::createYUVGLTex(GL_TEXTURE0, width, height,
-                                         &output[3 * i], kIsNotInterleaved);
+                                         format, YUVPlane::Y, &output[3 * i]);
             YUVConverter::createYUVGLTex(GL_TEXTURE1, width / 2, height / 2,
-                                         &output[3 * i + 1], kIsNotInterleaved);
+                                         format, YUVPlane::U, &output[3 * i + 1]);
             YUVConverter::createYUVGLTex(GL_TEXTURE2, width / 2, height / 2,
-                                         &output[3 * i + 2], kIsNotInterleaved);
+                                         format, YUVPlane::V, &output[3 * i + 2]);
         }
     }
 }
