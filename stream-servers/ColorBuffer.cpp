@@ -171,8 +171,8 @@ static bool sGetFormatParameters(GLint* internalFormat,
             return true;
         case GL_LUMINANCE:
             *texFormat = GL_LUMINANCE;
-            *pixelType = GL_UNSIGNED_SHORT;
-            *bytesPerPixel = 2;
+            *pixelType = GL_UNSIGNED_BYTE;
+            *bytesPerPixel = 1;
             *sizedInternalFormat = GL_R8;
             *isBlob = true;
             return true;
@@ -960,6 +960,7 @@ void ColorBuffer::restore() {
     switch (m_frameworkFormat) {
         case FRAMEWORK_FORMAT_GL_COMPATIBLE:
             break;
+        case FRAMEWORK_FORMAT_P010:
         case FRAMEWORK_FORMAT_YV12:
         case FRAMEWORK_FORMAT_YUV_420_888:
             m_yuv_converter.reset(
