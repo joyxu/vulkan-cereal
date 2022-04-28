@@ -27,12 +27,12 @@
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/opengles.h"
 #include "host-common/vm_operations.h"
+#include "host-common/linux_types.h"
 
 extern "C" {
 #include "virtio-gpu-gfxstream-renderer.h"
 #include "drm_fourcc.h"
 #include "virgl_hw.h"
-#include "host-common/virtio_gpu.h"
 #include "host-common/goldfish_pipe.h"
 }  // extern "C"
 
@@ -159,7 +159,7 @@ using android::emulation::HostmemIdMapping;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
 
-using VirglResId = uint32_t;
+using VirtioGpuResId = uint32_t;
 
 static constexpr int kPipeTryAgain = -2;
 
@@ -170,7 +170,7 @@ struct VirtioGpuCmd {
 } __attribute__((packed));
 
 struct PipeCtxEntry {
-    VirglCtxId ctxId;
+    VirtioGpuCtxId ctxId;
     GoldfishHostPipe* hostPipe;
     int fence;
     uint32_t addressSpaceHandle;
@@ -184,7 +184,7 @@ struct PipeResEntry {
     void* linear;
     size_t linearSize;
     GoldfishHostPipe* hostPipe;
-    VirglCtxId ctxId;
+    VirtioGpuCtxId ctxId;
     uint64_t hva;
     uint64_t hvaSize;
     uint64_t hvaId;
@@ -202,6 +202,7 @@ static inline uint32_t align_up_power_of_2(uint32_t n, uint32_t a) {
 
 #define VIRGL_FORMAT_NV12 166
 #define VIRGL_FORMAT_YV12 163
+#define VIRGL_FORMAT_P010 314
 
 const uint32_t kGlBgra = 0x80e1;
 const uint32_t kGlRgba = 0x1908;
@@ -220,6 +221,7 @@ constexpr uint32_t kFwkFormatGlCompat = 0;
 constexpr uint32_t kFwkFormatYV12 = 1;
 // constexpr uint32_t kFwkFormatYUV420888 = 2;
 constexpr uint32_t kFwkFormatNV12 = 3;
+constexpr uint32_t kFwkFormatP010 = 4;
 
 static inline bool virgl_format_is_yuv(uint32_t format) {
     switch (format) {
@@ -235,6 +237,7 @@ static inline bool virgl_format_is_yuv(uint32_t format) {
         case VIRGL_FORMAT_R10G10B10A2_UNORM:
             return false;
         case VIRGL_FORMAT_NV12:
+        case VIRGL_FORMAT_P010:
         case VIRGL_FORMAT_YV12:
             return true;
         default:
@@ -262,6 +265,7 @@ static inline uint32_t virgl_format_to_gl(uint32_t virgl_format) {
         case VIRGL_FORMAT_R8G8_UNORM:
             return kGlRg8;
         case VIRGL_FORMAT_NV12:
+        case VIRGL_FORMAT_P010:
         case VIRGL_FORMAT_YV12:
             // emulated as RGBA8888
             return kGlRgba;
@@ -276,6 +280,8 @@ static inline uint32_t virgl_format_to_fwk_format(uint32_t virgl_format) {
     switch (virgl_format) {
         case VIRGL_FORMAT_NV12:
             return kFwkFormatNV12;
+        case VIRGL_FORMAT_P010:
+            return kFwkFormatP010;
         case VIRGL_FORMAT_YV12:
             return kFwkFormatYV12;
         case VIRGL_FORMAT_R8_UNORM:
@@ -349,16 +355,20 @@ static inline size_t virgl_format_to_total_xfer_len(
     uint32_t totalWidth, uint32_t totalHeight,
     uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
     if (virgl_format_is_yuv(format)) {
+        uint32_t bpp = format == VIRGL_FORMAT_P010 ? 2 : 1;
         uint32_t yAlign = (format == VIRGL_FORMAT_YV12) ?  32 : 16;
         uint32_t yWidth = totalWidth;
         uint32_t yHeight = totalHeight;
-        uint32_t yStride = align_up_power_of_2(yWidth, yAlign);
+        uint32_t yStride = align_up_power_of_2(yWidth, yAlign) * bpp;
         uint32_t ySize = yStride * yHeight;
 
         uint32_t uvAlign = 16;
         uint32_t uvWidth;
         uint32_t uvPlaneCount;
         if (format == VIRGL_FORMAT_NV12) {
+            uvWidth = totalWidth;
+            uvPlaneCount = 1;
+        } else if (format == VIRGL_FORMAT_P010) {
             uvWidth = totalWidth;
             uvPlaneCount = 1;
         } else if (format == VIRGL_FORMAT_YV12) {
@@ -368,7 +378,7 @@ static inline size_t virgl_format_to_total_xfer_len(
             VGP_FATAL() << "Unknown yuv virgl format: 0x" << std::hex << format;
         }
         uint32_t uvHeight = totalHeight / 2;
-        uint32_t uvStride = align_up_power_of_2(uvWidth, uvAlign);
+        uint32_t uvStride = align_up_power_of_2(uvWidth, uvAlign) * bpp;
         uint32_t uvSize = uvStride * uvHeight * uvPlaneCount;
 
         uint32_t dataSize = ySize + uvSize;
@@ -555,7 +565,7 @@ public:
 
     void resetPipe(GoldfishHwPipe* hwPipe, GoldfishHostPipe* hostPipe) {
         VGPLOG("Want to reset hwpipe %p to hostpipe %p", hwPipe, hostPipe);
-        VirglCtxId asCtxId = (VirglCtxId)(uintptr_t)hwPipe;
+        VirtioGpuCtxId asCtxId = (VirtioGpuCtxId)(uintptr_t)hwPipe;
         auto it = mContexts.find(asCtxId);
         if (it == mContexts.end()) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -586,12 +596,13 @@ public:
         }
     }
 
-    int createContext(VirglCtxId handle, uint32_t nlen, const char* name) {
+    int createContext(VirtioGpuCtxId ctx_id, uint32_t nlen, const char* name,
+                      uint32_t context_init) {
         AutoLock lock(mLock);
-        VGPLOG("ctxid: %u len: %u name: %s", handle, nlen, name);
+        VGPLOG("ctxid: %u len: %u name: %s", ctx_id, nlen, name);
         auto ops = ensureAndGetServiceOps();
         auto hostPipe = ops->guest_open_with_flags(
-            reinterpret_cast<GoldfishHwPipe*>(handle),
+            reinterpret_cast<GoldfishHwPipe*>(ctx_id),
             0x1 /* is virtio */);
 
         if (!hostPipe) {
@@ -600,19 +611,19 @@ public:
         }
 
         PipeCtxEntry res = {
-            handle, // ctxId
+            ctx_id, // ctxId
             hostPipe, // hostPipe
             0, // fence
             0, // AS handle
             false, // does not have an AS handle
         };
 
-        VGPLOG("initial host pipe for ctxid %u: %p", handle, hostPipe);
-        mContexts[handle] = res;
+        VGPLOG("initial host pipe for ctxid %u: %p", ctx_id, hostPipe);
+        mContexts[ctx_id] = res;
         return 0;
     }
 
-    int destroyContext(VirglCtxId handle) {
+    int destroyContext(VirtioGpuCtxId handle) {
         AutoLock lock(mLock);
         VGPLOG("ctxid: %u", handle);
 
@@ -641,7 +652,7 @@ public:
         return 0;
     }
 
-    void setContextAddressSpaceHandleLocked(VirglCtxId ctxId, uint32_t handle) {
+    void setContextAddressSpaceHandleLocked(VirtioGpuCtxId ctxId, uint32_t handle) {
         auto ctxIt = mContexts.find(ctxId);
         if (ctxIt == mContexts.end()) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -653,7 +664,7 @@ public:
         ctxEntry.hasAddressSpaceHandle = true;
     }
 
-    uint32_t getAddressSpaceHandleLocked(VirglCtxId ctxId) {
+    uint32_t getAddressSpaceHandleLocked(VirtioGpuCtxId ctxId) {
         auto ctxIt = mContexts.find(ctxId);
         if (ctxIt == mContexts.end()) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -689,7 +700,7 @@ public:
         memcpy(iovWords, dwords, sizeof(uint32_t) * dwordCount);
     }
 
-    void addressSpaceProcessCmd(VirglCtxId ctxId, uint32_t* dwords, int dwordCount) {
+    void addressSpaceProcessCmd(VirtioGpuCtxId ctxId, uint32_t* dwords, int dwordCount) {
         uint32_t opcode = dwords[0];
 
         switch (opcode) {
@@ -800,7 +811,7 @@ public:
         }
     }
 
-    int submitCmd(VirglCtxId ctxId, void* buffer, int dwordCount) {
+    int submitCmd(VirtioGpuCtxId ctxId, void* buffer, int dwordCount) {
         VGPLOG("ctxid: %u buffer: %p dwords: %d", ctxId, buffer, dwordCount);
 
         if (!buffer) {
@@ -1345,7 +1356,7 @@ public:
         auto resourcesIt = mContextResources.find(ctxId);
 
         if (resourcesIt == mContextResources.end()) {
-            std::vector<VirglResId> ids;
+            std::vector<VirtioGpuResId> ids;
             ids.push_back(resId);
             mContextResources[ctxId] = ids;
         } else {
@@ -1358,7 +1369,7 @@ public:
         auto contextsIt = mResourceContexts.find(resId);
 
         if (contextsIt == mResourceContexts.end()) {
-            std::vector<VirglCtxId> ids;
+            std::vector<VirtioGpuCtxId> ids;
             ids.push_back(ctxId);
             mResourceContexts[resId] = ids;
         } else {
@@ -1591,7 +1602,7 @@ private:
         auto it = mContextResources.find(ctxId);
         if (it == mContextResources.end()) return;
 
-        std::vector<VirglResId> withoutRes;
+        std::vector<VirtioGpuResId> withoutRes;
         for (auto resId : it->second) {
             if (resId != toUnrefId) {
                 withoutRes.push_back(resId);
@@ -1623,10 +1634,10 @@ private:
 
     const GoldfishPipeServiceOps* mServiceOps = nullptr;
 
-    std::unordered_map<VirglCtxId, PipeCtxEntry> mContexts;
-    std::unordered_map<VirglResId, PipeResEntry> mResources;
-    std::unordered_map<VirglCtxId, std::vector<VirglResId>> mContextResources;
-    std::unordered_map<VirglResId, std::vector<VirglCtxId>> mResourceContexts;
+    std::unordered_map<VirtioGpuCtxId, PipeCtxEntry> mContexts;
+    std::unordered_map<VirtioGpuResId, PipeResEntry> mResources;
+    std::unordered_map<VirtioGpuCtxId, std::vector<VirtioGpuResId>> mContextResources;
+    std::unordered_map<VirtioGpuResId, std::vector<VirtioGpuCtxId>> mResourceContexts;
 
     // For use with the async fence cb.
     // When we wait for gpu or wait for gpu vulkan, the next (and subsequent)
@@ -1673,7 +1684,7 @@ VG_EXPORT void pipe_virgl_renderer_resource_unref(uint32_t res_handle) {
 
 VG_EXPORT int pipe_virgl_renderer_context_create(
     uint32_t handle, uint32_t nlen, const char *name) {
-    return sRenderer()->createContext(handle, nlen, name);
+    return sRenderer()->createContext(handle, nlen, name, 0);
 }
 
 VG_EXPORT void pipe_virgl_renderer_context_destroy(uint32_t handle) {
@@ -1750,11 +1761,6 @@ VG_EXPORT int pipe_virgl_renderer_resource_get_info(
     return sRenderer()->getResourceInfo(res_handle, info);
 }
 
-VG_EXPORT int pipe_virgl_renderer_resource_create_v2(uint32_t res_handle, uint64_t hvaId) {
-    sRenderer()->createResourceV2(res_handle, hvaId);
-    return 0;
-}
-
 VG_EXPORT int pipe_virgl_renderer_resource_map(uint32_t res_handle, void** hvaOut, uint64_t* sizeOut) {
     return sRenderer()->resourceMap(res_handle, hvaOut, sizeOut);
 }
@@ -1767,11 +1773,6 @@ VG_EXPORT void stream_renderer_flush_resource_and_readback(
     uint32_t res_handle, uint32_t x, uint32_t y, uint32_t width, uint32_t height,
     void* pixels, uint32_t max_bytes) {
     sRenderer()->flushResourceAndReadback(res_handle, x, y, width, height, pixels, max_bytes);
-}
-
-VG_EXPORT void stream_renderer_resource_create_v2(
-    uint32_t res_handle, uint64_t hvaId) {
-    sRenderer()->createResourceV2(res_handle, hvaId);
 }
 
 VG_EXPORT int stream_renderer_create_blob(uint32_t ctx_id, uint32_t res_handle,
@@ -1794,6 +1795,11 @@ VG_EXPORT int stream_renderer_resource_map(uint32_t res_handle, void** hvaOut, u
 
 VG_EXPORT int stream_renderer_resource_unmap(uint32_t res_handle) {
     return sRenderer()->resourceUnmap(res_handle);
+}
+
+VG_EXPORT int stream_renderer_create_context(uint32_t ctx_id, uint32_t nlen, const char *name,
+                                             uint32_t context_init) {
+    return sRenderer()->createContext(ctx_id, nlen, name, context_init);
 }
 
 VG_EXPORT int stream_renderer_context_create_fence(

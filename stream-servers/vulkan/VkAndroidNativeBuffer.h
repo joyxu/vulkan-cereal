@@ -13,18 +13,19 @@
 // limitations under the License.
 #pragma once
 
-#include "VkCommonOperations.h"
-
 #include <vulkan/vulkan.h>
-
-#include "base/Lock.h"
-#include "base/ConditionVariable.h"
-#include "cereal/common/goldfish_vk_private_defs.h"
 
 #include <atomic>
 #include <deque>
 #include <memory>
+#include <unordered_set>
 #include <vector>
+
+#include "VkCommonOperations.h"
+#include "VkQsriTimeline.h"
+#include "base/ConditionVariable.h"
+#include "base/Lock.h"
+#include "cereal/common/goldfish_vk_private_defs.h"
 
 namespace goldfish_vk {
 
@@ -123,40 +124,27 @@ struct AndroidNativeBufferInfo {
 
     // State that is of interest when interacting with sync fds and SyncThread.
     // Protected by this lock and condition variable.
-    struct QsriWaitInfo {
-        android::base::Lock lock;
-        android::base::ConditionVariable cv;
+    class QsriWaitFencePool {
+       public:
+        QsriWaitFencePool(VulkanDispatch*, VkDevice);
+        ~QsriWaitFencePool();
+        VkFence getFenceFromPool();
+        void returnFence(VkFence fence);
 
-        VulkanDispatch* vk = nullptr;
-        VkDevice device = VK_NULL_HANDLE;
+       private:
+        android::base::Lock mLock;
 
-        // A pool of vkFences for waiting (optimization so we don't keep recreating them every time).
-        std::vector<VkFence> fencePool;
+        VulkanDispatch* mVk;
+        VkDevice mDevice;
 
-        // How many times the image was presented via vkQueueSignalReleaseImageANDROID
-        // versus how many times we want it to be (for sync fd fence waiting).
-        // Incremented by waitQsri.
-        std::atomic_uint64_t requestedPresentCount = 0;
-        // Incremented by waitQsri if vkWaitForFences there succeeds,
-        // or by syncImageToColorBuffer in the non-zero-copy case.
-        std::atomic_uint64_t presentCount = 0;
-
-        void ensureDispatchAndDevice(VulkanDispatch* vkIn, VkDevice deviceIn) {
-            vk = vkIn;
-            device = deviceIn;
-        }
-
-        VkFence getFenceFromPoolLocked();
-
-        // requires fence to be signaled
-        void returnFenceLocked(VkFence fence) {
-            fencePool.push_back(fence);
-        }
-
-        ~QsriWaitInfo();
+        // A pool of vkFences for waiting (optimization so we don't keep recreating them every
+        // time).
+        std::vector<VkFence> mAvailableFences;
+        std::unordered_set<VkFence> mUsedFences;
     };
 
-    QsriWaitInfo qsriWaitInfo;
+    std::unique_ptr<QsriWaitFencePool> qsriWaitFencePool = nullptr;
+    std::unique_ptr<VkQsriTimeline> qsriTimeline = nullptr;
 };
 
 VkResult prepareAndroidNativeBufferImage(
