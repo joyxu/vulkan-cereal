@@ -1,7 +1,7 @@
+cmake_policy(SET CMP0048 NEW)
 project(gfx-streaming-kit)
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.18)
 
-option(BUILD_GOOGLETEST "Download and build the googletest library" ON)
 option(BUILD_ASAN_WIN32 "Build with ASAN on Windows platform" OFF)
 
 if (WIN32)
@@ -24,7 +24,13 @@ endif()
 
 find_package(Threads)
 include(ExternalProject)
+
+include(GoogleTest)
 enable_testing()
+# Disable test discovery after build.
+# By default, `gtest_discover_tests()` adds a post-build step to run the test executables in order to discover the test
+# targets. This is problematic in some build environments. (for example: if cross-compiling)
+set(CMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE "PRE_TEST")
 
 # set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -57,6 +63,12 @@ if (MSVC)
     add_compile_definitions(_CRT_NONSTDC_NO_DEPRECATE)
 endif()
 
+# Macro to easily set the TEST_INCLUDE_FILES properties to point to `test_properties.cmake`
+# This macro should be called at the end of any CMakeLists.txt file that defines test targets.
+macro("set_test_include_files")
+set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES ${CMAKE_SOURCE_DIR}/test_properties.cmake)
+endmacro()
+
 # Uncomment for ASAN support
 # set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
 # set (CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
@@ -77,12 +89,6 @@ if (WIN32)
         message("Linking ASAN libraries from: ${ASAN_LIB_DIR}")
         link_directories(${ASAN_LIB_DIR})
     endif()
-endif()
-
-# GoogleTest support: uses CMake ExternalProject to pull in external repo
-# without manual steps (during CMake build script generation phase)
-if (BUILD_GOOGLETEST)
-    include(gtest.cmake)
 endif()
 
 set(GFXSTREAM_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
@@ -111,25 +117,3 @@ add_subdirectory(protocols)
 if (NOT WIN32)
     add_subdirectory(fake-android-guest)
 endif()
-
-# Frontends#####################################################################
-
-# add_subdirectory(stream-clients)
-
-# Test environments#############################################################
-
-# add_subdirectory(testenvs)
-
-# Target: Host backend to consume real guest traffic############################
-
-# Target: Host front+back drivers for test environment##########################
-
-# Target: Host front+back drivers for app isolation#############################
-
-# Tests#################3#######################################################
-add_test(NAME gfxstream-base_unittests COMMAND gfxstream-base_unittests)
-add_test(NAME gfxstream-host-common_unittests COMMAND gfxstream-host-common_unittests)
-add_test(NAME gfxstream_backend_unittests COMMAND gfxstream_backend_unittests)
-add_test(NAME OpenglRender_unittests COMMAND OpenglRender_unittests)
-add_test(NAME OpenglRender_snapshot_unittests COMMAND OpenglRender_snapshot_unittests)
-add_test(NAME Vulkan_unittests COMMAND Vulkan_unittests)
