@@ -516,6 +516,7 @@ class FrameBuffer {
 
     bool isFastBlitSupported() const { return m_fastBlitSupported; }
     bool isVulkanInteropSupported() const { return m_vulkanInteropSupported; }
+    bool isVulkanEnabled() const { return m_vulkanEnabled; }
     bool importMemoryToColorBuffer(
 #ifdef _WIN32
         void* handle,
@@ -781,6 +782,7 @@ class FrameBuffer {
 
     bool m_fastBlitSupported = false;
     bool m_vulkanInteropSupported = false;
+    bool m_vulkanEnabled = false;
     bool m_guestUsesAngle = false;
     // Whether the guest manages ColorBuffer lifetime
     // so we don't need refcounting on the host side.

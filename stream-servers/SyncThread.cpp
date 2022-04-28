@@ -313,8 +313,10 @@ void SyncThread::initSyncEGLContext() {
 void SyncThread::doSyncWait(FenceSync* fenceSync, std::function<void()> onComplete) {
     DPRINT("enter");
 
-    if (!FenceSync::getFromHandle((uint64_t)(uintptr_t)fenceSync) && onComplete) {
-        onComplete();
+    if (!FenceSync::getFromHandle((uint64_t)(uintptr_t)fenceSync)) {
+        if (onComplete) {
+            onComplete();
+        }
         return;
     }
     // We shouldn't use FenceSync to wait, when SyncThread is initialized
