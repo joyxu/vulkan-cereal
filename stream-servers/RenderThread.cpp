@@ -16,25 +16,24 @@
 #include "RenderThread.h"
 
 #include "ChannelStream.h"
-#include "RingStream.h"
 #include "FrameBuffer.h"
-#include "ReadBuffer.h"
-#include "RenderControl.h"
-#include "RendererImpl.h"
-#include "RenderChannelImpl.h"
-#include "RenderThreadInfo.h"
-
 #include "OpenGLESDispatch/EGLDispatch.h"
-#include "OpenGLESDispatch/GLESv2Dispatch.h"
 #include "OpenGLESDispatch/GLESv1Dispatch.h"
+#include "OpenGLESDispatch/GLESv2Dispatch.h"
+#include "ReadBuffer.h"
+#include "RenderChannelImpl.h"
+#include "RenderControl.h"
+#include "RenderThreadInfo.h"
+#include "RendererImpl.h"
+#include "RingStream.h"
 #include "apigen-codec-common/ChecksumCalculatorThreadInfo.h"
-
-#include "base/System.h"
-#include "base/Tracing.h"
-#include "base/StreamSerializing.h"
 #include "base/Lock.h"
 #include "base/MessageChannel.h"
+#include "base/StreamSerializing.h"
+#include "base/System.h"
+#include "base/Tracing.h"
 #include "host-common/logging.h"
+#include "vulkan/VkCommonOperations.h"
 
 #define EMUGL_DEBUG_LEVEL 0
 #include "host-common/crash_reporter.h"
@@ -286,6 +285,9 @@ intptr_t RenderThread::main() {
     // Framebuffer initialization is asynchronous, so we need to make sure
     // it's completely initialized before running any GL commands.
     FrameBuffer::waitUntilInitialized();
+    if (goldfish_vk::getGlobalVkEmulation()) {
+        tInfo.m_vkDec = std::make_unique<VkDecoder>();
+    }
 
     // This is the only place where we try loading from snapshot.
     // But the context bind / restoration will be delayed after receiving
@@ -428,9 +430,9 @@ intptr_t RenderThread::main() {
             //
             // Note: It's risky to limit Vulkan decoding to one thread,
             // so we do it outside the limiter
-            {
-                last = tInfo.m_vkDec.decode(readBuf.buf(), readBuf.validData(),
-                                            ioStream, seqnoPtr);
+            if (tInfo.m_vkDec) {
+                last =
+                    tInfo.m_vkDec->decode(readBuf.buf(), readBuf.validData(), ioStream, seqnoPtr);
                 if (last > 0) {
                     readBuf.consume(last);
                     progress = true;

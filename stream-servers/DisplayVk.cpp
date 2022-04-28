@@ -239,7 +239,7 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
     VkImageMemoryBarrier presentToXferDstBarrier = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+        .dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
         .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
