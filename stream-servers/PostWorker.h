@@ -125,6 +125,9 @@ class PostWorker {
     // With Vulkan swapchain, compose also means to post to the WSI surface.
     // In this case, don't do anything in the subsequent resource flush.
     std::optional<uint32_t> m_lastVkComposeColorBuffer = std::nullopt;
+    std::unordered_map<uint32_t, std::shared_future<void>> m_composeTargetToComposeFuture;
+
+    bool isComposeTargetReady(uint32_t targetHandle);
 
     DISALLOW_COPY_AND_ASSIGN(PostWorker);
 };
