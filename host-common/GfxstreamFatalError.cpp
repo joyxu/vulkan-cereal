@@ -12,12 +12,12 @@ using android::base::CreateMetricsLogger;
 using android::base::GfxstreamVkAbort;
 
 std::optional<std::function<void()>> customDieFunction = std::nullopt;
+
 [[noreturn]] void die() {
     if (customDieFunction) {
         (*customDieFunction)();
-    } else {
-        abort();
     }
+    abort();
 }
 
 }  // namespace

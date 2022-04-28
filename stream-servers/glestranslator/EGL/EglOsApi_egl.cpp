@@ -565,7 +565,7 @@ EglOsEglDisplay::createContext(EGLint profileMask,
     auto vendor = mDispatcher.eglQueryString(mDisplay, EGL_VENDOR);
 
     // TODO (b/207426737): remove Imagination-specific workaround
-    bool disable_robustness = (strcmp(vendor, "Imagination Technologies") == 0);
+    bool disable_robustness = vendor && (strcmp(vendor, "Imagination Technologies") == 0);
 
     bool disableValidation = android::base::getEnvironmentVariable("ANDROID_EMUGL_EGL_VALIDATION") == "0";
     if (exts != nullptr && emugl::hasExtension(exts, "EGL_KHR_create_context_no_error") && disableValidation) {
