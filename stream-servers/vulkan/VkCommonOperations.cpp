@@ -587,7 +587,8 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     VkResult res = gvk->vkCreateInstance(&instCi, nullptr, &sVkEmulation->instance);
 
     if (res != VK_SUCCESS) {
-        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan instance.");
+        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan instance. Error %s.",
+                                    string_VkResult(res));
     }
 
     // Create instance level dispatch.
@@ -621,7 +622,8 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
             VkResult res = gvk->vkCreateInstance(&instCi, nullptr, &sVkEmulation->instance);
 
             if (res != VK_SUCCESS) {
-                VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan 1.1 instance.");
+                VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan 1.1 instance. Error %s.",
+                                            string_VkResult(res));
             }
 
             init_vulkan_dispatch_from_instance(
@@ -968,7 +970,8 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
                         &sVkEmulation->device);
 
     if (res != VK_SUCCESS) {
-        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan device.");
+        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan device. Error %s.",
+                                    string_VkResult(res));
     }
 
     // device created; populate dispatch table
@@ -1540,11 +1543,16 @@ static std::unique_ptr<VkImageCreateInfo> generateColorBufferVkImageCreateInfo_l
     const VkFormatProperties& formatProperties = *maybeFormatProperties;
 
     constexpr std::pair<VkFormatFeatureFlags, VkImageUsageFlags> formatUsagePairs[] = {
-        {VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT},
-        {VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT, VK_IMAGE_USAGE_SAMPLED_BIT},
-        {VK_FORMAT_FEATURE_TRANSFER_SRC_BIT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT},
-        {VK_FORMAT_FEATURE_TRANSFER_DST_BIT, VK_IMAGE_USAGE_TRANSFER_DST_BIT},
-        {VK_FORMAT_FEATURE_BLIT_SRC_BIT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT},
+        {VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT,
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT|VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT},
+        {VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT,
+            VK_IMAGE_USAGE_SAMPLED_BIT},
+        {VK_FORMAT_FEATURE_TRANSFER_SRC_BIT,
+            VK_IMAGE_USAGE_TRANSFER_SRC_BIT},
+        {VK_FORMAT_FEATURE_TRANSFER_DST_BIT,
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT},
+        {VK_FORMAT_FEATURE_BLIT_SRC_BIT,
+            VK_IMAGE_USAGE_TRANSFER_SRC_BIT},
     };
     VkFormatFeatureFlags tilingFeatures = (tiling == VK_IMAGE_TILING_OPTIMAL)
                                               ? formatProperties.optimalTilingFeatures
@@ -2614,8 +2622,9 @@ static std::tuple<VkCommandBuffer, VkFence> allocateQueueTransferCommandBuffer_l
         if (res == VK_NOT_READY) {
             continue;
         }
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "Invalid fence state: " << static_cast<int>(res);
+        // We either have a device lost, or an invalid fence state. For the device lost case,
+        // VK_CHECK will ensure we capture the relevant streams.
+        VK_CHECK(res);
     }
     VkCommandBuffer commandBuffer;
     VkCommandBufferAllocateInfo allocateInfo = {
@@ -2657,7 +2666,8 @@ void acquireColorBuffersForHostComposing(const std::vector<uint32_t>& layerColor
         colorBuffersAndLayouts.emplace_back(
             layerColorBuffer, FrameBuffer::getFB()->getVkImageLayoutForComposeLayer());
     }
-    colorBuffersAndLayouts.emplace_back(renderTargetColorBuffer, VK_IMAGE_LAYOUT_UNDEFINED);
+    colorBuffersAndLayouts.emplace_back(renderTargetColorBuffer,
+                                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     AutoLock lock(sVkEmulationLock);
     auto vk = sVkEmulation->dvk;
 
@@ -2711,8 +2721,7 @@ void acquireColorBuffersForHostComposing(const std::vector<uint32_t>& layerColor
 
     std::vector<VkImageMemoryBarrier> layoutTransitionBarriers;
     for (auto [infoPtr, newLayout] : colorBufferInfosAndLayouts) {
-        infoPtr->currentLayout = newLayout;
-        if (newLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+        if (newLayout == VK_IMAGE_LAYOUT_UNDEFINED || infoPtr->currentLayout == newLayout) {
             continue;
         }
         VkImageMemoryBarrier layoutTransitionBarrier = {
@@ -2737,6 +2746,7 @@ void acquireColorBuffersForHostComposing(const std::vector<uint32_t>& layerColor
                 },
         };
         layoutTransitionBarriers.emplace_back(layoutTransitionBarrier);
+        infoPtr->currentLayout = newLayout;
     }
 
     auto [commandBuffer, fence] = allocateQueueTransferCommandBuffer_locked();
