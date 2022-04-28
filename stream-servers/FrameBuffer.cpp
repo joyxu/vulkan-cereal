@@ -367,6 +367,8 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         return false;
     }
 
+    std::unique_ptr<ScopedBind> eglColorBufferBind;
+
     std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> renderDocMultipleVkInstances = nullptr;
     if (!android::base::getEnvironmentVariable("ANDROID_EMU_RENDERDOC").empty()) {
         SharedLibrary* renderdocLib = nullptr;
@@ -403,6 +405,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         }
     }
     if (vkEmu) {
+        fb->m_vulkanEnabled = true;
         if (feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
             fb->m_vkInstance = vkEmu->instance;
         }
@@ -623,8 +626,8 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
 
     GL_LOG("attempting to make context current");
     // Make the context current
-    ScopedBind bind(fb->m_colorBufferHelper);
-    if (!bind.isOk()) {
+    eglColorBufferBind = std::make_unique<ScopedBind>(fb->m_colorBufferHelper);
+    if (!eglColorBufferBind->isOk()) {
         ERR("Failed to make current");
         return false;
     }
@@ -835,12 +838,6 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         }
     }
 
-    INFO("Graphics Adapter Vendor %s", fb->m_graphicsAdapterVendor.c_str());
-    INFO("Graphics Adapter %s", fb->m_graphicsAdapterName.c_str());
-    INFO("Graphics API Version %s", fb->m_graphicsApiVersion.c_str());
-    INFO("Graphics API Extensions %s", fb->m_graphicsApiExtensions.c_str());
-    INFO("Graphics Device Extensions %s", fb->m_graphicsDeviceExtensions.c_str());
-
     fb->m_textureDraw = new TextureDraw();
     if (!fb->m_textureDraw) {
         ERR("Failed: creation of TextureDraw instance");
@@ -870,6 +867,12 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
             fb->m_displayVk = vkEmu->displayVk.get();
         }
     }
+
+    INFO("Graphics Adapter Vendor %s", fb->m_graphicsAdapterVendor.c_str());
+    INFO("Graphics Adapter %s", fb->m_graphicsAdapterName.c_str());
+    INFO("Graphics API Version %s", fb->m_graphicsApiVersion.c_str());
+    INFO("Graphics API Extensions %s", fb->m_graphicsApiExtensions.c_str());
+    INFO("Graphics Device Extensions %s", fb->m_graphicsDeviceExtensions.c_str());
 
     // Start up the single sync thread. If we are using Vulkan native
     // swapchain, then don't initialize SyncThread worker threads with EGL
@@ -2216,23 +2219,22 @@ void FrameBuffer::createYUVTextures(uint32_t type,
                                     int width,
                                     int height,
                                     uint32_t* output) {
-    constexpr bool kIsInterleaved = true;
-    constexpr bool kIsNotInterleaved = false;
+    FrameworkFormat format = static_cast<FrameworkFormat>(type);
     AutoLock mutex(m_lock);
     ScopedBind bind(m_colorBufferHelper);
     for (uint32_t i = 0; i < count; ++i) {
-        if (type == FRAMEWORK_FORMAT_NV12) {
+        if (format == FRAMEWORK_FORMAT_NV12) {
             YUVConverter::createYUVGLTex(GL_TEXTURE0, width, height,
-                                         &output[2 * i], kIsNotInterleaved);
+                                         format, YUVPlane::Y, &output[2 * i]);
             YUVConverter::createYUVGLTex(GL_TEXTURE1, width / 2, height / 2,
-                                         &output[2 * i + 1], kIsInterleaved);
-        } else if (type == FRAMEWORK_FORMAT_YUV_420_888) {
+                                         format, YUVPlane::UV, &output[2 * i + 1]);
+        } else if (format == FRAMEWORK_FORMAT_YUV_420_888) {
             YUVConverter::createYUVGLTex(GL_TEXTURE0, width, height,
-                                         &output[3 * i], kIsNotInterleaved);
+                                         format, YUVPlane::Y, &output[3 * i]);
             YUVConverter::createYUVGLTex(GL_TEXTURE1, width / 2, height / 2,
-                                         &output[3 * i + 1], kIsNotInterleaved);
+                                         format, YUVPlane::U, &output[3 * i + 1]);
             YUVConverter::createYUVGLTex(GL_TEXTURE2, width / 2, height / 2,
-                                         &output[3 * i + 2], kIsNotInterleaved);
+                                         format, YUVPlane::V, &output[3 * i + 2]);
         }
     }
 }

@@ -960,6 +960,7 @@ void ColorBuffer::restore() {
     switch (m_frameworkFormat) {
         case FRAMEWORK_FORMAT_GL_COMPATIBLE:
             break;
+        case FRAMEWORK_FORMAT_P010:
         case FRAMEWORK_FORMAT_YV12:
         case FRAMEWORK_FORMAT_YUV_420_888:
             m_yuv_converter.reset(
