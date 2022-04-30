@@ -239,7 +239,7 @@ public:
     Allocation allocBuffer() {
         struct AllocationCreateInfo create = {0};
         create.size = mPerContextBufferSize;
-        return newAllocation(create, mRingBlocks);
+        return newAllocation(create, mBufferBlocks);
     }
 
     void freeBuffer(const Allocation& alloc) {
@@ -390,13 +390,13 @@ private:
         }
 
         block.offsetIntoPhys = stream->getBe64();
+
         create.dedicated = stream->getBe32();
         create.size = stream->getBe64();
         create.virtioGpu = stream->getBe32();
         create.hostmemRegisterFixed = true;
         create.fromLoad = true;
-
-        block.hostmemId = stream->getBe64();
+        create.hostmemId = stream->getBe64();
 
         fillBlockLocked(block, create);
 
