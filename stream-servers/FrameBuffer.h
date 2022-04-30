@@ -541,6 +541,7 @@ class FrameBuffer {
                        int desiredRotation);
     void onLastColorBufferRef(uint32_t handle);
     ColorBuffer::Helper* getColorBufferHelper() { return m_colorBufferHelper; }
+    ColorBufferPtr findColorBuffer_locked(HandleType p_colorbuffer);
     ColorBufferPtr findColorBuffer(HandleType p_colorbuffer);
 
     void registerProcessCleanupCallback(void* key,
