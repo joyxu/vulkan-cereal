@@ -44,3 +44,21 @@ cc_library_static {
     static_libs: ["gfxstream_lz4"],
     export_header_lib_headers: ["gfxstream_renderdoc_headers"]
 }
+
+// Run with `atest --host gfxstream_base_tests`
+cc_test_host {
+    name: "gfxstream_base_tests",
+    defaults: [ "gfxstream_defaults" ],
+    srcs: [
+        "LruCache_unittest.cpp",
+    ],
+    static_libs: [
+        "gfxstream_base",
+        "libgmock",
+        "libgtest",
+        "libgtest_main",
+    ],
+    test_options: {
+        unit_test: true,
+    },
+}
