@@ -3305,6 +3305,7 @@ void FrameBuffer::onSave(Stream* stream,
 
     {
         AutoLock colorBufferMapLock(m_colorBufferMapLock);
+        stream->putByte(m_guestManagedColorBufferLifetime);
         saveCollection(stream, m_colorbuffers,
                        [now](Stream* s, const ColorBufferMap::value_type& pair) {
                            pair.second.cb->onSave(s);
@@ -3480,6 +3481,7 @@ bool FrameBuffer::onLoad(Stream* stream,
     auto now = android::base::getUnixTimeUs();
     {
         AutoLock colorBufferMapLock(m_colorBufferMapLock);
+        m_guestManagedColorBufferLifetime = stream->getByte();
         loadCollection(
             stream, &m_colorbuffers, [this, now](Stream* stream) -> ColorBufferMap::value_type {
                 ColorBufferPtr cb(ColorBuffer::onLoad(stream, m_eglDisplay, m_colorBufferHelper,
