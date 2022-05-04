@@ -16,9 +16,7 @@
 #ifndef _LIBRENDER_HWC2_H
 #define _LIBRENDER_HWC2_H
 
-#ifdef _MSC_VER
 #include <stdint.h>
-#endif
 
 /* Copied from Android source */
 
