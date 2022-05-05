@@ -57,6 +57,7 @@ cc_library_shared {
         "FbConfig.cpp",
         "FenceSync.cpp",
         "GLESVersionDetector.cpp",
+        "Hwc2.cpp",
         "PostWorker.cpp",
         "ReadbackWorker.cpp",
         "ReadBuffer.cpp",

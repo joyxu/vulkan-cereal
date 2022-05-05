@@ -371,7 +371,7 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
 }
 
 std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
-    uint32_t numLayers, const ComposeLayer layers[],
+    const std::vector<ComposeLayer>& composeLayers,
     std::vector<std::shared_ptr<DisplayBufferInfo>> composeBuffers,
     std::shared_ptr<DisplayBufferInfo> targetBuffer) {
     std::shared_future<void> completedFuture = std::async(std::launch::deferred, [] {}).share();
@@ -384,9 +384,9 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
         return std::make_tuple(true, std::move(completedFuture));
     }
 
-    std::vector<std::unique_ptr<ComposeLayerVk>> composeLayers;
-    for (int i = 0; i < numLayers; ++i) {
-        if (layers[i].cbHandle == 0) {
+    std::vector<std::unique_ptr<ComposeLayerVk>> composeLayerVks;
+    for (int i = 0; i < composeLayers.size(); ++i) {
+        if (composeLayers[i].cbHandle == 0) {
             // When ColorBuffer handle is 0, it's expected that no ColorBuffer
             // is not found.
             continue;
@@ -400,16 +400,17 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
             DISPLAY_VK_ERROR("Can't composite from a display buffer. Skip the layer.");
             continue;
         }
-        auto layer = ComposeLayerVk::createFromHwc2ComposeLayer(
-            m_compositionVkSampler, composeBuffers[i]->m_vkImageView, layers[i],
+        auto composeLayerVk = ComposeLayerVk::createFromHwc2ComposeLayer(
+            m_compositionVkSampler, composeBuffers[i]->m_vkImageView,
+            composeLayers[i],
             composeBuffers[i]->m_vkImageCreateInfo.extent.width,
             composeBuffers[i]->m_vkImageCreateInfo.extent.height,
             targetBuffer->m_vkImageCreateInfo.extent.width,
             targetBuffer->m_vkImageCreateInfo.extent.height);
-        composeLayers.emplace_back(std::move(layer));
+        composeLayerVks.emplace_back(std::move(composeLayerVk));
     }
 
-    if (composeLayers.empty()) {
+    if (composeLayerVks.empty()) {
         return std::make_tuple(true, std::move(completedFuture));
     }
 
@@ -445,8 +446,8 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
     }
     std::unique_ptr<ComposeResource> composeResource = composeResourceFuture.get();
 
-    if (compareAndSaveComposition(m_inFlightFrameIndex, numLayers, layers, composeBuffers)) {
-        auto composition = std::make_unique<Composition>(std::move(composeLayers));
+    if (compareAndSaveComposition(m_inFlightFrameIndex, composeLayers, composeBuffers)) {
+        auto composition = std::make_unique<Composition>(std::move(composeLayerVks));
         m_compositorVk->setComposition(m_inFlightFrameIndex, std::move(composition));
     }
 
@@ -667,8 +668,9 @@ bool DisplayVk::canCompositeTo(const VkImageCreateInfo& imageCi) {
 }
 
 bool DisplayVk::compareAndSaveComposition(
-    uint32_t renderTargetIndex, uint32_t numLayers, const ComposeLayer layers[],
-    const std::vector<std::shared_ptr<DisplayBufferInfo>>& composeBuffers) {
+        uint32_t renderTargetIndex,
+        const std::vector<ComposeLayer>& composeLayers,
+        const std::vector<std::shared_ptr<DisplayBufferInfo>>& composeBuffers) {
     if (!m_surfaceState) {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
             << "Haven't bound to a surface, can't compare and save composition.";
@@ -677,8 +679,8 @@ bool DisplayVk::compareAndSaveComposition(
         m_surfaceState->m_prevCompositions.emplace(renderTargetIndex, 0);
     auto& prevComposition = iPrevComposition->second;
     bool compositionChanged = false;
-    if (numLayers == prevComposition.size()) {
-        for (int i = 0; i < numLayers; i++) {
+    if (composeLayers.size() == prevComposition.size()) {
+        for (int i = 0; i < composeLayers.size(); i++) {
             if (composeBuffers[i] == nullptr) {
                 // If the display buffer of the current layer doesn't exist, we
                 // check if the layer at the same index in the previous
@@ -711,7 +713,7 @@ bool DisplayVk::compareAndSaveComposition(
                 break;
             }
             const auto& prevHwc2Layer = prevLayer.m_hwc2Layer;
-            const auto hwc2Layer = layers[i];
+            const auto& hwc2Layer = composeLayers[i];
             compositionChanged =
                 (prevHwc2Layer.cbHandle != hwc2Layer.cbHandle) ||
                 (prevHwc2Layer.composeMode != hwc2Layer.composeMode) ||
@@ -740,13 +742,13 @@ bool DisplayVk::compareAndSaveComposition(
     bool needsSave = compositionNotFound || compositionChanged;
     if (needsSave) {
         prevComposition.clear();
-        for (int i = 0; i < numLayers; i++) {
+        for (int i = 0; i < composeLayers.size(); i++) {
             if (composeBuffers[i] == nullptr) {
                 prevComposition.emplace_back(nullptr);
                 continue;
             }
             auto layer = std::make_unique<SurfaceState::Layer>();
-            layer->m_hwc2Layer = layers[i];
+            layer->m_hwc2Layer = composeLayers[i];
             layer->m_displayBuffer = composeBuffers[i];
             prevComposition.emplace_back(std::move(layer));
         }

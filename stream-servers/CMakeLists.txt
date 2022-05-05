@@ -29,6 +29,7 @@ set(stream-server-core-sources
     FbConfig.cpp
     FenceSync.cpp
     GLESVersionDetector.cpp
+    Hwc2.cpp
     PostWorker.cpp
     ReadbackWorker.cpp
     ReadBuffer.cpp
