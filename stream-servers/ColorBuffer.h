@@ -251,7 +251,7 @@ public:
     HandleType getHndl() const;
 
     bool isFastBlitSupported() const { return m_fastBlitSupported; }
-    void postLayer(ComposeLayer* l, int frameWidth, int frameHeight);
+    void postLayer(const ComposeLayer& l, int frameWidth, int frameHeight);
     GLuint getTexture();
 
     const std::shared_ptr<DisplayVk::DisplayBufferInfo>& getDisplayBufferVk()
