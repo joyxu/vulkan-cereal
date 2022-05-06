@@ -569,17 +569,17 @@ void TextureDraw::prepareForDrawLayer() {
     s_gles2.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void TextureDraw::drawLayer(ComposeLayer* l, int frameWidth, int frameHeight,
+void TextureDraw::drawLayer(const ComposeLayer& layer, int frameWidth, int frameHeight,
                             int cbWidth, int cbHeight, GLuint texture) {
-    switch(l->composeMode) {
+    switch(layer.composeMode) {
         case HWC2_COMPOSITION_DEVICE:
             s_gles2.glBindTexture(GL_TEXTURE_2D, texture);
             break;
         case HWC2_COMPOSITION_SOLID_COLOR: {
-            s_gles2.glUniform1i(mComposeMode, l->composeMode);
+            s_gles2.glUniform1i(mComposeMode, layer.composeMode);
             s_gles2.glUniform4f(mColor,
-                                l->color.r/255.0, l->color.g/255.0,
-                                l->color.b/255.0, l->color.a/255.0);
+                                layer.color.r/255.0, layer.color.g/255.0,
+                                layer.color.b/255.0, layer.color.a/255.0);
             break;
         }
         case HWC2_COMPOSITION_CLIENT:
@@ -587,11 +587,11 @@ void TextureDraw::drawLayer(ComposeLayer* l, int frameWidth, int frameHeight,
         case HWC2_COMPOSITION_SIDEBAND:
         case HWC2_COMPOSITION_INVALID:
         default:
-            ERR("%s: invalid composition mode %d", __FUNCTION__, l->composeMode);
+            ERR("%s: invalid composition mode %d", __FUNCTION__, layer.composeMode);
             return;
     }
 
-    switch(l->blendMode) {
+    switch(layer.blendMode) {
         case HWC2_BLEND_MODE_NONE:
             s_gles2.glDisable(GL_BLEND);
             mBlendResetNeeded = true;
@@ -601,23 +601,23 @@ void TextureDraw::drawLayer(ComposeLayer* l, int frameWidth, int frameHeight,
         case HWC2_BLEND_MODE_INVALID:
         case HWC2_BLEND_MODE_COVERAGE:
         default:
-            ERR("%s: invalid blendMode %d", __FUNCTION__, l->blendMode);
+            ERR("%s: invalid blendMode %d", __FUNCTION__, layer.blendMode);
             return;
     }
 
-    s_gles2.glUniform1f(mAlpha, l->alpha);
+    s_gles2.glUniform1f(mAlpha, layer.alpha);
 
     float edges[4];
-    edges[0] = 1 - 2.0 * (frameWidth - l->displayFrame.left)/frameWidth;
-    edges[1] = 1 - 2.0 * (frameHeight - l->displayFrame.top)/frameHeight;
-    edges[2] = 1 - 2.0 * (frameWidth - l->displayFrame.right)/frameWidth;
-    edges[3] = 1- 2.0 * (frameHeight - l->displayFrame.bottom)/frameHeight;
+    edges[0] = 1 - 2.0 * (frameWidth - layer.displayFrame.left)/frameWidth;
+    edges[1] = 1 - 2.0 * (frameHeight - layer.displayFrame.top)/frameHeight;
+    edges[2] = 1 - 2.0 * (frameWidth - layer.displayFrame.right)/frameWidth;
+    edges[3] = 1- 2.0 * (frameHeight - layer.displayFrame.bottom)/frameHeight;
 
     float crop[4];
-    crop[0] = l->crop.left/cbWidth;
-    crop[1] = l->crop.top/cbHeight;
-    crop[2] = l->crop.right/cbWidth;
-    crop[3] = l->crop.bottom/cbHeight;
+    crop[0] = layer.crop.left/cbWidth;
+    crop[1] = layer.crop.top/cbHeight;
+    crop[2] = layer.crop.right/cbWidth;
+    crop[3] = layer.crop.bottom/cbHeight;
 
     // setup the |translation| uniform value.
     s_gles2.glUniform2f(mTranslationSlot, (-edges[2] - edges[0])/2,
@@ -628,7 +628,7 @@ void TextureDraw::drawLayer(ComposeLayer* l, int frameWidth, int frameHeight,
     s_gles2.glUniform2f(mCoordScale, crop[2] - crop[0], crop[1] - crop[3]);
 
     intptr_t indexShift;
-    switch(l->transform) {
+    switch(layer.transform) {
     case HWC_TRANSFORM_ROT_90:
         indexShift = 1 * kIndicesPerDraw;
         break;
@@ -664,10 +664,10 @@ void TextureDraw::drawLayer(ComposeLayer* l, int frameWidth, int frameHeight,
 #endif
 
     // restore the default value for the next draw layer
-    if (l->composeMode != HWC2_COMPOSITION_DEVICE) {
+    if (layer.composeMode != HWC2_COMPOSITION_DEVICE) {
         s_gles2.glUniform1i(mComposeMode, HWC2_COMPOSITION_DEVICE);
     }
-    if (l->blendMode != HWC2_BLEND_MODE_PREMULTIPLIED) {
+    if (layer.blendMode != HWC2_BLEND_MODE_PREMULTIPLIED) {
         s_gles2.glEnable(GL_BLEND);
         mBlendResetNeeded = false;
         s_gles2.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);

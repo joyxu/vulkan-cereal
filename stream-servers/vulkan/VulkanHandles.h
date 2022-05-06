@@ -105,4 +105,4 @@
     f(VkIndirectCommandsLayoutNV) \
     f(VkAccelerationStructureKHR) \
     f(VkCuModuleNVX) \
-    f(VkCuFunctionNVX) \
+    f(VkCuFunctionNVX)
