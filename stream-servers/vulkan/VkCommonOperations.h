@@ -255,17 +255,8 @@ struct VkEmulation {
         int frameworkFormat;
         int frameworkStride;
 
-        VkExtent3D extent;
-
-        VkFormat format;
-        VkImageType type;
-        VkImageTiling tiling;
-        VkImageUsageFlags usageFlags;
-        VkImageCreateFlags createFlags;
-
-        VkSharingMode sharingMode;
-
         VkImage image = VK_NULL_HANDLE;
+        VkImageCreateInfo imageCreateInfoShallow = {};
         VkMemoryRequirements memReqs;
 
         VkImageLayout currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
