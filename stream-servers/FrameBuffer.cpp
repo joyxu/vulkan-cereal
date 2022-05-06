@@ -23,6 +23,7 @@
 
 #include "DispatchTables.h"
 #include "GLESVersionDetector.h"
+#include "Hwc2.h"
 #include "NativeSubWindow.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "RenderControl.h"
@@ -1054,13 +1055,13 @@ WorkerProcessingResult FrameBuffer::postWorkerFunc(Post& post) {
                                    post.viewport.height);
             break;
         case PostCmd::Compose: {
-            std::shared_future<void> waitForGpu;
+            std::unique_ptr<FlatComposeRequest> composeRequest;
+            std::shared_ptr<Post::ComposeCallback> composeCallback;
             if (post.composeVersion <= 1) {
-                m_postWorker->compose((ComposeDevice*)post.composeBuffer.data(),
-                                      post.composeBuffer.size(),
-                                      std::move(post.composeCallback));
+                composeCallback = std::move(post.composeCallback);
+                composeRequest = ToFlatComposeRequest((ComposeDevice*)post.composeBuffer.data());
             } else {
-                auto composeCallback = std::make_shared<Post::ComposeCallback>(
+                composeCallback = std::make_shared<Post::ComposeCallback>(
                     [composeCallback =
                          std::move(post.composeCallback)](std::shared_future<void> waitForGpu) {
                         SyncThread::get()->triggerGeneral(
@@ -1069,10 +1070,9 @@ WorkerProcessingResult FrameBuffer::postWorkerFunc(Post& post) {
                             },
                             "Wait for host composition");
                     });
-                m_postWorker->compose(
-                    (ComposeDevice_v2*)post.composeBuffer.data(),
-                    post.composeBuffer.size(), std::move(composeCallback));
+                composeRequest = ToFlatComposeRequest((ComposeDevice_v2*)post.composeBuffer.data());
             }
+            m_postWorker->compose(std::move(composeRequest), std::move(composeCallback));
             break;
         }
         case PostCmd::Clear:

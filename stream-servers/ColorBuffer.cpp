@@ -977,7 +977,7 @@ GLuint ColorBuffer::getTexture() {
     return m_tex;
 }
 
-void ColorBuffer::postLayer(ComposeLayer* l, int frameWidth, int frameHeight) {
+void ColorBuffer::postLayer(const ComposeLayer& l, int frameWidth, int frameHeight) {
     if (m_inUse) fprintf(stderr, "%s: cb in use\n", __func__);
     waitSync();
     m_helper->getTextureDraw()->drawLayer(l, frameWidth, frameHeight, m_width, m_height, m_tex);
