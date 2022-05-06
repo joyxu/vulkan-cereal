@@ -1,10 +1,8 @@
 #include "DisplayVk.h"
 
 #include <algorithm>
-#include <chrono>
 #include <glm/glm.hpp>
 #include <glm/gtx/matrix_transform_2d.hpp>
-#include <thread>
 
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"
@@ -44,23 +42,6 @@ bool shouldRecreateSwapchain(VkResult result) {
         default:
             return false;
     }
-}
-
-VkResult waitForVkQueueIdleWithRetry(const goldfish_vk::VulkanDispatch& vk, VkQueue queue) {
-    using namespace std::chrono_literals;
-    constexpr uint32_t retryLimit = 5;
-    constexpr std::chrono::duration waitInterval = 4ms;
-    VkResult res = vk.vkQueueWaitIdle(queue);
-    for (uint32_t retryTimes = 1; retryTimes < retryLimit && res == VK_TIMEOUT; retryTimes++) {
-        INFO("VK_TIMEOUT returned from vkQueueWaitIdle with %" PRIu32 " attempt. Wait for %" PRIu32
-             "ms before another attempt.",
-             retryTimes,
-             static_cast<uint32_t>(
-                 std::chrono::duration_cast<std::chrono::milliseconds>(waitInterval).count()));
-        std::this_thread::sleep_for(waitInterval);
-        res = vk.vkQueueWaitIdle(queue);
-    }
-    return res;
 }
 
 }  // namespace
@@ -115,11 +96,11 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch& vk, VkPhysicalDevice vkP
 DisplayVk::~DisplayVk() {
     {
         android::base::AutoLock lock(*m_swapChainVkQueueLock);
-        VK_CHECK(waitForVkQueueIdleWithRetry(m_vk, m_swapChainVkQueue));
+        VK_CHECK(vk_util::waitForVkQueueIdleWithRetry(m_vk, m_swapChainVkQueue));
     }
     {
         android::base::AutoLock lock(*m_compositorVkQueueLock);
-        VK_CHECK(waitForVkQueueIdleWithRetry(m_vk, m_compositorVkQueue));
+        VK_CHECK(vk_util::waitForVkQueueIdleWithRetry(m_vk, m_compositorVkQueue));
     }
     m_postResourceFuture = std::nullopt;
     m_composeResourceFuture = std::nullopt;
@@ -134,11 +115,11 @@ DisplayVk::~DisplayVk() {
 void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t height) {
     {
         android::base::AutoLock lock(*m_compositorVkQueueLock);
-        VK_CHECK(waitForVkQueueIdleWithRetry(m_vk, m_compositorVkQueue));
+        VK_CHECK(vk_util::waitForVkQueueIdleWithRetry(m_vk, m_compositorVkQueue));
     }
     {
         android::base::AutoLock lock(*m_swapChainVkQueueLock);
-        VK_CHECK(waitForVkQueueIdleWithRetry(m_vk, m_swapChainVkQueue));
+        VK_CHECK(vk_util::waitForVkQueueIdleWithRetry(m_vk, m_swapChainVkQueue));
     }
     m_postResourceFuture = std::nullopt;
     m_composeResourceFuture = std::nullopt;

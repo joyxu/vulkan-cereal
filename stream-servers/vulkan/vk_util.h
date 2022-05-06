@@ -27,12 +27,16 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <vulkan/vulkan.h>
 
+#include <chrono>
 #include <functional>
+#include <inttypes.h>
 #include <memory>
 #include <optional>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <type_traits>
 #include <vector>
@@ -40,7 +44,9 @@
 #include "base/Lock.h"
 #include "common/vk_struct_id.h"
 #include "host-common/GfxstreamFatalError.h"
+#include "host-common/logging.h"
 #include "vk_fn_info.h"
+#include "VulkanDispatch.h"
 
 struct vk_struct_common {
     VkStructureType sType;
@@ -282,6 +288,23 @@ template <class S, class T> void vk_struct_chain_remove(S* unwanted, T* vk_struc
     } while (0)
 
 namespace vk_util {
+
+inline VkResult waitForVkQueueIdleWithRetry(const VulkanDispatch& vk, VkQueue queue) {
+    using namespace std::chrono_literals;
+    constexpr uint32_t retryLimit = 5;
+    constexpr std::chrono::duration waitInterval = 4ms;
+    VkResult res = vk.vkQueueWaitIdle(queue);
+    for (uint32_t retryTimes = 1; retryTimes < retryLimit && res == VK_TIMEOUT; retryTimes++) {
+        INFO("VK_TIMEOUT returned from vkQueueWaitIdle with %" PRIu32 " attempt. Wait for %" PRIu32
+             "ms before another attempt.",
+             retryTimes,
+             static_cast<uint32_t>(
+                 std::chrono::duration_cast<std::chrono::milliseconds>(waitInterval).count()));
+        std::this_thread::sleep_for(waitInterval);
+        res = vk.vkQueueWaitIdle(queue);
+    }
+    return res;
+}
 
 typedef struct {
     std::function<void()> onVkErrorDeviceLost;
