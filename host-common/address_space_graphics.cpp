@@ -227,7 +227,7 @@ public:
 
     Allocation allocRingStorage() {
         struct AllocationCreateInfo create = {0};
-        create.size = sizeof(sizeof(struct asg_ring_storage));
+        create.size = sizeof(struct asg_ring_storage);
         return newAllocation(create, mRingBlocks);
     }
 
