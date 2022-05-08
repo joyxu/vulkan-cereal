@@ -30,6 +30,9 @@ cc_library_static {
         "-Wno-unreachable-code-loop-increment",
     ],
     srcs: [
+        "CompositorVk.cpp",
+        "DisplayVk.cpp",
+        "SwapChainStateVk.cpp",
         "VkAndroidNativeBuffer.cpp",
         "VkCommonOperations.cpp",
         "VkDecoder.cpp",
@@ -39,6 +42,7 @@ cc_library_static {
         "VulkanDispatch.cpp",
         "VulkanHandleMapping.cpp",
         "VulkanStream.cpp",
+        "vk_util.cpp",
     ],
     // http://b/178667698 - clang-tidy crashes with VulkanStream.cpp
     // https://android-review.googlesource.com/c/device/generic/vulkan-cereal/+/1560695/

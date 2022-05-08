@@ -1,6 +1,9 @@
 add_subdirectory(cereal)
 
 add_library(gfxstream-vulkan-server
+            CompositorVk.cpp
+            DisplayVk.cpp
+            SwapChainStateVk.cpp
             VkAndroidNativeBuffer.cpp
             VkCommonOperations.cpp
             VkDecoder.cpp
@@ -9,7 +12,8 @@ add_library(gfxstream-vulkan-server
             VkReconstruction.cpp
             VulkanDispatch.cpp
             VulkanHandleMapping.cpp
-            VulkanStream.cpp)
+            VulkanStream.cpp
+            vk_util.cpp)
 set_source_files_properties(VkDecoder.cpp PROPERTIES COMPILE_FLAGS -Wno-unused-variable)
 target_link_libraries(gfxstream-vulkan-server PUBLIC OpenglRender_vulkan_cereal gfxstream-compressedTextures apigen-codec-common gfxstream-base)
 
@@ -32,29 +36,3 @@ target_include_directories(gfxstream-vulkan-server
                            ${GFXSTREAM_REPO_ROOT}/stream-servers
                            ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan
                            ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common)
-
-add_executable(
-    vk_util_unittest
-    vk_util_unittest.cpp
-    vk_util.cpp
-    ${GFXSTREAM_REPO_ROOT}/host-common/GfxstreamFatalError.cpp
-    ${GFXSTREAM_REPO_ROOT}/host-common/logging.cpp
-    ${GFXSTREAM_REPO_ROOT}/base/MetricsNoOp.cpp)
-target_include_directories(
-    vk_util_unittest
-    PRIVATE
-    ${GFXSTREAM_REPO_ROOT}
-    ${GFXSTREAM_REPO_ROOT}/include
-    ${GFXSTREAM_REPO_ROOT}/stream-servers
-    ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan
-    ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan/cereal
-    ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common)
-target_link_libraries(
-    vk_util_unittest
-    PRIVATE
-    gtest
-    gmock)
-target_compile_definitions(
-    vk_util_unittest
-    PUBLIC
-    GFXSTREAM_TESTING)

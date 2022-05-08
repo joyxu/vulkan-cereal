@@ -844,9 +844,9 @@ class VulkanAPIWrapper(object):
 # VulkanAPIWrapper objects to make it easier to generate the code.
 class VulkanWrapperGenerator(object):
 
-    def __init__(self, module, typeInfo):
-        self.module = module
-        self.typeInfo = typeInfo
+    def __init__(self, module: Module, typeInfo: VulkanTypeInfo):
+        self.module: Module = module
+        self.typeInfo: VulkanTypeInfo = typeInfo
         self.extensionStructTypes = OrderedDict()
 
     def onBegin(self):

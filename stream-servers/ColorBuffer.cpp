@@ -960,6 +960,7 @@ void ColorBuffer::restore() {
     switch (m_frameworkFormat) {
         case FRAMEWORK_FORMAT_GL_COMPATIBLE:
             break;
+        case FRAMEWORK_FORMAT_P010:
         case FRAMEWORK_FORMAT_YV12:
         case FRAMEWORK_FORMAT_YUV_420_888:
             m_yuv_converter.reset(
@@ -976,7 +977,7 @@ GLuint ColorBuffer::getTexture() {
     return m_tex;
 }
 
-void ColorBuffer::postLayer(ComposeLayer* l, int frameWidth, int frameHeight) {
+void ColorBuffer::postLayer(const ComposeLayer& l, int frameWidth, int frameHeight) {
     if (m_inUse) fprintf(stderr, "%s: cb in use\n", __func__);
     waitSync();
     m_helper->getTextureDraw()->drawLayer(l, frameWidth, frameHeight, m_width, m_height, m_tex);
