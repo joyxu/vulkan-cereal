@@ -38,7 +38,9 @@ struct FatalError {
     explicit FatalError(VkResult vk_result) : abort_reason(VK_RESULT), vk_result(vk_result) {}
 
     inline int64_t getAbortCode() const {
-        return abort_reason == VK_RESULT ? vk_result : abort_reason;
+        return abort_reason == VK_RESULT ?
+            static_cast<int64_t>(vk_result) :
+            abort_reason;
     }
 };
 

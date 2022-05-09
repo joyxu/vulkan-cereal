@@ -68,7 +68,7 @@ class DisplayVk {
     // true, the second component of the returned tuple is a future that will
     // complete when the GPU side of work completes.
     std::tuple<bool, std::shared_future<void>> compose(
-        uint32_t numLayers, const ComposeLayer layers[],
+        const std::vector<ComposeLayer> &composeLayers,
         std::vector<std::shared_ptr<DisplayBufferInfo>> composeBuffers,
         std::shared_ptr<DisplayBufferInfo> renderTarget);
 
@@ -84,7 +84,8 @@ class DisplayVk {
     // previous composition stored in m_surfaceState. Must be called after
     // bindToSurface() is called.
     bool compareAndSaveComposition(
-        uint32_t renderTargetIndex, uint32_t numLayers, const ComposeLayer layers[],
+        uint32_t renderTargetIndex,
+        const std::vector<ComposeLayer> &composeLayers,
         const std::vector<std::shared_ptr<DisplayBufferInfo>> &composeBuffers);
 
     const goldfish_vk::VulkanDispatch &m_vk;

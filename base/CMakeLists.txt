@@ -101,6 +101,7 @@ add_executable(
     AlignedBuf_unittest.cpp
     ArraySize_unittest.cpp
     LayoutResolver_unittest.cpp
+    LruCache_unittest.cpp
     Optional_unittest.cpp
     ring_buffer_unittest.cpp
     StringFormat_unittest.cpp
@@ -112,5 +113,6 @@ target_link_libraries(
     gfxstream-base
     logging-base
     gfxstream-base-testing-support
+    gmock
     gtest_main)
 gtest_discover_tests(gfxstream-base_unittests)
