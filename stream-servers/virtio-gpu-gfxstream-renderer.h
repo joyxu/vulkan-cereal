@@ -11,7 +11,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef uint32_t VirglCtxId;
+typedef uint32_t VirtioGpuCtxId;
 struct virgl_renderer_virtio_interface*
     get_goldfish_pipe_virgl_renderer_virtio_interface(void);
 
@@ -126,6 +126,10 @@ VG_EXPORT int stream_renderer_export_blob(uint32_t res_handle,
 
 VG_EXPORT int stream_renderer_resource_map(uint32_t res_handle, void** hvaOut, uint64_t* sizeOut);
 VG_EXPORT int stream_renderer_resource_unmap(uint32_t res_handle);
+
+VG_EXPORT int stream_renderer_context_create(uint32_t ctx_id, uint32_t nlen, const char *name,
+                                             uint32_t context_init);
+
 VG_EXPORT int stream_renderer_context_create_fence(
     uint64_t fence_id, uint32_t ctx_id, uint8_t ring_idx);
 
