@@ -111,6 +111,7 @@ struct GLSupport {
     bool hasAstcSupport = false;
     bool hasBptcSupport = false;
     bool hasS3tcSupport = false;
+    bool hasRgtcSupport = false;
 };
 
 struct ArrayData {
@@ -237,7 +238,6 @@ public:
     ObjectLocalName getTextureLocalName(GLenum target, unsigned int tex);
     bool isInitialized() { return m_initialized; };
     bool needRestore();
-    GLint getUnpackAlignment();
 
     bool  isArrEnabled(GLenum);
     virtual void  enableArr(GLenum arr,bool enable);
@@ -250,7 +250,7 @@ public:
     bool vertexAttributesBufferBacked();
     const GLvoid* setPointer(GLenum arrType,GLint size,GLenum type,GLsizei stride,const GLvoid* data, GLsizei dataSize, bool normalize = false, bool isInt = false);
     virtual const GLESpointer* getPointer(GLenum arrType);
-    virtual void setupArraysPointers(GLESConversionArrays& fArrs,GLint first,GLsizei count,GLenum type,const GLvoid* indices,bool direct) = 0;
+    virtual void setupArraysPointers(GLESConversionArrays& fArrs,GLint first,GLsizei count,GLenum type,const GLvoid* indices,bool direct, bool* needEnablingPostDraw) = 0;
 
     static void prepareCoreProfileEmulatedTexture(TextureData* texData, bool is3d, GLenum target,
                                                   GLenum format, GLenum type,
@@ -475,6 +475,7 @@ public:
     void blitFromReadBufferToTextureFlipped(GLuint globalTexObj,
                                             GLuint width, GLuint height,
                                             GLint internalFormat, GLenum format, GLenum type);
+    void blitFromReadBufferToEGLImage(EGLImage image, GLint internalFormat, int width, int height);
 
 protected:
     void initDefaultFboImpl(
@@ -685,6 +686,8 @@ private:
         GLint internalFormat = 0;
         uint32_t samples = 0;
         uint32_t prevSamples = 0;
+
+        GLuint eglImageTex = 0;
     };
 
     ImageBlitState m_blitState = {};
