@@ -29,9 +29,9 @@
 static constexpr const uint32_t kMaxLayersPerFrame = 16;
 
 // Base used to grant visibility to members to the vk_util::* helper classes.
-struct CompositorVkBase
-    : public vk_util::RunSingleTimeCommand<CompositorVkBase,
-                                           vk_util::FindMemoryType<CompositorVkBase>> {
+struct CompositorVkBase : public vk_util::MultiCrtp<CompositorVkBase,         //
+                                                    vk_util::FindMemoryType,  //
+                                                    vk_util::RunSingleTimeCommand> {
     const goldfish_vk::VulkanDispatch& m_vk;
     const VkDevice m_vkDevice;
     const VkPhysicalDevice m_vkPhysicalDevice;
