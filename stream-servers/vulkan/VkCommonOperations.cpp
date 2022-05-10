@@ -1701,14 +1701,6 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
     imageCi->pQueueFamilyIndices = nullptr;
     imageCi->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-    res.extent = imageCi->extent;
-    res.format = imageCi->format;
-    res.type = imageCi->imageType;
-    res.tiling = imageCi->tiling;
-    res.usageFlags = imageCi->usage;
-    res.createFlags = imageCi->flags;
-    res.sharingMode = imageCi->sharingMode;
-
     // Create the image. If external memory is supported, make it external.
     VkExternalMemoryImageCreateInfo extImageCi = {
         VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO, 0,
@@ -1730,6 +1722,8 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
         //              << colorBufferHandle;
         return false;
     }
+
+    res.imageCreateInfoShallow = vk_make_orphan_copy(*imageCi);
 
     vk->vkGetImageMemoryRequirements(sVkEmulation->device, res.image,
                                      &res.memReqs);
@@ -1932,7 +1926,7 @@ bool updateColorBufferFromVkImage(uint32_t colorBufferHandle) {
 
     // Copy to staging buffer
     uint32_t bpp = 4; /* format always rgba8...not */
-    switch (infoPtr->format) {
+    switch (infoPtr->imageCreateInfoShallow.format) {
         case VK_FORMAT_R5G6B5_UNORM_PACK16:
             bpp = 2;
             break;
@@ -1946,14 +1940,16 @@ bool updateColorBufferFromVkImage(uint32_t colorBufferHandle) {
     }
     VkBufferImageCopy region = {
         0 /* buffer offset */,
-        infoPtr->extent.width,
-        infoPtr->extent.height,
+        infoPtr->imageCreateInfoShallow.extent.width,
+        infoPtr->imageCreateInfoShallow.extent.height,
         {
             VK_IMAGE_ASPECT_COLOR_BIT,
-            0, 0, 1,
+            0,
+            0,
+            1,
         },
-        { 0, 0, 0 },
-        infoPtr->extent,
+        {0, 0, 0},
+        infoPtr->imageCreateInfoShallow.extent,
     };
 
     vk->vkCmdCopyImageToBuffer(
@@ -1997,11 +1993,11 @@ bool updateColorBufferFromVkImage(uint32_t colorBufferHandle) {
     vk->vkInvalidateMappedMemoryRanges(
         sVkEmulation->device, 1, &toInvalidate);
 
-    FrameBuffer::getFB()->
-        replaceColorBufferContents(
-            colorBufferHandle,
-            sVkEmulation->staging.memory.mappedPtr,
-            bpp * infoPtr->extent.width * infoPtr->extent.height);
+    const std::size_t copiedSize = infoPtr->imageCreateInfoShallow.extent.width *
+                                   infoPtr->imageCreateInfoShallow.extent.height * bpp;
+
+    FrameBuffer::getFB()->replaceColorBufferContents(
+        colorBufferHandle, sVkEmulation->staging.memory.mappedPtr, copiedSize);
 
     return true;
 }
@@ -2107,57 +2103,66 @@ bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
     if (infoPtr->frameworkFormat == FrameworkFormat::FRAMEWORK_FORMAT_GL_COMPATIBLE) {
         regions.push_back({
             0 /* buffer offset */,
-            infoPtr->extent.width,
-            infoPtr->extent.height,
+            infoPtr->imageCreateInfoShallow.extent.width,
+            infoPtr->imageCreateInfoShallow.extent.height,
             {
                 VK_IMAGE_ASPECT_COLOR_BIT,
-                0, 0, 1,
+                0,
+                0,
+                1,
             },
-            { 0, 0, 0 },
-            infoPtr->extent,
+            {0, 0, 0},
+            infoPtr->imageCreateInfoShallow.extent,
         });
     } else {
         // YUV formats
         bool swapUV = infoPtr->frameworkFormat == FRAMEWORK_FORMAT_YV12;
-        VkExtent3D subplaneExtent = {
-            infoPtr->extent.width / 2,
-            infoPtr->extent.height / 2,
-            1
-        };
+        VkExtent3D subplaneExtent = {infoPtr->imageCreateInfoShallow.extent.width / 2,
+                                     infoPtr->imageCreateInfoShallow.extent.height / 2, 1};
         regions.push_back({
             0 /* buffer offset */,
-            infoPtr->extent.width,
-            infoPtr->extent.height,
+            infoPtr->imageCreateInfoShallow.extent.width,
+            infoPtr->imageCreateInfoShallow.extent.height,
             {
                 VK_IMAGE_ASPECT_PLANE_0_BIT,
-                0, 0, 1,
+                0,
+                0,
+                1,
             },
-            { 0, 0, 0 },
-            infoPtr->extent,
+            {0, 0, 0},
+            infoPtr->imageCreateInfoShallow.extent,
         });
         regions.push_back({
-            infoPtr->extent.width * infoPtr->extent.height /* buffer offset */,
+            infoPtr->imageCreateInfoShallow.extent.width *
+                infoPtr->imageCreateInfoShallow.extent.height /* buffer offset */,
             subplaneExtent.width,
             subplaneExtent.height,
             {
-                (VkImageAspectFlags)(swapUV ? VK_IMAGE_ASPECT_PLANE_2_BIT : VK_IMAGE_ASPECT_PLANE_1_BIT),
-                0, 0, 1,
+                (VkImageAspectFlags)(swapUV ? VK_IMAGE_ASPECT_PLANE_2_BIT
+                                            : VK_IMAGE_ASPECT_PLANE_1_BIT),
+                0,
+                0,
+                1,
             },
-            { 0, 0, 0 },
+            {0, 0, 0},
             subplaneExtent,
         });
         if (infoPtr->frameworkFormat == FRAMEWORK_FORMAT_YUV_420_888
             || infoPtr->frameworkFormat == FRAMEWORK_FORMAT_YV12) {
             regions.push_back({
-                infoPtr->extent.width * infoPtr->extent.height
-                    + subplaneExtent.width * subplaneExtent.height,
+                infoPtr->imageCreateInfoShallow.extent.width *
+                        infoPtr->imageCreateInfoShallow.extent.height +
+                    subplaneExtent.width * subplaneExtent.height,
                 subplaneExtent.width,
                 subplaneExtent.height,
                 {
-                   (VkImageAspectFlags)(swapUV ? VK_IMAGE_ASPECT_PLANE_1_BIT : VK_IMAGE_ASPECT_PLANE_2_BIT),
-                    0, 0, 1,
+                    (VkImageAspectFlags)(swapUV ? VK_IMAGE_ASPECT_PLANE_1_BIT
+                                                : VK_IMAGE_ASPECT_PLANE_2_BIT),
+                    0,
+                    0,
+                    1,
                 },
-                { 0, 0, 0 },
+                {0, 0, 0},
                 subplaneExtent,
             });
         }
