@@ -59,7 +59,7 @@ class PostWorker {
     // called when the CPU side job completes. The passed in future in the
     // callback will be completed when the GPU opereation completes.
     void compose(std::unique_ptr<FlatComposeRequest> composeRequest,
-                 std::shared_ptr<Post::ComposeCallback> composeCallback);
+                 std::unique_ptr<Post::ComposeCallback> composeCallback);
 
     // clear: blanks out emulator display when refreshing the subwindow
     // if there is no last posted color buffer to show yet.
