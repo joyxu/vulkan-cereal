@@ -108,9 +108,9 @@ using RenderDocWithMultipleVkInstances = RenderDocWithMultipleVkInstancesBase<Re
 TEST(RenderDocWithMultipleVkInstancesTest,
      ShouldNotStartFrameCaptureOnFrameDelimiterWhenNotCapturing) {
     RenderDocMock renderDocMock;
-    RenderDocWithMultipleVkInstances renderDocWithMultipleVkInstances(renderDocMock);
-    int vkInstanceInternal = 0x1234;
+    intptr_t vkInstanceInternal = 0x1234;
     VkInstance vkInstance = reinterpret_cast<VkInstance>(&vkInstanceInternal);
+    RenderDocWithMultipleVkInstances renderDocWithMultipleVkInstances(renderDocMock);
 
     EXPECT_CALL(renderDocMock, call(RenderDoc::kIsFrameCapturing)).WillRepeatedly(Return(0));
     EXPECT_CALL(renderDocMock, call(RenderDoc::kStartFrameCapture, _, _)).Times(0);
@@ -121,9 +121,9 @@ TEST(RenderDocWithMultipleVkInstancesTest,
 
 TEST(RenderDocWithMultipleVkInstancesTest, ShouldStartAndEndFrameCaptureOnFrameDelimiter) {
     RenderDocMock renderDocMock;
-    RenderDocWithMultipleVkInstances renderDocWithMultipleVkInstances(renderDocMock);
-    int vkInstanceInternal = 0x4321;
+    intptr_t vkInstanceInternal = 0x4321;
     VkInstance vkInstance = reinterpret_cast<VkInstance>(&vkInstanceInternal);
+    RenderDocWithMultipleVkInstances renderDocWithMultipleVkInstances(renderDocMock);
 
     EXPECT_CALL(renderDocMock, call(RenderDoc::kIsFrameCapturing)).WillRepeatedly(Return(1));
     {
@@ -151,9 +151,9 @@ TEST(RenderDocWithMultipleVkInstancesTest, ShouldStartAndEndFrameCaptureOnFrameD
 
 TEST(RenderDocWithMultipleVkInstancesTest, ShouldEndFrameCaptureOnVkInstanceRemoved) {
     RenderDocMock renderDocMock;
-    RenderDocWithMultipleVkInstances renderDocWithMultipleVkInstances(renderDocMock);
-    int vkInstanceInternal = 0x4321;
+    intptr_t vkInstanceInternal = 0x4321;
     VkInstance vkInstance = reinterpret_cast<VkInstance>(&vkInstanceInternal);
+    RenderDocWithMultipleVkInstances renderDocWithMultipleVkInstances(renderDocMock);
 
     EXPECT_CALL(renderDocMock, call(RenderDoc::kIsFrameCapturing)).WillRepeatedly(Return(1));
     {
