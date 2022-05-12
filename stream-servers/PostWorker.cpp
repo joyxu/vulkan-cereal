@@ -436,14 +436,19 @@ void PostWorker::viewport(int width, int height) {
 }
 
 void PostWorker::compose(std::unique_ptr<FlatComposeRequest> composeRequest,
-                         std::shared_ptr<Post::ComposeCallback> composeCallback) {
-    runTask(std::packaged_task<void()>([composeCallback = std::move(composeCallback),
-                                        composeRequest = std::move(composeRequest),
-                                        this] {
-        auto completedFuture = composeImpl(*composeRequest);
-        m_composeTargetToComposeFuture.emplace(composeRequest->targetHandle, completedFuture);
-        (*composeCallback)(completedFuture);
-    }));
+                         std::unique_ptr<Post::ComposeCallback> composeCallback) {
+    // std::shared_ptr(std::move(...)) is WA for MSFT STL implementation bug:
+    // https://developercommunity.visualstudio.com/t/unable-to-move-stdpackaged-task-into-any-stl-conta/108672
+    auto packagedComposeCallback =
+        std::shared_ptr<Post::ComposeCallback>(std::move(composeCallback));
+    auto packagedComposeRequest = std::shared_ptr<FlatComposeRequest>(std::move(composeRequest));
+    runTask(
+        std::packaged_task<void()>([packagedComposeCallback, packagedComposeRequest, this] {
+        auto completedFuture = composeImpl(*packagedComposeRequest);
+        m_composeTargetToComposeFuture.emplace(packagedComposeRequest->targetHandle,
+                                               completedFuture);
+        (*packagedComposeCallback)(completedFuture);
+        }));
 }
 
 void PostWorker::clear() {
