@@ -501,18 +501,18 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     auto gvk = vk;
 
     std::vector<const char*> externalMemoryInstanceExtNames = {
-        "VK_KHR_external_memory_capabilities",
-        "VK_KHR_get_physical_device_properties2",
+        VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME,
+        VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
     };
 
     std::vector<const char*> externalMemoryDeviceExtNames = {
-        "VK_KHR_dedicated_allocation",
-        "VK_KHR_get_memory_requirements2",
-        "VK_KHR_external_memory",
+        VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME,
+        VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
+        VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
 #ifdef _WIN32
-        "VK_KHR_external_memory_win32",
+        VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME,
 #else
-        "VK_KHR_external_memory_fd",
+        VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
 #endif
     };
 
