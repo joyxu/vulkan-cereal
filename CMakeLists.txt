@@ -63,6 +63,11 @@ if (MSVC)
     add_compile_definitions(_CRT_NONSTDC_NO_DEPRECATE)
 endif()
 
+if(MSVC OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    # generate PDB files
+    add_link_options("/DEBUG")
+endif()
+
 # Macro to easily set the TEST_INCLUDE_FILES properties to point to `test_properties.cmake`
 # This macro should be called at the end of any CMakeLists.txt file that defines test targets.
 macro("set_test_include_files")
