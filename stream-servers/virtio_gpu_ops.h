@@ -93,10 +93,17 @@ typedef void (*async_wait_for_gpu_vulkan_qsri_with_cb_t)(uint64_t image, FenceCo
 typedef void (*wait_for_gpu_vulkan_qsri_t)(uint64_t image);
 
 // Platform resources and contexts support
+#define RESOURCE_TYPE_MASK 0x0F
+#define RESOURCE_USE_MASK  0xF0
+
+// types
 #define RESOURCE_TYPE_EGL_NATIVE_PIXMAP 0x01
 #define RESOURCE_TYPE_EGL_IMAGE 0x02
 
-typedef bool (*platform_import_resource_t)(uint32_t handle, uint32_t type, void* resource);
+// uses
+#define RESOURCE_USE_PRESERVE 0x10
+
+typedef bool (*platform_import_resource_t)(uint32_t handle, uint32_t info, void* resource);
 typedef bool (*platform_resource_info_t)(uint32_t handle, int32_t* width, int32_t* height, int32_t* internal_format);
 typedef void* (*platform_create_shared_egl_context_t)(void);
 typedef bool (*platform_destroy_shared_egl_context_t)(void* context);
