@@ -1056,16 +1056,20 @@ WorkerProcessingResult FrameBuffer::postWorkerFunc(Post& post) {
             break;
         case PostCmd::Compose: {
             std::unique_ptr<FlatComposeRequest> composeRequest;
-            std::shared_ptr<Post::ComposeCallback> composeCallback;
+            std::unique_ptr<Post::ComposeCallback> composeCallback;
             if (post.composeVersion <= 1) {
                 composeCallback = std::move(post.composeCallback);
                 composeRequest = ToFlatComposeRequest((ComposeDevice*)post.composeBuffer.data());
             } else {
-                composeCallback = std::make_shared<Post::ComposeCallback>(
-                    [composeCallback =
-                         std::move(post.composeCallback)](std::shared_future<void> waitForGpu) {
+                // std::shared_ptr(std::move(...)) is WA for MSFT STL implementation bug:
+                // https://developercommunity.visualstudio.com/t/unable-to-move-stdpackaged-task-into-any-stl-conta/108672
+                auto packageComposeCallback =
+                    std::shared_ptr<Post::ComposeCallback>(std::move(post.composeCallback));
+                composeCallback = std::make_unique<Post::ComposeCallback>(
+                    [packageComposeCallback](
+                        std::shared_future<void> waitForGpu) {
                         SyncThread::get()->triggerGeneral(
-                            [composeCallback = std::move(composeCallback), waitForGpu] {
+                            [composeCallback = std::move(packageComposeCallback), waitForGpu] {
                                 (*composeCallback)(waitForGpu);
                             },
                             "Wait for host composition");
@@ -3070,8 +3074,7 @@ bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
         composeCmd.composeVersion = 1;
         composeCmd.composeBuffer.resize(bufferSize);
         memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
-        composeCmd.composeCallback =
-            std::make_shared<Post::ComposeCallback>(callback);
+        composeCmd.composeCallback = std::make_unique<Post::ComposeCallback>(callback);
         composeCmd.cmd = PostCmd::Compose;
         sendPostWorkerCmd(std::move(composeCmd));
         return true;
@@ -3089,8 +3092,7 @@ bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
         composeCmd.composeVersion = 2;
         composeCmd.composeBuffer.resize(bufferSize);
         memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
-        composeCmd.composeCallback =
-            std::make_shared<Post::ComposeCallback>(callback);
+        composeCmd.composeCallback = std::make_unique<Post::ComposeCallback>(callback);
         composeCmd.cmd = PostCmd::Compose;
         sendPostWorkerCmd(std::move(composeCmd));
         return true;

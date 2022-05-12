@@ -25,7 +25,7 @@ struct Post {
     PostCmd cmd;
     int composeVersion;
     std::vector<char> composeBuffer;
-    std::shared_ptr<ComposeCallback> composeCallback = nullptr;
+    std::unique_ptr<ComposeCallback> composeCallback = nullptr;
     union {
         ColorBuffer* cb;
         struct {
