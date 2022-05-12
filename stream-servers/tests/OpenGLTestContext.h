@@ -53,4 +53,14 @@ protected:
     EGLContext m_context;
 };
 
+
+#define EMUGL_SKIP_TEST_IF(COND)                        \
+    do                                                  \
+    {                                                   \
+        if (COND)                                       \
+        {                                               \
+            GTEST_SKIP() << "Test skipped: " #COND "."; \
+            return;                                     \
+        }                                               \
+    } while (0)
 }  // namespace emugl

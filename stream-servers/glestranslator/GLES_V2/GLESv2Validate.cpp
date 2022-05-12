@@ -236,6 +236,10 @@ bool GLESv2Validate::bufferTarget(GLEScontext* ctx, GLenum target) {
     case GL_DRAW_INDIRECT_BUFFER: // Indirect command arguments
     case GL_SHADER_STORAGE_BUFFER: // Read-write storage for shaders
         return glesMajorVersion >= 3 && glesMinorVersion >= 1;
+    case GL_TEXTURE_BUFFER:
+        return glesMajorVersion >= 3 &&
+               ((glesMinorVersion == 1 && ctx->getCaps()->textureBufferAny()) ||
+                glesMinorVersion > 1 );
     default:
         return false;
     }
@@ -349,6 +353,9 @@ bool GLESv2Validate::textureTarget(GLEScontext* ctx, GLenum target) {
         return glesMajorVersion >= 3;
     case GL_TEXTURE_2D_MULTISAMPLE:
         return glesMajorVersion >= 3 && glesMinorVersion >= 1;
+    case GL_TEXTURE_BUFFER:
+        return glesMajorVersion >= 3 && ( glesMinorVersion > 1 ||
+           (glesMinorVersion == 1 && ctx->getCaps()->textureBufferAny()));
     default:
         return false;
     }

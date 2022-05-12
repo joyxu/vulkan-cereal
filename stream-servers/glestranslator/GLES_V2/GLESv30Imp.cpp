@@ -1109,3 +1109,64 @@ GL_APICALL void GL_APIENTRY glCopyTexSubImage3D(GLenum target, GLint level, GLin
     ctx->dispatcher().glCopyTexSubImage3D(target, level, xoffset, yoffset, zoffset, x, y, width, height);
 }
 
+GL_APICALL void GL_APIENTRY glEnableiEXT(GLenum cap, GLuint index)
+{
+    GET_CTX_V2();
+    SET_ERROR_IF(!ctx->getCaps()->ext_GL_EXT_draw_buffers_indexed, GL_INVALID_OPERATION);
+    ctx->setEnablei(cap, index, true);
+    ctx->dispatcher().glEnableiEXT(cap, index);
+}
+GL_APICALL void GL_APIENTRY glDisableiEXT(GLenum cap, GLuint index)
+{
+    GET_CTX_V2();
+    SET_ERROR_IF(!ctx->getCaps()->ext_GL_EXT_draw_buffers_indexed, GL_INVALID_OPERATION);
+    ctx->setEnablei(cap, index, false);
+    ctx->dispatcher().glDisableiEXT(cap, index);
+}
+
+GL_APICALL void GL_APIENTRY glBlendEquationiEXT(GLuint buf, GLenum mode)
+{
+    GET_CTX_V2();
+    SET_ERROR_IF(!ctx->getCaps()->ext_GL_EXT_draw_buffers_indexed, GL_INVALID_OPERATION);
+    ctx->setBlendEquationSeparatei(buf, mode, mode);
+    ctx->dispatcher().glBlendEquationiEXT(buf, mode);
+}
+
+GL_APICALL void GL_APIENTRY glBlendEquationSeparateiEXT(GLuint buf, GLenum modeRGB, GLenum modeAlpha)
+{
+    GET_CTX_V2();
+    SET_ERROR_IF(!ctx->getCaps()->ext_GL_EXT_draw_buffers_indexed, GL_INVALID_OPERATION);
+    ctx->setBlendEquationSeparatei(buf, modeRGB, modeAlpha);
+    ctx->dispatcher().glBlendEquationSeparateiEXT(buf, modeRGB, modeAlpha);
+}
+
+GL_APICALL void GL_APIENTRY glBlendFunciEXT(GLuint buf, GLenum sfactor, GLenum dfactor)
+{
+    GET_CTX_V2();
+    SET_ERROR_IF(!ctx->getCaps()->ext_GL_EXT_draw_buffers_indexed, GL_INVALID_OPERATION);
+    ctx->setBlendFuncSeparatei(buf, sfactor, dfactor, sfactor, dfactor);
+    ctx->dispatcher().glBlendFunciEXT(buf, sfactor, dfactor);
+}
+
+GL_APICALL void GL_APIENTRY glBlendFuncSeparateiEXT(GLuint buf, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
+{
+    GET_CTX_V2();
+    SET_ERROR_IF(!ctx->getCaps()->ext_GL_EXT_draw_buffers_indexed, GL_INVALID_OPERATION);
+    ctx->setBlendFuncSeparatei(buf, srcRGB, dstRGB, srcAlpha, dstAlpha);
+    ctx->dispatcher().glBlendFuncSeparateiEXT(buf, srcRGB, dstRGB, srcAlpha, dstAlpha);
+}
+
+GL_APICALL void GL_APIENTRY glColorMaskiEXT(GLuint buf, GLboolean red, GLboolean green,
+    GLboolean blue, GLboolean alpha)
+{
+    GET_CTX_V2();
+    SET_ERROR_IF(!ctx->getCaps()->ext_GL_EXT_draw_buffers_indexed, GL_INVALID_OPERATION);
+    ctx->setColorMaski(buf, red, green, blue, alpha);
+    ctx->dispatcher().glColorMaskiEXT(buf, red, green, blue, alpha);
+}
+
+GL_APICALL GLboolean GL_APIENTRY glIsEnablediEXT(GLenum cap, GLuint index) {
+    GET_CTX_RET(GL_FALSE);
+    return ctx->dispatcher().glIsEnablediEXT(cap, index);
+}
+

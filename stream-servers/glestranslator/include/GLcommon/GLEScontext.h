@@ -42,6 +42,7 @@ TEXTURE_CUBE_MAP,
 TEXTURE_2D_ARRAY,
 TEXTURE_3D,
 TEXTURE_2D_MULTISAMPLE,
+TEXTURE_BUFFER,
 NUM_TEXTURE_TARGETS
 };
 
@@ -97,15 +98,20 @@ struct GLSupport {
     bool GL_OES_STANDARD_DERIVATIVES = false;
     bool GL_OES_TEXTURE_NPOT = false;
     bool GL_OES_RGB8_RGBA8 = false;
+    bool ext_GL_OES_texture_buffer = false;
 
     bool ext_GL_EXT_color_buffer_float = false;
     bool ext_GL_EXT_color_buffer_half_float = false;
     bool ext_GL_EXT_shader_framebuffer_fetch = false;
+    bool ext_GL_EXT_texture_buffer = false;
+    bool ext_GL_EXT_draw_buffers_indexed = false;
 
     bool ext_GL_EXT_memory_object = false;
     bool ext_GL_EXT_semaphore = false;
 
     bool ext_GL_KHR_texture_compression_astc_ldr = false;
+
+    bool textureBufferAny() const { return ext_GL_OES_texture_buffer || ext_GL_EXT_texture_buffer; }
 
     bool hasEtc2Support = false;
     bool hasAstcSupport = false;
@@ -119,6 +125,21 @@ struct ArrayData {
     GLenum       type = 0;
     unsigned int stride = 0;
     bool         allocated = false;
+};
+
+struct BlendState {
+    GLboolean bEnable = GL_FALSE;
+    GLenum blendEquationRgb = GL_FUNC_ADD;
+    GLenum blendEquationAlpha = GL_FUNC_ADD;
+
+    GLenum blendSrcRgb = GL_ONE;
+    GLenum blendDstRgb = GL_ZERO;
+    GLenum blendSrcAlpha = GL_ONE;
+    GLenum blendDstAlpha = GL_ZERO;
+    GLboolean colorMaskR = GL_TRUE;
+    GLboolean colorMaskG = GL_TRUE;
+    GLboolean colorMaskB = GL_TRUE;
+    GLboolean colorMaskA = GL_TRUE;
 };
 
 struct BufferBinding {
@@ -282,7 +303,7 @@ public:
     const char * getVersionString(bool isGles1) const;
     void getGlobalLock();
     void releaseGlobalLock();
-    virtual GLSupport*  getCaps(){return &s_glSupport;};
+    virtual const GLSupport*  getCaps() const = 0;
     static GLSupport* getCapsGlobal(){return &s_glSupport;};
     static bool vulkanInteropSupported() {
         return s_glSupport.ext_GL_EXT_memory_object &&
@@ -348,10 +369,13 @@ public:
     }
 
     void setEnable(GLenum item, bool isEnable);
+    void setEnablei(GLenum cap, GLuint index, bool isEnable);
     bool isEnabled(GLenum item) const;
     void setBlendEquationSeparate(GLenum modeRGB, GLenum modeAlpha);
+    void setBlendEquationSeparatei(GLuint buf, GLenum modeRGB, GLenum modeAlpha);
     void setBlendFuncSeparate(GLenum srcRGB, GLenum dstRGB,
             GLenum srcAlpha, GLenum dstAlpha);
+    void setBlendFuncSeparatei(GLenum buf, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha);
     void setPixelStorei(GLenum pname, GLint param);
 
     void setViewport(GLint x, GLint y, GLsizei width, GLsizei height);
@@ -375,6 +399,8 @@ public:
 
     void setColorMask(GLboolean red, GLboolean green, GLboolean blue,
             GLboolean alpha);
+
+    void setColorMaski(GLuint buf, GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha);
 
     void setClearColor(GLclampf red, GLclampf green, GLclampf blue,
             GLclampf alpha);
@@ -488,7 +514,7 @@ protected:
     virtual void postLoadRestoreShareGroup();
     virtual void postLoadRestoreCtx();
 
-    static void buildStrings(bool isGles1, const char* baseVendor, const char* baseRenderer, const char* baseVersion, const char* version);
+    static void buildStrings(int major, int minor, const char* baseVendor, const char* baseRenderer, const char* baseVersion, const char* version);
 
     void freeVAOState();
     virtual void addVertexArrayObject(GLuint array);
@@ -499,7 +525,7 @@ protected:
     void convertDirectVBO(GLESConversionArrays& fArrs,GLint first,GLsizei count,GLenum array_id,GLESpointer* p);
     void convertIndirect(GLESConversionArrays& fArrs,GLsizei count,GLenum type,const GLvoid* indices,GLenum array_id,GLESpointer* p);
     void convertIndirectVBO(GLESConversionArrays& fArrs,GLsizei count,GLenum indices_type,const GLvoid* indices,GLenum array_id,GLESpointer* p);
-    static void initCapsLocked(const GLubyte * extensionString);
+    static void initCapsLocked(const GLubyte * extensionString, GLSupport& glSupport);
     virtual void initExtensionString() =0;
 
     bool                  m_needRestoreFromSnapshot = false;
@@ -521,6 +547,7 @@ protected:
     GLuint m_dispatchIndirectBuffer = 0;
     GLuint m_drawIndirectBuffer = 0;
     GLuint m_shaderStorageBuffer = 0;
+    GLuint m_textureBuffer = 0;
     std::vector<BufferBinding> m_indexedTransformFeedbackBuffers;
     std::vector<BufferBinding> m_indexedUniformBuffers;
     std::vector<BufferBinding> m_indexedAtomicCounterBuffers;
@@ -543,13 +570,7 @@ protected:
 
     std::unordered_map<GLenum, bool> m_glEnableList = std::unordered_map<GLenum, bool>();
 
-    GLenum m_blendEquationRgb = GL_FUNC_ADD;
-    GLenum m_blendEquationAlpha = GL_FUNC_ADD;
-
-    GLenum m_blendSrcRgb = GL_ONE;
-    GLenum m_blendDstRgb = GL_ZERO;
-    GLenum m_blendSrcAlpha = GL_ONE;
-    GLenum m_blendDstAlpha = GL_ZERO;
+    std::vector<BlendState> m_blendStates;
 
     std::unordered_map<GLenum, GLint> m_glPixelStoreiList;
 
@@ -580,11 +601,6 @@ protected:
         GLenum m_dppass = GL_KEEP;
     } m_stencilStates[2];
 
-    bool m_colorMaskR = GL_TRUE;
-    bool m_colorMaskG = GL_TRUE;
-    bool m_colorMaskB = GL_TRUE;
-    bool m_colorMaskA = GL_TRUE;
-
     GLclampf m_clearColorR = 0.0f;
     GLclampf m_clearColorG = 0.0f;
     GLclampf m_clearColorB = 0.0f;
@@ -593,13 +609,24 @@ protected:
     GLclampf m_clearDepth = 1.0f;
     GLint m_clearStencil = 0;
 
+    // we may run with multiple gles version contexts.
+    // for Angle based driver, es31 feature still not completed
+    // only enabled with application requires es3.1
+    // the default context version is still es3.0.
+    // this is temporary patch. we can remove this patch if Angle ES3.1 feature completed.
     static std::string*   s_glExtensionsGles1;
     static bool           s_glExtensionsGles1Initialized;
+    static std::string*   s_glExtensionsGles31;
+    static bool           s_glExtensionsGles31Initialized;
     static std::string*   s_glExtensions;
     static bool           s_glExtensionsInitialized;
 
-    // Common for gles1/2
+    // for ES1.1
+    static GLSupport      s_glSupportGles1;
+    // Common for ES2.0+
     static GLSupport      s_glSupport;
+    // Special for ES3.1
+    static GLSupport      s_glSupportGles31;
 
     int m_glesMajorVersion = 1;
     int m_glesMinorVersion = 0;
@@ -654,6 +681,10 @@ private:
     static std::string    s_glRendererGles1;
     static std::string    s_glVersionGles1;
 
+    static std::string    s_glVendorGles31;
+    static std::string    s_glRendererGles31;
+    static std::string    s_glVersionGles31;
+
     static std::string    s_glVendor;
     static std::string    s_glRenderer;
     static std::string    s_glVersion;
@@ -698,6 +729,8 @@ private:
     bool setupImageBlitForTexture(uint32_t width, uint32_t height,
                                   GLint internalFormat);
 };
+
+std::string getHostExtensionsString(GLDispatch* dispatch);
 
 #endif
 

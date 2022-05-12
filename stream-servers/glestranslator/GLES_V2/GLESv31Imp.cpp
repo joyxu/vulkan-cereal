@@ -697,6 +697,10 @@ GL_APICALL void GL_APIENTRY glGetTexLevelParameterfv(GLenum target, GLint level,
             *params = GL_TRUE;
         }
         break;
+    case GL_TEXTURE_BUFFER_DATA_STORE_BINDING:
+        *params = static_cast<GLfloat>(ctx->shareGroup()->getLocalName(
+            NamedObjectType::VERTEXBUFFER, static_cast<unsigned int>(*params)));
+        break;
     default:
         break;
     }
@@ -729,8 +733,66 @@ GL_APICALL void GL_APIENTRY glGetTexLevelParameteriv(GLenum target, GLint level,
             *params = GL_TRUE;
         }
         break;
+    case GL_TEXTURE_BUFFER_DATA_STORE_BINDING:
+        *params = ctx->shareGroup()->getLocalName(NamedObjectType::VERTEXBUFFER, *params);
+        break;
     default:
         break;
+    }
+}
+
+
+GL_APICALL void GL_APIENTRY glTexBufferOES(GLenum target, GLenum internalformat, GLuint buffer) {
+    GET_CTX_V2();
+    SET_ERROR_IF_DISPATCHER_NOT_SUPPORT(glTexBufferOES);
+    if (ctx->shareGroup().get()) {
+        const GLuint globalBufferName =
+            ctx->shareGroup()->getGlobalName(NamedObjectType::VERTEXBUFFER, buffer);
+        ctx->dispatcher().glTexBufferOES(target, internalformat, globalBufferName);
+        TextureData* texData = getTextureTargetData(target);
+        texData->internalFormat = internalformat;
+        texData->makeDirty();
+    }
+}
+
+GL_APICALL void GL_APIENTRY glTexBufferEXT(GLenum target, GLenum internalformat, GLuint buffer) {
+    GET_CTX_V2();
+    SET_ERROR_IF_DISPATCHER_NOT_SUPPORT(glTexBufferEXT);
+    if (ctx->shareGroup().get()) {
+        const GLuint globalBufferName =
+            ctx->shareGroup()->getGlobalName(NamedObjectType::VERTEXBUFFER, buffer);
+        ctx->dispatcher().glTexBufferEXT(target, internalformat, globalBufferName);
+        TextureData* texData = getTextureTargetData(target);
+        texData->internalFormat = internalformat;
+        texData->makeDirty();
+    }
+}
+
+GL_APICALL void GL_APIENTRY glTexBufferRangeOES(GLenum target, GLenum internalformat, GLuint buffer,
+                                                GLintptr offset, GLsizeiptr size) {
+    GET_CTX_V2();
+    SET_ERROR_IF_DISPATCHER_NOT_SUPPORT(glTexBufferRangeOES);
+    if (ctx->shareGroup().get()) {
+        const GLuint globalBufferName =
+            ctx->shareGroup()->getGlobalName(NamedObjectType::VERTEXBUFFER, buffer);
+        ctx->dispatcher().glTexBufferRangeOES(target, internalformat, globalBufferName, offset, size);
+        TextureData* texData = getTextureTargetData(target);
+        texData->internalFormat = internalformat;
+        texData->makeDirty();
+    }
+}
+
+GL_APICALL void GL_APIENTRY glTexBufferRangeEXT(GLenum target, GLenum internalformat, GLuint buffer,
+                                                GLintptr offset, GLsizeiptr size) {
+    GET_CTX_V2();
+    SET_ERROR_IF_DISPATCHER_NOT_SUPPORT(glTexBufferRangeEXT);
+    if (ctx->shareGroup().get()) {
+        const GLuint globalBufferName =
+            ctx->shareGroup()->getGlobalName(NamedObjectType::VERTEXBUFFER, buffer);
+        ctx->dispatcher().glTexBufferRangeEXT(target, internalformat, globalBufferName, offset,size);
+        TextureData* texData = getTextureTargetData(target);
+        texData->internalFormat = internalformat;
+        texData->makeDirty();
     }
 }
 
