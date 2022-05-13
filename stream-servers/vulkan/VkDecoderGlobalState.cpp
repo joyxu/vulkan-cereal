@@ -1353,6 +1353,16 @@ class VkDecoderGlobalState::Impl {
             }
         }
 
+        // Destroy pooled external fences
+        auto deviceFences = mExternalFencesPool.find(device);
+        if (deviceFences != mExternalFencesPool.end()) {
+            for (auto fence : deviceFences->second) {
+                mFenceInfo.erase(fence);
+                m_vk->vkDestroyFence(device, fence, pAllocator);
+            }
+            mExternalFencesPool.erase(device);
+        }
+
         // Run the underlying API call.
         m_vk->vkDestroyDevice(device, pAllocator);
 
@@ -1887,16 +1897,37 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
 
-        VkResult res =
-                vk->vkCreateFence(device, pCreateInfo, pAllocator, pFence);
-        if (res != VK_SUCCESS) {
-            return res;
+        VkFenceCreateInfo& createInfo = const_cast<VkFenceCreateInfo&>(*pCreateInfo);
+
+        const VkExportFenceCreateInfo* exportFenceInfoPtr =
+            vk_find_struct<VkExportFenceCreateInfo>(pCreateInfo);
+        bool exportSyncFd = exportFenceInfoPtr && (exportFenceInfoPtr->handleTypes &
+                                                   VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT);
+        bool fenceReused = false;
+
+        *pFence = VK_NULL_HANDLE;
+
+        if (exportSyncFd) {
+            // Remove VkExportFenceCreateInfo, since host doesn't need to create
+            // an exportable fence in this case
+            vk_struct_chain_remove(exportFenceInfoPtr, &createInfo);
+            *pFence = popExternalFenceFromPool(device, pCreateInfo);
+            if (*pFence != VK_NULL_HANDLE) {
+                fenceReused = true;
+            }
+        }
+
+        if (*pFence == VK_NULL_HANDLE) {
+            VkResult res = vk->vkCreateFence(device, &createInfo, pAllocator, pFence);
+            if (res != VK_SUCCESS) {
+                return res;
+            }
         }
 
         {
             AutoLock lock(mLock);
 
-            DCHECK(mFenceInfo.find(*pFence) == mFenceInfo.end());
+            DCHECK(fenceReused || mFenceInfo.find(*pFence) == mFenceInfo.end());
             // Create FenceInfo for *pFence.
             auto& fenceInfo = mFenceInfo[*pFence];
             fenceInfo.device = device;
@@ -1904,9 +1935,48 @@ class VkDecoderGlobalState::Impl {
 
             *pFence = new_boxed_non_dispatchable_VkFence(*pFence);
             fenceInfo.boxed = *pFence;
+            fenceInfo.external = exportSyncFd;
+            fenceInfo.state = FenceInfo::State::kNotWaitable;
         }
 
-        return res;
+        return VK_SUCCESS;
+    }
+
+    VkFence popExternalFenceFromPool(VkDevice device, const VkFenceCreateInfo* pCreateInfo) {
+        AutoLock lock(mLock);
+
+        auto deviceFences = mExternalFencesPool.find(device);
+        if (deviceFences == mExternalFencesPool.end()) {
+            return VK_NULL_HANDLE;
+        }
+
+        auto it = std::find_if(
+            deviceFences->second.begin(), deviceFences->second.end(),
+            [this, device](const VkFence& fence) {
+                VkResult status = m_vk->vkGetFenceStatus(device, fence);
+                if (status != VK_SUCCESS) {
+                    if (status != VK_NOT_READY) {
+                        VK_CHECK(status);
+                    }
+
+                    // Status is valid, but fence is not yet signaled
+                    return false;
+                }
+                return true;
+            }
+        );
+        if (it == deviceFences->second.end()) {
+            return VK_NULL_HANDLE;
+        }
+
+        VkFence fence = *it;
+        deviceFences->second.erase(it);
+
+        if (!(pCreateInfo->flags & VK_FENCE_CREATE_SIGNALED_BIT)) {
+            VK_CHECK(m_vk->vkResetFences(device, 1, &fence));
+        }
+
+        return fence;
     }
 
     VkResult on_vkResetFences(android::base::BumpPool* pool,
@@ -2042,6 +2112,17 @@ class VkDecoderGlobalState::Impl {
 
         {
             AutoLock lock(mLock);
+            // External fences are just slated for recycling. This addresses known
+            // behavior where the guest might destroy the fence prematurely. b/228221208
+            if (mFenceInfo[fence].external) {
+                mExternalFencesPool[device].push_back(fence);
+
+                if (mExternalFencesPool[device].size() > 5) {
+                    INFO("External fence pool for %p has size %d", device,
+                         mExternalFencesPool[device].size());
+                }
+                return;
+            }
             mFenceInfo.erase(fence);
         }
 
@@ -6602,6 +6683,8 @@ class VkDecoderGlobalState::Impl {
             kWaiting,
         };
         State state = State::kNotWaitable;
+
+        bool external = false;
     };
 
     struct SemaphoreInfo {
@@ -6765,6 +6848,7 @@ class VkDecoderGlobalState::Impl {
 
     std::unordered_map<VkSemaphore, SemaphoreInfo> mSemaphoreInfo;
     std::unordered_map<VkFence, FenceInfo> mFenceInfo;
+    std::unordered_map<VkDevice, std::vector<VkFence>> mExternalFencesPool;
 
     std::unordered_map<VkDescriptorSetLayout, DescriptorSetLayoutInfo> mDescriptorSetLayoutInfo;
     std::unordered_map<VkDescriptorPool, DescriptorPoolInfo> mDescriptorPoolInfo;
