@@ -3563,7 +3563,7 @@ VkImageLayout FrameBuffer::getVkImageLayoutForComposeLayer() const {
     return VK_IMAGE_LAYOUT_GENERAL;
 }
 
-bool FrameBuffer::platformImportResource(uint32_t handle, uint32_t type, void* resource) {
+bool FrameBuffer::platformImportResource(uint32_t handle, uint32_t info, void* resource) {
     if (!resource) {
         ERR("Error: resource was null");
     }
@@ -3576,11 +3576,14 @@ bool FrameBuffer::platformImportResource(uint32_t handle, uint32_t type, void* r
         return false;
     }
 
+    uint32_t type = (info & RESOURCE_TYPE_MASK);
+    bool preserveContent = (info & RESOURCE_USE_PRESERVE);
+
     switch (type) {
         case RESOURCE_TYPE_EGL_NATIVE_PIXMAP:
-            return (*c).second.cb->importEglNativePixmap(resource);
+            return (*c).second.cb->importEglNativePixmap(resource, preserveContent);
         case RESOURCE_TYPE_EGL_IMAGE:
-            return (*c).second.cb->importEglImage(resource);
+            return (*c).second.cb->importEglImage(resource, preserveContent);
         default:
             ERR("Error: unsupported resource type: %u", type);
             return false;

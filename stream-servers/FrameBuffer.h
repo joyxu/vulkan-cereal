@@ -588,7 +588,7 @@ class FrameBuffer {
     void asyncWaitForGpuVulkanQsriWithCb(uint64_t image, FenceCompletionCallback cb);
     void waitForGpuVulkanQsri(uint64_t image);
 
-    bool platformImportResource(uint32_t handle, uint32_t type, void* resource);
+    bool platformImportResource(uint32_t handle, uint32_t info, void* resource);
     void* platformCreateSharedEglContext(void);
     bool platformDestroySharedEglContext(void* context);
 
