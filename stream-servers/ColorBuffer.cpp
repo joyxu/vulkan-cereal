@@ -1057,7 +1057,7 @@ bool ColorBuffer::importMemory(
     return true;
 }
 
-bool ColorBuffer::importEglNativePixmap(void* pixmap) {
+bool ColorBuffer::importEglNativePixmap(void* pixmap, bool preserveContent) {
 
     EGLImageKHR image = s_egl.eglCreateImageKHR(m_display, EGL_NO_CONTEXT, EGL_NATIVE_PIXMAP_KHR, pixmap, nullptr);
 
@@ -1075,11 +1075,11 @@ bool ColorBuffer::importEglNativePixmap(void* pixmap) {
         return false;
     }
 
-    rebindEglImage(image);
+    rebindEglImage(image, preserveContent);
     return true;
 }
 
-bool ColorBuffer::importEglImage(void* nativeEglImage) {
+bool ColorBuffer::importEglImage(void* nativeEglImage, bool preserveContent) {
     EGLImageKHR image = s_egl.eglImportImageANDROID(m_display, (EGLImage)nativeEglImage);
 
     if (image == EGL_NO_IMAGE_KHR) return false;
@@ -1092,38 +1092,45 @@ bool ColorBuffer::importEglImage(void* nativeEglImage) {
         return false;
     }
 
-    rebindEglImage(image);
+    rebindEglImage(image, preserveContent);
     return true;
 }
 
-std::vector<uint8_t> ColorBuffer::getContentsAndClearStorage() {
+std::vector<uint8_t> ColorBuffer::getContents() {
     // Assume there is a current context.
     size_t bytes;
     readContents(&bytes, nullptr);
-    std::vector<uint8_t> prevContents(bytes);
-    readContents(&bytes, prevContents.data());
-    s_gles2.glDeleteTextures(1, &m_tex);
-    s_egl.eglDestroyImageKHR(m_display, m_eglImage);
-    m_tex = 0;
-    m_eglImage = (EGLImageKHR)0;
-    return prevContents;
+    std::vector<uint8_t> contents(bytes);
+    readContents(&bytes, contents.data());
+    return contents;
 }
 
-void ColorBuffer::restoreContentsAndEglImage(const std::vector<uint8_t>& contents, EGLImageKHR image) {
-    s_gles2.glGenTextures(1, &m_tex);
+void ColorBuffer::clearStorage() {
+    s_gles2.glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, (GLeglImageOES)NULL);
+    s_egl.eglDestroyImageKHR(m_display, m_eglImage);
+    m_eglImage = (EGLImageKHR)0;
+}
+
+void ColorBuffer::restoreEglImage(EGLImageKHR image) {
     s_gles2.glBindTexture(GL_TEXTURE_2D, m_tex);
 
     m_eglImage = image;
     s_gles2.glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, (GLeglImageOES)m_eglImage);
-    m_needFboReattach = true;
-
-    replaceContents(contents.data(), m_numBytes);
 }
 
-void ColorBuffer::rebindEglImage(EGLImageKHR image) {
+void ColorBuffer::rebindEglImage(EGLImageKHR image, bool preserveContent) {
     RecursiveScopedHelperContext context(m_helper);
-    auto contents = getContentsAndClearStorage();
-    restoreContentsAndEglImage(contents, image);
+
+    std::vector<uint8_t> contents;
+    if (preserveContent) {
+        contents = getContents();
+    }
+    clearStorage();
+    restoreEglImage(image);
+
+    if (preserveContent) {
+        replaceContents(contents.data(), m_numBytes);
+    }
 }
 
 void ColorBuffer::setInUse(bool inUse) {

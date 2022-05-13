@@ -917,7 +917,7 @@ TEST_F(FrameBufferTest, PixmapImport_Basic) {
     EXPECT_EQ(0, mFb->openColorBuffer(cb));
     mFb->updateColorBuffer(cb, 0, 0, kWidth, kHeight, GL_RGBA, GL_UNSIGNED_BYTE, forUpdate.data());
 
-    EXPECT_TRUE(mFb->platformImportResource(cb, RESOURCE_TYPE_EGL_NATIVE_PIXMAP, pixmap));
+    EXPECT_TRUE(mFb->platformImportResource(cb, RESOURCE_TYPE_EGL_NATIVE_PIXMAP|RESOURCE_USE_PRESERVE, pixmap));
 
     TestTexture forRead = createTestTextureRGBA8888SingleColor(kWidth, kHeight, 0.0f, 0.0f, 0.0f, 0.0f);
     mFb->readColorBuffer(cb, 0, 0, kWidth, kHeight, GL_RGBA, GL_UNSIGNED_BYTE, forRead.data());
