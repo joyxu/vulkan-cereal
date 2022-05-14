@@ -16,12 +16,18 @@
 #include <vulkan/vulkan.h>
 
 #include <memory>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "VkQsriTimeline.h"
 #include "VulkanDispatch.h"
 #include "VulkanHandleMapping.h"
+#include "base/Lock.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 #include "cereal/common/goldfish_vk_transform.h"
+
+using android::base::Lock;
 
 class VkDecoderSnapshot;
 
@@ -763,6 +769,23 @@ class BoxedHandleUnwrapAndDeletePreserveBoxedMapping : public VulkanHandleMappin
 
     android::base::BumpPool* mPool = nullptr;
     uint64_t** mPreserveBufPtr = nullptr;
+};
+
+template <class TDispatch>
+class ExternalFencePool {
+public:
+    ExternalFencePool(TDispatch* dispatch, VkDevice device);
+    ~ExternalFencePool();
+    void add(VkFence fence);
+    VkFence pop(const VkFenceCreateInfo* pCreateInfo);
+    std::vector<VkFence> popAll();
+
+private:
+    TDispatch* m_vk;
+    VkDevice mDevice;
+    Lock mLock;
+    std::vector<VkFence> mPool;
+    int mMaxSize;
 };
 
 }  // namespace goldfish_vk
