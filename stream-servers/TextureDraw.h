@@ -54,7 +54,7 @@ public:
     }
 
     void setScreenMask(int width, int height, const unsigned char* rgbaData);
-    void drawLayer(ComposeLayer* l, int frameWidth, int frameHeight,
+    void drawLayer(const ComposeLayer& l, int frameWidth, int frameHeight,
                    int cbWidth, int cbHeight, GLuint texture);
     void prepareForDrawLayer();
     void cleanupForDrawLayer();

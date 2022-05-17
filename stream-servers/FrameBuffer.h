@@ -541,6 +541,7 @@ class FrameBuffer {
                        int desiredRotation);
     void onLastColorBufferRef(uint32_t handle);
     ColorBuffer::Helper* getColorBufferHelper() { return m_colorBufferHelper; }
+    ColorBufferPtr findColorBuffer_locked(HandleType p_colorbuffer);
     ColorBufferPtr findColorBuffer(HandleType p_colorbuffer);
 
     void registerProcessCleanupCallback(void* key,
@@ -587,7 +588,7 @@ class FrameBuffer {
     void asyncWaitForGpuVulkanQsriWithCb(uint64_t image, FenceCompletionCallback cb);
     void waitForGpuVulkanQsri(uint64_t image);
 
-    bool platformImportResource(uint32_t handle, uint32_t type, void* resource);
+    bool platformImportResource(uint32_t handle, uint32_t info, void* resource);
     void* platformCreateSharedEglContext(void);
     bool platformDestroySharedEglContext(void* context);
 

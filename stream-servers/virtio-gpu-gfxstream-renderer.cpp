@@ -1528,12 +1528,12 @@ public:
         return 0;
     }
 
-    int platformImportResource(int res_handle, int res_type, void* resource) {
+    int platformImportResource(int res_handle, int res_info, void* resource) {
         AutoLock lock(mLock);
         auto it = mResources.find(res_handle);
         if (it == mResources.end()) return -1;
         bool success =
-            mVirtioGpuOps->platform_import_resource(res_handle, res_type, resource);
+            mVirtioGpuOps->platform_import_resource(res_handle, res_info, resource);
         return success ? 0 : -1;
     }
 
@@ -1808,8 +1808,8 @@ VG_EXPORT int stream_renderer_context_create_fence(
     return 0;
 }
 
-VG_EXPORT int stream_renderer_platform_import_resource(int res_handle, int res_type, void* resource) {
-    return sRenderer()->platformImportResource(res_handle, res_type, resource);
+VG_EXPORT int stream_renderer_platform_import_resource(int res_handle, int res_info, void* resource) {
+    return sRenderer()->platformImportResource(res_handle, res_info, resource);
 }
 
 VG_EXPORT int stream_renderer_platform_resource_info(int res_handle, int* width, int*  height, int* internal_format) {

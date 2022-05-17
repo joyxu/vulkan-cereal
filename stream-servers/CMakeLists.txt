@@ -25,12 +25,11 @@ set(stream-server-core-sources
     VirtioGpuTimelines.cpp
     ChannelStream.cpp
     ColorBuffer.cpp
-    CompositorVk.cpp
     Debug.cpp
-    DisplayVk.cpp
     FbConfig.cpp
     FenceSync.cpp
     GLESVersionDetector.cpp
+    Hwc2.cpp
     PostWorker.cpp
     ReadbackWorker.cpp
     ReadBuffer.cpp
@@ -38,7 +37,6 @@ set(stream-server-core-sources
     RenderChannelImpl.cpp
     RenderThreadInfo.cpp
     RingStream.cpp
-    SwapChainStateVk.cpp
     SyncThread.cpp
     TextureDraw.cpp
     TextureResize.cpp
@@ -50,8 +48,7 @@ set(stream-server-core-sources
     RenderWindow.cpp
     RenderLibImpl.cpp
     RendererImpl.cpp
-    FrameBuffer.cpp
-    vulkan/vk_util.cpp)
+    FrameBuffer.cpp)
 if (APPLE)
     set(stream-server-core-platform-sources NativeSubWindow_cocoa.m)
 elseif (WIN32)
@@ -105,10 +102,6 @@ target_link_libraries(
     gfxstream_backend
     PUBLIC
     gfxstream_backend_static)
-
-if (WIN32)
-    target_link_options(gfxstream_backend PRIVATE /DEBUG)
-endif()
 
 android_install_shared(gfxstream_backend)
 

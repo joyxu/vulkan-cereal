@@ -91,16 +91,15 @@ kEmulatedExtensions[] = {
     "VK_FUCHSIA_buffer_collection",
     "VK_FUCHSIA_external_memory",
     "VK_FUCHSIA_external_semaphore",
-    "VK_EXT_queue_family_foreign",
-    "VK_KHR_external_memory",
-    "VK_KHR_external_memory_capabilities",
-    "VK_KHR_external_semaphore",
-    "VK_KHR_external_semaphore_capabilities",
-    "VK_KHR_external_semaphore_fd",
-    "VK_KHR_external_semaphore_win32",
-    "VK_KHR_external_fence_capabilities",
-    "VK_KHR_external_fence",
-    "VK_KHR_external_fence_fd",
+    VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_FENCE_CAPABILITIES_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_FENCE_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME,
 };
 
 static constexpr uint32_t kMaxSafeVersion = VK_MAKE_VERSION(1, 1, 0);
@@ -706,7 +705,8 @@ class VkDecoderGlobalState::Impl {
         if (instanceInfo->apiVersion >= VK_MAKE_VERSION(1, 1, 0) &&
             physdevInfo->props.apiVersion >= VK_MAKE_VERSION(1, 1, 0)) {
             vk->vkGetPhysicalDeviceFeatures2(physicalDevice, pFeatures);
-        } else if (hasInstanceExtension(instance, "VK_KHR_get_physical_device_properties2")) {
+        } else if (hasInstanceExtension(instance,
+                                        VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
             vk->vkGetPhysicalDeviceFeatures2KHR(physicalDevice, pFeatures);
         } else {
             // No instance extension, fake it!!!!
@@ -811,7 +811,7 @@ class VkDecoderGlobalState::Impl {
                 physicalDevice, pImageFormatInfo, pImageFormatProperties);
         } else if (hasInstanceExtension(
                     instance,
-                    "VK_KHR_get_physical_device_properties2")) {
+                    VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
             res = vk->vkGetPhysicalDeviceImageFormatProperties2KHR(
                 physicalDevice, pImageFormatInfo, pImageFormatProperties);
         } else {
@@ -895,7 +895,7 @@ class VkDecoderGlobalState::Impl {
                     vk, physicalDevice, format, pFormatProperties);
         } else if (hasInstanceExtension(
                     instance,
-                    "VK_KHR_get_physical_device_properties2")) {
+                    VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
             getPhysicalDeviceFormatPropertiesCore<VkFormatProperties2>(
                     [vk](VkPhysicalDevice physicalDevice, VkFormat format,
                         VkFormatProperties2* pFormatProperties) {
@@ -961,7 +961,8 @@ class VkDecoderGlobalState::Impl {
         if (instanceInfo->apiVersion >= VK_MAKE_VERSION(1, 1, 0) &&
             physdevInfo->props.apiVersion >= VK_MAKE_VERSION(1, 1, 0)) {
             vk->vkGetPhysicalDeviceProperties2(physicalDevice, pProperties);
-        } else if (hasInstanceExtension(instance, "VK_KHR_get_physical_device_properties2")) {
+        } else if (hasInstanceExtension(instance,
+                                        VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
             vk->vkGetPhysicalDeviceProperties2KHR(physicalDevice, pProperties);
         } else {
             // No instance extension, fake it!!!!
@@ -1034,7 +1035,8 @@ class VkDecoderGlobalState::Impl {
         if (instanceInfo->apiVersion >= VK_MAKE_VERSION(1, 1, 0) &&
             physdevInfo->props.apiVersion >= VK_MAKE_VERSION(1, 1, 0)) {
             vk->vkGetPhysicalDeviceMemoryProperties2(physicalDevice, pMemoryProperties);
-        } else if (hasInstanceExtension(instance, "VK_KHR_get_physical_device_properties2")) {
+        } else if (hasInstanceExtension(instance,
+                                        VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
             vk->vkGetPhysicalDeviceMemoryProperties2KHR(physicalDevice, pMemoryProperties);
         } else {
             // No instance extension, fake it!!!!
@@ -1090,24 +1092,13 @@ class VkDecoderGlobalState::Impl {
         // If MoltenVK is supported on host, we need to ensure that we include
         // VK_MVK_moltenvk extenstion in returned properties.
         std::vector<VkExtensionProperties> properties;
-        uint32_t propertyCount = 0u;
-        VkResult result = vk->vkEnumerateDeviceExtensionProperties(
-            physicalDevice, pLayerName, &propertyCount, nullptr);
+        VkResult result =
+            enumerateDeviceExtensionProperties(vk, physicalDevice, pLayerName, properties);
         if (result != VK_SUCCESS) {
             return result;
         }
 
-        properties.resize(propertyCount);
-        result = vk->vkEnumerateDeviceExtensionProperties(
-            physicalDevice, pLayerName, &propertyCount, properties.data());
-        if (result != VK_SUCCESS) {
-            return result;
-        }
-
-        if (std::find_if(properties.begin(), properties.end(),
-            [](const VkExtensionProperties& props) {
-                return strcmp(props.extensionName, VK_MVK_MOLTENVK_EXTENSION_NAME) == 0;
-            }) == properties.end()) {
+        if (!hasDeviceExtension(properties, VK_MVK_MOLTENVK_EXTENSION_NAME)) {
             VkExtensionProperties mvk_props;
             strncpy(mvk_props.extensionName, VK_MVK_MOLTENVK_EXTENSION_NAME,
                     sizeof(mvk_props.extensionName));
@@ -1142,6 +1133,14 @@ class VkDecoderGlobalState::Impl {
             filteredExtensionNames(
                     pCreateInfo->enabledExtensionCount,
                     pCreateInfo->ppEnabledExtensionNames);
+
+#ifdef _WIN32
+        // Always request VK_KHR_external_semaphore_win32 if it's supported. This fixes a crash
+        // when RenderDoc is used on Vulkan-on-Vulkan apps.
+        if (isExternalSemaphoreWin32Supported(vk, physicalDevice)) {
+            finalExts.push_back(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
+        }
+#endif
 
         // Run the underlying API call, filtering extensions.
         VkDeviceCreateInfo createInfoFiltered = *pCreateInfo;
@@ -1351,6 +1350,16 @@ class VkDecoderGlobalState::Impl {
             } else {
                 ++eraseIt;
             }
+        }
+
+        // Destroy pooled external fences
+        auto deviceFences = mExternalFencesPool.find(device);
+        if (deviceFences != mExternalFencesPool.end()) {
+            for (auto fence : deviceFences->second) {
+                mFenceInfo.erase(fence);
+                m_vk->vkDestroyFence(device, fence, pAllocator);
+            }
+            mExternalFencesPool.erase(device);
         }
 
         // Run the underlying API call.
@@ -1887,16 +1896,37 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
 
-        VkResult res =
-                vk->vkCreateFence(device, pCreateInfo, pAllocator, pFence);
-        if (res != VK_SUCCESS) {
-            return res;
+        VkFenceCreateInfo& createInfo = const_cast<VkFenceCreateInfo&>(*pCreateInfo);
+
+        const VkExportFenceCreateInfo* exportFenceInfoPtr =
+            vk_find_struct<VkExportFenceCreateInfo>(pCreateInfo);
+        bool exportSyncFd = exportFenceInfoPtr && (exportFenceInfoPtr->handleTypes &
+                                                   VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT);
+        bool fenceReused = false;
+
+        *pFence = VK_NULL_HANDLE;
+
+        if (exportSyncFd) {
+            // Remove VkExportFenceCreateInfo, since host doesn't need to create
+            // an exportable fence in this case
+            vk_struct_chain_remove(exportFenceInfoPtr, &createInfo);
+            *pFence = popExternalFenceFromPool(device, pCreateInfo);
+            if (*pFence != VK_NULL_HANDLE) {
+                fenceReused = true;
+            }
+        }
+
+        if (*pFence == VK_NULL_HANDLE) {
+            VkResult res = vk->vkCreateFence(device, &createInfo, pAllocator, pFence);
+            if (res != VK_SUCCESS) {
+                return res;
+            }
         }
 
         {
             AutoLock lock(mLock);
 
-            DCHECK(mFenceInfo.find(*pFence) == mFenceInfo.end());
+            DCHECK(fenceReused || mFenceInfo.find(*pFence) == mFenceInfo.end());
             // Create FenceInfo for *pFence.
             auto& fenceInfo = mFenceInfo[*pFence];
             fenceInfo.device = device;
@@ -1904,9 +1934,48 @@ class VkDecoderGlobalState::Impl {
 
             *pFence = new_boxed_non_dispatchable_VkFence(*pFence);
             fenceInfo.boxed = *pFence;
+            fenceInfo.external = exportSyncFd;
+            fenceInfo.state = FenceInfo::State::kNotWaitable;
         }
 
-        return res;
+        return VK_SUCCESS;
+    }
+
+    VkFence popExternalFenceFromPool(VkDevice device, const VkFenceCreateInfo* pCreateInfo) {
+        AutoLock lock(mLock);
+
+        auto deviceFences = mExternalFencesPool.find(device);
+        if (deviceFences == mExternalFencesPool.end()) {
+            return VK_NULL_HANDLE;
+        }
+
+        auto it = std::find_if(
+            deviceFences->second.begin(), deviceFences->second.end(),
+            [this, device](const VkFence& fence) {
+                VkResult status = m_vk->vkGetFenceStatus(device, fence);
+                if (status != VK_SUCCESS) {
+                    if (status != VK_NOT_READY) {
+                        VK_CHECK(status);
+                    }
+
+                    // Status is valid, but fence is not yet signaled
+                    return false;
+                }
+                return true;
+            }
+        );
+        if (it == deviceFences->second.end()) {
+            return VK_NULL_HANDLE;
+        }
+
+        VkFence fence = *it;
+        deviceFences->second.erase(it);
+
+        if (!(pCreateInfo->flags & VK_FENCE_CREATE_SIGNALED_BIT)) {
+            VK_CHECK(m_vk->vkResetFences(device, 1, &fence));
+        }
+
+        return fence;
     }
 
     VkResult on_vkResetFences(android::base::BumpPool* pool,
@@ -2042,6 +2111,17 @@ class VkDecoderGlobalState::Impl {
 
         {
             AutoLock lock(mLock);
+            // External fences are just slated for recycling. This addresses known
+            // behavior where the guest might destroy the fence prematurely. b/228221208
+            if (mFenceInfo[fence].external) {
+                mExternalFencesPool[device].push_back(fence);
+
+                if (mExternalFencesPool[device].size() > 5) {
+                    INFO("External fence pool for %p has size %d", device,
+                         mExternalFencesPool[device].size());
+                }
+                return;
+            }
             mFenceInfo.erase(fence);
         }
 
@@ -2604,12 +2684,9 @@ class VkDecoderGlobalState::Impl {
 
         if ((physdevInfo->props.apiVersion >= VK_MAKE_VERSION(1, 1, 0)) &&
             vk->vkGetImageMemoryRequirements2) {
-            vk->vkGetImageMemoryRequirements2(device, pInfo,
-                    pMemoryRequirements);
-        } else if (hasDeviceExtension(device,
-                    "VK_KHR_get_memory_requirements2")) {
-            vk->vkGetImageMemoryRequirements2KHR(device, pInfo,
-                    pMemoryRequirements);
+            vk->vkGetImageMemoryRequirements2(device, pInfo, pMemoryRequirements);
+        } else if (hasDeviceExtension(device, VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME)) {
+            vk->vkGetImageMemoryRequirements2KHR(device, pInfo, pMemoryRequirements);
         } else {
             if (pInfo->pNext) {
                 fprintf(stderr,
@@ -3424,6 +3501,41 @@ class VkDecoderGlobalState::Impl {
 
         return false;
     }
+
+    // Returns whether a vector of VkExtensionProperties contains a particular extension
+    bool hasDeviceExtension(const std::vector<VkExtensionProperties>& properties,
+                            const char* name) {
+        for (const auto& prop : properties) {
+            if (strcmp(prop.extensionName, name) == 0) return true;
+        }
+        return false;
+    }
+
+    // Convenience function to call vkEnumerateDeviceExtensionProperties and get the results as an
+    // std::vector
+    VkResult enumerateDeviceExtensionProperties(VulkanDispatch* vk, VkPhysicalDevice physicalDevice,
+                                                const char* pLayerName,
+                                                std::vector<VkExtensionProperties>& properties) {
+        uint32_t propertyCount = 0;
+        VkResult result = vk->vkEnumerateDeviceExtensionProperties(physicalDevice, pLayerName,
+                                                                   &propertyCount, nullptr);
+        if (result != VK_SUCCESS) return result;
+
+        properties.resize(propertyCount);
+        return vk->vkEnumerateDeviceExtensionProperties(physicalDevice, pLayerName, &propertyCount,
+                                                        properties.data());
+    }
+
+#ifdef _WIN32
+    bool isExternalSemaphoreWin32Supported(VulkanDispatch* vk, VkPhysicalDevice physicalDevice) {
+        std::vector<VkExtensionProperties> properties;
+        VkResult result =
+            enumerateDeviceExtensionProperties(vk, physicalDevice, nullptr, properties);
+        if (result != VK_SUCCESS) return false;
+
+        return hasDeviceExtension(properties, VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
+    }
+#endif
 
     // VK_ANDROID_native_buffer
     VkResult on_vkGetSwapchainGrallocUsageANDROID(
@@ -5061,33 +5173,31 @@ class VkDecoderGlobalState::Impl {
                 if (m_emu->instanceSupportsMoltenVK) {
                     continue;
                 }
-                if (!strcmp("VK_KHR_external_memory_capabilities", extName)) {
-                    res.push_back("VK_KHR_external_memory_capabilities");
+                if (!strcmp(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME, extName)) {
+                    res.push_back(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
                 }
-                if (!strcmp("VK_KHR_external_memory", extName)) {
-                    res.push_back("VK_KHR_external_memory");
+                if (!strcmp(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME, extName)) {
+                    res.push_back(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
                 }
-                if (!strcmp("VK_KHR_external_semaphore_capabilities", extName)) {
-                    res.push_back("VK_KHR_external_semaphore_capabilities");
+                if (!strcmp(VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME, extName)) {
+                    res.push_back(VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME);
                 }
-                if (!strcmp("VK_KHR_external_semaphore", extName)) {
-                    res.push_back("VK_KHR_external_semaphore");
+                if (!strcmp(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME, extName)) {
+                    res.push_back(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
                 }
                 if (!strcmp("VK_ANDROID_external_memory_android_hardware_buffer", extName) ||
                     !strcmp("VK_FUCHSIA_external_memory", extName)) {
 #ifdef _WIN32
-                    res.push_back("VK_KHR_external_memory_win32");
+                    res.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
 #else
-                    res.push_back("VK_KHR_external_memory_fd");
+                    res.push_back(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME);
 #endif
                 }
-                // External semaphore maps to the win32 version on windows,
-                // continues with external semaphore fd on non-windows
-                if (!strcmp("VK_KHR_external_semaphore_fd", extName)) {
-#ifdef _WIN32
-                    res.push_back("VK_KHR_external_semaphore_win32");
-#else
-                    res.push_back("VK_KHR_external_semaphore_fd");
+                // External semaphore - non-Windows case is handled here
+                // Windows case is handled in on_vkCreateDevice
+                if (!strcmp(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME, extName)) {
+#ifndef _WIN32
+                    res.push_back(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME);
 #endif
                 }
             }
@@ -6602,6 +6712,8 @@ class VkDecoderGlobalState::Impl {
             kWaiting,
         };
         State state = State::kNotWaitable;
+
+        bool external = false;
     };
 
     struct SemaphoreInfo {
@@ -6765,6 +6877,7 @@ class VkDecoderGlobalState::Impl {
 
     std::unordered_map<VkSemaphore, SemaphoreInfo> mSemaphoreInfo;
     std::unordered_map<VkFence, FenceInfo> mFenceInfo;
+    std::unordered_map<VkDevice, std::vector<VkFence>> mExternalFencesPool;
 
     std::unordered_map<VkDescriptorSetLayout, DescriptorSetLayoutInfo> mDescriptorSetLayoutInfo;
     std::unordered_map<VkDescriptorPool, DescriptorPoolInfo> mDescriptorPoolInfo;

@@ -782,9 +782,8 @@ VkResult syncImageToColorBuffer(
                 VK_ANB_ERR("Timeout when waiting for the Qsri fence.");
                 break;
             default:
-                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-                    << "Fail to wait for the Qsri VkFence: " << res << "(" << string_VkResult(res)
-                    << ").";
+                ERR("Failed to wait for QSRI fence: %s\n", string_VkResult(res));
+                VK_CHECK(res);
         }
         VK_ANB_DEBUG_OBJ(anbInfoPtr, "wait callback: wait for fence %p...(done)", qsriFence);
         anbInfo->qsriWaitFencePool->returnFence(qsriFence);

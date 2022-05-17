@@ -603,8 +603,8 @@ static struct AndroidVirtioGpuOps sVirtioGpuOps = {
         .wait_for_gpu_vulkan_qsri = [](uint64_t image) {
             FrameBuffer::getFB()->waitForGpuVulkanQsri(image);
         },
-        .platform_import_resource = [](uint32_t handle, uint32_t type, void* resource) {
-            return FrameBuffer::getFB()->platformImportResource(handle, type, resource);
+        .platform_import_resource = [](uint32_t handle, uint32_t info, void* resource) {
+            return FrameBuffer::getFB()->platformImportResource(handle, info, resource);
         },
         .platform_resource_info = [](uint32_t handle, int32_t* width, int32_t* height, int32_t* internal_format) {
             return FrameBuffer::getFB()->getColorBufferInfo(handle, width, height, internal_format);

@@ -1,16 +1,12 @@
-from .common.codegen import CodeGen, VulkanWrapperGenerator, VulkanAPIWrapper
-from .common.vulkantypes import \
-    VulkanAPI, makeVulkanTypeSimple, iterateVulkanType, DISPATCHABLE_HANDLE_TYPES, NON_DISPATCHABLE_HANDLE_TYPES
+from .common.codegen import CodeGen, VulkanWrapperGenerator
+from .common.vulkantypes import VulkanAPI, iterateVulkanType, VulkanType
 
 from .reservedmarshaling import VulkanReservedMarshalingCodegen
-from .transform import TransformCodegen, genTransformsForVulkanType
+from .transform import TransformCodegen
 
-from .wrapperdefs import API_PREFIX_MARSHAL
-from .wrapperdefs import API_PREFIX_UNMARSHAL, API_PREFIX_RESERVEDUNMARSHAL
+from .wrapperdefs import API_PREFIX_RESERVEDUNMARSHAL
 from .wrapperdefs import ROOT_TYPE_DEFAULT_VALUE
-from .wrapperdefs import VULKAN_STREAM_TYPE
 
-from copy import copy
 
 decoder_decl_preamble = """
 """
@@ -149,20 +145,12 @@ def emit_transform(typeInfo, param, cgen, variant="tohost"):
 
 
 class DecodingParameters(object):
-    def __init__(self, api):
-        self.params = []
-        self.toRead = []
-        self.toWrite = []
+    def __init__(self, api: VulkanAPI):
+        self.params: list[VulkanType] = []
+        self.toRead: list[VulkanType] = []
+        self.toWrite: list[VulkanType] = []
 
-        i = 0
-
-        for param in api.parameters[1:]:
-            param.nonDispatchableHandleCreate = False
-            param.nonDispatchableHandleDestroy = False
-            param.dispatchHandle = False
-            param.dispatchableHandleCreate = False
-            param.dispatchableHandleDestroy = False
-
+        for i, param in enumerate(api.parameters[1:]):
             if i == 0 and param.isDispatchableHandleType():
                 param.dispatchHandle = True
 
@@ -184,8 +172,6 @@ class DecodingParameters(object):
                 self.toWrite.append(param)
 
             self.params.append(param)
-
-            i += 1
 
 
 def emit_call_log(api, cgen):
