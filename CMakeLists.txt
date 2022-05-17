@@ -4,6 +4,13 @@ cmake_minimum_required(VERSION 3.18)
 
 option(BUILD_ASAN_WIN32 "Build with ASAN on Windows platform" OFF)
 
+option(BUILD_STANDALONE "Build with standalone implementations of base/host-common libraries" ON)
+if (BUILD_STANDALONE)
+    # These libraries may be changed in non-standalone builds to inject another implementation of
+    # these APIs.
+    set(GFXSTREAM_HOST_COMMON_LIB gfxstream-host-common)
+endif()
+
 if (WIN32)
     add_definitions("-DUNICODE -D_UNICODE -DNOMINMAX -DEMUGL_BUILD -DVK_USE_PLATFORM_WIN32_KHR -DBUILDING_EMUGL_COMMON_SHARED")
 
