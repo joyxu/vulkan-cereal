@@ -98,23 +98,26 @@ target_link_libraries(
     gfxstream-base
     gtest
     gmock)
-add_executable(
-    gfxstream-base_unittests
-    AlignedBuf_unittest.cpp
-    ArraySize_unittest.cpp
-    LayoutResolver_unittest.cpp
-    LruCache_unittest.cpp
-    Optional_unittest.cpp
-    ring_buffer_unittest.cpp
-    StringFormat_unittest.cpp
-    SubAllocator_unittest.cpp
-    TypeTraits_unittest.cpp)
-target_link_libraries(
-    gfxstream-base_unittests
-    PRIVATE
-    gfxstream-base
-    logging-base
-    gfxstream-base-testing-support
-    gmock
-    gtest_main)
-gtest_discover_tests(gfxstream-base_unittests)
+
+if (ENABLE_VKCEREAL_TESTS)
+    add_executable(
+        gfxstream-base_unittests
+        AlignedBuf_unittest.cpp
+        ArraySize_unittest.cpp
+        LayoutResolver_unittest.cpp
+        LruCache_unittest.cpp
+        Optional_unittest.cpp
+        ring_buffer_unittest.cpp
+        StringFormat_unittest.cpp
+        SubAllocator_unittest.cpp
+        TypeTraits_unittest.cpp)
+    target_link_libraries(
+        gfxstream-base_unittests
+        PRIVATE
+        gfxstream-base
+        logging-base
+        gfxstream-base-testing-support
+        gmock
+        gtest_main)
+    gtest_discover_tests(gfxstream-base_unittests)
+endif()

@@ -2,6 +2,7 @@ cmake_policy(SET CMP0048 NEW)
 project(gfx-streaming-kit)
 cmake_minimum_required(VERSION 3.18)
 
+option(ENABLE_VKCEREAL_TESTS "Enable building vulkan-cereal unittests" ON)
 option(BUILD_ASAN_WIN32 "Build with ASAN on Windows platform" OFF)
 
 option(BUILD_STANDALONE "Build with standalone implementations of base/host-common libraries" ON)
