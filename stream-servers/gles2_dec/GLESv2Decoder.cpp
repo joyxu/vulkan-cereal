@@ -269,6 +269,18 @@ int GLESv2Decoder::initGL(get_proc_func_t getProcFunc, void *getProcFuncData)
     OVERRIDE_DEC(glGetProgramResourceIndex)
     OVERRIDE_DEC(glGetProgramResourceLocation)
     OVERRIDE_DEC(glGetProgramResourceName)
+    OVERRIDE_DEC(glTexBufferOES)
+    OVERRIDE_DEC(glTexBufferRangeOES)
+    OVERRIDE_DEC(glTexBufferEXT)
+    OVERRIDE_DEC(glTexBufferRangeEXT)
+    OVERRIDE_DEC(glEnableiEXT);
+    OVERRIDE_DEC(glDisableiEXT);
+    OVERRIDE_DEC(glBlendEquationiEXT);
+    OVERRIDE_DEC(glBlendEquationSeparateiEXT);
+    OVERRIDE_DEC(glBlendFunciEXT);
+    OVERRIDE_DEC(glBlendFuncSeparateiEXT);
+    OVERRIDE_DEC(glColorMaskiEXT);
+    OVERRIDE_DEC(glIsEnablediEXT);
 
     return 0;
 
@@ -900,6 +912,73 @@ void GLESv2Decoder::s_glShaderString(void *self, GLuint shader, const GLchar* st
 void GLESv2Decoder::s_glAttachShader(void* self, GLuint program, GLuint shader) {
     SNAPSHOT_PROGRAM_NAME2(program, shader)
     ctx->glAttachShader(program, shader);
+}
+
+void GLESv2Decoder::s_glTexBufferOES(void* self, GLenum target, GLenum internalformat, GLuint buffer) {
+    GLESv2Decoder* ctx = (GLESv2Decoder*)self;
+    ctx->glTexBufferOES(target, internalformat, buffer);
+}
+
+void GLESv2Decoder::s_glTexBufferEXT(void* self, GLenum target, GLenum internalformat,
+                                     GLuint buffer) {
+    GLESv2Decoder* ctx = (GLESv2Decoder*)self;
+    ctx->glTexBufferEXT(target, internalformat, buffer);
+}
+
+void GLESv2Decoder::s_glTexBufferRangeOES(void* self, GLenum target, GLenum internalformat,
+                                          GLuint buffer,
+                                          GLintptr offset, GLsizeiptr size) {
+    GLESv2Decoder* ctx = (GLESv2Decoder*)self;
+    ctx->glTexBufferRangeOES(target, internalformat, buffer, offset, size);
+}
+
+void GLESv2Decoder::s_glTexBufferRangeEXT(void* self, GLenum target, GLenum internalformat,
+                                          GLuint buffer, GLintptr offset, GLsizeiptr size) {
+    GLESv2Decoder* ctx = (GLESv2Decoder*)self;
+    ctx->glTexBufferRangeEXT(target, internalformat, buffer, offset, size);
+}
+
+void GLESv2Decoder::s_glEnableiEXT(void* self, GLenum cap, GLuint index) {
+    GLESv2Decoder* ctx = (GLESv2Decoder*)self;
+    ctx->glEnableiEXT(cap, index);
+}
+
+void GLESv2Decoder::s_glDisableiEXT(void* self, GLenum cap, GLuint index) {
+    GLESv2Decoder* ctx = (GLESv2Decoder*)self;
+    ctx->glDisableiEXT(cap, index);
+}
+
+void GLESv2Decoder::s_glBlendEquationiEXT(void* self, GLuint buf, GLenum mode) {
+    GLESv2Decoder* ctx = (GLESv2Decoder*)self;
+    ctx->glBlendEquationiEXT(buf, mode);
+}
+
+void GLESv2Decoder::s_glBlendEquationSeparateiEXT(void* self, GLuint buf, GLenum modeRGB,
+                                               GLenum modeAlpha) {
+    GLESv2Decoder* ctx = (GLESv2Decoder*)self;
+    ctx->glBlendEquationSeparateiEXT(buf, modeRGB, modeAlpha);
+}
+
+void GLESv2Decoder::s_glBlendFunciEXT(void* self, GLuint buf, GLenum sfactor, GLenum dfactor) {
+    GLESv2Decoder* ctx = (GLESv2Decoder*)self;
+    ctx->glBlendFunciEXT(buf, sfactor, dfactor);
+}
+
+void GLESv2Decoder::s_glBlendFuncSeparateiEXT(void* self, GLuint buf, GLenum srcRGB, GLenum dstRGB,
+                                           GLenum srcAlpha, GLenum dstAlpha) {
+    GLESv2Decoder* ctx = (GLESv2Decoder*)self;
+    ctx->glBlendFuncSeparateiEXT(buf, srcRGB, dstRGB, srcAlpha, dstAlpha);
+}
+
+void GLESv2Decoder::s_glColorMaskiEXT(void* self, GLuint buf, GLboolean red, GLboolean green,
+                                   GLboolean blue, GLboolean alpha) {
+    GLESv2Decoder* ctx = (GLESv2Decoder*)self;
+    ctx->glColorMaskiEXT(buf, red, green, blue, alpha);
+}
+
+GLboolean GLESv2Decoder::s_glIsEnablediEXT(void* self, GLenum cap, GLuint index) {
+    GLESv2Decoder* ctx = (GLESv2Decoder*)self;
+    return ctx->glIsEnablediEXT(cap, index);
 }
 
 void GLESv2Decoder::s_glDetachShader(void* self, GLuint program, GLuint shader) {
