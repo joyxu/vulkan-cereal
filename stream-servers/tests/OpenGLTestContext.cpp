@@ -119,8 +119,10 @@ void GLTest::SetUp() {
 
     const EGLDispatch* egl = LazyLoadedEGLDispatch::get();
     gl = LazyLoadedGLESv2Dispatch::get();
+    gles1 = LazyLoadedGLESv1Dispatch::get();
     EXPECT_TRUE(egl != nullptr);
     EXPECT_TRUE(gl != nullptr);
+    EXPECT_TRUE(gles1 != nullptr);
 
     m_display = getDisplay();
     m_config = createConfig(m_display, 8, 8, 8, 8, 24, 8, 0);

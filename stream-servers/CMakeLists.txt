@@ -67,6 +67,7 @@ add_library(
 target_link_libraries(
         gfxstream_backend_static
         PUBLIC
+        GLES_CM_translator_static
         gfxstream-host-common
         gfxstream-base
         OpenGLESDispatch
@@ -142,6 +143,8 @@ target_include_directories(
     ${GFXSTREAM_REPO_ROOT}/base/testing
     ${GFXSTREAM_REPO_ROOT}/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/glestranslator/GLES_CM
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/glestranslator/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
     ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan)
 target_link_libraries(
@@ -164,6 +167,7 @@ endif()
 add_executable(
     OpenglRender_unittests
     tests/FrameBuffer_unittest.cpp
+    tests/GLES1Dispatch_unittest.cpp
     tests/DefaultFramebufferBlit_unittest.cpp
     tests/TextureDraw_unittest.cpp
     tests/StalePtrRegistry_unittest.cpp)

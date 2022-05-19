@@ -46,6 +46,7 @@ protected:
     virtual void SetUp();
     virtual void TearDown();
 
+    const GLESv1Dispatch* gles1;
     const GLESv2Dispatch* gl;
     EGLDisplay m_display;
     EGLConfig m_config;
