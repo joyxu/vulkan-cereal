@@ -437,6 +437,18 @@ int gles2_server_context_t::initDispatchByName(void *(*getProc)(const char *, vo
 	glUnmapBufferAsyncAEMU = (glUnmapBufferAsyncAEMU_server_proc_t) getProc("glUnmapBufferAsyncAEMU", userData);
 	glFlushMappedBufferRangeAEMU2 = (glFlushMappedBufferRangeAEMU2_server_proc_t) getProc("glFlushMappedBufferRangeAEMU2", userData);
 	glBufferDataSyncAEMU = (glBufferDataSyncAEMU_server_proc_t) getProc("glBufferDataSyncAEMU", userData);
+	glTexBufferOES = (glTexBufferOES_dec_server_proc_t) getProc("glTexBufferOES", userData);
+	glTexBufferRangeOES = (glTexBufferRangeOES_dec_server_proc_t) getProc("glTexBufferRangeOES", userData);
+	glTexBufferEXT = (glTexBufferEXT_dec_server_proc_t) getProc("glTexBufferEXT", userData);
+	glTexBufferRangeEXT = (glTexBufferRangeEXT_dec_server_proc_t) getProc("glTexBufferRangeEXT", userData);
+	glEnableiEXT = (glEnableiEXT_dec_server_proc_t) getProc("glEnableiEXT", userData);
+	glDisableiEXT = (glDisableiEXT_dec_server_proc_t) getProc("glDisableiEXT", userData);
+	glBlendEquationiEXT = (glBlendEquationiEXT_dec_server_proc_t) getProc("glBlendEquationiEXT", userData);
+	glBlendEquationSeparateiEXT = (glBlendEquationSeparateiEXT_dec_server_proc_t) getProc("glBlendEquationSeparateiEXT", userData);
+	glBlendFunciEXT = (glBlendFunciEXT_dec_server_proc_t) getProc("glBlendFunciEXT", userData);
+	glBlendFuncSeparateiEXT = (glBlendFuncSeparateiEXT_dec_server_proc_t) getProc("glBlendFuncSeparateiEXT", userData);
+	glColorMaskiEXT = (glColorMaskiEXT_dec_server_proc_t) getProc("glColorMaskiEXT", userData);
+	glIsEnablediEXT = (glIsEnablediEXT_dec_server_proc_t) getProc("glIsEnablediEXT", userData);
 	return 0;
 }
 
