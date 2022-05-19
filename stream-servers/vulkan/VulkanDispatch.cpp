@@ -14,10 +14,10 @@
 
 #include "VulkanDispatch.h"
 
-#include "base/PathUtils.h"
-#include "base/System.h"
 #include "base/Lock.h"
+#include "base/PathUtils.h"
 #include "base/SharedLibrary.h"
+#include "base/System.h"
 
 using android::base::AutoLock;
 using android::base::Lock;
@@ -34,9 +34,7 @@ static void setIcdPath(const std::string& path) {
     android::base::setEnvironmentVariable("VK_ICD_FILENAMES", path);
 }
 
-static std::string icdJsonNameToProgramAndLauncherPaths(
-        const std::string& icdFilename) {
-
+static std::string icdJsonNameToProgramAndLauncherPaths(const std::string& icdFilename) {
     std::string suffix = pj({"lib64", "vulkan", icdFilename});
 
     return pj({android::base::getProgramDirectory(), suffix}) + ":" +
@@ -53,13 +51,17 @@ static void initIcdPaths(bool forTesting) {
         if (forTesting || androidIcd == "swiftshader") {
             auto res = pj({android::base::getProgramDirectory(), "lib64", "vulkan"});
             // LOG(VERBOSE) << "In test environment or ICD set to swiftshader, using "
-                            "Swiftshader ICD";
-            auto libPath = pj({android::base::getProgramDirectory(), "lib64", "vulkan", "libvk_swiftshader.so"});;
+            "Swiftshader ICD";
+            auto libPath = pj(
+                {android::base::getProgramDirectory(), "lib64", "vulkan", "libvk_swiftshader.so"});
+            ;
             if (android::base::pathExists(libPath.c_str())) {
                 // LOG(VERBOSE) << "Swiftshader library exists";
             } else {
                 // LOG(VERBOSE) << "Swiftshader library doesn't exist, trying launcher path";
-                libPath = pj({android::base::getLauncherDirectory(), "lib64", "vulkan", "libvk_swiftshader.so"});;
+                libPath = pj({android::base::getLauncherDirectory(), "lib64", "vulkan",
+                              "libvk_swiftshader.so"});
+                ;
                 if (android::base::pathExists(libPath.c_str())) {
                     // LOG(VERBOSE) << "Swiftshader library found in launcher path";
                 } else {
@@ -70,11 +72,11 @@ static void initIcdPaths(bool forTesting) {
             android::base::setEnvironmentVariable("ANDROID_EMU_VK_ICD", "swiftshader");
         } else {
             // LOG(VERBOSE) << "Not in test environment. ICD (blank for default): ["
-                         // << androidIcd << "]";
+            // << androidIcd << "]";
             // Mac: Use MoltenVK by default unless GPU mode is set to swiftshader,
             // and switch between that and gfx-rs libportability-icd depending on
             // the environment variable setting.
-    #ifdef __APPLE__
+#ifdef __APPLE__
             if (androidIcd == "portability") {
                 setIcdPath(icdJsonNameToProgramAndLauncherPaths("portability-macos.json"));
             } else if (androidIcd == "portability-debug") {
@@ -150,7 +152,7 @@ static std::string getMoltenVkPath(const std::string& directory, bool forTesting
 #endif
 
 class SharedLibraries {
-public:
+   public:
     explicit SharedLibraries(size_t sizeLimit = 1) : mSizeLimit(sizeLimit) {}
 
     size_t size() const { return mLibs.size(); }
@@ -166,8 +168,7 @@ public:
             mLibs.push_back(library);
             fprintf(stderr, "added library %s\n", path.c_str());
             return true;
-        }
-        else {
+        } else {
             fprintf(stderr, "cannot add library %s: failed\n", path.c_str());
             return false;
         }
@@ -185,7 +186,7 @@ public:
         return nullptr;
     }
 
-private:
+   private:
     size_t mSizeLimit;
     std::vector<android::base::SharedLibrary*> mLibs;
 };
@@ -203,7 +204,7 @@ static constexpr size_t getVulkanLibraryNumLimits() {
 }
 
 class VulkanDispatchImpl {
-public:
+   public:
     VulkanDispatchImpl() : mVulkanLibs(getVulkanLibraryNumLimits()) {}
 
     void initialize(bool forTesting);
@@ -220,9 +221,8 @@ public:
                 }
 #else
                 mVulkanLibs.addLibrary(VULKAN_LOADER_FILENAME);
-#endif // __linux__
-            }
-            else {
+#endif  // __linux__
+            } else {
                 auto loaderPath = getLoaderPath(android::base::getProgramDirectory(), mForTesting);
                 bool success = mVulkanLibs.addLibrary(loaderPath);
 
@@ -235,10 +235,11 @@ public:
                 // On Linux, it might not be called libvulkan.so.
                 // Try libvulkan.so.1 if that doesn't work.
                 if (!success) {
-                    loaderPath = pj({android::base::getLauncherDirectory(), "lib64", "vulkan", "libvulkan.so.1"});
+                    loaderPath = pj({android::base::getLauncherDirectory(), "lib64", "vulkan",
+                                     "libvulkan.so.1"});
                     mVulkanLibs.addLibrary(loaderPath);
                 }
-#endif // __linux__
+#endif  // __linux__
 #ifdef __APPLE__
                 // On macOS it is possible that we are using MoltenVK as the
                 // ICD. In that case we need to add MoltenVK libraries to
@@ -254,7 +255,7 @@ public:
                         success = mVulkanLibs.addLibrary(mvkPath);
                     }
                 }
-#endif // __APPLE__
+#endif  // __APPLE__
             }
         }
         return static_cast<void*>(&mVulkanLibs);
@@ -266,7 +267,7 @@ public:
 
     VulkanDispatch* dispatch() { return &mDispatch; }
 
-private:
+   private:
     Lock mLock;
     bool mForTesting = false;
     bool mInitialized = false;
@@ -279,9 +280,7 @@ VulkanDispatchImpl* sVulkanDispatchImpl() {
     return impl;
 }
 
-static void* sVulkanDispatchDlOpen()  {
-    return sVulkanDispatchImpl()->dlopen();
-}
+static void* sVulkanDispatchDlOpen() { return sVulkanDispatchImpl()->dlopen(); }
 
 static void* sVulkanDispatchDlSym(void* lib, const char* sym) {
     return sVulkanDispatchImpl()->dlsym(lib, sym);
@@ -297,10 +296,8 @@ void VulkanDispatchImpl::initialize(bool forTesting) {
     mForTesting = forTesting;
     initIcdPaths(mForTesting);
 
-    goldfish_vk::init_vulkan_dispatch_from_system_loader(
-            sVulkanDispatchDlOpen,
-            sVulkanDispatchDlSym,
-            &mDispatch);
+    goldfish_vk::init_vulkan_dispatch_from_system_loader(sVulkanDispatchDlOpen,
+                                                         sVulkanDispatchDlSym, &mDispatch);
 
     mInitialized = true;
 }
@@ -312,8 +309,7 @@ VulkanDispatch* vkDispatch(bool forTesting) {
 
 bool vkDispatchValid(const VulkanDispatch* vk) {
     return vk->vkEnumerateInstanceExtensionProperties != nullptr ||
-           vk->vkGetInstanceProcAddr != nullptr ||
-           vk->vkGetDeviceProcAddr != nullptr;
+           vk->vkGetInstanceProcAddr != nullptr || vk->vkGetDeviceProcAddr != nullptr;
 }
 
-}
+}  // namespace emugl
