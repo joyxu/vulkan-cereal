@@ -88,6 +88,19 @@ testing::AssertionResult compareGlobalGlInt(const GLESv2Dispatch* gl,
                                        describeGlEnum(name) + ":");
 }
 
+testing::AssertionResult compareGlobalGlInt_i(const GLESv2Dispatch* gl,
+                                              GLenum name,
+                                              GLuint index,
+                                              GLint expected) {
+    GLint current;
+    gl->glGetIntegeri_v(name, index, &current);
+    EXPECT_EQ(GL_NO_ERROR, gl->glGetError());
+    return compareValue<GLint>(expected, current,
+                               "GL global int_i mismatch for parameter " +
+                                       describeGlEnum(name) + ":" + std::to_string(index));
+
+}
+
 testing::AssertionResult compareGlobalGlFloat(const GLESv2Dispatch* gl,
                                               GLenum name,
                                               GLfloat expected) {
@@ -174,6 +187,22 @@ testing::AssertionResult compareGlobalGlBooleanv(
             "GL global booleanv parameter " + describeGlEnum(name));
 }
 
+
+testing::AssertionResult compareGlobalGlBooleanv_i(
+        const GLESv2Dispatch* gl,
+        GLenum name,
+        GLuint index,
+        const std::vector<GLboolean>& expected,
+        GLuint size) {
+    std::vector<GLboolean> current;
+    current.resize(std::max(size, static_cast<GLuint>(expected.size())));
+    gl->glGetBooleani_v(name, index,  &current[0]);
+    EXPECT_EQ(GL_NO_ERROR, gl->glGetError());
+    return compareVector<GLboolean>(
+            expected, current,
+            "GL global booleanv_i parameter " + describeGlEnum(name) + ":" + std::to_string(index) );
+}
+
 testing::AssertionResult compareGlobalGlIntv(const GLESv2Dispatch* gl,
                                              GLenum name,
                                              const std::vector<GLint>& expected,
@@ -186,6 +215,7 @@ testing::AssertionResult compareGlobalGlIntv(const GLESv2Dispatch* gl,
             expected, current,
             "GL global intv parameter " + describeGlEnum(name));
 }
+
 
 testing::AssertionResult compareGlobalGlFloatv(
         const GLESv2Dispatch* gl,

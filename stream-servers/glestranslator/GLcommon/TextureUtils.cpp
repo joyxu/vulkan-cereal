@@ -492,7 +492,19 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
             delete [] (char*)data;
         }
     } else if (isAstcFormat(internalformat)) {
-        // TODO: fix the case when GL_PIXEL_UNPACK_BUFFER is bound
+        std::unique_ptr<ScopedFetchUnpackData> unpackData;
+        bool emulateCompressedData = false;
+        if (needUnpackBuffer) {
+            unpackData.reset(
+                new ScopedFetchUnpackData(ctx, reinterpret_cast<GLintptr>(data), imageSize));
+            data = unpackData->data();
+            SET_ERROR_IF(!data, GL_INVALID_OPERATION);
+        } else {
+            if (!data) {
+                emulateCompressedData = true;
+                data = new char[imageSize];
+            }
+        }
         astc_codec::FootprintType footprint;
         bool srgb;
         getAstcFormatInfo(internalformat, &footprint, &srgb);
@@ -512,6 +524,9 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
         glTexImage2DPtr(target, level, srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8, width,
                         height, border, GL_RGBA, GL_UNSIGNED_BYTE,
                         alignedUncompressedData.data());
+        if (emulateCompressedData) {
+            delete[](char*) data;
+        }
 
     } else if (isPaletteFormat(internalformat)) {
         // TODO: fix the case when GL_PIXEL_UNPACK_BUFFER is bound

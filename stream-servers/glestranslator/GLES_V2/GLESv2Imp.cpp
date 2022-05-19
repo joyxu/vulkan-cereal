@@ -154,6 +154,7 @@ GL_APICALL void  GL_APIENTRY glTestHostDriverPerformance(GLuint count, uint64_t*
 GL_APICALL void  GL_APIENTRY glDrawArraysNullAEMU(GLenum mode, GLint first, GLsizei count);
 GL_APICALL void  GL_APIENTRY glDrawElementsNullAEMU(GLenum mode, GLsizei count, GLenum type, const void* indices);
 
+
 // Vulkan/GL interop
 // https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_external_objects.txt
 // Common between GL_EXT_memory_object and GL_EXT_semaphore
@@ -174,7 +175,31 @@ GL_APICALL void GL_APIENTRY glTexStorageMem3DEXT(GLenum target, GLsizei levels, 
 GL_APICALL void GL_APIENTRY glTexStorageMem3DMultisampleEXT(GLenum target, GLsizei samples, GLenum internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedSampleLocations, GLuint memory, GLuint64 offset);
 GL_APICALL void GL_APIENTRY glBufferStorageMemEXT(GLenum target, GLsizeiptr size, GLuint memory, GLuint64 offset);
 GL_APICALL void GL_APIENTRY glTexParameteriHOST(GLenum target, GLenum pname, GLint param);
- 
+
+// GL_OES_texture_buffer
+GL_APICALL void GL_APIENTRY glTexBufferOES(GLenum target, GLenum internalformat, GLuint buffer);
+GL_APICALL void GL_APIENTRY glTexBufferRangeOES(GLenum target, GLenum internalformat, GLuint buffer,
+                                                GLintptr offset, GLsizeiptr size);
+
+// GL_EXT_texture_buffer
+GL_APICALL void GL_APIENTRY glTexBufferEXT(GLenum target, GLenum internalformat, GLuint buffer);
+GL_APICALL void GL_APIENTRY glTexBufferRangeEXT(GLenum target, GLenum internalformat, GLuint buffer,
+                                                GLintptr offset, GLsizeiptr size);
+
+// GL_EXT_draw_buffers_indexed
+GL_APICALL void GL_APIENTRY glTexBufferOES(GLenum target, GLenum internalFormat, GLuint buffer);
+GL_APICALL void GL_APIENTRY glTexBufferRangeOES(GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size);
+GL_APICALL void GL_APIENTRY glTexBufferEXT(GLenum target, GLenum internalFormat, GLuint buffer);
+GL_APICALL void GL_APIENTRY glTexBufferRangeEXT(GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size);
+GL_APICALL void GL_APIENTRY glEnableiEXT(GLenum cap, GLuint index);
+GL_APICALL void GL_APIENTRY glDisableiEXT(GLenum cap, GLuint index);
+GL_APICALL void GL_APIENTRY glBlendEquationiEXT(GLuint index, GLenum mode);
+GL_APICALL void GL_APIENTRY glBlendEquationSeparateiEXT(GLuint index, GLenum modeRGB, GLenum modeAlpha);
+GL_APICALL void GL_APIENTRY glBlendFunciEXT(GLuint index, GLenum sfactor, GLenum dfactor);
+GL_APICALL void GL_APIENTRY glBlendFuncSeparateiEXT(GLuint index, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha);
+GL_APICALL void GL_APIENTRY glColorMaskiEXT(GLuint index, GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha);
+GL_APICALL GLboolean GL_APIENTRY glIsEnablediEXT(GLenum cap, GLuint index);
+
 // Not included: direct-state-access, 1D function pointers
 
 // GL_EXT_semaphore
@@ -319,6 +344,18 @@ static __translatorMustCastToProperFunctionPointerType getProcAddressGles2(const
         (*s_gles2Extensions)["glGetDebugMessageLog"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glGetDebugMessageLog);
         (*s_gles2Extensions)["glPushDebugGroup"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glPushDebugGroup);
         (*s_gles2Extensions)["glPopDebugGroup"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glPopDebugGroup);
+        (*s_gles2Extensions)["glTexBufferOES"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glTexBufferOES);
+        (*s_gles2Extensions)["glTexBufferRangeOES"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glTexBufferRangeOES);
+        (*s_gles2Extensions)["glTexBufferEXT"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glTexBufferEXT);
+        (*s_gles2Extensions)["glTexBufferRangeEXT"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glTexBufferRangeEXT);
+        (*s_gles2Extensions)["glEnableiEXT"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glEnableiEXT);
+        (*s_gles2Extensions)["glDisableiEXT"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glDisableiEXT);
+        (*s_gles2Extensions)["glBlendEquationiEXT"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glBlendEquationiEXT);
+        (*s_gles2Extensions)["glBlendEquationSeparateiEXT"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glBlendEquationSeparateiEXT);
+        (*s_gles2Extensions)["glBlendFunciEXT"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glBlendFunciEXT);
+        (*s_gles2Extensions)["glBlendFuncSeparateiEXT"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glBlendFuncSeparateiEXT);
+        (*s_gles2Extensions)["glColorMaskiEXT"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glColorMaskiEXT);
+        (*s_gles2Extensions)["glIsEnablediEXT"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glIsEnablediEXT);
     }
     __translatorMustCastToProperFunctionPointerType ret=NULL;
     ProcTableMap::iterator val = s_gles2Extensions->find(procName);
@@ -1385,6 +1422,8 @@ GL_APICALL void  GL_APIENTRY glDeleteTextures(GLsizei n, const GLuint* textures)
                     ctx->setBindedTexture(GL_TEXTURE_3D,0);
                 if (ctx->getBindedTexture(GL_TEXTURE_2D_MULTISAMPLE) == textures[i])
                     ctx->setBindedTexture(GL_TEXTURE_2D_MULTISAMPLE,0);
+                if (ctx->getBindedTexture(GL_TEXTURE_BUFFER) == textures[i])
+                    ctx->setBindedTexture(GL_TEXTURE_BUFFER,0);
                 s_detachFromFramebuffer(NamedObjectType::TEXTURE, textures[i], GL_DRAW_FRAMEBUFFER);
                 s_detachFromFramebuffer(NamedObjectType::TEXTURE, textures[i], GL_READ_FRAMEBUFFER);
                 ctx->shareGroup()->deleteName(NamedObjectType::TEXTURE,
@@ -2104,6 +2143,9 @@ static void s_glStateQueryTv(bool es2, GLenum pname, T* params, GLStateQueryFunc
     case GL_SHADER_STORAGE_BUFFER_BINDING:
         *params = ctx->getBuffer(GL_SHADER_STORAGE_BUFFER);
         break;
+    case GL_TEXTURE_BUFFER_BINDING:
+        *params = ctx->getBuffer(GL_TEXTURE_BUFFER);
+        break;
     case GL_TEXTURE_BINDING_2D:
         *params = ctx->getBindedTexture(GL_TEXTURE_2D);
         break;
@@ -2118,6 +2160,9 @@ static void s_glStateQueryTv(bool es2, GLenum pname, T* params, GLStateQueryFunc
         break;
     case GL_TEXTURE_BINDING_2D_MULTISAMPLE:
         *params = ctx->getBindedTexture(GL_TEXTURE_2D_MULTISAMPLE);
+        break;
+    case GL_TEXTURE_BINDING_BUFFER:
+        *params = ctx->getBindedTexture(GL_TEXTURE_BUFFER);
         break;
     case GL_SAMPLER_BINDING:
         if (ctx->shareGroup().get()) {
@@ -2327,6 +2372,9 @@ GL_APICALL void  GL_APIENTRY glGetBooleanv(GLenum pname, GLboolean* params){
     case GL_SHADER_STORAGE_BUFFER_BINDING:
         TO_GLBOOL(params, ctx->getBuffer(GL_SHADER_STORAGE_BUFFER));
         break;
+    case GL_TEXTURE_BUFFER_BINDING:
+        TO_GLBOOL(params, ctx->getBuffer(GL_TEXTURE_BUFFER));
+        break;
     case GL_TEXTURE_BINDING_2D:
         TO_GLBOOL(params, ctx->getBindedTexture(GL_TEXTURE_2D));
         break;
@@ -2341,6 +2389,9 @@ GL_APICALL void  GL_APIENTRY glGetBooleanv(GLenum pname, GLboolean* params){
         break;
     case GL_TEXTURE_BINDING_2D_MULTISAMPLE:
         TO_GLBOOL(params, ctx->getBindedTexture(GL_TEXTURE_2D_MULTISAMPLE));
+        break;
+    case GL_TEXTURE_BINDING_BUFFER:
+        TO_GLBOOL(params, ctx->getBindedTexture(GL_TEXTURE_BUFFER));
         break;
     case GL_SAMPLER_BINDING:
         if (ctx->shareGroup().get()) {

@@ -9505,6 +9505,245 @@ size_t gles2_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::endTrace();
 			break;
 		}
+		case OP_glTexBufferOES: {
+			android::base::beginTrace("glTexBufferOES decode");
+			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
+			GLenum var_internalFormat = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
+			GLuint var_buffer = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
+					"gles2_decoder_context_t::decode, OP_glTexBufferOES: GL checksumCalculator failure\n");
+			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles2 Error (pre-call): 0x%X before glTexBufferOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles2(%p): glTexBufferOES(target:0x%08x internalFormat:0x%08x buffer:%u )", stream, var_target, var_internalFormat, var_buffer);
+			this->glTexBufferOES_dec(this, var_target, var_internalFormat, var_buffer);
+			SET_LASTCALL("glTexBufferOES");
+			android::base::endTrace();
+			break;
+		}
+		case OP_glTexBufferRangeOES: {
+			android::base::beginTrace("glTexBufferRangeOES decode");
+			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
+			GLenum var_internalFormat = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
+			GLuint var_buffer = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4);
+			GLintptr var_offset = Unpack<GLintptr,uint32_t>(ptr + 8 + 4 + 4 + 4);
+			GLsizeiptr var_size = Unpack<GLsizeiptr,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize,
+					"gles2_decoder_context_t::decode, OP_glTexBufferRangeOES: GL checksumCalculator failure\n");
+			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles2 Error (pre-call): 0x%X before glTexBufferRangeOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles2(%p): glTexBufferRangeOES(target:0x%08x internalFormat:0x%08x buffer:%u offset:0x%08lx size:0x%08lx )", stream, var_target, var_internalFormat, var_buffer, var_offset, var_size);
+			this->glTexBufferRangeOES_dec(this, var_target, var_internalFormat, var_buffer, var_offset, var_size);
+			SET_LASTCALL("glTexBufferRangeOES");
+			android::base::endTrace();
+			break;
+		}
+		case OP_glTexBufferEXT: {
+			android::base::beginTrace("glTexBufferEXT decode");
+			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
+			GLenum var_internalFormat = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
+			GLuint var_buffer = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
+					"gles2_decoder_context_t::decode, OP_glTexBufferEXT: GL checksumCalculator failure\n");
+			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles2 Error (pre-call): 0x%X before glTexBufferEXT\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles2(%p): glTexBufferEXT(target:0x%08x internalFormat:0x%08x buffer:%u )", stream, var_target, var_internalFormat, var_buffer);
+			this->glTexBufferEXT_dec(this, var_target, var_internalFormat, var_buffer);
+			SET_LASTCALL("glTexBufferEXT");
+			android::base::endTrace();
+			break;
+		}
+		case OP_glTexBufferRangeEXT: {
+			android::base::beginTrace("glTexBufferRangeEXT decode");
+			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
+			GLenum var_internalFormat = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
+			GLuint var_buffer = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4);
+			GLintptr var_offset = Unpack<GLintptr,uint32_t>(ptr + 8 + 4 + 4 + 4);
+			GLsizeiptr var_size = Unpack<GLsizeiptr,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize,
+					"gles2_decoder_context_t::decode, OP_glTexBufferRangeEXT: GL checksumCalculator failure\n");
+			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles2 Error (pre-call): 0x%X before glTexBufferRangeEXT\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles2(%p): glTexBufferRangeEXT(target:0x%08x internalFormat:0x%08x buffer:%u offset:0x%08lx size:0x%08lx )", stream, var_target, var_internalFormat, var_buffer, var_offset, var_size);
+			this->glTexBufferRangeEXT_dec(this, var_target, var_internalFormat, var_buffer, var_offset, var_size);
+			SET_LASTCALL("glTexBufferRangeEXT");
+			android::base::endTrace();
+			break;
+		}
+		case OP_glEnableiEXT: {
+			android::base::beginTrace("glEnableiEXT decode");
+			GLenum var_cap = Unpack<GLenum,uint32_t>(ptr + 8);
+			GLuint var_index = Unpack<GLuint,uint32_t>(ptr + 8 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
+					"gles2_decoder_context_t::decode, OP_glEnableiEXT: GL checksumCalculator failure\n");
+			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles2 Error (pre-call): 0x%X before glEnableiEXT\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles2(%p): glEnableiEXT(cap:0x%08x index:%u )", stream, var_cap, var_index);
+			this->glEnableiEXT_dec(this, var_cap, var_index);
+			SET_LASTCALL("glEnableiEXT");
+			android::base::endTrace();
+			break;
+		}
+		case OP_glDisableiEXT: {
+			android::base::beginTrace("glDisableiEXT decode");
+			GLenum var_cap = Unpack<GLenum,uint32_t>(ptr + 8);
+			GLuint var_index = Unpack<GLuint,uint32_t>(ptr + 8 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
+					"gles2_decoder_context_t::decode, OP_glDisableiEXT: GL checksumCalculator failure\n");
+			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles2 Error (pre-call): 0x%X before glDisableiEXT\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles2(%p): glDisableiEXT(cap:0x%08x index:%u )", stream, var_cap, var_index);
+			this->glDisableiEXT_dec(this, var_cap, var_index);
+			SET_LASTCALL("glDisableiEXT");
+			android::base::endTrace();
+			break;
+		}
+		case OP_glBlendEquationiEXT: {
+			android::base::beginTrace("glBlendEquationiEXT decode");
+			GLuint var_index = Unpack<GLuint,uint32_t>(ptr + 8);
+			GLenum var_mode = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
+					"gles2_decoder_context_t::decode, OP_glBlendEquationiEXT: GL checksumCalculator failure\n");
+			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles2 Error (pre-call): 0x%X before glBlendEquationiEXT\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles2(%p): glBlendEquationiEXT(index:%u mode:0x%08x )", stream, var_index, var_mode);
+			this->glBlendEquationiEXT_dec(this, var_index, var_mode);
+			SET_LASTCALL("glBlendEquationiEXT");
+			android::base::endTrace();
+			break;
+		}
+		case OP_glBlendEquationSeparateiEXT: {
+			android::base::beginTrace("glBlendEquationSeparateiEXT decode");
+			GLuint var_index = Unpack<GLuint,uint32_t>(ptr + 8);
+			GLenum var_modeRGB = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
+			GLenum var_modeAlpha = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
+					"gles2_decoder_context_t::decode, OP_glBlendEquationSeparateiEXT: GL checksumCalculator failure\n");
+			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles2 Error (pre-call): 0x%X before glBlendEquationSeparateiEXT\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles2(%p): glBlendEquationSeparateiEXT(index:%u modeRGB:0x%08x modeAlpha:0x%08x )", stream, var_index, var_modeRGB, var_modeAlpha);
+			this->glBlendEquationSeparateiEXT_dec(this, var_index, var_modeRGB, var_modeAlpha);
+			SET_LASTCALL("glBlendEquationSeparateiEXT");
+			android::base::endTrace();
+			break;
+		}
+		case OP_glBlendFunciEXT: {
+			android::base::beginTrace("glBlendFunciEXT decode");
+			GLuint var_index = Unpack<GLuint,uint32_t>(ptr + 8);
+			GLenum var_sfactor = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
+			GLenum var_dfactor = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
+					"gles2_decoder_context_t::decode, OP_glBlendFunciEXT: GL checksumCalculator failure\n");
+			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles2 Error (pre-call): 0x%X before glBlendFunciEXT\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles2(%p): glBlendFunciEXT(index:%u sfactor:0x%08x dfactor:0x%08x )", stream, var_index, var_sfactor, var_dfactor);
+			this->glBlendFunciEXT_dec(this, var_index, var_sfactor, var_dfactor);
+			SET_LASTCALL("glBlendFunciEXT");
+			android::base::endTrace();
+			break;
+		}
+		case OP_glBlendFuncSeparateiEXT: {
+			android::base::beginTrace("glBlendFuncSeparateiEXT decode");
+			GLuint var_index = Unpack<GLuint,uint32_t>(ptr + 8);
+			GLenum var_srcRGB = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
+			GLenum var_dstRGB = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4);
+			GLenum var_srcAlpha = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4 + 4);
+			GLenum var_dstAlpha = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize,
+					"gles2_decoder_context_t::decode, OP_glBlendFuncSeparateiEXT: GL checksumCalculator failure\n");
+			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles2 Error (pre-call): 0x%X before glBlendFuncSeparateiEXT\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles2(%p): glBlendFuncSeparateiEXT(index:%u srcRGB:0x%08x dstRGB:0x%08x srcAlpha:0x%08x dstAlpha:0x%08x )", stream, var_index, var_srcRGB, var_dstRGB, var_srcAlpha, var_dstAlpha);
+			this->glBlendFuncSeparateiEXT_dec(this, var_index, var_srcRGB, var_dstRGB, var_srcAlpha, var_dstAlpha);
+			SET_LASTCALL("glBlendFuncSeparateiEXT");
+			android::base::endTrace();
+			break;
+		}
+		case OP_glColorMaskiEXT: {
+			android::base::beginTrace("glColorMaskiEXT decode");
+			GLuint var_index = Unpack<GLuint,uint32_t>(ptr + 8);
+			GLboolean var_red = Unpack<GLboolean,uint8_t>(ptr + 8 + 4);
+			GLboolean var_green = Unpack<GLboolean,uint8_t>(ptr + 8 + 4 + 1);
+			GLboolean var_blue = Unpack<GLboolean,uint8_t>(ptr + 8 + 4 + 1 + 1);
+			GLboolean var_alpha = Unpack<GLboolean,uint8_t>(ptr + 8 + 4 + 1 + 1 + 1);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 1 + 1 + 1 + 1, ptr + 8 + 4 + 1 + 1 + 1 + 1, checksumSize,
+					"gles2_decoder_context_t::decode, OP_glColorMaskiEXT: GL checksumCalculator failure\n");
+			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles2 Error (pre-call): 0x%X before glColorMaskiEXT\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles2(%p): glColorMaskiEXT(index:%u red:%d green:%d blue:%d alpha:%d )", stream, var_index, var_red, var_green, var_blue, var_alpha);
+			this->glColorMaskiEXT_dec(this, var_index, var_red, var_green, var_blue, var_alpha);
+			SET_LASTCALL("glColorMaskiEXT");
+			android::base::endTrace();
+			break;
+		}
+		case OP_glIsEnablediEXT: {
+			android::base::beginTrace("glIsEnablediEXT decode");
+			GLenum var_cap = Unpack<GLenum,uint32_t>(ptr + 8);
+			GLuint var_index = Unpack<GLuint,uint32_t>(ptr + 8 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
+					"gles2_decoder_context_t::decode, OP_glIsEnablediEXT: GL checksumCalculator failure\n");
+			}
+			size_t totalTmpSize = sizeof(GLboolean);
+			totalTmpSize += checksumSize;
+			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles2 Error (pre-call): 0x%X before glIsEnablediEXT\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles2(%p): glIsEnablediEXT(cap:0x%08x index:%u )", stream, var_cap, var_index);
+			*(GLboolean *)(&tmpBuf[0]) = 			this->glIsEnablediEXT_dec(this, var_cap, var_index);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
+			}
+			stream->flush();
+			SET_LASTCALL("glIsEnablediEXT");
+			android::base::endTrace();
+			break;
+		}
 		default:
 			return ptr - (unsigned char*)buf;
 		} //switch

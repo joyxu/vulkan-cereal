@@ -374,7 +374,7 @@ bool TextureDraw::drawImpl(GLuint texture, float rotation,
         indexShift = 6 * kIndicesPerDraw;
         break;
     }
-
+    s_gles2.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     s_gles2.glClear(GL_COLOR_BUFFER_BIT);
     s_gles2.glDrawElements(GL_TRIANGLES, kIndicesPerDraw, GL_UNSIGNED_BYTE,
                            (const GLvoid*)indexShift);

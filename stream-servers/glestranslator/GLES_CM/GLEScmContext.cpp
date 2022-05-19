@@ -76,7 +76,7 @@ void GLEScmContext::init() {
 void GLEScmContext::initGlobal(EGLiface* eglIface) {
     s_glDispatch.dispatchFuncs(s_maxGlesVersion, eglIface->eglGetGlLibrary(), eglIface->getProcAddress);
     GLEScontext::initGlobal(eglIface);
-    buildStrings(true /* is gles1 */,
+    buildStrings( 1, 1,
                  (const char*)dispatcher().glGetString(GL_VENDOR),
                  (const char*)dispatcher().glGetString(GL_RENDERER),
                  (const char*)dispatcher().glGetString(GL_VERSION),
@@ -717,23 +717,24 @@ const GLESpointer* GLEScmContext::getPointer(GLenum arrType) {
 
 void GLEScmContext::initExtensionString() {
     if (s_glExtensionsGles1Initialized) return;
-
+    initCapsLocked((const GLubyte*)getHostExtensionsString(&s_glDispatch).c_str(),
+                   s_glSupportGles1);
     *s_glExtensionsGles1 = "GL_OES_blend_func_separate GL_OES_blend_equation_separate GL_OES_blend_subtract "
                       "GL_OES_byte_coordinates GL_OES_compressed_paletted_texture GL_OES_point_size_array "
                       "GL_OES_point_sprite GL_OES_single_precision GL_OES_stencil_wrap GL_OES_texture_env_crossbar "
                       "GL_OES_texture_mirored_repeat GL_OES_EGL_image GL_OES_element_index_uint GL_OES_draw_texture "
                       "GL_OES_texture_cube_map GL_OES_draw_texture ";
-    if (s_glSupport.GL_OES_READ_FORMAT)
+    if (s_glSupportGles1.GL_OES_READ_FORMAT)
         *s_glExtensionsGles1+="GL_OES_read_format ";
-    if (s_glSupport.GL_EXT_FRAMEBUFFER_OBJECT) {
+    if (s_glSupportGles1.GL_EXT_FRAMEBUFFER_OBJECT) {
         *s_glExtensionsGles1+="GL_OES_framebuffer_object GL_OES_depth24 GL_OES_depth32 GL_OES_fbo_render_mipmap "
                          "GL_OES_rgb8_rgba8 GL_OES_stencil1 GL_OES_stencil4 GL_OES_stencil8 ";
     }
-    if (s_glSupport.GL_EXT_PACKED_DEPTH_STENCIL)
+    if (s_glSupportGles1.GL_EXT_PACKED_DEPTH_STENCIL)
         *s_glExtensionsGles1+="GL_OES_packed_depth_stencil ";
-    if (s_glSupport.GL_EXT_TEXTURE_FORMAT_BGRA8888)
+    if (s_glSupportGles1.GL_EXT_TEXTURE_FORMAT_BGRA8888)
         *s_glExtensionsGles1+="GL_EXT_texture_format_BGRA8888 GL_APPLE_texture_format_BGRA8888 ";
-    if (s_glSupport.GL_ARB_MATRIX_PALETTE && s_glSupport.GL_ARB_VERTEX_BLEND) {
+    if (s_glSupportGles1.GL_ARB_MATRIX_PALETTE && s_glSupportGles1.GL_ARB_VERTEX_BLEND) {
         *s_glExtensionsGles1+="GL_OES_matrix_palette ";
         GLint max_palette_matrices=0;
         GLint max_vertex_units=0;
