@@ -15,25 +15,23 @@
 */
 #include "ColorBuffer.h"
 
+#include <GLES2/gl2ext.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "BorrowedImageGl.h"
 #include "Debug.h"
 #include "DispatchTables.h"
-#include "glestranslator/include/GLcommon/GLutils.h"
+#include "OpenGLESDispatch/DispatchTables.h"
+#include "OpenGLESDispatch/EGLDispatch.h"
 #include "RenderThreadInfo.h"
 #include "TextureDraw.h"
 #include "TextureResize.h"
 #include "YUVConverter.h"
-#include "vulkan/VulkanDispatch.h"
-#include "vulkan/VkCommonOperations.h"
-
-#include "OpenGLESDispatch/DispatchTables.h"
-#include "OpenGLESDispatch/EGLDispatch.h"
-
+#include "glestranslator/include/GLcommon/GLutils.h"
 #include "host-common/misc.h"
-
-#include <GLES2/gl2ext.h>
-
-#include <stdio.h>
-#include <string.h>
+#include "vulkan/VkCommonOperations.h"
+#include "vulkan/VulkanDispatch.h"
 
 #define DEBUG_CB_FBO 0
 
@@ -1135,4 +1133,14 @@ void ColorBuffer::rebindEglImage(EGLImageKHR image, bool preserveContent) {
 
 void ColorBuffer::setInUse(bool inUse) {
     m_inUse = inUse;
+}
+
+std::unique_ptr<BorrowedImageInfo> ColorBuffer::getBorrowedImageInfo() {
+    auto info = std::make_unique<BorrowedImageInfoGl>();
+    info->id = mHndl;
+    info->width = m_width;
+    info->height = m_height;
+    info->texture = m_tex;
+    info->onCommandsIssued = [this]() { setSync(); };
+    return info;
 }
