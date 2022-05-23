@@ -872,6 +872,10 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         }
     }
 
+    GL_LOG("Performing composition using CompositorGl.");
+    fb->m_compositorGl = std::make_unique<CompositorGl>();
+    fb->m_compositor = fb->m_compositorGl.get();
+
     INFO("Graphics Adapter Vendor %s", fb->m_graphicsAdapterVendor.c_str());
     INFO("Graphics Adapter %s", fb->m_graphicsAdapterName.c_str());
     INFO("Graphics API Version %s", fb->m_graphicsApiVersion.c_str());
@@ -1131,12 +1135,20 @@ std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
                     return true;
                 }
                 if (m_subWin) {
-                    return bindSubwin_locked();
+                    if (!bindSubwin_locked()) {
+                        return false;
+                    }
                 } else {
-                    return bindFakeWindow_locked();
+                    if (!bindFakeWindow_locked()) {
+                        return false;
+                    }
                 }
+                if (m_compositorGl) {
+                    m_compositorGl->bindToWindow();
+                }
+                return true;
             },
-            postOnlyOnMainThread, m_eglContext, m_eglSurface, m_displayVk));
+            postOnlyOnMainThread, m_eglContext, m_eglSurface, m_compositor, m_displayVk));
         m_postThread.start();
     }
 
@@ -3630,4 +3642,24 @@ bool FrameBuffer::platformDestroySharedEglContext(void* underlyingContext) {
     m_platformEglContexts.erase(it);
 
     return true;
+}
+
+std::unique_ptr<BorrowedImageInfo> FrameBuffer::borrowColorBufferForComposition(
+        uint32_t colorBufferHandle) {
+    ColorBufferPtr colorBufferPtr = findColorBuffer(colorBufferHandle);
+    if (!colorBufferPtr) {
+        ERR("Failed to get borrowed image info for ColorBuffer:%d", colorBufferHandle);
+        return nullptr;
+    }
+    return colorBufferPtr->getBorrowedImageInfo();
+}
+
+std::unique_ptr<BorrowedImageInfo> FrameBuffer::borrowColorBufferForDisplay(
+        uint32_t colorBufferHandle) {
+    ColorBufferPtr colorBufferPtr = findColorBuffer(colorBufferHandle);
+    if (!colorBufferPtr) {
+        ERR("Failed to get borrowed image info for ColorBuffer:%d", colorBufferHandle);
+        return nullptr;
+    }
+    return colorBufferPtr->getBorrowedImageInfo();
 }

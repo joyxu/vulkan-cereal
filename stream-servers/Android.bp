@@ -53,6 +53,7 @@ cc_library_shared {
     srcs: [
         "ChannelStream.cpp",
         "ColorBuffer.cpp",
+        "CompositorGl.cpp",
         "Debug.cpp",
         "FbConfig.cpp",
         "FenceSync.cpp",

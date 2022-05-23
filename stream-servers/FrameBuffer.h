@@ -28,7 +28,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "CompositorGl.h"
 #include "ColorBuffer.h"
+#include "Compositor.h"
 #include "DisplayVk.h"
 #include "FbConfig.h"
 #include "GLESVersionDetector.h"
@@ -592,6 +594,9 @@ class FrameBuffer {
 
     VkImageLayout getVkImageLayoutForComposeLayer() const;
 
+    std::unique_ptr<BorrowedImageInfo> borrowColorBufferForComposition(uint32_t colorBufferHandle);
+    std::unique_ptr<BorrowedImageInfo> borrowColorBufferForDisplay(uint32_t colorBufferHandle);
+
    private:
     FrameBuffer(int p_width, int p_height, bool useSubWindow);
     // Requires the caller to hold the m_colorBufferMapLock until the new handle is inserted into of
@@ -786,6 +791,11 @@ class FrameBuffer {
 
     android::base::MessageChannel<HandleType, 1024>
         mOutstandingColorBufferDestroys;
+
+    Compositor* m_compositor = nullptr;
+    // FrameBuffer owns the CompositorGl if used as there is no GlEmulation
+    // equivalent to VkEmulation,
+    std::unique_ptr<CompositorGl> m_compositorGl;
 
     // The implementation for Vulkan native swapchain. Only initialized when useVulkan is set when
     // calling FrameBuffer::initialize(). DisplayVk is actually owned by VkEmulation.

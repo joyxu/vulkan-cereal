@@ -25,6 +25,7 @@
 #include <optional>
 #include <vector>
 
+#include "Compositor.h"
 #include "DisplayVk.h"
 #include "Hwc2.h"
 #include "PostCommands.h"
@@ -42,7 +43,7 @@ class PostWorker {
     using BindSubwinCallback = std::function<bool(void)>;
 
     PostWorker(BindSubwinCallback&& cb, bool mainThreadPostingOnly, EGLContext eglContext,
-               EGLSurface eglSurface, DisplayVk*);
+               EGLSurface eglSurface, Compositor*, DisplayVk*);
     ~PostWorker();
 
     // post: posts the next color buffer.
@@ -79,7 +80,6 @@ class PostWorker {
     void bind();
     void unbind();
 
-    void glesComposeLayer(const ComposeLayer& l, uint32_t w, uint32_t h);
     void fillMultiDisplayPostStruct(ComposeLayer* l, hwc_rect_t displayArea,
                                     hwc_frect_t cropArea,
                                     hwc_transform_t transform);
@@ -99,12 +99,13 @@ class PostWorker {
 
     FrameBuffer* mFb;
 
+    Compositor* m_compositor = nullptr;
+
     std::function<bool(void)> mBindSubwin;
 
     bool m_needsToRebindWindow = true;
     int m_viewportWidth = 0;
     int m_viewportHeight = 0;
-    GLuint m_composeFbo = 0;
 
     bool m_mainThreadPostingOnly = false;
     UiThreadRunner m_runOnUiThread = 0;
