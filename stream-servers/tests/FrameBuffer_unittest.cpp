@@ -538,16 +538,14 @@ TEST_F(FrameBufferTest, SnapshotFastBlitRestore) {
     EXPECT_TRUE(mFb->isFastBlitSupported());
 
     mFb->lock();
-    EXPECT_EQ(mFb->isFastBlitSupported(),
-              mFb->getColorBuffer_locked(handle)->isFastBlitSupported());
+    EXPECT_EQ(mFb->isFastBlitSupported(), mFb->findColorBuffer(handle)->isFastBlitSupported());
     mFb->unlock();
 
     saveSnapshot();
     loadSnapshot();
 
     mFb->lock();
-    EXPECT_EQ(mFb->isFastBlitSupported(),
-              mFb->getColorBuffer_locked(handle)->isFastBlitSupported());
+    EXPECT_EQ(mFb->isFastBlitSupported(), mFb->findColorBuffer(handle)->isFastBlitSupported());
     mFb->unlock();
 
     mFb->closeColorBuffer(handle);
