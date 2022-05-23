@@ -236,7 +236,7 @@ WindowSurface * WindowSurface::onLoad(android::base::Stream* stream,
     WindowSurface* ret = create(display, config, width, height, hndl);
     assert(ret);
     // fb is already locked by its caller
-    ret->mAttachedColorBuffer = fb->getColorBuffer_locked(cb);
+    ret->mAttachedColorBuffer = fb->findColorBuffer(cb);
     assert(!cb || ret->mAttachedColorBuffer);
     ret->mReadContext = fb->getContext_locked(readCtx);
     ret->mDrawContext = fb->getContext_locked(drawCtx);
