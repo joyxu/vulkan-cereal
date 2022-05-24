@@ -28,9 +28,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "CompositorGl.h"
 #include "ColorBuffer.h"
 #include "Compositor.h"
+#include "CompositorGl.h"
 #include "DisplayVk.h"
 #include "FbConfig.h"
 #include "GLESVersionDetector.h"
@@ -42,8 +42,10 @@
 #include "Renderer.h"
 #include "TextureDraw.h"
 #include "WindowSurface.h"
+#include "base/HealthMonitor.h"
 #include "base/Lock.h"
 #include "base/MessageChannel.h"
+#include "base/Metrics.h"
 #include "base/Stream.h"
 #include "base/Thread.h"
 #include "base/WorkerThread.h"
@@ -52,6 +54,10 @@
 #include "snapshot/common.h"
 #include "virtio_gpu_ops.h"
 #include "vulkan/vk_util.h"
+
+using android::base::CreateMetricsLogger;
+using emugl::HealthMonitor;
+using emugl::MetricsLogger;
 
 struct ColorBufferRef {
     ColorBufferPtr cb;
@@ -596,6 +602,8 @@ class FrameBuffer {
                                                                        bool colorBufferIsTarget);
     std::unique_ptr<BorrowedImageInfo> borrowColorBufferForDisplay(uint32_t colorBufferHandle);
 
+    HealthMonitor<>& getHealthMonitor();
+
    private:
     FrameBuffer(int p_width, int p_height, bool useSubWindow);
     // Requires the caller to hold the m_colorBufferMapLock until the new handle is inserted into of
@@ -817,5 +825,8 @@ class FrameBuffer {
         EGLSurface surface;
     };
     std::unordered_map<void*, PlatformEglContextInfo> m_platformEglContexts;
+
+    std::unique_ptr<MetricsLogger> m_logger;
+    HealthMonitor<> m_healthMonitor;
 };
 #endif
