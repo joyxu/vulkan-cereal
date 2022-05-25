@@ -20,7 +20,6 @@
   X(void, glEnd, (), ()) \
   X(void, glFogf, (GLenum pname, GLfloat param), (pname, param)) \
   X(void, glFogfv, (GLenum pname, const GLfloat * params), (pname, params)) \
-  X(void, glFrustum, (GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdouble zNear, GLdouble zFar), (left, right, bottom, top, zNear, zFar)) \
   X(void, glGetClipPlane, (GLenum plane, GLdouble * equation), (plane, equation)) \
   X(void, glGetDoublev, (GLenum pname, GLdouble * params), (pname, params)) \
   X(void, glGetLightfv, (GLenum light, GLenum pname, GLfloat * params), (light, pname, params)) \
