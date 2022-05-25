@@ -16,11 +16,13 @@
 
 #include "FrameBuffer.h"
 
-#include <iomanip>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 
+#include <iomanip>
+
+#include "CompositorGl.h"
 #include "DispatchTables.h"
 #include "GLESVersionDetector.h"
 #include "Hwc2.h"
@@ -514,6 +516,9 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         feature_is_enabled(
             kFeature_GuestUsesAngle);
 
+    fb->m_useVulkanComposition = feature_is_enabled(kFeature_GuestUsesAngle) ||
+                                 feature_is_enabled(kFeature_VulkanNativeSwapchain);
+
     std::unique_ptr<goldfish_vk::VkEmulationFeatures> vkEmulationFeatures =
         std::make_unique<goldfish_vk::VkEmulationFeatures>(goldfish_vk::VkEmulationFeatures{
             .glInteropSupported = false,  // Set later.
@@ -524,6 +529,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
                 android::base::getEnvironmentVariable(
                     "ANDROID_EMU_VK_DISABLE_USE_CREATE_RESOURCES_WITH_REQUIREMENTS")
                     .empty(),
+            .useVulkanComposition = fb->m_useVulkanComposition,
             .useVulkanNativeSwapchain = feature_is_enabled(kFeature_VulkanNativeSwapchain),
             .guestRenderDoc = std::move(renderDocMultipleVkInstances),
         });
@@ -872,9 +878,18 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         }
     }
 
-    GL_LOG("Performing composition using CompositorGl.");
-    fb->m_compositorGl = std::make_unique<CompositorGl>();
-    fb->m_compositor = fb->m_compositorGl.get();
+    if (fb->m_useVulkanComposition) {
+        if (!vkEmu->compositorVk) {
+            ERR("Failed to get CompositorVk from VkEmulation.");
+            return false;
+        }
+        GL_LOG("Performing composition using CompositorVk.");
+        fb->m_compositor = vkEmu->compositorVk.get();
+    } else {
+        GL_LOG("Performing composition using CompositorGl.");
+        fb->m_compositorGl = std::make_unique<CompositorGl>();
+        fb->m_compositor = fb->m_compositorGl.get();
+    }
 
     INFO("Graphics Adapter Vendor %s", fb->m_graphicsAdapterVendor.c_str());
     INFO("Graphics Adapter %s", fb->m_graphicsAdapterName.c_str());
@@ -919,17 +934,8 @@ bool FrameBuffer::importMemoryToColorBuffer(
         ERR("FB: importMemoryToColorBuffer cb handle %#x not found", colorBufferHandle);
         return false;
     }
-
-    std::shared_ptr<DisplayVk::DisplayBufferInfo> db = nullptr;
-    if (m_displayVk) {
-        db = m_displayVk->createDisplayBuffer(image, imageCi);
-        if (!db) {
-            ERR("Fail to create display buffer for ColorBuffer %" PRIu64 ".",
-                static_cast<uint64_t>(colorBufferHandle));
-        }
-    }
     return cb->importMemory(handle, size, dedicated, imageCi.tiling == VK_IMAGE_TILING_LINEAR,
-                            vulkanOnly, std::move(db));
+                            vulkanOnly);
 }
 
 void FrameBuffer::setColorBufferInUse(
@@ -1490,14 +1496,9 @@ HandleType FrameBuffer::createColorBuffer(int p_width,
                                              genHandle_locked());
 }
 
-void FrameBuffer::createColorBufferWithHandle(
-     int p_width,
-     int p_height,
-     GLenum p_internalFormat,
-     FrameworkFormat p_frameworkFormat,
-     HandleType handle) {
-
-    HandleType resHandle;
+void FrameBuffer::createColorBufferWithHandle(int p_width, int p_height, GLenum p_internalFormat,
+                                              FrameworkFormat p_frameworkFormat,
+                                              HandleType handle) {
     {
         AutoLock mutex(m_lock);
         AutoLock colorBufferMapLock(m_colorBufferMapLock);
@@ -1510,12 +1511,14 @@ void FrameBuffer::createColorBufferWithHandle(
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER));
         }
 
-        resHandle = createColorBufferWithHandleLocked(
-            p_width, p_height, p_internalFormat, p_frameworkFormat,
-            handle);
+        handle = createColorBufferWithHandleLocked(p_width, p_height, p_internalFormat,
+                                                   p_frameworkFormat, handle);
+        if (!handle) {
+            return;
+        }
     }
 
-    if (m_displayVk && resHandle == handle) {
+    if (m_displayVk || m_guestUsesAngle) {
         goldfish_vk::setupVkColorBuffer(
             handle,
             false /* not vulkan only */,
@@ -3574,13 +3577,6 @@ void FrameBuffer::setGuestManagedColorBufferLifetime(bool guestManaged) {
     m_guestManagedColorBufferLifetime = guestManaged;
 }
 
-VkImageLayout FrameBuffer::getVkImageLayoutForComposeLayer() const {
-    if (m_displayVk) {
-        return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    }
-    return VK_IMAGE_LAYOUT_GENERAL;
-}
-
 bool FrameBuffer::platformImportResource(uint32_t handle, uint32_t info, void* resource) {
     if (!resource) {
         ERR("Error: resource was null");
@@ -3645,7 +3641,11 @@ bool FrameBuffer::platformDestroySharedEglContext(void* underlyingContext) {
 }
 
 std::unique_ptr<BorrowedImageInfo> FrameBuffer::borrowColorBufferForComposition(
-        uint32_t colorBufferHandle) {
+    uint32_t colorBufferHandle, bool colorBufferIsTarget) {
+    if (m_useVulkanComposition) {
+        return goldfish_vk::borrowColorBufferForComposition(colorBufferHandle, colorBufferIsTarget);
+    }
+
     ColorBufferPtr colorBufferPtr = findColorBuffer(colorBufferHandle);
     if (!colorBufferPtr) {
         ERR("Failed to get borrowed image info for ColorBuffer:%d", colorBufferHandle);
@@ -3656,6 +3656,10 @@ std::unique_ptr<BorrowedImageInfo> FrameBuffer::borrowColorBufferForComposition(
 
 std::unique_ptr<BorrowedImageInfo> FrameBuffer::borrowColorBufferForDisplay(
         uint32_t colorBufferHandle) {
+    if (m_useVulkanComposition) {
+        return goldfish_vk::borrowColorBufferForDisplay(colorBufferHandle);
+    }
+
     ColorBufferPtr colorBufferPtr = findColorBuffer(colorBufferHandle);
     if (!colorBufferPtr) {
         ERR("Failed to get borrowed image info for ColorBuffer:%d", colorBufferHandle);

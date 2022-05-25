@@ -14,6 +14,9 @@
 
 #pragma once
 
+#include <cstdint>
+#include <vector>
+
 #include "BorrowedImage.h"
 #include "vulkan/cereal/common/goldfish_vk_dispatch.h"
 
@@ -45,3 +48,11 @@ struct BorrowedImageInfoVk : public BorrowedImageInfo {
     // after composition.
     uint32_t postBorrowQueueFamilyIndex = 0;
 };
+
+void addNeededBarriersToUseBorrowedImage(
+    const BorrowedImageInfoVk& borrowedImageInfo, uint32_t usedQueueFamilyIndex,
+    VkImageLayout usedInitialImageLayout, VkImageLayout usedFinalImageLayout,
+    std::vector<VkImageMemoryBarrier>* preUseQueueTransferBarriers,
+    std::vector<VkImageMemoryBarrier>* preUseLayoutTransitionBarriers,
+    std::vector<VkImageMemoryBarrier>* postUseLayoutTransitionBarriers,
+    std::vector<VkImageMemoryBarrier>* postUseQueueTransferBarriers);
