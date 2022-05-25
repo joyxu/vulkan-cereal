@@ -30,6 +30,7 @@ cc_library_static {
         "-Wno-unreachable-code-loop-increment",
     ],
     srcs: [
+        "BorrowedImageVk.cpp",
         "CompositorVk.cpp",
         "DisplayVk.cpp",
         "SwapChainStateVk.cpp",

@@ -987,10 +987,8 @@ bool ColorBuffer::importMemory(
 #else
     int handle,
 #endif
-    uint64_t size, bool dedicated, bool linearTiling, bool vulkanOnly,
-    std::shared_ptr<DisplayVk::DisplayBufferInfo> displayBufferVk) {
+    uint64_t size, bool dedicated, bool linearTiling, bool vulkanOnly) {
     RecursiveScopedHelperContext context(m_helper);
-    m_displayBufferVk = std::move(displayBufferVk);
     s_gles2.glCreateMemoryObjectsEXT(1, &m_memoryObject);
     if (dedicated) {
         static const GLint DEDICATED_FLAG = GL_TRUE;

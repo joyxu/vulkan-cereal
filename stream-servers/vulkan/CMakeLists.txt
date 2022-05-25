@@ -1,6 +1,7 @@
 add_subdirectory(cereal)
 
 add_library(gfxstream-vulkan-server
+            BorrowedImageVk.cpp
             CompositorVk.cpp
             DisplayVk.cpp
             SwapChainStateVk.cpp
