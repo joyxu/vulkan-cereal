@@ -3234,6 +3234,17 @@ class VkDecoderGlobalState::Impl {
         auto imageInfo = android::base::find(mImageInfo, image);
         auto anbInfo = imageInfo->anbInfo;
 
+        if (anbInfo->useVulkanNativeImage) {
+            // vkQueueSignalReleaseImageANDROID() is only called by the Android framework's
+            // implementation of vkQueuePresentKHR(). The guest application is responsible for
+            // transitioning the image layout of the image passed to vkQueuePresentKHR() to
+            // VK_IMAGE_LAYOUT_PRESENT_SRC_KHR before the call. If the host is using native
+            // Vulkan images where `image` is backed with the same memory as its ColorBuffer,
+            // then we need to update the tracked layout for that ColorBuffer.
+            setColorBufferCurrentLayout(anbInfo->colorBufferHandle,
+                                        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        }
+
         return syncImageToColorBuffer(vk, queueInfo->queueFamilyIndex, queue, queueInfo->lock,
                                       waitSemaphoreCount, pWaitSemaphores, pNativeFenceFd, anbInfo);
     }

@@ -144,7 +144,7 @@ VkResult prepareAndroidNativeBufferImage(VulkanDispatch* vk, VkDevice device,
     if (colorBufferVulkanCompatible && externalMemoryCompatible &&
         setupVkColorBuffer(out->colorBufferHandle, false /* not Vulkan only */,
                            0u /* memoryProperty */, &out->useVulkanNativeImage)) {
-        releaseColorBufferFromHostComposingSync({out->colorBufferHandle});
+        releaseColorBufferForGuestUse(out->colorBufferHandle);
         out->externallyBacked = true;
     }
 

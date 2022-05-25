@@ -1,7 +1,10 @@
+// Note: needs to be included before DisplayVk to avoid conflicts
+// between gtest and x11 headers.
 #include <gtest/gtest.h>
 
 #include "DisplayVk.h"
 
+#include "BorrowedImageVk.h"
 #include "Standalone.h"
 #include "base/Lock.h"
 #include "tests/VkTestUtils.h"
@@ -9,6 +12,8 @@
 
 class DisplayVkTest : public ::testing::Test {
    protected:
+    using RenderTexture = emugl::RenderTextureVk;
+
     static void SetUpTestCase() { k_vk = emugl::vkDispatch(false); }
 
     void SetUp() override {
@@ -52,7 +57,22 @@ class DisplayVkTest : public ::testing::Test {
         }
     }
 
-    using RenderTexture = emugl::RenderTextureVk;
+    std::unique_ptr<BorrowedImageInfoVk> createBorrowedImageInfo(
+        const std::unique_ptr<const RenderTexture>& texture) {
+        static uint32_t sTextureId = 0;
+
+        auto info = std::make_unique<BorrowedImageInfoVk>();
+        info->id = sTextureId++;
+        info->width = texture->m_vkImageCreateInfo.extent.width;
+        info->height = texture->m_vkImageCreateInfo.extent.height;
+        info->image = texture->m_vkImage;
+        info->imageCreateInfo = texture->m_vkImageCreateInfo;
+        info->preBorrowLayout = RenderTexture::k_vkImageLayout;
+        info->preBorrowQueueFamilyIndex = m_compositorQueueFamilyIndex;
+        info->postBorrowLayout = RenderTexture::k_vkImageLayout;
+        info->postBorrowQueueFamilyIndex = m_compositorQueueFamilyIndex;
+        return info;
+    }
 
     static const goldfish_vk::VulkanDispatch *k_vk;
     static const uint32_t k_width = 0x100;
@@ -133,7 +153,7 @@ class DisplayVkTest : public ::testing::Test {
                     maybeSwapChainQueueFamilyIndex = queueFamilyIndex;
                 }
                 if (!maybeCompositorQueueFamilyIndex.has_value() &&
-                    CompositorVk::validateQueueFamilyProperties(queueProps[queueFamilyIndex])) {
+                    CompositorVk::queueSupportsComposition(queueProps[queueFamilyIndex])) {
                     maybeCompositorQueueFamilyIndex = queueFamilyIndex;
                 }
             }
@@ -192,8 +212,8 @@ TEST_F(DisplayVkTest, PostWithoutSurfaceShouldntCrash) {
                                          m_vkCommandPool, textureWidth, textureHeight);
     std::vector<uint32_t> pixels(textureWidth * textureHeight, 0);
     ASSERT_TRUE(texture->write(pixels));
-    auto cbvk = displayVk.createDisplayBuffer(texture->m_vkImage, texture->m_vkImageCreateInfo);
-    ASSERT_TRUE(std::get<0>(displayVk.post(cbvk)));
+    const auto imageInfo = createBorrowedImageInfo(texture);
+    ASSERT_TRUE(std::get<0>(displayVk.post(imageInfo.get())));
 }
 
 TEST_F(DisplayVkTest, SimplePost) {
@@ -212,10 +232,10 @@ TEST_F(DisplayVkTest, SimplePost) {
         }
     }
     ASSERT_TRUE(texture->write(pixels));
-    auto cbvk = m_displayVk->createDisplayBuffer(texture->m_vkImage, texture->m_vkImageCreateInfo);
+    const auto imageInfo = createBorrowedImageInfo(texture);
     std::vector<std::shared_future<void>> waitForGpuFutures;
     for (uint32_t i = 0; i < 10; i++) {
-        auto [success, waitForGpuFuture] = m_displayVk->post(cbvk);
+        auto [success, waitForGpuFuture] = m_displayVk->post(imageInfo.get());
         ASSERT_TRUE(success);
         waitForGpuFutures.emplace_back(std::move(waitForGpuFuture));
     }
@@ -239,16 +259,14 @@ TEST_F(DisplayVkTest, PostTwoColorBuffers) {
     std::vector<uint32_t> greenPixels(textureWidth * textureHeight, green);
     ASSERT_TRUE(redTexture->write(redPixels));
     ASSERT_TRUE(greenTexture->write(greenPixels));
-    auto redCbvk =
-        m_displayVk->createDisplayBuffer(redTexture->m_vkImage, redTexture->m_vkImageCreateInfo);
-    auto greenCbvk = m_displayVk->createDisplayBuffer(greenTexture->m_vkImage,
-                                                      greenTexture->m_vkImageCreateInfo);
+    const auto redImageInfo = createBorrowedImageInfo(redTexture);
+    const auto greenImageInfo = createBorrowedImageInfo(greenTexture);
     std::vector<std::shared_future<void>> waitForGpuFutures;
     for (uint32_t i = 0; i < 10; i++) {
-        auto [success, waitForGpuFuture] = m_displayVk->post(redCbvk);
+        auto [success, waitForGpuFuture] = m_displayVk->post(redImageInfo.get());
         ASSERT_TRUE(success);
         waitForGpuFutures.emplace_back(std::move(waitForGpuFuture));
-        std::tie(success, waitForGpuFuture) = m_displayVk->post(greenCbvk);
+        std::tie(success, waitForGpuFuture) = m_displayVk->post(greenImageInfo.get());
         ASSERT_TRUE(success);
         waitForGpuFutures.emplace_back(std::move(waitForGpuFuture));
     }

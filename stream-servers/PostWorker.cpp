@@ -97,9 +97,8 @@ void PostWorker::postImpl(ColorBuffer* cb) {
         if (shouldSkip) {
             return;
         }
-        goldfish_vk::acquireColorBuffersForHostComposing({}, cb->getHndl());
-        auto [success, waitForGpu] = m_displayVk->post(cb->getDisplayBufferVk());
-        goldfish_vk::releaseColorBufferFromHostComposing({cb->getHndl()});
+        const auto imageInfo = mFb->borrowColorBufferForDisplay(cb->getHndl());
+        auto [success, waitForGpu] = m_displayVk->post(imageInfo.get());
         if (success) {
             waitForGpu.wait();
         } else {
@@ -264,60 +263,15 @@ std::shared_future<void> PostWorker::composeImpl(const FlatComposeRequest& compo
         }
     }
 
-    auto targetColorBufferPtr = mFb->findColorBuffer(composeRequest.targetHandle);
-    if (m_displayVk) {
-        auto targetColorBufferPtr = mFb->findColorBuffer(composeRequest.targetHandle);
-        if (!targetColorBufferPtr) {
-            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
-                                "Failed to retrieve the composition target buffer";
-        }
-        // We don't copy the render result to the targetHandle color buffer
-        // when using the Vulkan native host swapchain, because we directly
-        // render to the swapchain image instead of rendering onto a
-        // ColorBuffer, and we don't readback from the ColorBuffer so far.
-        std::vector<ColorBufferPtr> cbs;  // Keep ColorBuffers alive
-        cbs.emplace_back(targetColorBufferPtr);
-        std::vector<std::shared_ptr<DisplayVk::DisplayBufferInfo>>
-            composeBuffers;
-        std::vector<uint32_t> layerColorBufferHandles;
-        for (const ComposeLayer& layer : composeRequest.layers) {
-            auto colorBufferPtr = mFb->findColorBuffer(layer.cbHandle);
-            if (!colorBufferPtr) {
-                composeBuffers.push_back(nullptr);
-                continue;
-            }
-            auto db = colorBufferPtr->getDisplayBufferVk();
-            composeBuffers.push_back(db);
-            if (!db) {
-                continue;
-            }
-            cbs.push_back(colorBufferPtr);
-            layerColorBufferHandles.emplace_back(layer.cbHandle);
-        }
-        goldfish_vk::acquireColorBuffersForHostComposing(layerColorBufferHandles,
-                                                         composeRequest.targetHandle);
-        auto [success, waitForGpu] = m_displayVk->compose(
-            composeRequest.layers, composeBuffers, targetColorBufferPtr->getDisplayBufferVk());
-        goldfish_vk::setColorBufferCurrentLayout(composeRequest.targetHandle,
-                                                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-        std::vector<uint32_t> colorBufferHandles(layerColorBufferHandles.begin(),
-                                                 layerColorBufferHandles.end());
-        colorBufferHandles.emplace_back(composeRequest.targetHandle);
-        goldfish_vk::releaseColorBufferFromHostComposing(colorBufferHandles);
-        if (!success) {
-            m_needsToRebindWindow = true;
-            waitForGpu = completedFuture;
-        }
-        m_lastVkComposeColorBuffer = composeRequest.targetHandle;
-        return waitForGpu;
-    }
-
     Compositor::CompositionRequest compositorRequest = {};
-    compositorRequest.target = mFb->borrowColorBufferForComposition(composeRequest.targetHandle);
+    compositorRequest.target = mFb->borrowColorBufferForComposition(composeRequest.targetHandle,
+                                                                    /*colorBufferIsTarget=*/true);
     for (const ComposeLayer& guestLayer : composeRequest.layers) {
         auto& compositorLayer = compositorRequest.layers.emplace_back();
         compositorLayer.props = guestLayer;
-        compositorLayer.source = mFb->borrowColorBufferForComposition(guestLayer.cbHandle);
+        compositorLayer.source =
+            mFb->borrowColorBufferForComposition(guestLayer.cbHandle,
+                                                 /*colorBufferIsTarget=*/false);
     }
 
     return m_compositor->compose(compositorRequest);

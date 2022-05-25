@@ -136,7 +136,8 @@ add_library(
     tests/ShaderUtils.cpp
     tests/GLSnapshotTestDispatch.cpp
     tests/GLSnapshotTestStateUtils.cpp
-    tests/HelloTriangleImp.cpp)
+    tests/HelloTriangleImp.cpp
+    tests/ImageUtils.cpp)
 target_include_directories(
     stream-server-testing-support
     PUBLIC
@@ -152,6 +153,7 @@ target_link_libraries(
     stream-server-testing-support
     PUBLIC
     gfxstream_backend_static
+    gfxstream_stb
     OSWindow
     gtest)
 
@@ -236,6 +238,16 @@ target_link_libraries(
     gtest
     gtest_main
     gmock)
-gtest_discover_tests(Vulkan_unittests)
+gtest_discover_tests(
+    Vulkan_unittests
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+file(GLOB Vulkan_unittests_datafiles "tests/testdata/*.png")
+add_custom_command(TARGET Vulkan_unittests POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E make_directory
+                        ${CMAKE_BINARY_DIR}/tests/testdata
+                   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        ${Vulkan_unittests_datafiles}
+                        ${CMAKE_BINARY_DIR}/tests/testdata)
 
 set_test_include_files()
