@@ -24,8 +24,8 @@ namespace CompositorVkShader {
         fflush(stderr);                                                                       \
     } while (0)
 
-static VkShaderModule createShaderModule(const goldfish_vk::VulkanDispatch &vk, VkDevice device,
-                                         const std::vector<uint32_t> &code) {
+static VkShaderModule createShaderModule(const goldfish_vk::VulkanDispatch& vk, VkDevice device,
+                                         const std::vector<uint32_t>& code) {
     VkShaderModuleCreateInfo shaderModuleCi = {
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .codeSize = static_cast<uint32_t>(code.size() * sizeof(uint32_t)),
@@ -36,13 +36,13 @@ static VkShaderModule createShaderModule(const goldfish_vk::VulkanDispatch &vk, 
 }
 
 ComposeLayerVk::ComposeLayerVk(VkSampler vkSampler, VkImageView vkImageView,
-                               const LayerTransform &layerTransform)
+                               const LayerTransform& layerTransform)
     : m_vkSampler(vkSampler),
       m_vkImageView(vkImageView),
       m_layerTransform({.pos = layerTransform.pos, .texcoord = layerTransform.texcoord}) {}
 
 std::unique_ptr<ComposeLayerVk> ComposeLayerVk::createFromHwc2ComposeLayer(
-    VkSampler vkSampler, VkImageView vkImageView, const ComposeLayer &composeLayer,
+    VkSampler vkSampler, VkImageView vkImageView, const ComposeLayer& composeLayer,
     uint32_t cbWidth, uint32_t cbHeight, uint32_t dstWidth, uint32_t dstHeight) {
     // Calculate the posTransform and the texcoordTransform needed in the
     // uniform of the Compositor.vert shader. The posTransform should transform
@@ -51,8 +51,8 @@ std::unique_ptr<ComposeLayerVk> ComposeLayerVk::createFromHwc2ComposeLayer(
     // texcoordTransform should transform the unit square(top = 0, bottom = 1,
     // left = 0, right = 1) to where we should sample the layer in the
     // normalized uv space given the composeLayer.
-    const hwc_rect_t &posRect = composeLayer.displayFrame;
-    const hwc_frect_t &texcoordRect = composeLayer.crop;
+    const hwc_rect_t& posRect = composeLayer.displayFrame;
+    const hwc_frect_t& texcoordRect = composeLayer.crop;
 
     int posWidth = posRect.right - posRect.left;
     int posHeight = posRect.bottom - posRect.top;
@@ -127,7 +127,7 @@ const std::vector<CompositorVk::Vertex> CompositorVk::k_vertices = {
 const std::vector<uint16_t> CompositorVk::k_indices = {0, 1, 2, 2, 3, 0};
 
 std::unique_ptr<CompositorVk> CompositorVk::create(
-    const goldfish_vk::VulkanDispatch &vk, VkDevice vkDevice, VkPhysicalDevice vkPhysicalDevice,
+    const goldfish_vk::VulkanDispatch& vk, VkDevice vkDevice, VkPhysicalDevice vkPhysicalDevice,
     VkQueue vkQueue, std::shared_ptr<android::base::Lock> queueLock, VkFormat format,
     VkImageLayout initialLayout, VkImageLayout finalLayout, uint32_t maxFramesInFlight,
     VkCommandPool commandPool, VkSampler sampler) {
@@ -146,7 +146,7 @@ std::unique_ptr<CompositorVk> CompositorVk::create(
     return res;
 }
 
-CompositorVk::CompositorVk(const goldfish_vk::VulkanDispatch &vk, VkDevice vkDevice,
+CompositorVk::CompositorVk(const goldfish_vk::VulkanDispatch& vk, VkDevice vkDevice,
                            VkPhysicalDevice vkPhysicalDevice, VkQueue vkQueue,
                            std::shared_ptr<android::base::Lock> queueLock,
                            VkCommandPool commandPool, uint32_t maxFramesInFlight)
@@ -390,12 +390,12 @@ std::optional<std::tuple<VkBuffer, VkDeviceMemory>> CompositorVk::createBuffer(
 }
 
 std::tuple<VkBuffer, VkDeviceMemory> CompositorVk::createStagingBufferWithData(
-    const void *srcData, VkDeviceSize size) const {
+    const void* srcData, VkDeviceSize size) const {
     auto [stagingBuffer, stagingBufferMemory] =
         createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
             .value();
-    void *data;
+    void* data;
     VK_CHECK(m_vk.vkMapMemory(m_vkDevice, stagingBufferMemory, 0, size, 0, &data));
     memcpy(data, srcData, size);
     m_vk.vkUnmapMemory(m_vkDevice, stagingBufferMemory);
@@ -403,7 +403,7 @@ std::tuple<VkBuffer, VkDeviceMemory> CompositorVk::createStagingBufferWithData(
 }
 
 void CompositorVk::copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) const {
-    runSingleTimeCommands(m_vkQueue, m_vkQueueLock, [&, this](const auto &cmdBuff) {
+    runSingleTimeCommands(m_vkQueue, m_vkQueueLock, [&, this](const auto& cmdBuff) {
         VkBufferCopy copyRegion = {};
         copyRegion.srcOffset = 0;
         copyRegion.dstOffset = 0;
@@ -439,7 +439,7 @@ void CompositorVk::setUpVertexBuffers() {
 }
 
 // We do see a composition requests with 12 layers. (b/222700096)
-// Inside hwc2, we will ask for surfaceflinger to 
+// Inside hwc2, we will ask for surfaceflinger to
 // do the composition, if the layers more than 16.
 // If we see rendering error or significant time spent on updating
 // descriptors in setComposition, we should tune this number.
@@ -487,7 +487,7 @@ void CompositorVk::setUpDescriptorSets() {
 }
 
 void CompositorVk::recordCommandBuffers(uint32_t renderTargetIndex, VkCommandBuffer cmdBuffer,
-                                        const CompositorVkRenderTarget &renderTarget) {
+                                        const CompositorVkRenderTarget& renderTarget) {
     VkClearValue clearColor = {.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}};
     VkRenderPassBeginInfo renderPassBeginInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -546,16 +546,16 @@ void CompositorVk::setUpUniformBuffers() {
     }
     std::tie(m_uniformStorage.m_vkBuffer, m_uniformStorage.m_vkDeviceMemory) = buffer;
     VK_CHECK(m_vk.vkMapMemory(m_vkDevice, m_uniformStorage.m_vkDeviceMemory, 0, size, 0,
-                              reinterpret_cast<void **>(&m_uniformStorage.m_data)));
+                              reinterpret_cast<void**>(&m_uniformStorage.m_data)));
 }
 
-bool CompositorVk::validateQueueFamilyProperties(const VkQueueFamilyProperties &properties) {
+bool CompositorVk::validateQueueFamilyProperties(const VkQueueFamilyProperties& properties) {
     return properties.queueFlags & VK_QUEUE_GRAPHICS_BIT;
 }
 
-void CompositorVk::setComposition(uint32_t rtIndex, std::unique_ptr<Composition> &&composition) {
+void CompositorVk::setComposition(uint32_t rtIndex, std::unique_ptr<Composition>&& composition) {
     m_currentCompositions[rtIndex] = std::move(composition);
-    const auto &currentComposition = *m_currentCompositions[rtIndex];
+    const auto& currentComposition = *m_currentCompositions[rtIndex];
     if (currentComposition.m_composeLayers.size() > kMaxLayersPerFrame) {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
             << "CompositorVk can't compose more than " << kMaxLayersPerFrame
@@ -563,14 +563,14 @@ void CompositorVk::setComposition(uint32_t rtIndex, std::unique_ptr<Composition>
             << static_cast<uint32_t>(currentComposition.m_composeLayers.size());
     }
 
-    memset(reinterpret_cast<uint8_t *>(m_uniformStorage.m_data) +
+    memset(reinterpret_cast<uint8_t*>(m_uniformStorage.m_data) +
                (rtIndex * kMaxLayersPerFrame + 0) * m_uniformStorage.m_stride,
            0, sizeof(ComposeLayerVk::LayerTransform) * kMaxLayersPerFrame);
 
     std::vector<VkDescriptorImageInfo> imageInfos(currentComposition.m_composeLayers.size());
     std::vector<VkWriteDescriptorSet> descriptorWrites;
     for (size_t i = 0; i < currentComposition.m_composeLayers.size(); ++i) {
-        const auto &layer = currentComposition.m_composeLayers[i];
+        const auto& layer = currentComposition.m_composeLayers[i];
         if (m_vkSampler != layer->m_vkSampler) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
                 << "Unsupported sampler(" << reinterpret_cast<uintptr_t>(layer->m_vkSampler)
@@ -580,16 +580,16 @@ void CompositorVk::setComposition(uint32_t rtIndex, std::unique_ptr<Composition>
             VkDescriptorImageInfo({.sampler = VK_NULL_HANDLE,
                                    .imageView = layer->m_vkImageView,
                                    .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
-        const VkDescriptorImageInfo &imageInfo = imageInfos[i];
+        const VkDescriptorImageInfo& imageInfo = imageInfos[i];
         descriptorWrites.emplace_back(
             VkWriteDescriptorSet{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                                  .dstSet = m_vkDescriptorSets[rtIndex * kMaxLayersPerFrame + i],
-                                  .dstBinding = 0,
-                                  .dstArrayElement = 0,
-                                  .descriptorCount = 1,
-                                  .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                  .pImageInfo = &imageInfo});
-        memcpy(reinterpret_cast<uint8_t *>(m_uniformStorage.m_data) +
+                                 .dstSet = m_vkDescriptorSets[rtIndex * kMaxLayersPerFrame + i],
+                                 .dstBinding = 0,
+                                 .dstArrayElement = 0,
+                                 .descriptorCount = 1,
+                                 .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                 .pImageInfo = &imageInfo});
+        memcpy(reinterpret_cast<uint8_t*>(m_uniformStorage.m_data) +
                    (rtIndex * kMaxLayersPerFrame + i) * m_uniformStorage.m_stride,
                &layer->m_layerTransform, sizeof(ComposeLayerVk::LayerTransform));
     }
@@ -620,7 +620,7 @@ std::array<VkVertexInputAttributeDescription, 2> CompositorVk::Vertex::getAttrib
                                               .offset = offsetof(struct Vertex, texPos)}};
 }
 
-CompositorVkRenderTarget::CompositorVkRenderTarget(const goldfish_vk::VulkanDispatch &vk,
+CompositorVkRenderTarget::CompositorVkRenderTarget(const goldfish_vk::VulkanDispatch& vk,
                                                    VkDevice vkDevice, VkImageView vkImageView,
                                                    uint32_t width, uint32_t height,
                                                    VkRenderPass vkRenderPass)

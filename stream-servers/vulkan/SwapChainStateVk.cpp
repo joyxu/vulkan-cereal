@@ -72,8 +72,8 @@ void SwapchainCreateInfoWrapper::setQueueFamilyIndices(
     }
 }
 
-SwapChainStateVk::SwapChainStateVk(const goldfish_vk::VulkanDispatch &vk, VkDevice vkDevice,
-                                   const VkSwapchainCreateInfoKHR &swapChainCi)
+SwapChainStateVk::SwapChainStateVk(const goldfish_vk::VulkanDispatch& vk, VkDevice vkDevice,
+                                   const VkSwapchainCreateInfoKHR& swapChainCi)
     : m_vk(vk),
       m_vkDevice(vkDevice),
       m_vkSwapChain(VK_NULL_HANDLE),
@@ -113,7 +113,7 @@ SwapChainStateVk::~SwapChainStateVk() {
     m_vk.vkDestroySwapchainKHR(m_vkDevice, m_vkSwapChain, nullptr);
 }
 
-std::vector<const char *> SwapChainStateVk::getRequiredInstanceExtensions() {
+std::vector<const char*> SwapChainStateVk::getRequiredInstanceExtensions() {
     return {
         VK_KHR_SURFACE_EXTENSION_NAME,
 #ifdef _WIN32
@@ -128,13 +128,13 @@ std::vector<const char *> SwapChainStateVk::getRequiredInstanceExtensions() {
     };
 }
 
-std::vector<const char *> SwapChainStateVk::getRequiredDeviceExtensions() {
+std::vector<const char*> SwapChainStateVk::getRequiredDeviceExtensions() {
     return {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     };
 }
 
-bool SwapChainStateVk::validateQueueFamilyProperties(const goldfish_vk::VulkanDispatch &vk,
+bool SwapChainStateVk::validateQueueFamilyProperties(const goldfish_vk::VulkanDispatch& vk,
                                                      VkPhysicalDevice physicalDevice,
                                                      VkSurfaceKHR surface,
                                                      uint32_t queueFamilyIndex) {
@@ -175,7 +175,7 @@ std::optional<SwapchainCreateInfoWrapper> SwapChainStateVk::createSwapChainCi(
         VK_CHECK(res);
     }
     auto iSurfaceFormat =
-        std::find_if(formats.begin(), formats.end(), [](const VkSurfaceFormatKHR &format) {
+        std::find_if(formats.begin(), formats.end(), [](const VkSurfaceFormatKHR& format) {
             return format.format == k_vkFormat && format.colorSpace == k_vkColorSpace;
         });
     if (iSurfaceFormat == formats.end()) {
@@ -278,8 +278,8 @@ std::optional<SwapchainCreateInfoWrapper> SwapChainStateVk::createSwapChainCi(
 
 VkFormat SwapChainStateVk::getFormat() { return k_vkFormat; }
 
-const std::vector<VkImage> &SwapChainStateVk::getVkImages() const { return m_vkImages; }
+const std::vector<VkImage>& SwapChainStateVk::getVkImages() const { return m_vkImages; }
 
-const std::vector<VkImageView> &SwapChainStateVk::getVkImageViews() const { return m_vkImageViews; }
+const std::vector<VkImageView>& SwapChainStateVk::getVkImageViews() const { return m_vkImageViews; }
 
 VkSwapchainKHR SwapChainStateVk::getSwapChain() const { return m_vkSwapChain; }

@@ -382,8 +382,7 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::compose(
             continue;
         }
         auto composeLayerVk = ComposeLayerVk::createFromHwc2ComposeLayer(
-            m_compositionVkSampler, composeBuffers[i]->m_vkImageView,
-            composeLayers[i],
+            m_compositionVkSampler, composeBuffers[i]->m_vkImageView, composeLayers[i],
             composeBuffers[i]->m_vkImageCreateInfo.extent.width,
             composeBuffers[i]->m_vkImageCreateInfo.extent.height,
             targetBuffer->m_vkImageCreateInfo.extent.width,
@@ -649,9 +648,8 @@ bool DisplayVk::canCompositeTo(const VkImageCreateInfo& imageCi) {
 }
 
 bool DisplayVk::compareAndSaveComposition(
-        uint32_t renderTargetIndex,
-        const std::vector<ComposeLayer>& composeLayers,
-        const std::vector<std::shared_ptr<DisplayBufferInfo>>& composeBuffers) {
+    uint32_t renderTargetIndex, const std::vector<ComposeLayer>& composeLayers,
+    const std::vector<std::shared_ptr<DisplayBufferInfo>>& composeBuffers) {
     if (!m_surfaceState) {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
             << "Haven't bound to a surface, can't compare and save composition.";
@@ -769,7 +767,7 @@ DisplayVk::DisplayBufferInfo::~DisplayBufferInfo() {
 }
 
 std::shared_ptr<DisplayVk::PostResource> DisplayVk::PostResource::create(
-    const goldfish_vk::VulkanDispatch &vk, VkDevice vkDevice, VkCommandPool vkCommandPool) {
+    const goldfish_vk::VulkanDispatch& vk, VkDevice vkDevice, VkCommandPool vkCommandPool) {
     VkFenceCreateInfo fenceCi = {
         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
     };
@@ -816,7 +814,7 @@ DisplayVk::PostResource::PostResource(const goldfish_vk::VulkanDispatch& vk, VkD
       m_vkCommandPool(vkCommandPool) {}
 
 std::unique_ptr<DisplayVk::ComposeResource> DisplayVk::ComposeResource::create(
-    const goldfish_vk::VulkanDispatch &vk, VkDevice vkDevice, VkCommandPool vkCommandPool) {
+    const goldfish_vk::VulkanDispatch& vk, VkDevice vkDevice, VkCommandPool vkCommandPool) {
     VkFenceCreateInfo fenceCi = {
         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
     };
