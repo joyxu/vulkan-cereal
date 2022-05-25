@@ -4876,7 +4876,7 @@ class VkDecoderGlobalState::Impl {
         auto elt = sBoxedHandleManager.get((uint64_t)(uintptr_t)boxed);                           \
         if (!elt) {                                                                               \
             fprintf(stderr, "%s: unbox %p failed, not found\n", __func__, boxed);                 \
-            abort();                                                                              \
+            /*abort();*/                                                                          \
             return VK_NULL_HANDLE;                                                                \
         }                                                                                         \
         return (type)elt->underlying;                                                             \
