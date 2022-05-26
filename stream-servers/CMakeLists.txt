@@ -227,6 +227,7 @@ add_executable(
     tests/VirtioGpuTimelines_unittest.cpp
     vulkan/vk_util_unittest.cpp
     vulkan/VkQsriTimeline_unittest.cpp
+    vulkan/VkDecoderGlobalState_unittest.cpp
 )
 target_link_libraries(
     Vulkan_unittests
