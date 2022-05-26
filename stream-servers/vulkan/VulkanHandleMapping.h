@@ -68,6 +68,7 @@ GOLDFISH_VK_LIST_DISPATCHABLE_HANDLE_TYPES(DEFINE_BOXED_DISPATCHABLE_HANDLE_GLOB
     type new_boxed_non_dispatchable_##type(type underlying);                                 \
     void delete_##type(type boxed);                                                          \
     void delayed_delete_##type(type boxed, VkDevice device, std::function<void()> callback); \
+    void set_boxed_non_dispatchable_##type(type boxed, type underlying);                     \
     type unbox_##type(type boxed);                                                           \
     type unboxed_to_boxed_non_dispatchable_##type(type boxed);
 

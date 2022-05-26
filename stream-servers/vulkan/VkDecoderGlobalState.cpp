@@ -1153,6 +1153,8 @@ class VkDecoderGlobalState::Impl {
         }
 
         init_vulkan_dispatch_from_device(vk, *pDevice, dispatch_VkDevice(boxed));
+        deviceInfo.externalFencePool = std::make_unique<ExternalFencePool<VulkanDispatch>>(
+            dispatch_VkDevice(boxed), *pDevice);
 
         if (mLogging) {
             fprintf(stderr, "%s: init vulkan dispatch from device (end)\n", __func__);
@@ -1254,13 +1256,10 @@ class VkDecoderGlobalState::Impl {
         }
 
         // Destroy pooled external fences
-        auto deviceFences = mExternalFencesPool.find(device);
-        if (deviceFences != mExternalFencesPool.end()) {
-            for (auto fence : deviceFences->second) {
-                mFenceInfo.erase(fence);
-                m_vk->vkDestroyFence(device, fence, pAllocator);
-            }
-            mExternalFencesPool.erase(device);
+        auto deviceFences = it->second.externalFencePool->popAll();
+        for (auto fence : deviceFences) {
+            mFenceInfo.erase(fence);
+            m_vk->vkDestroyFence(device, fence, pAllocator);
         }
 
         // Run the underlying API call.
@@ -1720,8 +1719,17 @@ class VkDecoderGlobalState::Impl {
         if (exportSyncFd) {
             // Remove VkExportFenceCreateInfo, since host doesn't need to create
             // an exportable fence in this case
+            ExternalFencePool<VulkanDispatch>* externalFencePool = nullptr;
             vk_struct_chain_remove(exportFenceInfoPtr, &createInfo);
-            *pFence = popExternalFenceFromPool(device, pCreateInfo);
+            {
+                AutoLock lock(mLock);
+                auto deviceInfo = mDeviceInfo.find(device);
+                if (deviceInfo == mDeviceInfo.end()) {
+                    return VK_ERROR_OUT_OF_HOST_MEMORY;
+                }
+                externalFencePool = deviceInfo->second.externalFencePool.get();
+            }
+            *pFence = externalFencePool->pop(pCreateInfo);
             if (*pFence != VK_NULL_HANDLE) {
                 fenceReused = true;
             }
@@ -1752,63 +1760,65 @@ class VkDecoderGlobalState::Impl {
         return VK_SUCCESS;
     }
 
-    VkFence popExternalFenceFromPool(VkDevice device, const VkFenceCreateInfo* pCreateInfo) {
-        AutoLock lock(mLock);
-
-        auto deviceFences = mExternalFencesPool.find(device);
-        if (deviceFences == mExternalFencesPool.end()) {
-            return VK_NULL_HANDLE;
-        }
-
-        auto it = std::find_if(deviceFences->second.begin(), deviceFences->second.end(),
-                               [this, device](const VkFence& fence) {
-                                   VkResult status = m_vk->vkGetFenceStatus(device, fence);
-                                   if (status != VK_SUCCESS) {
-                                       if (status != VK_NOT_READY) {
-                                           VK_CHECK(status);
-                                       }
-
-                                       // Status is valid, but fence is not yet signaled
-                                       return false;
-                                   }
-                                   return true;
-                               });
-        if (it == deviceFences->second.end()) {
-            return VK_NULL_HANDLE;
-        }
-
-        VkFence fence = *it;
-        deviceFences->second.erase(it);
-
-        if (!(pCreateInfo->flags & VK_FENCE_CREATE_SIGNALED_BIT)) {
-            VK_CHECK(m_vk->vkResetFences(device, 1, &fence));
-        }
-
-        return fence;
-    }
-
     VkResult on_vkResetFences(android::base::BumpPool* pool, VkDevice boxed_device,
                               uint32_t fenceCount, const VkFence* pFences) {
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
 
         std::vector<VkFence> cleanedFences;
+        std::vector<VkFence> externalFences;
 
-        for (uint32_t i = 0; i < fenceCount; ++i) {
-            if (pFences[i] != VK_NULL_HANDLE) cleanedFences.push_back(pFences[i]);
-        }
-
-        VkResult res =
-            vk->vkResetFences(device, (uint32_t)cleanedFences.size(), cleanedFences.data());
-
-        // Reset all fences' states to kNotWaitable.
         {
             AutoLock lock(mLock);
             for (uint32_t i = 0; i < fenceCount; i++) {
+                if (pFences[i] == VK_NULL_HANDLE)
+                    continue;
+
                 DCHECK(mFenceInfo.find(pFences[i]) != mFenceInfo.end());
-                mFenceInfo[pFences[i]].state = FenceInfo::State::kNotWaitable;
+                if (mFenceInfo[pFences[i]].external) {
+                    externalFences.push_back(pFences[i]);
+                } else {
+                    // Reset all fences' states to kNotWaitable.
+                    cleanedFences.push_back(pFences[i]);
+                    mFenceInfo[pFences[i]].state = FenceInfo::State::kNotWaitable;
+                }
             }
         }
+
+        VK_CHECK(vk->vkResetFences(device, (uint32_t)cleanedFences.size(), cleanedFences.data()));
+
+        // For external fences, we unilaterally put them in the pool to ensure they finish
+        // TODO: should store creation info / pNext chain per fence and re-apply?
+        VkFenceCreateInfo createInfo{
+            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .pNext = 0, .flags = 0 };
+        auto deviceInfo = mDeviceInfo.find(device);
+        if (deviceInfo == mDeviceInfo.end()) {
+            return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+        }
+        for (auto fence: externalFences) {
+            VkFence replacement = deviceInfo->second.externalFencePool->pop(&createInfo);
+            if (replacement == VK_NULL_HANDLE) {
+                VK_CHECK(vk->vkCreateFence(device, &createInfo, 0, &replacement));
+            }
+            deviceInfo->second.externalFencePool->add(fence);
+
+            {
+                AutoLock lock(mLock);
+                auto boxed_fence = unboxed_to_boxed_non_dispatchable_VkFence(fence);
+                delete_VkFence(boxed_fence);
+                set_boxed_non_dispatchable_VkFence(boxed_fence, replacement);
+
+                auto& fenceInfo = mFenceInfo[replacement];
+                fenceInfo.device = device;
+                fenceInfo.vk = vk;
+                fenceInfo.boxed = boxed_fence;
+                fenceInfo.external = true;
+                fenceInfo.state = FenceInfo::State::kNotWaitable;
+
+                mFenceInfo[fence].boxed = VK_NULL_HANDLE;
+            }
+        }
+
         return VK_SUCCESS;
     }
 
@@ -1908,13 +1918,12 @@ class VkDecoderGlobalState::Impl {
             // External fences are just slated for recycling. This addresses known
             // behavior where the guest might destroy the fence prematurely. b/228221208
             if (mFenceInfo[fence].external) {
-                mExternalFencesPool[device].push_back(fence);
-
-                if (mExternalFencesPool[device].size() > 5) {
-                    INFO("External fence pool for %p has size %d", device,
-                         mExternalFencesPool[device].size());
+                auto deviceInfo = mDeviceInfo.find(device);
+                if (deviceInfo != mDeviceInfo.end()) {
+                    deviceInfo->second.externalFencePool->add(fence);
+                    mFenceInfo[fence].boxed = VK_NULL_HANDLE;
+                    return;
                 }
-                return;
             }
             mFenceInfo.erase(fence);
         }
@@ -4589,6 +4598,11 @@ class VkDecoderGlobalState::Impl {
         sBoxedHandleManager.removeDelayed((uint64_t)boxed, device, callback);                     \
     }                                                                                             \
     void delete_##type(type boxed) { sBoxedHandleManager.remove((uint64_t)boxed); }               \
+    void set_boxed_non_dispatchable_##type(type boxed, type underlying) {                         \
+        DispatchableHandleInfo<uint64_t> item;                                                    \
+        item.underlying = (uint64_t)underlying;                                                   \
+        sBoxedHandleManager.addFixed((uint64_t)boxed, item, Tag_##type);                          \
+    }                                                                                             \
     type unboxed_to_boxed_non_dispatchable_##type(type unboxed) {                                 \
         AutoLock lock(sBoxedHandleManager.lock);                                                  \
         return (type)sBoxedHandleManager.getBoxedFromUnboxedLocked((uint64_t)(uintptr_t)unboxed); \
@@ -5984,6 +5998,8 @@ class VkDecoderGlobalState::Impl {
         bool emulateTextureAstc = false;
         VkPhysicalDevice physicalDevice;
         VkDevice boxed = nullptr;
+        std::unique_ptr<ExternalFencePool<VulkanDispatch>> externalFencePool = nullptr;
+
         bool needEmulatedDecompression(const CompressedImageInfo& imageInfo) {
             return imageInfo.isCompressed && ((imageInfo.isEtc2 && emulateTextureEtc2) ||
                                               (imageInfo.isAstc && emulateTextureAstc));
@@ -6243,7 +6259,6 @@ class VkDecoderGlobalState::Impl {
 
     std::unordered_map<VkSemaphore, SemaphoreInfo> mSemaphoreInfo;
     std::unordered_map<VkFence, FenceInfo> mFenceInfo;
-    std::unordered_map<VkDevice, std::vector<VkFence>> mExternalFencesPool;
 
     std::unordered_map<VkDescriptorSetLayout, DescriptorSetLayoutInfo> mDescriptorSetLayoutInfo;
     std::unordered_map<VkDescriptorPool, DescriptorPoolInfo> mDescriptorPoolInfo;
@@ -7385,5 +7400,69 @@ GOLDFISH_VK_LIST_DISPATCHABLE_HANDLE_TYPES(
     BOXED_DISPATCHABLE_HANDLE_UNWRAP_AND_DELETE_PRESERVE_BOXED_IMPL)
 GOLDFISH_VK_LIST_NON_DISPATCHABLE_HANDLE_TYPES(
     BOXED_NON_DISPATCHABLE_HANDLE_UNWRAP_AND_DELETE_PRESERVE_BOXED_IMPL)
+
+template <class TDispatch>
+ExternalFencePool<TDispatch>::ExternalFencePool(TDispatch* dispatch, VkDevice device)
+    : m_vk(dispatch), mDevice(device), mMaxSize(5) {}
+
+template <class TDispatch>
+ExternalFencePool<TDispatch>::~ExternalFencePool() {
+    if (!mPool.empty()) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+            "External fence pool for device " << static_cast<void*>(mDevice) << " destroyed but " <<
+            mPool.size() << " fences still not destroyed.";
+    }
+}
+
+template <class TDispatch>
+void ExternalFencePool<TDispatch>::add(VkFence fence) {
+    AutoLock lock(mLock);
+    mPool.push_back(fence);
+    if (mPool.size() > mMaxSize) {
+        INFO("External fence pool for %p has increased to size %d", mDevice, mPool.size());
+        mMaxSize = mPool.size();
+    }
+}
+
+template <class TDispatch>
+VkFence ExternalFencePool<TDispatch>::pop(const VkFenceCreateInfo* pCreateInfo) {
+    VkFence fence = VK_NULL_HANDLE;
+    {
+        AutoLock lock(mLock);
+        auto it = std::find_if(mPool.begin(), mPool.end(),
+                               [this](const VkFence& fence) {
+                                   VkResult status = m_vk->vkGetFenceStatus(mDevice, fence);
+                                   if (status != VK_SUCCESS) {
+                                       if (status != VK_NOT_READY) {
+                                           VK_CHECK(status);
+                                       }
+
+                                       // Status is valid, but fence is not yet signaled
+                                       return false;
+                                   }
+                                   return true;
+                               });
+        if (it == mPool.end()) {
+            return VK_NULL_HANDLE;
+        }
+
+        fence = *it;
+        mPool.erase(it);
+    }
+
+    if (!(pCreateInfo->flags & VK_FENCE_CREATE_SIGNALED_BIT)) {
+        VK_CHECK(m_vk->vkResetFences(mDevice, 1, &fence));
+    }
+
+    return fence;
+}
+
+template <class TDispatch>
+std::vector<VkFence> ExternalFencePool<TDispatch>::popAll() {
+    AutoLock lock(mLock);
+    std::vector<VkFence> popped = mPool;
+    mPool.clear();
+    return popped;
+}
 
 }  // namespace goldfish_vk
