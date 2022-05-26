@@ -24,12 +24,12 @@
 
 #include "base/ring_buffer.h"                        // for ring_buf...
 #include "base/FunctorThread.h"              // for FunctorT...
-#include "host-common/AndroidAgentFactory.h"                                 // for getConso...
+#include "host-common/GraphicsAgentFactory.h"                                 // for getConso...
 #include "host-common/AddressSpaceService.h"           // for AddressS...
 #include "host-common/address_space_device.hpp"        // for goldfish...
 #include "host-common/address_space_graphics.h"        // for AddressS...
 #include "host-common/address_space_graphics_types.h"  // for asg_context
-#include "host-common/testing/MockAndroidAgentFactory.h"
+#include "host-common/testing/MockGraphicsAgentFactory.h"
 #include "testing/HostAddressSpace.h"  // for HostAddr...
 #include "host-common/globals.h"                                 // for android_hw
 
@@ -552,9 +552,9 @@ public:
 
 protected:
     static void SetUpTestSuite() {
-        android::emulation::injectConsoleAgents(
-                android::emulation::MockAndroidConsoleFactory());
-        goldfish_address_space_set_vm_operations(getConsoleAgents()->vm);
+        android::emulation::injectGraphicsAgents(
+                android::emulation::MockGraphicsAgentFactory());
+        goldfish_address_space_set_vm_operations(getGraphicsAgents()->vm);
     }
 
     static void TearDownTestSuite() { }

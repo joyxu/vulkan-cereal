@@ -457,17 +457,17 @@ namespace android {
 namespace emulation {
 
 const QAndroidVmOperations* const
-GfxStreamAndroidConsoleFactory::android_get_QAndroidVmOperations() const {
+GfxStreamGraphicsAgentFactory::android_get_QAndroidVmOperations() const {
     return &sQAndroidVmOperations;
 }
 
 const QAndroidMultiDisplayAgent* const
-GfxStreamAndroidConsoleFactory::android_get_QAndroidMultiDisplayAgent() const {
+GfxStreamGraphicsAgentFactory::android_get_QAndroidMultiDisplayAgent() const {
     return &sMultiDisplayAgent;
 }
 
 const QAndroidEmulatorWindowAgent* const
-GfxStreamAndroidConsoleFactory::android_get_QAndroidEmulatorWindowAgent()
+GfxStreamGraphicsAgentFactory::android_get_QAndroidEmulatorWindowAgent()
         const {
     return &sQAndroidEmulatorWindowAgent;
 }
