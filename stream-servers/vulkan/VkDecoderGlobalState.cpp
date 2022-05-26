@@ -400,18 +400,28 @@ class VkDecoderGlobalState::Impl {
         }
         applicationInfo.apiVersion = apiVersion;
 
-        // bug: 155795731 (see below)
-        AutoLock lock(mLock);
+        // bug: 155795731
+        bool swiftshader =
+            (android::base::getEnvironmentVariable("ANDROID_EMU_VK_ICD").compare("swiftshader") ==
+             0);
+        std::unique_ptr<AutoLock> lock = nullptr;
+
+        if (swiftshader) {
+            if (mLogging) {
+                fprintf(stderr, "%s: acquire lock\n", __func__);
+            }
+            lock = std::make_unique<AutoLock>(mLock);
+        }
 
         VkResult res = m_vk->vkCreateInstance(&createInfoFiltered, pAllocator, pInstance);
 
-        if (res != VK_SUCCESS) return res;
+        if (res != VK_SUCCESS) {
+            return res;
+        }
 
-        // bug: 155795731 we should protect vkCreateInstance in the driver too
-        // because, at least w/ tcmalloc, there is a flaky crash on loading its
-        // procs
-        //
-        // AutoLock lock(mLock);
+        if (!swiftshader) {
+            lock = std::make_unique<AutoLock>(mLock);
+        }
 
         // TODO: bug 129484301
         get_emugl_vm_operations().setSkipSnapshotSave(
@@ -1102,12 +1112,19 @@ class VkDecoderGlobalState::Impl {
         createInfoFiltered.enabledExtensionCount = (uint32_t)finalExts.size();
         createInfoFiltered.ppEnabledExtensionNames = finalExts.data();
 
-        // bug: 155795731 (see below)
-        if (mLogging) {
-            fprintf(stderr, "%s: acquire lock\n", __func__);
-        }
+        // bug: 155795731
+        bool swiftshader =
+            (android::base::getEnvironmentVariable("ANDROID_EMU_VK_ICD").compare("swiftshader") ==
+             0);
 
-        AutoLock lock(mLock);
+        std::unique_ptr<AutoLock> lock = nullptr;
+
+        if (swiftshader) {
+            if (mLogging) {
+                fprintf(stderr, "%s: acquire lock\n", __func__);
+            }
+            lock = std::make_unique<AutoLock>(mLock);
+        }
 
         if (mLogging) {
             fprintf(stderr, "%s: got lock, calling host\n", __func__);
@@ -1126,11 +1143,9 @@ class VkDecoderGlobalState::Impl {
             fprintf(stderr, "%s: track the new device (begin)\n", __func__);
         }
 
-        // bug: 155795731 we should protect vkCreateDevice in the driver too
-        // because, at least w/ tcmalloc, there is a flaky crash on loading its
-        // procs
-        //
-        // AutoLock lock(mLock);
+        if(!swiftshader) {
+            lock = std::make_unique<AutoLock>(mLock);
+        }
 
         mDeviceToPhysicalDevice[*pDevice] = physicalDevice;
 
