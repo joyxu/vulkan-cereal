@@ -22,6 +22,11 @@ namespace emugl {
 // b/233094475: GLES1 frustumf crash on cmcontext should not crash when
 // core profile is not enabled.
 TEST_F(GLTest, TestGlFrustumNoCoreProfile) {
+    // We cannot test this with GLES2GLES because this mode sits on top of
+    // GLES2 dispatcher which does not have frustumf.
+    if (isGles2Gles()) {
+        GTEST_SKIP();
+    }
     GLEScmContext context(1, 1, nullptr, nullptr);
     context.setCoreProfile(false);
     context.frustumf(0, 0, 0, 0, 0, 0);
