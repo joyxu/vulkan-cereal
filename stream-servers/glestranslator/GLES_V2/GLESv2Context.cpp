@@ -72,7 +72,8 @@ void GLESv2Context::init() {
         setVertexArrayObject(0);
         setAttribute0value(0.0, 0.0, 0.0, 1.0);
 
-        buildStrings(false /* not gles1 */,
+        buildStrings(m_glesMajorVersion,
+                     m_glesMinorVersion,
                      (const char*)dispatcher().glGetString(GL_VENDOR),
                      (const char*)dispatcher().glGetString(GL_RENDERER),
                      (const char*)dispatcher().glGetString(GL_VERSION),
@@ -373,8 +374,10 @@ void GLESv2Context::postLoadRestoreCtx() {
             bindBuffer(GL_DISPATCH_INDIRECT_BUFFER, m_dispatchIndirectBuffer);
             bindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawIndirectBuffer);
             bindBuffer(GL_SHADER_STORAGE_BUFFER, m_shaderStorageBuffer);
+            if (getCaps()->textureBufferAny()) {
+                bindBuffer(GL_TEXTURE_BUFFER, m_textureBuffer);
+            }
         }
-
         for (const auto& bindSampler : m_bindSampler) {
             dispatcher.glBindSampler(bindSampler.first,
                     shareGroup()->getGlobalName(NamedObjectType::SAMPLER,
@@ -747,35 +750,51 @@ ProgramData* GLESv2Context::getUseProgram() {
     return (ProgramData*)m_useProgramData.get();
 }
 
-void GLESv2Context::initExtensionString() {
-    if (s_glExtensionsInitialized) return;
 
-    *s_glExtensions = "GL_OES_EGL_sync GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_depth24 GL_OES_depth32 GL_OES_element_index_uint "
-                      "GL_OES_texture_float GL_OES_texture_float_linear "
-                      "GL_OES_compressed_paletted_texture GL_OES_compressed_ETC1_RGB8_texture GL_OES_depth_texture ";
-    if (s_glSupport.GL_ARB_HALF_FLOAT_PIXEL || s_glSupport.GL_NV_HALF_FLOAT)
-        *s_glExtensions+="GL_OES_texture_half_float GL_OES_texture_half_float_linear ";
-    if (s_glSupport.GL_EXT_PACKED_DEPTH_STENCIL)
-        *s_glExtensions+="GL_OES_packed_depth_stencil ";
-    if (s_glSupport.GL_ARB_HALF_FLOAT_VERTEX)
-        *s_glExtensions+="GL_OES_vertex_half_float ";
-    if (s_glSupport.GL_OES_STANDARD_DERIVATIVES)
-        *s_glExtensions+="GL_OES_standard_derivatives ";
-    if (s_glSupport.GL_OES_TEXTURE_NPOT)
-        *s_glExtensions+="GL_OES_texture_npot ";
-    if (s_glSupport.GL_OES_RGB8_RGBA8)
-        *s_glExtensions+="GL_OES_rgb8_rgba8 ";
-    if (s_glSupport.ext_GL_EXT_color_buffer_float)
-        *s_glExtensions+="GL_EXT_color_buffer_float ";
-    if (s_glSupport.ext_GL_EXT_color_buffer_half_float)
-        *s_glExtensions+="GL_EXT_color_buffer_half_float ";
-    if (s_glSupport.ext_GL_EXT_shader_framebuffer_fetch)
-        *s_glExtensions+="GL_EXT_shader_framebuffer_fetch ";
-    if (s_glSupport.GL_EXT_TEXTURE_FORMAT_BGRA8888) {
-        *s_glExtensions+="GL_EXT_texture_format_BGRA8888 GL_APPLE_texture_format_BGRA8888 ";
+void InitExtensionString(GLSupport& glSupport, std::string& ext) {
+    ext =
+        "GL_OES_EGL_sync GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_depth24 GL_OES_depth32 "
+        "GL_OES_element_index_uint "
+        "GL_OES_texture_float GL_OES_texture_float_linear "
+        "GL_OES_compressed_paletted_texture GL_OES_compressed_ETC1_RGB8_texture "
+        "GL_OES_depth_texture ";
+    if (glSupport.GL_ARB_HALF_FLOAT_PIXEL || glSupport.GL_NV_HALF_FLOAT)
+        ext += "GL_OES_texture_half_float GL_OES_texture_half_float_linear ";
+    if (glSupport.GL_EXT_PACKED_DEPTH_STENCIL) ext += "GL_OES_packed_depth_stencil ";
+    if (glSupport.GL_ARB_HALF_FLOAT_VERTEX) ext += "GL_OES_vertex_half_float ";
+    if (glSupport.GL_OES_STANDARD_DERIVATIVES) ext += "GL_OES_standard_derivatives ";
+    if (glSupport.GL_OES_TEXTURE_NPOT) ext += "GL_OES_texture_npot ";
+    if (glSupport.GL_OES_RGB8_RGBA8) ext += "GL_OES_rgb8_rgba8 ";
+    if (glSupport.ext_GL_EXT_color_buffer_float) ext += "GL_EXT_color_buffer_float ";
+    if (glSupport.ext_GL_EXT_color_buffer_half_float) ext += "GL_EXT_color_buffer_half_float ";
+    if (glSupport.ext_GL_EXT_shader_framebuffer_fetch) ext += "GL_EXT_shader_framebuffer_fetch ";
+    if (glSupport.GL_EXT_TEXTURE_FORMAT_BGRA8888) {
+        ext += "GL_EXT_texture_format_BGRA8888 GL_APPLE_texture_format_BGRA8888 ";
     }
+    if (glSupport.ext_GL_EXT_texture_buffer) {
+        ext += "GL_EXT_texture_buffer ";
+    }
+    if (glSupport.ext_GL_OES_texture_buffer) {
+        ext += "GL_OES_texture_buffer ";
+    }
+    if (glSupport.ext_GL_EXT_draw_buffers_indexed) {
+        ext += "GL_EXT_draw_buffers_indexed ";
+    }
+}
 
-    s_glExtensionsInitialized = true;
+void GLESv2Context::initExtensionString() {
+    if (m_glesMajorVersion == 3 && m_glesMinorVersion == 1) {
+        if (s_glExtensionsGles31Initialized) return;
+        initCapsLocked((const GLubyte*)getHostExtensionsString(&s_glDispatch).c_str(), s_glSupportGles31);
+        InitExtensionString(s_glSupportGles31, *s_glExtensionsGles31);
+        s_glExtensionsGles31Initialized = true;
+    } else {
+        if (s_glExtensionsInitialized) return;
+        initCapsLocked((const GLubyte*)getHostExtensionsString(&s_glDispatch).c_str(),
+                       s_glSupport);
+        InitExtensionString(s_glSupport, *s_glExtensions);
+        s_glExtensionsInitialized = true;
+    }
 }
 
 int GLESv2Context::getMaxTexUnits() {

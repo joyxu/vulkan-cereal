@@ -24,6 +24,7 @@
 // #include "android/skin/rect.h"
 #include <memory>
 
+#include "BorrowedImage.h"
 #include "DisplayVk.h"
 #include "FrameworkFormats.h"
 #include "Hwc2.h"
@@ -254,10 +255,7 @@ public:
     void postLayer(const ComposeLayer& l, int frameWidth, int frameHeight);
     GLuint getTexture();
 
-    const std::shared_ptr<DisplayVk::DisplayBufferInfo>& getDisplayBufferVk()
-        const {
-        return m_displayBufferVk;
-    };
+    std::unique_ptr<BorrowedImageInfo> getBorrowedImageInfo();
 
     // ColorBuffer backing change methods
     //
@@ -269,8 +267,7 @@ public:
 #else
         int handle,
 #endif
-        uint64_t size, bool dedicated, bool linearTiling, bool vulkanOnly,
-        std::shared_ptr<DisplayVk::DisplayBufferInfo> displayBufferVk);
+        uint64_t size, bool dedicated, bool linearTiling, bool vulkanOnly);
     // Change to EGL native pixmap
     bool importEglNativePixmap(void* pixmap, bool preserveContent);
     // Change to some other native EGL image.  nativeEglImage must not have
@@ -348,9 +345,6 @@ private:
     GLuint m_buf = 0;
     uint32_t m_displayId = 0;
     bool m_BRSwizzle = false;
-    // Won't share with others so that m_displayBufferVk lives shorter than this
-    // ColorBuffer.
-    std::shared_ptr<DisplayVk::DisplayBufferInfo> m_displayBufferVk;
 };
 
 typedef std::shared_ptr<ColorBuffer> ColorBufferPtr;

@@ -178,15 +178,22 @@ GLDispatch     GLEScontext::s_glDispatch;
 android::base::Lock   GLEScontext::s_lock;
 std::string*   GLEScontext::s_glExtensionsGles1 = NULL;
 bool           GLEScontext::s_glExtensionsGles1Initialized = false;
+std::string*   GLEScontext::s_glExtensionsGles31 = NULL;
+bool           GLEScontext::s_glExtensionsGles31Initialized = false;
 std::string*   GLEScontext::s_glExtensions = NULL;
 bool           GLEScontext::s_glExtensionsInitialized = false;
 std::string    GLEScontext::s_glVendorGles1;
 std::string    GLEScontext::s_glRendererGles1;
 std::string    GLEScontext::s_glVersionGles1;
+std::string    GLEScontext::s_glVendorGles31;
+std::string    GLEScontext::s_glRendererGles31;
+std::string    GLEScontext::s_glVersionGles31;
 std::string    GLEScontext::s_glVendor;
 std::string    GLEScontext::s_glRenderer;
 std::string    GLEScontext::s_glVersion;
 GLSupport      GLEScontext::s_glSupport;
+GLSupport      GLEScontext::s_glSupportGles1;
+GLSupport      GLEScontext::s_glSupportGles31;
 
 Version::Version(int major,int minor,int release):m_major(major),
                                                   m_minor(minor),
@@ -223,7 +230,7 @@ bool Version::operator<(const Version& ver) const{
     return false;
 }
 
-static std::string getHostExtensionsString(GLDispatch* dispatch) {
+std::string getHostExtensionsString(GLDispatch* dispatch) {
     // glGetString(GL_EXTENSIONS) is deprecated in GL 3.0, one has to use
     // glGetStringi(GL_EXTENSIONS, index) instead to get individual extension
     // names. Recent desktop drivers implement glGetStringi() but have a
@@ -384,12 +391,13 @@ void GLEScontext::initGlobal(EGLiface* iface) {
     initEglIface(iface);
     s_lock.lock();
     if (!s_glExtensions) {
-        initCapsLocked(reinterpret_cast<const GLubyte*>(
-                getHostExtensionsString(&s_glDispatch).c_str()));
         s_glExtensions = new std::string();
     }
     if (!s_glExtensionsGles1) {
         s_glExtensionsGles1 = new std::string();
+    }
+    if (!s_glExtensionsGles31) {
+        s_glExtensionsGles31 = new std::string();
     }
     s_lock.unlock();
 }
@@ -412,6 +420,8 @@ void GLEScontext::init() {
         m_indexedUniformBuffers.resize(getCaps()->maxUniformBufferBindings);
         m_indexedAtomicCounterBuffers.resize(getCaps()->maxAtomicCounterBufferBindings);
         m_indexedShaderStorageBuffers.resize(getCaps()->maxShaderStorageBufferBindings);
+        m_blendStates.resize(getCaps()->ext_GL_EXT_draw_buffers_indexed ? getCaps()->maxDrawBuffers
+                                                                        : 1);
     }
 }
 
@@ -469,6 +479,7 @@ GLEScontext::GLEScontext(GlobalNameSpace* globalNameSpace,
             m_dispatchIndirectBuffer = static_cast<GLuint>(stream->getBe32());
             m_drawIndirectBuffer = static_cast<GLuint>(stream->getBe32());
             m_shaderStorageBuffer = static_cast<GLuint>(stream->getBe32());
+            m_textureBuffer = static_cast<GLuint>(stream->getBe32());
 
             loadContainer(stream, m_indexedTransformFeedbackBuffers);
             loadContainer(stream, m_indexedUniformBuffers);
@@ -499,13 +510,10 @@ GLEScontext::GLEScontext(GlobalNameSpace* globalNameSpace,
                         bool enabled = stream->getByte();
                         return std::make_pair(item, enabled);
             });
+            int blendStateCount = stream->getBe32();
+            m_blendStates.resize(blendStateCount);
 
-            m_blendEquationRgb = static_cast<GLenum>(stream->getBe32());
-            m_blendEquationAlpha = static_cast<GLenum>(stream->getBe32());
-            m_blendSrcRgb = static_cast<GLenum>(stream->getBe32());
-            m_blendDstRgb = static_cast<GLenum>(stream->getBe32());
-            m_blendSrcAlpha = static_cast<GLenum>(stream->getBe32());
-            m_blendDstAlpha = static_cast<GLenum>(stream->getBe32());
+            stream->read(m_blendStates.data(), sizeof(BlendState) * blendStateCount);
 
             loadCollection(stream, &m_glPixelStoreiList,
                     [](android::base::Stream* stream) {
@@ -527,11 +535,6 @@ GLEScontext::GLEScontext(GlobalNameSpace* globalNameSpace,
             m_sampleCoverageInvert = static_cast<GLboolean>(stream->getByte());
 
             stream->read(m_stencilStates, sizeof(m_stencilStates));
-
-            m_colorMaskR = static_cast<GLboolean>(stream->getByte());
-            m_colorMaskG = static_cast<GLboolean>(stream->getByte());
-            m_colorMaskB = static_cast<GLboolean>(stream->getByte());
-            m_colorMaskA = static_cast<GLboolean>(stream->getByte());
 
             m_clearColorR = static_cast<GLclampf>(stream->getFloat());
             m_clearColorG = static_cast<GLclampf>(stream->getFloat());
@@ -659,6 +662,7 @@ void GLEScontext::onSave(android::base::Stream* stream) const {
         stream->putBe32(m_dispatchIndirectBuffer);
         stream->putBe32(m_drawIndirectBuffer);
         stream->putBe32(m_shaderStorageBuffer);
+        stream->putBe32(m_textureBuffer);
 
         saveContainer(stream, m_indexedTransformFeedbackBuffers);
         saveContainer(stream, m_indexedUniformBuffers);
@@ -685,13 +689,8 @@ void GLEScontext::onSave(android::base::Stream* stream) const {
                     stream->putBe32(enableItem.first);
                     stream->putByte(enableItem.second);
         });
-
-        stream->putBe32(m_blendEquationRgb);
-        stream->putBe32(m_blendEquationAlpha);
-        stream->putBe32(m_blendSrcRgb);
-        stream->putBe32(m_blendDstRgb);
-        stream->putBe32(m_blendSrcAlpha);
-        stream->putBe32(m_blendDstAlpha);
+        stream->putBe32((int)m_blendStates.size());
+        stream->write(m_blendStates.data(), sizeof(BlendState) * m_blendStates.size());
 
         saveCollection(stream, m_glPixelStoreiList, [](android::base::Stream* stream,
                 const std::pair<const GLenum, GLint>& pixelStore) {
@@ -712,11 +711,6 @@ void GLEScontext::onSave(android::base::Stream* stream) const {
         stream->putByte(m_sampleCoverageInvert);
 
         stream->write(m_stencilStates, sizeof(m_stencilStates));
-
-        stream->putByte(m_colorMaskR);
-        stream->putByte(m_colorMaskG);
-        stream->putByte(m_colorMaskB);
-        stream->putByte(m_colorMaskA);
 
         stream->putFloat(m_clearColorR);
         stream->putFloat(m_clearColorG);
@@ -818,6 +812,9 @@ void GLEScontext::postLoadRestoreCtx() {
                     case TEXTURE_2D_MULTISAMPLE:
                         texTarget = GL_TEXTURE_2D_MULTISAMPLE;
                         break;
+                    case TEXTURE_BUFFER:
+                        texTarget = GL_TEXTURE_BUFFER;
+                        break;
                     default:
                         fprintf(stderr,
                                 "Warning: unsupported texture target 0x%x.\n",
@@ -867,10 +864,31 @@ void GLEScontext::postLoadRestoreCtx() {
             enableFunc(item.first);
         }
     }
-    dispatcher.glBlendEquationSeparate(m_blendEquationRgb,
-            m_blendEquationAlpha);
-    dispatcher.glBlendFuncSeparate(m_blendSrcRgb, m_blendDstRgb,
-            m_blendSrcAlpha, m_blendDstAlpha);
+
+    if (getCaps()->ext_GL_EXT_draw_buffers_indexed) {
+        for (GLuint i = 0; i < m_blendStates.size(); ++i) {
+            if (m_blendStates[i].bEnable)
+                dispatcher.glEnableiEXT(GL_BLEND, i);
+            else
+                dispatcher.glDisableiEXT(GL_BLEND, i);
+            auto& blend = m_blendStates[i];
+            dispatcher.glBlendEquationSeparateiEXT(i, blend.blendEquationRgb, blend.blendEquationAlpha);
+            dispatcher.glBlendFuncSeparateiEXT(i, blend.blendSrcRgb, blend.blendDstRgb,
+                                               blend.blendSrcAlpha, blend.blendDstAlpha);
+            dispatcher.glColorMaskiEXT(i, blend.colorMaskR, blend.colorMaskG, blend.colorMaskB, blend.colorMaskA);
+        }
+    } else {
+        if (m_blendStates[0].bEnable)
+            dispatcher.glEnable(GL_BLEND);
+        else
+            dispatcher.glDisable(GL_BLEND);
+        auto& blend = m_blendStates[0];
+        dispatcher.glBlendEquationSeparate(blend.blendEquationRgb, blend.blendEquationAlpha);
+        dispatcher.glBlendFuncSeparate(blend.blendSrcRgb, blend.blendDstRgb,
+                                           blend.blendSrcAlpha, blend.blendDstAlpha);
+        dispatcher.glColorMask(blend.colorMaskR, blend.colorMaskG, blend.colorMaskB, blend.colorMaskA);
+    }
+
     for (const auto& pixelStore : m_glPixelStoreiList) {
         dispatcher.glPixelStorei(pixelStore.first, pixelStore.second);
     }
@@ -904,8 +922,7 @@ void GLEScontext::postLoadRestoreCtx() {
         dispatcher.glDepthRange(m_zNear, m_zFar);
     }
     dispatcher.glClearStencil(m_clearStencil);
-    dispatcher.glColorMask(m_colorMaskR, m_colorMaskG, m_colorMaskB,
-            m_colorMaskA);
+
 
     // report any GL errors when loading from a snapshot
     GLenum err = 0;
@@ -1222,6 +1239,9 @@ GLuint GLEScontext::bindBuffer(GLenum target,GLuint buffer) {
     case GL_SHADER_STORAGE_BUFFER:
         m_shaderStorageBuffer = buffer;
         break;
+    case GL_TEXTURE_BUFFER:
+        m_textureBuffer = buffer;
+        break;
     default:
         m_arrayBuffer = buffer;
         break;
@@ -1307,6 +1327,8 @@ void GLEScontext::unbindBuffer(GLuint buffer) {
         m_drawIndirectBuffer = 0;
     if (m_shaderStorageBuffer == buffer)
         m_shaderStorageBuffer = 0;
+    if (m_textureBuffer == buffer)
+        m_textureBuffer = 0;
 
     // One might think that indexed buffer bindings for transform feedbacks
     // must be cleared as well, but transform feedbacks are
@@ -1348,6 +1370,8 @@ bool GLEScontext::isBindedBuffer(GLenum target) {
         return m_drawIndirectBuffer != 0;
     case GL_SHADER_STORAGE_BUFFER:
         return m_shaderStorageBuffer != 0;
+    case GL_TEXTURE_BUFFER:
+        return m_textureBuffer != 0;
     default:
         return m_arrayBuffer != 0;
     }
@@ -1379,6 +1403,8 @@ GLuint GLEScontext::getBuffer(GLenum target) {
         return m_drawIndirectBuffer;
     case GL_SHADER_STORAGE_BUFFER:
         return m_shaderStorageBuffer;
+    case GL_TEXTURE_BUFFER:
+        return m_textureBuffer;
     default:
         return m_arrayBuffer;
     }
@@ -1487,10 +1513,27 @@ void GLEScontext::setEnable(GLenum item, bool isEnable) {
         case GL_TEXTURE_3D:
         case GL_TEXTURE_2D_ARRAY:
         case GL_TEXTURE_2D_MULTISAMPLE:
+        case GL_TEXTURE_BUFFER:
             setTextureEnabled(item,true);
+            break;
+        case GL_BLEND:
+            for (auto& blend : m_blendStates) {
+                blend.bEnable = isEnable ? GL_TRUE : GL_FALSE;
+            }
             break;
         default:
             m_glEnableList[item] = isEnable;
+            break;
+    }
+}
+
+
+void GLEScontext::setEnablei(GLenum item, GLuint index, bool isEnable) {
+    switch (item) {
+        case GL_BLEND:
+            if (index < m_blendStates.size()) {
+                m_blendStates[index].bEnable = isEnable ? GL_TRUE : GL_FALSE;
+            }
             break;
     }
 }
@@ -1502,23 +1545,47 @@ bool GLEScontext::isEnabled(GLenum item) const {
         case GL_TEXTURE_3D:
         case GL_TEXTURE_2D_ARRAY:
         case GL_TEXTURE_2D_MULTISAMPLE:
+        case GL_TEXTURE_BUFFER:
             return m_texState[m_activeTexture][GLTextureTargetToLocal(item)].enabled;
+        case GL_BLEND:
+            return m_blendStates[0].bEnable!=GL_FALSE;
         default:
             return android::base::findOrDefault(m_glEnableList, item, false);
     }
 }
 
 void GLEScontext::setBlendEquationSeparate(GLenum modeRGB, GLenum modeAlpha) {
-    m_blendEquationRgb = modeRGB;
-    m_blendEquationAlpha = modeAlpha;
+    for (auto & blendState : m_blendStates) {
+        blendState.blendEquationRgb = modeRGB;
+        blendState.blendEquationAlpha = modeAlpha;
+    }
+}
+
+void GLEScontext::setBlendEquationSeparatei(GLenum buf, GLenum modeRGB, GLenum modeAlpha) {
+    if (buf < m_blendStates.size()) {
+        m_blendStates[buf].blendEquationRgb = modeRGB;
+        m_blendStates[buf].blendEquationAlpha = modeAlpha;
+    }
 }
 
 void GLEScontext::setBlendFuncSeparate(GLenum srcRGB, GLenum dstRGB,
             GLenum srcAlpha, GLenum dstAlpha) {
-    m_blendSrcRgb = srcRGB;
-    m_blendDstRgb = dstRGB;
-    m_blendSrcAlpha = srcAlpha;
-    m_blendDstAlpha = dstAlpha;
+    for (auto& blendState : m_blendStates) {
+        blendState.blendSrcRgb = srcRGB;
+        blendState.blendDstRgb = dstRGB;
+        blendState.blendSrcAlpha = srcAlpha;
+        blendState.blendDstAlpha = dstAlpha;
+    }
+}
+
+void GLEScontext::setBlendFuncSeparatei(GLenum buf, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha,
+                                       GLenum dstAlpha) {
+    if (buf < m_blendStates.size()) {
+        m_blendStates[buf].blendSrcRgb = srcRGB;
+        m_blendStates[buf].blendDstRgb = dstRGB;
+        m_blendStates[buf].blendSrcAlpha = srcAlpha;
+        m_blendStates[buf].blendDstAlpha = dstAlpha;
+    }
 }
 
 void GLEScontext::setPixelStorei(GLenum pname, GLint param) {
@@ -1622,10 +1689,22 @@ void GLEScontext::setStencilOpSeparate(GLenum face, GLenum fail, GLenum zfail,
 
 void GLEScontext::setColorMask(GLboolean red, GLboolean green, GLboolean blue,
         GLboolean alpha) {
-    m_colorMaskR = red;
-    m_colorMaskG = green;
-    m_colorMaskB = blue;
-    m_colorMaskA = alpha;
+    for (auto& blend : m_blendStates) {
+        blend.colorMaskR = red;
+        blend.colorMaskG = green;
+        blend.colorMaskB = blue;
+        blend.colorMaskA = alpha;
+    }
+}
+
+void GLEScontext::setColorMaski(GLuint buf, GLboolean red, GLboolean green, GLboolean blue,
+    GLboolean alpha) {
+    if (buf < m_blendStates.size()) {
+        m_blendStates[buf].colorMaskR = red;
+        m_blendStates[buf].colorMaskG = green;
+        m_blendStates[buf].colorMaskB = blue;
+        m_blendStates[buf].colorMaskA = alpha;
+    }
 }
 
 void GLEScontext::setClearColor(GLclampf red, GLclampf green, GLclampf blue,
@@ -1644,7 +1723,7 @@ void GLEScontext::setClearStencil(GLint s) {
     m_clearStencil = s;
 }
 
-const char * GLEScontext::getExtensionString(bool isGles1) {
+const char* GLEScontext::getExtensionString(bool isGles1) {
     const char * ret;
     s_lock.lock();
     if (isGles1) {
@@ -1653,25 +1732,56 @@ const char * GLEScontext::getExtensionString(bool isGles1) {
         else
             ret="";
     } else {
-        if (s_glExtensions)
-            ret = s_glExtensions->c_str();
-        else
-            ret="";
+        if (m_glesMajorVersion == 3 && m_glesMinorVersion == 1) {
+            if (s_glExtensionsGles31)
+                ret = s_glExtensionsGles31->c_str();
+            else
+                ret = "";
+        } else {
+            if (s_glExtensions)
+                ret = s_glExtensions->c_str();
+            else
+                ret = "";
+        }
     }
     s_lock.unlock();
     return ret;
 }
 
-const char * GLEScontext::getVendorString(bool isGles1) const {
-    return isGles1 ? s_glVendorGles1.c_str() : s_glVendor.c_str();
+const char* GLEScontext::getVendorString(bool isGles1) const {
+    if (isGles1) {
+        return s_glVendorGles1.c_str();
+    } else {
+        if (m_glesMajorVersion == 3 && m_glesMinorVersion == 1) {
+            return s_glVendorGles31.c_str();
+        } else {
+            return s_glVendor.c_str();
+        }
+    }
 }
 
-const char * GLEScontext::getRendererString(bool isGles1) const {
-    return isGles1 ? s_glRendererGles1.c_str() : s_glRenderer.c_str();
+const char* GLEScontext::getRendererString(bool isGles1) const {
+    if (isGles1) {
+        return s_glRendererGles1.c_str();
+    } else {
+        if (m_glesMajorVersion == 3 && m_glesMinorVersion == 1) {
+            return s_glRendererGles31.c_str();
+        } else {
+            return s_glRenderer.c_str();
+        }
+    }
 }
 
-const char * GLEScontext::getVersionString(bool isGles1) const {
-    return isGles1 ? s_glVersionGles1.c_str() : s_glVersion.c_str();
+const char* GLEScontext::getVersionString(bool isGles1) const {
+    if (isGles1) {
+        return s_glVersionGles1.c_str();
+    } else {
+        if (m_glesMajorVersion == 3 && m_glesMinorVersion == 1) {
+            return s_glVersionGles31.c_str();
+        } else {
+            return s_glVersion.c_str();
+        }
+    }
 }
 
 void GLEScontext::getGlobalLock() {
@@ -1682,36 +1792,38 @@ void GLEScontext::releaseGlobalLock() {
     s_lock.unlock();
 }
 
-void GLEScontext::initCapsLocked(const GLubyte * extensionString)
+void GLEScontext::initCapsLocked(const GLubyte * extensionString, GLSupport& glSupport)
 {
     const char* cstring = (const char*)extensionString;
 
-    s_glDispatch.glGetIntegerv(GL_MAX_VERTEX_ATTRIBS,&s_glSupport.maxVertexAttribs);
+    s_glDispatch.glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &glSupport.maxVertexAttribs);
 
-    if (s_glSupport.maxVertexAttribs > kMaxVertexAttributes) {
-        s_glSupport.maxVertexAttribs = kMaxVertexAttributes;
+    if (glSupport.maxVertexAttribs > kMaxVertexAttributes) {
+        glSupport.maxVertexAttribs = kMaxVertexAttributes;
     }
 
-    s_glDispatch.glGetIntegerv(GL_MAX_CLIP_PLANES,&s_glSupport.maxClipPlane);
-    s_glDispatch.glGetIntegerv(GL_MAX_LIGHTS,&s_glSupport.maxLights);
-    s_glDispatch.glGetIntegerv(GL_MAX_TEXTURE_SIZE,&s_glSupport.maxTexSize);
-    s_glDispatch.glGetIntegerv(GL_MAX_TEXTURE_UNITS,&s_glSupport.maxTexUnits);
+    s_glDispatch.glGetIntegerv(GL_MAX_CLIP_PLANES, &glSupport.maxClipPlane);
+    s_glDispatch.glGetIntegerv(GL_MAX_LIGHTS, &glSupport.maxLights);
+    s_glDispatch.glGetIntegerv(GL_MAX_TEXTURE_SIZE, &glSupport.maxTexSize);
+    s_glDispatch.glGetIntegerv(GL_MAX_TEXTURE_UNITS, &glSupport.maxTexUnits);
     // Core profile lacks a fixed-function pipeline with texture units,
     // but we still want glDrawTexOES to work in core profile.
     // So, set it to 8.
-    if ((::isCoreProfile() || isGles2Gles()) &&
-        !s_glSupport.maxTexUnits) {
-        s_glSupport.maxTexUnits = 8;
+    if ((::isCoreProfile() || isGles2Gles()) && !glSupport.maxTexUnits) {
+        glSupport.maxTexUnits = 8;
     }
-    s_glDispatch.glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS,&s_glSupport.maxTexImageUnits);
-    s_glDispatch.glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &s_glSupport.maxCombinedTexImageUnits);
-
-    s_glDispatch.glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS, &s_glSupport.maxTransformFeedbackSeparateAttribs);
-    s_glDispatch.glGetIntegerv(GL_MAX_UNIFORM_BUFFER_BINDINGS, &s_glSupport.maxUniformBufferBindings);
-    s_glDispatch.glGetIntegerv(GL_MAX_ATOMIC_COUNTER_BUFFER_BINDINGS, &s_glSupport.maxAtomicCounterBufferBindings);
-    s_glDispatch.glGetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, &s_glSupport.maxShaderStorageBufferBindings);
-    s_glDispatch.glGetIntegerv(GL_MAX_DRAW_BUFFERS, &s_glSupport.maxDrawBuffers);
-    s_glDispatch.glGetIntegerv(GL_MAX_VERTEX_ATTRIB_BINDINGS, &s_glSupport.maxVertexAttribBindings);
+    s_glDispatch.glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &glSupport.maxTexImageUnits);
+    s_glDispatch.glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS,
+                               &glSupport.maxCombinedTexImageUnits);
+    s_glDispatch.glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS,
+                               &glSupport.maxTransformFeedbackSeparateAttribs);
+    s_glDispatch.glGetIntegerv(GL_MAX_UNIFORM_BUFFER_BINDINGS, &glSupport.maxUniformBufferBindings);
+    s_glDispatch.glGetIntegerv(GL_MAX_ATOMIC_COUNTER_BUFFER_BINDINGS,
+                               &glSupport.maxAtomicCounterBufferBindings);
+    s_glDispatch.glGetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS,
+                               &glSupport.maxShaderStorageBufferBindings);
+    s_glDispatch.glGetIntegerv(GL_MAX_DRAW_BUFFERS, &glSupport.maxDrawBuffers);
+    s_glDispatch.glGetIntegerv(GL_MAX_VERTEX_ATTRIB_BINDINGS, &glSupport.maxVertexAttribBindings);
 
     // Compressed texture format query
     if(feature_is_enabled(kFeature_NativeTextureDecompression)) {
@@ -1769,15 +1881,15 @@ void GLEScontext::initCapsLocked(const GLubyte * extensionString)
                 }
             }
         }
-        s_glSupport.hasEtc2Support = hasEtc2Support;
-        s_glSupport.hasAstcSupport = hasAstcSupport;
+        glSupport.hasEtc2Support = hasEtc2Support;
+        glSupport.hasAstcSupport = hasAstcSupport;
     }
 
     // Clear GL error in case these enums not supported.
     s_glDispatch.glGetError();
 
     const GLubyte* glslVersion = s_glDispatch.glGetString(GL_SHADING_LANGUAGE_VERSION);
-    s_glSupport.glslVersion = Version((const  char*)(glslVersion));
+    glSupport.glslVersion = Version((const char*)(glslVersion));
     const GLubyte* glVersion = s_glDispatch.glGetString(GL_VERSION);
 
     // fprintf(stderr, "%s: vendor renderer version [%s] [%s] [%s]\n", __func__,
@@ -1788,102 +1900,110 @@ void GLEScontext::initCapsLocked(const GLubyte * extensionString)
     if (strstr(cstring,"GL_EXT_bgra ")!=NULL ||
         (isGles2Gles() && strstr(cstring, "GL_EXT_texture_format_BGRA8888")) ||
         (!isGles2Gles() && !(Version((const char*)glVersion) < Version("1.2"))))
-        s_glSupport.GL_EXT_TEXTURE_FORMAT_BGRA8888 = true;
+        glSupport.GL_EXT_TEXTURE_FORMAT_BGRA8888 = true;
 
     if (::isCoreProfile() ||
         strstr(cstring,"GL_EXT_framebuffer_object ")!=NULL)
-        s_glSupport.GL_EXT_FRAMEBUFFER_OBJECT = true;
+        glSupport.GL_EXT_FRAMEBUFFER_OBJECT = true;
 
-    if (strstr(cstring,"GL_ARB_vertex_blend ")!=NULL)
-        s_glSupport.GL_ARB_VERTEX_BLEND = true;
+    if (strstr(cstring,"GL_ARB_vertex_blend ")!=NULL) glSupport.GL_ARB_VERTEX_BLEND = true;
 
-    if (strstr(cstring,"GL_ARB_matrix_palette ")!=NULL)
-        s_glSupport.GL_ARB_MATRIX_PALETTE = true;
+    if (strstr(cstring,"GL_ARB_matrix_palette ")!=NULL) glSupport.GL_ARB_MATRIX_PALETTE = true;
 
     if (strstr(cstring,"GL_EXT_packed_depth_stencil ")!=NULL ||
         strstr(cstring,"GL_OES_packed_depth_stencil ")!=NULL)
-        s_glSupport.GL_EXT_PACKED_DEPTH_STENCIL = true;
+        glSupport.GL_EXT_PACKED_DEPTH_STENCIL = true;
 
-    if (strstr(cstring,"GL_OES_read_format ")!=NULL)
-        s_glSupport.GL_OES_READ_FORMAT = true;
+    if (strstr(cstring,"GL_OES_read_format ")!=NULL) glSupport.GL_OES_READ_FORMAT = true;
 
     if (strstr(cstring,"GL_ARB_half_float_pixel ")!=NULL ||
         strstr(cstring,"GL_OES_texture_half_float ")!=NULL)
-        s_glSupport.GL_ARB_HALF_FLOAT_PIXEL = true;
+        glSupport.GL_ARB_HALF_FLOAT_PIXEL = true;
 
-    if (strstr(cstring,"GL_NV_half_float ")!=NULL)
-        s_glSupport.GL_NV_HALF_FLOAT = true;
+    if (strstr(cstring,"GL_NV_half_float ")!=NULL) glSupport.GL_NV_HALF_FLOAT = true;
 
     if (strstr(cstring,"GL_ARB_half_float_vertex ")!=NULL ||
         strstr(cstring,"GL_OES_vertex_half_float ")!=NULL)
-        s_glSupport.GL_ARB_HALF_FLOAT_VERTEX = true;
+        glSupport.GL_ARB_HALF_FLOAT_VERTEX = true;
 
     if (strstr(cstring,"GL_SGIS_generate_mipmap ")!=NULL)
-        s_glSupport.GL_SGIS_GENERATE_MIPMAP = true;
+        glSupport.GL_SGIS_GENERATE_MIPMAP = true;
 
     if (strstr(cstring,"GL_ARB_ES2_compatibility ")!=NULL
             || isGles2Gles())
-        s_glSupport.GL_ARB_ES2_COMPATIBILITY = true;
+        glSupport.GL_ARB_ES2_COMPATIBILITY = true;
 
     if (strstr(cstring,"GL_OES_standard_derivatives ")!=NULL)
-        s_glSupport.GL_OES_STANDARD_DERIVATIVES = true;
+        glSupport.GL_OES_STANDARD_DERIVATIVES = true;
 
     if (::isCoreProfile() ||
         strstr(cstring,"GL_ARB_texture_non_power_of_two")!=NULL ||
         strstr(cstring,"GL_OES_texture_npot")!=NULL)
-        s_glSupport.GL_OES_TEXTURE_NPOT = true;
+        glSupport.GL_OES_TEXTURE_NPOT = true;
 
     if (::isCoreProfile() ||
         strstr(cstring,"GL_ARB_color_buffer_float")!=NULL ||
         strstr(cstring,"GL_EXT_color_buffer_float")!=NULL)
-        s_glSupport.ext_GL_EXT_color_buffer_float = true;
+        glSupport.ext_GL_EXT_color_buffer_float = true;
 
     if (::isCoreProfile() ||
         strstr(cstring,"GL_EXT_color_buffer_half_float")!=NULL)
-        s_glSupport.ext_GL_EXT_color_buffer_half_float = true;
+        glSupport.ext_GL_EXT_color_buffer_half_float = true;
 
     if (strstr(cstring,"GL_EXT_shader_framebuffer_fetch")!=NULL) {
-        s_glSupport.ext_GL_EXT_shader_framebuffer_fetch = true;
+        glSupport.ext_GL_EXT_shader_framebuffer_fetch = true;
     }
 
     if (!(Version((const char*)glVersion) < Version("3.0")) || strstr(cstring,"GL_OES_rgb8_rgba8")!=NULL)
-        s_glSupport.GL_OES_RGB8_RGBA8 = true;
+        glSupport.GL_OES_RGB8_RGBA8 = true;
 
     if (strstr(cstring, "GL_EXT_memory_object") != NULL) {
-        s_glSupport.ext_GL_EXT_memory_object = true;
+        glSupport.ext_GL_EXT_memory_object = true;
     }
 
     if (strstr(cstring, "GL_EXT_semaphore") != NULL) {
-        s_glSupport.ext_GL_EXT_semaphore = true;
+        glSupport.ext_GL_EXT_semaphore = true;
+    }
+
+    if (strstr(cstring, "GL_EXT_texture_buffer") != NULL) {
+        glSupport.ext_GL_EXT_texture_buffer = true;
+    }
+
+    if (strstr(cstring, "GL_OES_texture_buffer") != NULL) {
+        glSupport.ext_GL_OES_texture_buffer = true;
+    }
+
+    if (strstr(cstring, "GL_EXT_draw_buffers_indexed") != NULL) {
+        glSupport.ext_GL_EXT_draw_buffers_indexed = true;
     }
 
     // ASTC
     if (strstr(cstring, "GL_KHR_texture_compression_astc_ldr") != NULL) {
-        s_glSupport.ext_GL_KHR_texture_compression_astc_ldr = true;
+        glSupport.ext_GL_KHR_texture_compression_astc_ldr = true;
     }
 
     // BPTC extension detection
     if (feature_is_enabled(kFeature_BptcTextureSupport)) {
         if ((strstr(cstring, "GL_EXT_texture_compression_bptc") != NULL) ||
             (strstr(cstring, "GL_ARB_texture_compression_bptc") != NULL)) {
-            s_glSupport.hasBptcSupport = true;
+            glSupport.hasBptcSupport = true;
         }
     }
 
     if (feature_is_enabled(kFeature_S3tcTextureSupport)) {
         if (strstr(cstring, "GL_EXT_texture_compression_s3tc") != NULL) {
-            s_glSupport.hasS3tcSupport = true;
+            glSupport.hasS3tcSupport = true;
         }
     }
 
     if (feature_is_enabled(kFeature_RgtcTextureSupport)) {
         if (strstr(cstring, "GL_EXT_texture_compression_rgtc") != NULL) {
-            s_glSupport.hasRgtcSupport = true;
+            glSupport.hasRgtcSupport = true;
         }
     }
 }
 
-void GLEScontext::buildStrings(bool isGles1, const char* baseVendor,
+void GLEScontext::buildStrings(int major, int minor, const char* baseVendor,
         const char* baseRenderer, const char* baseVersion, const char* version)
 {
     static const char VENDOR[]   = {"Google ("};
@@ -1907,9 +2027,12 @@ void GLEScontext::buildStrings(bool isGles1, const char* baseVendor,
         version = "N/A";
     }
 
-    std::string& vendorString = isGles1 ? s_glVendorGles1 : s_glVendor;
-    std::string& rendererString = isGles1 ? s_glRendererGles1 : s_glRenderer;
-    std::string& versionString = isGles1 ? s_glVersionGles1 : s_glVersion;
+    bool isES31 = major == 3 && minor == 1;
+    bool isES11 = major == 1;
+    std::string& vendorString = isES11 ? s_glVendorGles1 : (isES31? s_glVendorGles31 : s_glVendor);
+    std::string& rendererString = isES11 ? s_glRendererGles1 : (isES31? s_glRendererGles31 : s_glRenderer);
+    std::string& versionString =
+        isES11 ? s_glVersionGles1 : (isES31 ? s_glVersionGles31 : s_glVersion);
 
     size_t baseVendorLen = strlen(baseVendor);
     vendorString.clear();
@@ -2052,6 +2175,9 @@ TextureTarget GLEScontext::GLTextureTargetToLocal(GLenum target) {
     case GL_TEXTURE_2D_MULTISAMPLE:
         value = TEXTURE_2D_MULTISAMPLE;
         break;
+    case GL_TEXTURE_BUFFER:
+        value = TEXTURE_BUFFER;
+        break;
     }
     return value;
 }
@@ -2095,6 +2221,9 @@ ObjectLocalName GLEScontext::getDefaultTextureName(GLenum target) {
         break;
     case TEXTURE_2D_MULTISAMPLE:
         name = INTERNAL_NAME(4);
+        break;
+    case TEXTURE_BUFFER:
+        name = INTERNAL_NAME(5);
         break;
     default:
         name = 0;
@@ -2732,9 +2861,17 @@ bool GLEScontext::setupImageBlitForTexture(uint32_t width,
     }
 
     auto& gl = dispatcher();
-    gl.glBindTexture(GL_TEXTURE_2D, m_blitState.tex);
+    // In eglSwapBuffers, the surface must be bound as the draw surface of
+    // the current context, which corresponds to m_defaultFBO here.
+    //
+    // EGL 1.4 spec:
+    //
+    // 3.9.3 Posting Semantics surface must be bound to the draw surface of the
+    // calling thread’s current context, for the current rendering API. This
+    // restriction may be lifted in future EGL revisions.
+    // copy the draw buffer to a texture.
 
-    GLint read_iformat = getReadBufferInternalFormat();
+    GLint read_iformat = m_defaultFBOColorFormat;
     GLint read_format = baseFormatOfInternalFormat(read_iformat);
 
     if (isIntegerInternalFormat(read_iformat) ||
@@ -2768,33 +2905,20 @@ bool GLEScontext::setupImageBlitForTexture(uint32_t width,
         gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
 
-    // In eglSwapBuffers, the surface must be bound as the draw surface of
-    // the current context, which corresponds to m_defaultFBO here.
-    //
-    // EGL 1.4 spec:
-    //
-    // 3.9.3 Posting Semantics surface must be bound to the draw surface of the
-    // calling thread’s current context, for the current rendering API. This
-    // restriction may be lifted in future EGL revisions.
-    //
-    const GLuint readFboBinding = getFramebufferBinding(GL_READ_FRAMEBUFFER);
-    if (readFboBinding != 0) {
-        gl.glBindFramebuffer(GL_READ_FRAMEBUFFER, m_defaultFBO);
-    }
-
     if (m_blitState.samples > 0) {
-        GLint rWidth = width;
-        GLint rHeight = height;
-        getReadBufferDimensions(&rWidth, &rHeight);
+        // Resolve MSAA
+        GLint rWidth = m_defaultFBOWidth;
+        GLint rHeight = m_defaultFBOHeight;
+        gl.glBindFramebuffer(GL_READ_FRAMEBUFFER, m_defaultFBO);
         gl.glBindTexture(GL_TEXTURE_2D, 0);
         gl.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_blitState.resolveFbo);
         gl.glBlitFramebuffer(0, 0, rWidth, rHeight, 0, 0, rWidth, rHeight,
                 GL_COLOR_BUFFER_BIT, GL_NEAREST);
         gl.glBindTexture(GL_TEXTURE_2D, m_blitState.tex);
     } else {
+        gl.glBindFramebuffer(GL_READ_FRAMEBUFFER, m_defaultFBO);
         gl.glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
     }
-
     return true;
 }
 
@@ -2813,9 +2937,20 @@ void GLEScontext::blitFromReadBufferToTextureFlipped(GLuint globalTexObj,
     getViewport(prevViewport);
 
     setupImageBlitState();
+
+    GLint prevTex2D = 0;
+    gl.glGetIntegerv(GL_TEXTURE_BINDING_2D, &prevTex2D);
+
+    gl.glBindTexture(GL_TEXTURE_2D, m_blitState.tex);
+
     bool shouldBlit = setupImageBlitForTexture(width, height, internalFormat);
 
-    if (!shouldBlit) return;
+    if (!shouldBlit) {
+        gl.glBindTexture(GL_TEXTURE_2D, prevTex2D);
+        return;
+    }
+
+
 
     // b/159670873: The texture to blit doesn't necessarily match the display
     // size. If it doesn't match, then we might not be using the right mipmap
@@ -2832,7 +2967,6 @@ void GLEScontext::blitFromReadBufferToTextureFlipped(GLuint globalTexObj,
     gl.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                               GL_TEXTURE_2D, globalTexObj, 0);
 
-    gl.glDisable(GL_BLEND);
     gl.glDisable(GL_SCISSOR_TEST);
     gl.glDisable(GL_DEPTH_TEST);
     gl.glDisable(GL_STENCIL_TEST);
@@ -2848,7 +2982,14 @@ void GLEScontext::blitFromReadBufferToTextureFlipped(GLuint globalTexObj,
     } else {
         gl.glDepthRange(0.0f, 1.0f);
     }
-    gl.glColorMask(1, 1, 1, 1);
+
+    if (getCaps()->ext_GL_EXT_draw_buffers_indexed) {
+        gl.glDisableiEXT(GL_BLEND, 0);
+        gl.glColorMaskiEXT(0, 1, 1, 1, 1);
+    } else {
+        gl.glDisable(GL_BLEND);
+        gl.glColorMask(1, 1, 1, 1);
+    }
 
     gl.glUseProgram(m_blitState.program);
     gl.glUniform1i(m_blitState.samplerLoc, m_activeTexture);
@@ -2880,7 +3021,6 @@ void GLEScontext::blitFromReadBufferToTextureFlipped(GLuint globalTexObj,
         GL_READ_FRAMEBUFFER,
         readFboBinding ? getFBOGlobalName(readFboBinding) : m_defaultReadFBO);
 
-    if (isEnabled(GL_BLEND)) gl.glEnable(GL_BLEND);
     if (isEnabled(GL_SCISSOR_TEST)) gl.glEnable(GL_SCISSOR_TEST);
     if (isEnabled(GL_DEPTH_TEST)) gl.glEnable(GL_DEPTH_TEST);
     if (isEnabled(GL_STENCIL_TEST)) gl.glEnable(GL_STENCIL_TEST);
@@ -2899,7 +3039,15 @@ void GLEScontext::blitFromReadBufferToTextureFlipped(GLuint globalTexObj,
         gl.glDepthRange(m_zNear, m_zFar);
     }
 
-    gl.glColorMask(m_colorMaskR, m_colorMaskG, m_colorMaskB, m_colorMaskA);
+    if (getCaps()->ext_GL_EXT_draw_buffers_indexed) {
+        if (isEnabled(GL_BLEND)) gl.glEnableiEXT(GL_BLEND, 0);
+        gl.glColorMaskiEXT(0, m_blendStates[0].colorMaskR, m_blendStates[0].colorMaskG,
+                       m_blendStates[0].colorMaskB, m_blendStates[0].colorMaskA);
+    } else {
+        if (isEnabled(GL_BLEND)) gl.glEnable(GL_BLEND);
+        gl.glColorMask(m_blendStates[0].colorMaskR, m_blendStates[0].colorMaskG,
+                       m_blendStates[0].colorMaskB, m_blendStates[0].colorMaskA);
+    }
 
     gl.glFlush();
 }
@@ -2911,9 +3059,18 @@ void GLEScontext::blitFromReadBufferToEGLImage(EGLImage image, GLint internalFor
     getViewport(prevViewport);
 
     setupImageBlitState();
+
+    GLint prevTex2D = 0;
+    gl.glGetIntegerv(GL_TEXTURE_BINDING_2D, &prevTex2D);
+
+    gl.glBindTexture(GL_TEXTURE_2D, m_blitState.tex);
+
     bool shouldBlit = setupImageBlitForTexture(width, height, internalFormat);
 
-    if (!shouldBlit) return;
+    if (!shouldBlit) {
+        gl.glBindTexture(GL_TEXTURE_2D, prevTex2D);
+        return;
+    }
 
     // b/159670873: The texture to blit doesn't necessarily match the display
     // size. If it doesn't match, then we might not be using the right mipmap
@@ -2937,7 +3094,6 @@ void GLEScontext::blitFromReadBufferToEGLImage(EGLImage image, GLint internalFor
     gl.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                               GL_TEXTURE_2D, m_blitState.eglImageTex, 0);
 
-    gl.glDisable(GL_BLEND);
     gl.glDisable(GL_SCISSOR_TEST);
     gl.glDisable(GL_DEPTH_TEST);
     gl.glDisable(GL_STENCIL_TEST);
@@ -2953,7 +3109,13 @@ void GLEScontext::blitFromReadBufferToEGLImage(EGLImage image, GLint internalFor
     } else {
         gl.glDepthRange(0.0f, 1.0f);
     }
-    gl.glColorMask(1, 1, 1, 1);
+    if (getCaps()->ext_GL_EXT_draw_buffers_indexed) {
+        gl.glDisableiEXT(GL_BLEND, 0);
+        gl.glColorMaskiEXT(0, 1, 1, 1, 1);
+    } else {
+        gl.glDisable(GL_BLEND);
+        gl.glColorMask(1, 1, 1, 1);
+    }
 
     gl.glUseProgram(m_blitState.program);
     gl.glUniform1i(m_blitState.samplerLoc, m_activeTexture);
@@ -2985,7 +3147,6 @@ void GLEScontext::blitFromReadBufferToEGLImage(EGLImage image, GLint internalFor
         GL_READ_FRAMEBUFFER,
         readFboBinding ? getFBOGlobalName(readFboBinding) : m_defaultReadFBO);
 
-    if (isEnabled(GL_BLEND)) gl.glEnable(GL_BLEND);
     if (isEnabled(GL_SCISSOR_TEST)) gl.glEnable(GL_SCISSOR_TEST);
     if (isEnabled(GL_DEPTH_TEST)) gl.glEnable(GL_DEPTH_TEST);
     if (isEnabled(GL_STENCIL_TEST)) gl.glEnable(GL_STENCIL_TEST);
@@ -3004,7 +3165,15 @@ void GLEScontext::blitFromReadBufferToEGLImage(EGLImage image, GLint internalFor
         gl.glDepthRange(m_zNear, m_zFar);
     }
 
-    gl.glColorMask(m_colorMaskR, m_colorMaskG, m_colorMaskB, m_colorMaskA);
+    if (getCaps()->ext_GL_EXT_draw_buffers_indexed) {
+        if (isEnabled(GL_BLEND)) gl.glEnableiEXT(GL_BLEND, 0);
+        gl.glColorMaskiEXT(0, m_blendStates[0].colorMaskR, m_blendStates[0].colorMaskG,
+                           m_blendStates[0].colorMaskB, m_blendStates[0].colorMaskA);
+    } else {
+        if (isEnabled(GL_BLEND)) gl.glEnable(GL_BLEND);
+        gl.glColorMask(m_blendStates[0].colorMaskR, m_blendStates[0].colorMaskG,
+                       m_blendStates[0].colorMaskB, m_blendStates[0].colorMaskA);
+    }
 
     gl.glFlush();
 }

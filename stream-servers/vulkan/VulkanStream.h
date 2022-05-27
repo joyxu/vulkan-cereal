@@ -13,32 +13,31 @@
 // limitations under the License.
 #pragma once
 
-#include "base/BumpPool.h"
-#include "base/Stream.h"
-#include "base/StreamSerializing.h"
-
-#include "VulkanHandleMapping.h"
-#include "common/goldfish_vk_private_defs.h"
+#include <inttypes.h>
 
 #include <memory>
 #include <vector>
 
-#include <inttypes.h>
+#include "VulkanHandleMapping.h"
+#include "base/BumpPool.h"
+#include "base/Stream.h"
+#include "base/StreamSerializing.h"
+#include "common/goldfish_vk_private_defs.h"
 
-#define E(fmt,...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
+#define E(fmt, ...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
 
 class IOStream;
 
 namespace android {
 namespace base {
 class BumpPool;
-} // namespace android
-} // namespace base
+}  // namespace base
+}  // namespace android
 
 namespace goldfish_vk {
 
 class VulkanStream : public android::base::Stream {
-public:
+   public:
     VulkanStream(IOStream* stream);
     ~VulkanStream();
 
@@ -59,8 +58,8 @@ public:
     void loadStringInPlaceWithStreamPtr(char** forOutput, uint8_t** streamPtr);
     void loadStringArrayInPlaceWithStreamPtr(char*** forOutput, uint8_t** streamPtr);
 
-    virtual ssize_t read(void *buffer, size_t size);
-    virtual ssize_t write(const void *buffer, size_t size);
+    virtual ssize_t read(void* buffer, size_t size);
+    virtual ssize_t write(const void* buffer, size_t size);
 
     void commitWrite();
 
@@ -75,9 +74,9 @@ public:
 
     android::base::BumpPool* pool();
 
-private:
+   private:
     size_t remainingWriteBufferSize() const;
-    ssize_t bufferedWrite(const void *buffer, size_t size);
+    ssize_t bufferedWrite(const void* buffer, size_t size);
     android::base::BumpPool mPool;
     size_t mWritePos = 0;
     std::vector<uint8_t> mWriteBuffer;
@@ -88,7 +87,7 @@ private:
 };
 
 class VulkanMemReadingStream : public VulkanStream {
-public:
+   public:
     VulkanMemReadingStream(uint8_t* start);
     ~VulkanMemReadingStream();
 
@@ -96,13 +95,13 @@ public:
     uint8_t* getBuf();
     void setReadPos(uintptr_t pos);
 
-    ssize_t read(void *buffer, size_t size) override;
-    ssize_t write(const void *buffer, size_t size) override;
+    ssize_t read(void* buffer, size_t size) override;
+    ssize_t write(const void* buffer, size_t size) override;
 
     uint8_t* beginTrace();
     size_t endTrace();
-    
-private:
+
+   private:
     void resetTrace();
 
     uint8_t* mStart;
@@ -110,4 +109,4 @@ private:
     uintptr_t mReadPos = 0;
 };
 
-} // namespace goldfish_vk
+}  // namespace goldfish_vk

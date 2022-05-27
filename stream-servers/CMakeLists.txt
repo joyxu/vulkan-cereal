@@ -25,6 +25,7 @@ set(stream-server-core-sources
     VirtioGpuTimelines.cpp
     ChannelStream.cpp
     ColorBuffer.cpp
+    CompositorGl.cpp
     Debug.cpp
     FbConfig.cpp
     FenceSync.cpp
@@ -67,6 +68,7 @@ add_library(
 target_link_libraries(
         gfxstream_backend_static
         PUBLIC
+        GLES_CM_translator_static
         gfxstream-host-common
         gfxstream-base
         OpenGLESDispatch
@@ -134,7 +136,8 @@ add_library(
     tests/ShaderUtils.cpp
     tests/GLSnapshotTestDispatch.cpp
     tests/GLSnapshotTestStateUtils.cpp
-    tests/HelloTriangleImp.cpp)
+    tests/HelloTriangleImp.cpp
+    tests/ImageUtils.cpp)
 target_include_directories(
     stream-server-testing-support
     PUBLIC
@@ -142,12 +145,15 @@ target_include_directories(
     ${GFXSTREAM_REPO_ROOT}/base/testing
     ${GFXSTREAM_REPO_ROOT}/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/glestranslator/GLES_CM
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/glestranslator/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
     ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan)
 target_link_libraries(
     stream-server-testing-support
     PUBLIC
     gfxstream_backend_static
+    gfxstream_stb
     OSWindow
     gtest)
 
@@ -164,6 +170,7 @@ endif()
 add_executable(
     OpenglRender_unittests
     tests/FrameBuffer_unittest.cpp
+    tests/GLES1Dispatch_unittest.cpp
     tests/DefaultFramebufferBlit_unittest.cpp
     tests/TextureDraw_unittest.cpp
     tests/StalePtrRegistry_unittest.cpp)
@@ -220,6 +227,7 @@ add_executable(
     tests/VirtioGpuTimelines_unittest.cpp
     vulkan/vk_util_unittest.cpp
     vulkan/VkQsriTimeline_unittest.cpp
+    vulkan/VkDecoderGlobalState_unittest.cpp
 )
 target_link_libraries(
     Vulkan_unittests
@@ -231,6 +239,16 @@ target_link_libraries(
     gtest
     gtest_main
     gmock)
-gtest_discover_tests(Vulkan_unittests)
+gtest_discover_tests(
+    Vulkan_unittests
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+file(GLOB Vulkan_unittests_datafiles "tests/testdata/*.png")
+add_custom_command(TARGET Vulkan_unittests POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E make_directory
+                        ${CMAKE_BINARY_DIR}/tests/testdata
+                   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        ${Vulkan_unittests_datafiles}
+                        ${CMAKE_BINARY_DIR}/tests/testdata)
 
 set_test_include_files()

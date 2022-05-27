@@ -247,5 +247,26 @@ private:
     static GLint gles2_APIENTRY s_glGetProgramResourceLocation(void* self, GLuint program, GLenum programInterface, const char * name);
     static void gles2_APIENTRY s_glGetProgramResourceName(void* self, GLuint program, GLenum programInterface, GLuint index, GLsizei bufSize, GLsizei * length, char * name);
 
+    static void gles2_APIENTRY s_glTexBufferOES(void* self, GLenum target, GLenum internalformat, GLuint buffer);
+    static void gles2_APIENTRY s_glTexBufferEXT(void* self, GLenum target, GLenum internalformat, GLuint buffer);
+    static void gles2_APIENTRY s_glTexBufferRangeOES(void* self, GLenum target, GLenum internalformat,
+                                                   GLuint buffer, GLintptr offset, GLsizeiptr size);
+    static void gles2_APIENTRY s_glTexBufferRangeEXT(void* self, GLenum target, GLenum internalformat,
+                                                   GLuint buffer, GLintptr offset, GLsizeiptr size);
+
+    static void gles2_APIENTRY s_glEnableiEXT(void* self, GLenum cap, GLuint index);
+    static void gles2_APIENTRY s_glDisableiEXT(void* self, GLenum cap, GLuint index);
+    static void gles2_APIENTRY s_glBlendEquationiEXT(void* self, GLuint buf, GLenum mode);
+    static void gles2_APIENTRY s_glBlendEquationSeparateiEXT(void* self, GLuint buf, GLenum modeRGB,
+                                              GLenum modeAlpha);
+    static void gles2_APIENTRY s_glBlendFunciEXT(void* self, GLuint buf, GLenum sfactor,
+                                                GLenum dfactor);
+    static void gles2_APIENTRY s_glBlendFuncSeparateiEXT(void* self, GLuint buf, GLenum srcRGB,
+                                                        GLenum dstRGB,
+                                          GLenum srcAlpha, GLenum dstAlpha);
+    static void gles2_APIENTRY s_glColorMaskiEXT(void* self, GLuint buf, GLboolean red,
+                                                GLboolean green,
+                                  GLboolean blue, GLboolean alpha);
+    static GLboolean gles2_APIENTRY s_glIsEnablediEXT(void* self, GLenum cap, GLuint index);
 };
 #endif

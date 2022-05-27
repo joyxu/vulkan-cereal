@@ -34,6 +34,13 @@ class TransformFeedbackData;
 class GLESv2Context : public GLEScontext{
 public:
     virtual void init();
+    virtual const GLSupport* getCaps() const override {
+        if (m_glesMajorVersion == 3 && m_glesMinorVersion == 1) {
+            return &s_glSupportGles31;
+        } else {
+            return &s_glSupport;
+        }
+    }
     static void initGlobal(EGLiface* eglIface);
     GLESv2Context(int maj, int min, GlobalNameSpace* globalNameSpace,
             android::base::Stream* stream, GlLibrary* glLib);

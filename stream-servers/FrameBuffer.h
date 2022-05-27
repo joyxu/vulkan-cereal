@@ -28,7 +28,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "CompositorGl.h"
 #include "ColorBuffer.h"
+#include "Compositor.h"
 #include "DisplayVk.h"
 #include "FbConfig.h"
 #include "GLESVersionDetector.h"
@@ -286,9 +288,6 @@ class FrameBuffer {
     RenderContextPtr getContext_locked(HandleType p_context);
 
     // Return a color buffer pointer from its handle
-    ColorBufferPtr getColorBuffer_locked(HandleType p_colorBuffer);
-
-    // Return a color buffer pointer from its handle
     WindowSurfacePtr getWindowSurface_locked(HandleType p_windowsurface);
 
     // Attach a ColorBuffer to a WindowSurface instance.
@@ -541,7 +540,6 @@ class FrameBuffer {
                        int desiredRotation);
     void onLastColorBufferRef(uint32_t handle);
     ColorBuffer::Helper* getColorBufferHelper() { return m_colorBufferHelper; }
-    ColorBufferPtr findColorBuffer_locked(HandleType p_colorbuffer);
     ColorBufferPtr findColorBuffer(HandleType p_colorbuffer);
 
     void registerProcessCleanupCallback(void* key,
@@ -594,10 +592,14 @@ class FrameBuffer {
 
     void setGuestManagedColorBufferLifetime(bool guestManaged);
 
-    VkImageLayout getVkImageLayoutForComposeLayer() const;
+    std::unique_ptr<BorrowedImageInfo> borrowColorBufferForComposition(uint32_t colorBufferHandle,
+                                                                       bool colorBufferIsTarget);
+    std::unique_ptr<BorrowedImageInfo> borrowColorBufferForDisplay(uint32_t colorBufferHandle);
 
    private:
     FrameBuffer(int p_width, int p_height, bool useSubWindow);
+    // Requires the caller to hold the m_colorBufferMapLock until the new handle is inserted into of
+    // the object handle maps.
     HandleType genHandle_locked();
 
     bool bindSubwin_locked();
@@ -620,13 +622,9 @@ class FrameBuffer {
     bool postImpl(HandleType p_colorbuffer, bool needLockAndBind = true,
                   bool repaint = false);
     void setGuestPostedAFrame() { m_guestPostedAFrame = true; }
-    HandleType createColorBufferLocked(int p_width, int p_height,
-                                       GLenum p_internalFormat,
-                                       FrameworkFormat p_frameworkFormat);
-    HandleType createColorBufferWithHandleLocked(
-        int p_width, int p_height, GLenum p_internalFormat,
-        FrameworkFormat p_frameworkFormat, HandleType handle);
-    HandleType createBufferLocked(int p_size);
+    HandleType createColorBufferWithHandleLocked(int p_width, int p_height, GLenum p_internalFormat,
+                                                 FrameworkFormat p_frameworkFormat,
+                                                 HandleType handle);
     HandleType createBufferWithHandleLocked(int p_size, HandleType handle);
 
     void recomputeLayout();
@@ -655,6 +653,7 @@ class FrameBuffer {
     android::base::Thread* m_perfThread;
     android::base::Lock m_lock;
     android::base::ReadWriteLock m_contextStructureLock;
+    android::base::Lock m_colorBufferMapLock;
     FbConfigList* m_configs = nullptr;
     FBNativeWindowType m_nativeWindow = 0;
     FrameBufferCaps m_caps = {};
@@ -791,6 +790,12 @@ class FrameBuffer {
 
     android::base::MessageChannel<HandleType, 1024>
         mOutstandingColorBufferDestroys;
+
+    Compositor* m_compositor = nullptr;
+    // FrameBuffer owns the CompositorGl if used as there is no GlEmulation
+    // equivalent to VkEmulation,
+    std::unique_ptr<CompositorGl> m_compositorGl;
+    bool m_useVulkanComposition = false;
 
     // The implementation for Vulkan native swapchain. Only initialized when useVulkan is set when
     // calling FrameBuffer::initialize(). DisplayVk is actually owned by VkEmulation.

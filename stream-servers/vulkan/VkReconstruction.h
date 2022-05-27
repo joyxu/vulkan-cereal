@@ -13,18 +13,16 @@
 // limitations under the License.
 #pragma once
 
-#include "base/Stream.h"
-#include "base/EntityManager.h"
-
 #include "VulkanHandleMapping.h"
 #include "VulkanHandles.h"
-
+#include "base/EntityManager.h"
+#include "base/Stream.h"
 #include "common/goldfish_vk_marshaling.h"
 
 // A class that captures all important data structures for
 // reconstructing a Vulkan system state via trimmed API record and replay.
 class VkReconstruction {
-public:
+   public:
     VkReconstruction();
 
     void save(android::base::Stream* stream);
@@ -39,8 +37,7 @@ public:
         std::vector<uint64_t> createdHandles;
     };
 
-    using ApiTrace =
-        android::base::EntityManager<32, 16, 16, ApiInfo>;
+    using ApiTrace = android::base::EntityManager<32, 16, 16, ApiInfo>;
     using ApiHandle = ApiTrace::EntityHandle;
 
     struct HandleReconstruction {
@@ -64,7 +61,8 @@ public:
 
     ApiInfo* getApiInfo(ApiHandle h);
 
-    void setApiTrace(ApiInfo* apiInfo, uint32_t opcode, const uint8_t* traceBegin, size_t traceBytes);
+    void setApiTrace(ApiInfo* apiInfo, uint32_t opcode, const uint8_t* traceBegin,
+                     size_t traceBytes);
 
     void dump();
 
@@ -81,8 +79,8 @@ public:
     void forEachHandleAddModifyApi(const uint64_t* toProcess, uint32_t count, uint64_t apiHandle);
 
     void setModifiedHandlesForApi(uint64_t apiHandle, const uint64_t* modified, uint32_t count);
-private:
 
+   private:
     std::vector<uint64_t> getOrderedUniqueModifyApis() const;
 
     ApiTrace mApiTrace;
