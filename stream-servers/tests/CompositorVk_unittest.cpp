@@ -126,7 +126,7 @@ class CompositorVkTest : public ::testing::Test {
         const uint8_t* actualRGBA = reinterpret_cast<const uint8_t*>(&actualPixel);
         const uint8_t* expectedRGBA = reinterpret_cast<const uint8_t*>(&expectedPixel);
 
-        constexpr const uint32_t kRGBA8888Tolerance = 1;
+        constexpr const uint32_t kRGBA8888Tolerance = 2;
         for (uint32_t channel = 0; channel < 4; channel++) {
             const uint8_t actualChannel = actualRGBA[channel];
             const uint8_t expectedChannel = expectedRGBA[channel];
