@@ -13,6 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+echo ""
+echo ""
+echo "DEPRECATED: Please regenerate the Vulkan codegen using the "
+echo "external/gfxstream-protocols project!"
+echo ""
+echo ""
+
 echo "To be run in the vulkan-cereal repo root directory."
 echo "Note: This needs to be in an AOSP checkout to generate guest encoder files."
 
