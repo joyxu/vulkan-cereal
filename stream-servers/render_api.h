@@ -17,10 +17,16 @@
 
 #include "render_api_functions.h"
 
+#include "base/c_header.h"
+
 #include <KHR/khrplatform.h>
 
 // All interfaces which can fail return an int, with zero indicating failure
 // and anything else indicating success.
+
+#ifndef USING_ANDROID_BP
+ANDROID_BEGIN_HEADER
+#endif
 
 // Use KHRONOS_APICALL to control visibility, but do not use KHRONOS_APIENTRY
 // because we don't need the functions to be __stdcall on Win32.
@@ -34,3 +40,7 @@
 LIST_RENDER_API_FUNCTIONS(RENDER_API_DECLARE)
 
 RENDER_APICALL emugl::RenderLibPtr RENDER_APIENTRY initLibrary();
+
+#ifndef USING_ANDROID_BP
+ANDROID_END_HEADER
+#endif

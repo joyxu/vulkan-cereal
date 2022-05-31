@@ -75,20 +75,25 @@ cc_library_headers {
 
 cc_defaults {
     name: "gfxstream_defaults",
-    cflags: ["-D_FILE_OFFSET_BITS=64",
-             "-DVIRGL_RENDERER_UNSTABLE_APIS",
-             "-Wno-unreachable-code-loop-increment",
-             "-Wno-unused-parameter",
-             "-Wno-unused-function",
-             "-Wno-unused-variable",
-             "-Wno-ignored-qualifiers",
-             "-Wno-reorder-ctor",
-             "-Wno-mismatched-tags",
-             "-Wno-missing-field-initializers",
-             "-Wno-implicit-fallthrough",
-             "-Wno-unused-private-field",
-             "-Wno-macro-redefined",
-            ],
+    cflags: [
+        // Android build system has some global cflags that we cannot override (e.g.
+        // -Werror=return-type), so -Wno-return-type and -Wno-return-type-c-linkage will not work.
+        // See build/soong/cc/config/global.go
+        "-DUSING_ANDROID_BP",
+        "-D_FILE_OFFSET_BITS=64",
+        "-DVIRGL_RENDERER_UNSTABLE_APIS",
+        "-Wno-unreachable-code-loop-increment",
+        "-Wno-unused-parameter",
+        "-Wno-unused-function",
+        "-Wno-unused-variable",
+        "-Wno-ignored-qualifiers",
+        "-Wno-reorder-ctor",
+        "-Wno-mismatched-tags",
+        "-Wno-missing-field-initializers",
+        "-Wno-implicit-fallthrough",
+        "-Wno-unused-private-field",
+        "-Wno-macro-redefined",
+    ],
     header_libs: [
         "gfxstream_headers",
         "gfxstream_x11_headers",

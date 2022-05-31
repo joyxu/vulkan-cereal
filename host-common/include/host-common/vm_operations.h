@@ -194,6 +194,12 @@ typedef struct QAndroidVmOperations {
                            void* opaque,
                            LineConsumerCallback errConsumer);
 
+    // Get the name of the last loaded snapshot (current snapshot).
+    // Will print "(null)" if the emulator cold booted and loaded no snapshots.
+    bool (*snapshotLastLoaded)(void* opaque,
+                             LineConsumerCallback outConsumer,
+                             LineConsumerCallback errConsumer);
+
     // Sets a set of callback to listen for snapshot operations.
     void (*setSnapshotCallbacks)(void* opaque,
                                  const SnapshotCallbacks* callbacks);
@@ -235,6 +241,8 @@ typedef struct QAndroidVmOperations {
     struct HostmemEntry (*hostmemGetInfo)(uint64_t id);
     EmuRunState (*getRunState)();
 
+    // virtio display
+    bool (*setDisplay)(int32_t id, int32_t w, int32_t h, uint32_t dpi);
 } QAndroidVmOperations;
 
 #ifdef _MSC_VER
