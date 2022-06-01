@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include "base/c_header.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <inttypes.h>
@@ -25,6 +27,7 @@
 #define MAP_CACHE_UNCACHED  0x02
 #define MAP_CACHE_WC        0x03
 
+ANDROID_BEGIN_HEADER
 // This file includes interfaces to VMMs.
 
 // A struct describing the information about host memory associated
@@ -244,6 +247,7 @@ typedef struct QAndroidVmOperations {
     // virtio display
     bool (*setDisplay)(int32_t id, int32_t w, int32_t h, uint32_t dpi);
 } QAndroidVmOperations;
+ANDROID_END_HEADER
 
 #ifdef _MSC_VER
 # ifdef BUILDING_EMUGL_COMMON_SHARED
