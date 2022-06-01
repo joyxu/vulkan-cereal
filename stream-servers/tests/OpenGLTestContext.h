@@ -43,6 +43,7 @@ void destroyDisplay(EGLDisplay dpy);
 
 class GLTest : public ::testing::Test {
 protected:
+    static void SetUpTestSuite();
     virtual void SetUp();
     virtual void TearDown();
 
