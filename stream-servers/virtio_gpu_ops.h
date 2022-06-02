@@ -15,6 +15,10 @@
 
 #include <functional>
 
+/* virtio-gpu interface for buffers
+ * (triggered by minigbm/egl calling virtio-gpu ioctls) */
+typedef void (*create_buffer_with_handle_t)(uint64_t size, uint32_t handle);
+
 /* virtio-gpu interface for color buffers
  * (triggered by minigbm/egl calling virtio-gpu ioctls) */
 typedef void (*create_color_buffer_with_handle_t)(
@@ -66,10 +70,13 @@ typedef void (*swap_textures_and_update_color_buffer_t)(
         uint32_t* textures);
 
 typedef void (*open_color_buffer_t)(uint32_t handle);
+typedef void (*close_buffer_t)(uint32_t handle);
 typedef void (*close_color_buffer_t)(uint32_t handle);
+typedef void (*update_buffer_t)(uint32_t handle, uint64_t offset, uint64_t sizeToRead, void* bytes);
 typedef void (*update_color_buffer_t)(
     uint32_t handle, int x, int y, int width, int height,
     uint32_t format, uint32_t type, void* pixels);
+typedef void (*read_buffer_t)(uint32_t handle, uint64_t offset, uint64_t sizeToRead, void* bytes);
 typedef void (*read_color_buffer_t)(
     uint32_t handle, int x, int y, int width, int height,
     uint32_t format, uint32_t type, void* pixels);
@@ -109,10 +116,14 @@ typedef void* (*platform_create_shared_egl_context_t)(void);
 typedef bool (*platform_destroy_shared_egl_context_t)(void* context);
 
 struct AndroidVirtioGpuOps {
+    create_buffer_with_handle_t create_buffer_with_handle;
     create_color_buffer_with_handle_t create_color_buffer_with_handle;
     open_color_buffer_t open_color_buffer;
+    close_buffer_t close_buffer;
     close_color_buffer_t close_color_buffer;
+    update_buffer_t update_buffer;
     update_color_buffer_t update_color_buffer;
+    read_buffer_t read_buffer;
     read_color_buffer_t read_color_buffer;
     read_color_buffer_yuv_t read_color_buffer_yuv;
     post_color_buffer_t post_color_buffer;

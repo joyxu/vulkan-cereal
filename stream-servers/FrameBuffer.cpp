@@ -1599,12 +1599,34 @@ HandleType FrameBuffer::createBuffer(uint64_t p_size, uint32_t memoryProperty) {
     return handle;
 }
 
+void FrameBuffer::createBufferWithHandle(uint64_t size, HandleType handle) {
+    {
+        AutoLock mutex(m_lock);
+        AutoLock colorBufferMapLock(m_colorBufferMapLock);
+
+        // Check for handle collision
+        if (m_buffers.count(handle) != 0) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Buffer already exists with handle " << handle;
+        }
+
+        handle = createBufferWithHandleLocked(size, handle);
+        if (!handle) {
+            return;
+        }
+    }
+
+    if (m_displayVk || m_guestUsesAngle) {
+        goldfish_vk::setupVkBuffer(handle, /* vulkanOnly */ true,
+                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    }
+}
+
 HandleType FrameBuffer::createBufferWithHandleLocked(int p_size,
                                                      HandleType handle) {
     if (m_buffers.count(handle) != 0) {
-        // emugl::emugl_crash_reporter(
-        //         "FATAL: buffer with handle %u already exists", handle);
-        // abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Buffer already exists with handle " << handle;
     }
 
     BufferPtr buffer(Buffer::create(p_size, handle, m_colorBufferHelper));
@@ -2201,6 +2223,23 @@ bool FrameBuffer::setWindowSurfaceColorBuffer(HandleType p_surface,
     return true;
 }
 
+void FrameBuffer::readBuffer(HandleType handle, uint64_t offset, uint64_t size, void* bytes) {
+    if (m_guestUsesAngle) {
+        goldfish_vk::readBufferToBytes(handle, offset, size, bytes);
+        return;
+    }
+
+    AutoLock mutex(m_lock);
+
+    BufferPtr buffer = findBuffer(handle);
+    if (!buffer) {
+        ERR("Failed to read buffer: buffer %d not found.", handle);
+        return;
+    }
+
+    buffer->read(offset, size, bytes);
+}
+
 void FrameBuffer::readColorBuffer(HandleType p_colorbuffer,
                                   int x,
                                   int y,
@@ -2334,6 +2373,24 @@ void FrameBuffer::swapTexturesAndUpdateColorBuffer(uint32_t p_colorbuffer,
 
     updateColorBuffer(p_colorbuffer, x, y, width, height, format, type,
                       nullptr);
+}
+
+bool FrameBuffer::updateBuffer(HandleType p_buffer, uint64_t offset, uint64_t size, void* bytes) {
+    if (m_guestUsesAngle) {
+        return goldfish_vk::updateBufferFromBytes(p_buffer, offset, size, bytes);
+    }
+
+    AutoLock mutex(m_lock);
+
+    BufferPtr buffer = findBuffer(p_buffer);
+    if (!buffer) {
+        ERR("Failed to update buffer: buffer %d not found.", p_buffer);
+        return false;
+    }
+
+    buffer->subUpdate(offset, size, bytes);
+
+    return true;
 }
 
 bool FrameBuffer::updateColorBuffer(HandleType p_colorbuffer,
@@ -3438,6 +3495,16 @@ ColorBufferPtr FrameBuffer::findColorBuffer(HandleType p_colorbuffer) {
     }
     else {
         return c->second.cb;
+    }
+}
+
+BufferPtr FrameBuffer::findBuffer(HandleType p_buffer) {
+    AutoLock colorBufferMapLock(m_colorBufferMapLock);
+    BufferMap::iterator b(m_buffers.find(p_buffer));
+    if (b == m_buffers.end()) {
+        return nullptr;
+    } else {
+        return b->second.buffer;
     }
 }
 

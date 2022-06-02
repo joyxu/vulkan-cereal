@@ -409,6 +409,9 @@ bool setupVkBuffer(uint32_t bufferHandle, bool vulkanOnly = false, uint32_t memo
 bool teardownVkBuffer(uint32_t bufferHandle);
 VK_EXT_MEMORY_HANDLE getBufferExtMemoryHandle(uint32_t bufferHandle);
 
+bool readBufferToBytes(uint32_t bufferHandle, uint64_t offset, uint64_t size, void* outBytes);
+bool updateBufferFromBytes(uint32_t bufferHandle, uint64_t offset, uint64_t size, void* bytes);
+
 VkExternalMemoryHandleTypeFlags transformExternalMemoryHandleTypeFlags_tohost(
     VkExternalMemoryHandleTypeFlags bits);
 

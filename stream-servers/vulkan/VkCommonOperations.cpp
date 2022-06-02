@@ -1431,6 +1431,7 @@ bool importExternalMemoryDedicatedImage(VulkanDispatch* vk, VkDevice targetDevic
 
 static VkFormat glFormat2VkFormat(GLint internalformat) {
     switch (internalformat) {
+        case GL_R8:
         case GL_LUMINANCE:
             return VK_FORMAT_R8_UNORM;
         case GL_RGB:
@@ -1457,8 +1458,9 @@ static VkFormat glFormat2VkFormat(GLint internalformat) {
         case GL_BGRA_EXT:
         case GL_BGRA8_EXT:
             return VK_FORMAT_B8G8R8A8_UNORM;
-            ;
         default:
+            VK_COMMON_ERROR("Unhandled format %d, falling back to VK_FORMAT_R8G8B8A8_UNORM",
+                            internalformat);
             return VK_FORMAT_R8G8B8A8_UNORM;
     }
 };
@@ -2535,6 +2537,177 @@ VK_EXT_MEMORY_HANDLE getBufferExtMemoryHandle(uint32_t bufferHandle) {
     }
 
     return infoPtr->memory.exportedHandle;
+}
+
+bool readBufferToBytes(uint32_t bufferHandle, uint64_t offset, uint64_t size, void* outBytes) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
+        return false;
+    }
+
+    auto vk = sVkEmulation->dvk;
+
+    AutoLock lock(sVkEmulationLock);
+
+    auto bufferInfo = android::base::find(sVkEmulation->buffers, bufferHandle);
+    if (!bufferInfo) {
+        VK_COMMON_ERROR("Failed to read from Buffer:%d, not found.", bufferHandle);
+        return false;
+    }
+
+    const auto& stagingBufferInfo = sVkEmulation->staging;
+    if (size > stagingBufferInfo.size) {
+        VK_COMMON_ERROR("Failed to read from Buffer:%d, staging buffer too small.", bufferHandle);
+        return false;
+    }
+
+    const VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = nullptr,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+
+    VkCommandBuffer commandBuffer = sVkEmulation->commandBuffer;
+
+    VK_CHECK(vk->vkBeginCommandBuffer(commandBuffer, &beginInfo));
+
+    const VkBufferCopy bufferCopy = {
+        .srcOffset = offset,
+        .dstOffset = 0,
+        .size = size,
+    };
+    vk->vkCmdCopyBuffer(commandBuffer, bufferInfo->buffer, stagingBufferInfo.buffer, 1,
+                        &bufferCopy);
+
+    VK_CHECK(vk->vkEndCommandBuffer(commandBuffer));
+
+    const VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 0,
+        .pWaitSemaphores = nullptr,
+        .pWaitDstStageMask = nullptr,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores = nullptr,
+    };
+
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        VK_CHECK(vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
+                                   sVkEmulation->commandBufferFence));
+    }
+
+    static constexpr uint64_t ANB_MAX_WAIT_NS = 5ULL * 1000ULL * 1000ULL * 1000ULL;
+
+    VK_CHECK(vk->vkWaitForFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence,
+                                 VK_TRUE, ANB_MAX_WAIT_NS));
+
+    VK_CHECK(vk->vkResetFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence));
+
+    const VkMappedMemoryRange toInvalidate = {
+        .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+        .pNext = nullptr,
+        .memory = stagingBufferInfo.memory.memory,
+        .offset = 0,
+        .size = size,
+    };
+
+    VK_CHECK(vk->vkInvalidateMappedMemoryRanges(sVkEmulation->device, 1, &toInvalidate));
+
+    const void* srcPtr = reinterpret_cast<const void*>(
+        reinterpret_cast<const char*>(stagingBufferInfo.memory.mappedPtr));
+    void* dstPtr = outBytes;
+    void* dstPtrOffset = reinterpret_cast<void*>(reinterpret_cast<char*>(dstPtr) + offset);
+    std::memcpy(dstPtrOffset, srcPtr, size);
+
+    return true;
+}
+
+bool updateBufferFromBytes(uint32_t bufferHandle, uint64_t offset, uint64_t size, void* bytes) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
+        return false;
+    }
+
+    auto vk = sVkEmulation->dvk;
+
+    AutoLock lock(sVkEmulationLock);
+
+    auto bufferInfo = android::base::find(sVkEmulation->buffers, bufferHandle);
+    if (!bufferInfo) {
+        VK_COMMON_ERROR("Failed to update Buffer:%d, not found.", bufferHandle);
+        return false;
+    }
+
+    const auto& stagingBufferInfo = sVkEmulation->staging;
+    if (size > stagingBufferInfo.size) {
+        VK_COMMON_ERROR("Failed to update Buffer:%d, staging buffer too small.", bufferHandle);
+        return false;
+    }
+
+    const void* srcPtr = bytes;
+    const void* srcPtrOffset =
+        reinterpret_cast<const void*>(reinterpret_cast<const char*>(srcPtr) + offset);
+    void* dstPtr = stagingBufferInfo.memory.mappedPtr;
+    std::memcpy(dstPtr, srcPtrOffset, size);
+
+    const VkMappedMemoryRange toFlush = {
+        .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+        .pNext = nullptr,
+        .memory = stagingBufferInfo.memory.memory,
+        .offset = 0,
+        .size = size,
+    };
+    VK_CHECK(vk->vkFlushMappedMemoryRanges(sVkEmulation->device, 1, &toFlush));
+
+    const VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = nullptr,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+
+    VkCommandBuffer commandBuffer = sVkEmulation->commandBuffer;
+
+    VK_CHECK(vk->vkBeginCommandBuffer(commandBuffer, &beginInfo));
+
+    const VkBufferCopy bufferCopy = {
+        .srcOffset = 0,
+        .dstOffset = offset,
+        .size = size,
+    };
+    vk->vkCmdCopyBuffer(commandBuffer, stagingBufferInfo.buffer, bufferInfo->buffer, 1,
+                        &bufferCopy);
+
+    VK_CHECK(vk->vkEndCommandBuffer(commandBuffer));
+
+    const VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 0,
+        .pWaitSemaphores = nullptr,
+        .pWaitDstStageMask = nullptr,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores = nullptr,
+    };
+
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        VK_CHECK(vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
+                                   sVkEmulation->commandBufferFence));
+    }
+
+    static constexpr uint64_t ANB_MAX_WAIT_NS = 5ULL * 1000ULL * 1000ULL * 1000ULL;
+
+    VK_CHECK(vk->vkWaitForFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence,
+                                 VK_TRUE, ANB_MAX_WAIT_NS));
+
+    VK_CHECK(vk->vkResetFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence));
+
+    return true;
 }
 
 VkExternalMemoryHandleTypeFlags transformExternalMemoryHandleTypeFlags_tohost(
