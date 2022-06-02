@@ -638,8 +638,8 @@ class FrameBuffer {
     int m_y = 0;
     int m_framebufferWidth = 0;
     int m_framebufferHeight = 0;
-    int m_windowWidth = 0;
-    int m_windowHeight = 0;
+    std::atomic_int m_windowWidth = 0;
+    std::atomic_int m_windowHeight = 0;
     float m_dpr = 0;
 
     bool m_useSubWindow = false;

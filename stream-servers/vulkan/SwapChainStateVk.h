@@ -40,8 +40,13 @@ class SwapChainStateVk {
         const goldfish_vk::VulkanDispatch&, VkSurfaceKHR, VkPhysicalDevice, uint32_t width,
         uint32_t height, const std::unordered_set<uint32_t>& queueFamilyIndices);
 
-    explicit SwapChainStateVk(const goldfish_vk::VulkanDispatch&, VkDevice,
-                              const VkSwapchainCreateInfoKHR&);
+    SwapChainStateVk() = delete;
+    SwapChainStateVk(const SwapChainStateVk&) = delete;
+    SwapChainStateVk& operator = (const SwapChainStateVk&) = delete;
+
+    static std::unique_ptr<SwapChainStateVk> createSwapChainVk(const goldfish_vk::VulkanDispatch&,
+                                                        VkDevice, const VkSwapchainCreateInfoKHR&);
+
     ~SwapChainStateVk();
     VkFormat getFormat();
     const std::vector<VkImage>& getVkImages() const;
@@ -49,6 +54,9 @@ class SwapChainStateVk {
     VkSwapchainKHR getSwapChain() const;
 
    private:
+    explicit SwapChainStateVk(const goldfish_vk::VulkanDispatch&, VkDevice);
+
+    VkResult initSwapChainStateVk(const VkSwapchainCreateInfoKHR& swapChainCi);
     const static VkFormat k_vkFormat = VK_FORMAT_B8G8R8A8_UNORM;
     const static VkColorSpaceKHR k_vkColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 

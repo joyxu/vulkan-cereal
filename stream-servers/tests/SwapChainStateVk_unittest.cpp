@@ -149,5 +149,6 @@ TEST_F(SwapChainStateVkTest, init) {
         *k_vk, m_vkSurface, m_vkPhysicalDevice, k_width, k_height,
         {m_swapChainQueueFamilyIndex});
     ASSERT_NE(swapChainCi, std::nullopt);
-    SwapChainStateVk swapChainState(*k_vk, m_vkDevice, swapChainCi->mCreateInfo);
+    std::unique_ptr<SwapChainStateVk> swapChainState =
+        SwapChainStateVk::createSwapChainVk(*k_vk, m_vkDevice, swapChainCi->mCreateInfo);
 }
