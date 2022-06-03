@@ -1440,7 +1440,7 @@ class VkDecoderGlobalState::Impl {
         }
         cmpInfo.device = device;
 
-        AndroidNativeBufferInfo* anbInfo = new AndroidNativeBufferInfo;
+        auto anbInfo = std::make_unique<AndroidNativeBufferInfo>();
         const VkNativeBufferANDROID* nativeBufferANDROID =
             vk_find_struct<VkNativeBufferANDROID>(pCreateInfo);
 
@@ -1450,7 +1450,7 @@ class VkDecoderGlobalState::Impl {
             auto memProps = memPropsOfDeviceLocked(device);
 
             createRes = prepareAndroidNativeBufferImage(
-                vk, device, pCreateInfo, nativeBufferANDROID, pAllocator, memProps, anbInfo);
+                vk, device, pCreateInfo, nativeBufferANDROID, pAllocator, memProps, anbInfo.get());
             if (createRes == VK_SUCCESS) {
                 *pImage = anbInfo->image;
             }
@@ -1467,7 +1467,7 @@ class VkDecoderGlobalState::Impl {
 
         auto& imageInfo = mImageInfo[*pImage];
 
-        if (anbInfo) imageInfo.anbInfo.reset(anbInfo);
+        if (nativeBufferANDROID) imageInfo.anbInfo = std::move(anbInfo);
 
         imageInfo.cmpInfo = cmpInfo;
 
