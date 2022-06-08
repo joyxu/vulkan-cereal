@@ -34,9 +34,6 @@ extern AvdInfo*          android_avdInfo;
 /* MSVC only exports function pointers */
 extern AEMU_EXPORT AvdInfo** aemu_get_android_avdInfoPtr();
 
-/* the hardware configuration for this specific virtual device */
-extern AndroidHwConfig   android_hw[1];
-
 /* MSVC only exports function pointers */
 AEMU_EXPORT AndroidHwConfig* aemu_get_android_hw();
 
