@@ -69,7 +69,7 @@ target_link_libraries(
         gfxstream_backend_static
         PUBLIC
         GLES_CM_translator_static
-        gfxstream-host-common
+        ${GFXSTREAM_HOST_COMMON_LIB}
         gfxstream-base
         OpenGLESDispatch
         gles1_dec

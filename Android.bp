@@ -48,7 +48,7 @@ cc_library_headers {
         ".",
         "include",
         "base",
-        "host-common",
+        "host-common/include",
         "snapshot",
         "stream-servers",
         "stream-servers/vulkan",

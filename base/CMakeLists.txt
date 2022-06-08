@@ -59,6 +59,8 @@ target_link_libraries(
     gfxstream-base
     PUBLIC
     renderdoc
+    # TODO(joshuaduong): Remove this when logging.h is moved into base
+    gfxstream-host-common.headers
     PRIVATE
     lz4
     perfetto-tracing-only
