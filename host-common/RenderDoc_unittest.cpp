@@ -1,7 +1,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "RenderDoc.h"
+#include "host-common/RenderDoc.h"
 
 #include <type_traits>
 
