@@ -36,10 +36,12 @@ target_include_directories(
 target_link_libraries(
     logging-base
     PRIVATE
+    gfxstream-base.headers
     gfxstream-host-common.headers
     ${gfxstream-base-metrics-link-libraries})
 
 add_library(gfxstream-host-common.headers INTERFACE)
+target_link_libraries(gfxstream-host-common.headers INTERFACE renderdoc)
 target_include_directories(gfxstream-host-common.headers INTERFACE include)
 
 if (BUILD_STANDALONE)
@@ -111,9 +113,10 @@ if (BUILD_STANDALONE)
     target_link_libraries(
         gfxstream-host-common
         PUBLIC
+        gfxstream-base.headers
         gfxstream-host-common.headers
+        ${GFXSTREAM_BASE_LIB}
         PRIVATE
-        gfxstream-base
         logging-base
     )
 endif()
@@ -133,6 +136,7 @@ target_include_directories(
 target_link_libraries(
     gfxstream-host-common-testing-support
     PRIVATE
+    gfxstream-base.headers
     gfxstream-host-common.headers
     gtest
     gmock)
@@ -152,12 +156,15 @@ if (ENABLE_VKCEREAL_TESTS)
     target_include_directories(
         gfxstream-host-common_unittests
         PRIVATE
+        ${GFXSTREAM_REPO_ROOT}
         ${GFXSTREAM_REPO_ROOT}/include)
 
     target_link_libraries(
         gfxstream-host-common_unittests
         PRIVATE
-        gfxstream-base
+        gfxstream-base.headers
+        gfxstream-host-common.headers
+        ${GFXSTREAM_BASE_LIB}
         ${GFXSTREAM_HOST_COMMON_LIB}
         gfxstream-host-common-testing-support
         gtest_main
