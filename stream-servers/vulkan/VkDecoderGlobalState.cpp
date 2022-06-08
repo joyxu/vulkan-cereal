@@ -1143,7 +1143,7 @@ class VkDecoderGlobalState::Impl {
             fprintf(stderr, "%s: track the new device (begin)\n", __func__);
         }
 
-        if(!swiftshader) {
+        if (!swiftshader) {
             lock = std::make_unique<AutoLock>(mLock);
         }
 
@@ -1168,8 +1168,8 @@ class VkDecoderGlobalState::Impl {
         }
 
         init_vulkan_dispatch_from_device(vk, *pDevice, dispatch_VkDevice(boxed));
-        deviceInfo.externalFencePool = std::make_unique<ExternalFencePool<VulkanDispatch>>(
-            dispatch_VkDevice(boxed), *pDevice);
+        deviceInfo.externalFencePool =
+            std::make_unique<ExternalFencePool<VulkanDispatch>>(dispatch_VkDevice(boxed), *pDevice);
 
         if (mLogging) {
             fprintf(stderr, "%s: init vulkan dispatch from device (end)\n", __func__);
@@ -1786,8 +1786,7 @@ class VkDecoderGlobalState::Impl {
         {
             AutoLock lock(mLock);
             for (uint32_t i = 0; i < fenceCount; i++) {
-                if (pFences[i] == VK_NULL_HANDLE)
-                    continue;
+                if (pFences[i] == VK_NULL_HANDLE) continue;
 
                 DCHECK(mFenceInfo.find(pFences[i]) != mFenceInfo.end());
                 if (mFenceInfo[pFences[i]].external) {
@@ -1805,12 +1804,12 @@ class VkDecoderGlobalState::Impl {
         // For external fences, we unilaterally put them in the pool to ensure they finish
         // TODO: should store creation info / pNext chain per fence and re-apply?
         VkFenceCreateInfo createInfo{
-            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .pNext = 0, .flags = 0 };
+            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .pNext = 0, .flags = 0};
         auto deviceInfo = mDeviceInfo.find(device);
         if (deviceInfo == mDeviceInfo.end()) {
             return VK_ERROR_OUT_OF_DEVICE_MEMORY;
         }
-        for (auto fence: externalFences) {
+        for (auto fence : externalFences) {
             VkFence replacement = deviceInfo->second.externalFencePool->pop(&createInfo);
             if (replacement == VK_NULL_HANDLE) {
                 VK_CHECK(vk->vkCreateFence(device, &createInfo, 0, &replacement));
@@ -2547,7 +2546,9 @@ class VkDecoderGlobalState::Impl {
         if (cmdBufferInfoIt == mCmdBufferInfo.end()) {
             return;
         }
-        auto deviceInfoIt = mDeviceInfo.find(cmdBufferInfoIt->second.device);
+        const auto& cmdBufferInfo = cmdBufferInfoIt->second;
+
+        auto deviceInfoIt = mDeviceInfo.find(cmdBufferInfo.device);
         if (deviceInfoIt == mDeviceInfo.end()) {
             return;
         }
@@ -2601,8 +2602,7 @@ class VkDecoderGlobalState::Impl {
                         srcBarrier.oldLayout, srcBarrier.newLayout);
             }
 
-            VkResult result =
-                it->second.cmpInfo.initDecomp(vk, cmdBufferInfoIt->second.device, image);
+            VkResult result = it->second.cmpInfo.initDecomp(vk, cmdBufferInfo.device, image);
             if (result != VK_SUCCESS) {
                 fprintf(stderr, "WARNING: texture decompression failed\n");
                 continue;
@@ -2660,16 +2660,16 @@ class VkDecoderGlobalState::Impl {
                                      currImageBarriers.data()   // pImageMemoryBarriers
             );
         }
-        if (needRebind && cmdBufferInfoIt->second.computePipeline) {
+        if (needRebind && cmdBufferInfo.computePipeline) {
             // Recover pipeline bindings
             vk->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                  cmdBufferInfoIt->second.computePipeline);
-            if (cmdBufferInfoIt->second.descriptorSets.size() > 0) {
+                                  cmdBufferInfo.computePipeline);
+            if (cmdBufferInfo.descriptorSets.size() > 0) {
                 vk->vkCmdBindDescriptorSets(
-                    commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                    cmdBufferInfoIt->second.descriptorLayout, cmdBufferInfoIt->second.firstSet,
-                    cmdBufferInfoIt->second.descriptorSets.size(),
-                    cmdBufferInfoIt->second.descriptorSets.data(), 0, nullptr);
+                    commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, cmdBufferInfo.descriptorLayout,
+                    cmdBufferInfo.firstSet, cmdBufferInfo.descriptorSets.size(),
+                    cmdBufferInfo.descriptorSets.data(), cmdBufferInfo.dynamicOffsets.size(),
+                    cmdBufferInfo.dynamicOffsets.data());
             }
         }
         if (memoryBarrierCount || bufferMemoryBarrierCount || !persistentImageBarriers.empty()) {
@@ -3528,12 +3528,14 @@ class VkDecoderGlobalState::Impl {
         VkResult result = vk->vkResetCommandBuffer(commandBuffer, flags);
         if (VK_SUCCESS == result) {
             AutoLock lock(mLock);
-            mCmdBufferInfo[commandBuffer].preprocessFuncs.clear();
-            mCmdBufferInfo[commandBuffer].subCmds.clear();
-            mCmdBufferInfo[commandBuffer].computePipeline = 0;
-            mCmdBufferInfo[commandBuffer].firstSet = 0;
-            mCmdBufferInfo[commandBuffer].descriptorLayout = 0;
-            mCmdBufferInfo[commandBuffer].descriptorSets.clear();
+            auto& bufferInfo = mCmdBufferInfo[commandBuffer];
+            bufferInfo.preprocessFuncs.clear();
+            bufferInfo.subCmds.clear();
+            bufferInfo.computePipeline = VK_NULL_HANDLE;
+            bufferInfo.firstSet = 0;
+            bufferInfo.descriptorLayout = VK_NULL_HANDLE;
+            bufferInfo.descriptorSets.clear();
+            bufferInfo.dynamicOffsets.clear();
         }
         return result;
     }
@@ -3888,11 +3890,15 @@ class VkDecoderGlobalState::Impl {
             AutoLock lock(mLock);
             auto cmdBufferInfoIt = mCmdBufferInfo.find(commandBuffer);
             if (cmdBufferInfoIt != mCmdBufferInfo.end()) {
-                cmdBufferInfoIt->second.descriptorLayout = layout;
+                auto& cmdBufferInfo = cmdBufferInfoIt->second;
+                cmdBufferInfo.descriptorLayout = layout;
+
                 if (descriptorSetCount) {
-                    cmdBufferInfoIt->second.firstSet = firstSet;
-                    cmdBufferInfoIt->second.descriptorSets.assign(
-                        pDescriptorSets, pDescriptorSets + descriptorSetCount);
+                    cmdBufferInfo.firstSet = firstSet;
+                    cmdBufferInfo.descriptorSets.assign(pDescriptorSets,
+                                                        pDescriptorSets + descriptorSetCount);
+                    cmdBufferInfo.dynamicOffsets.assign(pDynamicOffsets,
+                                                        pDynamicOffsets + dynamicOffsetCount);
                 }
             }
         }
@@ -5803,6 +5809,7 @@ class VkDecoderGlobalState::Impl {
         uint32_t firstSet = 0;
         VkPipelineLayout descriptorLayout = 0;
         std::vector<VkDescriptorSet> descriptorSets;
+        std::vector<uint32_t> dynamicOffsets;
         uint32_t sequenceNumber = 0;
     };
 
@@ -7423,9 +7430,9 @@ ExternalFencePool<TDispatch>::ExternalFencePool(TDispatch* dispatch, VkDevice de
 template <class TDispatch>
 ExternalFencePool<TDispatch>::~ExternalFencePool() {
     if (!mPool.empty()) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
-            "External fence pool for device " << static_cast<void*>(mDevice) << " destroyed but " <<
-            mPool.size() << " fences still not destroyed.";
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "External fence pool for device " << static_cast<void*>(mDevice) << " destroyed but "
+            << mPool.size() << " fences still not destroyed.";
     }
 }
 
@@ -7444,19 +7451,18 @@ VkFence ExternalFencePool<TDispatch>::pop(const VkFenceCreateInfo* pCreateInfo) 
     VkFence fence = VK_NULL_HANDLE;
     {
         AutoLock lock(mLock);
-        auto it = std::find_if(mPool.begin(), mPool.end(),
-                               [this](const VkFence& fence) {
-                                   VkResult status = m_vk->vkGetFenceStatus(mDevice, fence);
-                                   if (status != VK_SUCCESS) {
-                                       if (status != VK_NOT_READY) {
-                                           VK_CHECK(status);
-                                       }
+        auto it = std::find_if(mPool.begin(), mPool.end(), [this](const VkFence& fence) {
+            VkResult status = m_vk->vkGetFenceStatus(mDevice, fence);
+            if (status != VK_SUCCESS) {
+                if (status != VK_NOT_READY) {
+                    VK_CHECK(status);
+                }
 
-                                       // Status is valid, but fence is not yet signaled
-                                       return false;
-                                   }
-                                   return true;
-                               });
+                // Status is valid, but fence is not yet signaled
+                return false;
+            }
+            return true;
+        });
         if (it == mPool.end()) {
             return VK_NULL_HANDLE;
         }
