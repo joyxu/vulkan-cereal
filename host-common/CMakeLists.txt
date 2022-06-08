@@ -137,31 +137,33 @@ target_link_libraries(
     gtest
     gmock)
 
-add_executable(
-    gfxstream-host-common_unittests
-    address_space_graphics_unittests.cpp
-    address_space_host_memory_allocator_unittests.cpp
-    address_space_shared_slots_host_memory_allocator_unittests.cpp
-    HostAddressSpace_unittest.cpp
-    HostmemIdMapping_unittest.cpp
-    logging_unittest.cpp
-    GfxstreamFatalError_unittest.cpp
-    RenderDoc_unittest.cpp)
+if (ENABLE_VKCEREAL_TESTS)
+    add_executable(
+        gfxstream-host-common_unittests
+        address_space_graphics_unittests.cpp
+        address_space_host_memory_allocator_unittests.cpp
+        address_space_shared_slots_host_memory_allocator_unittests.cpp
+        HostAddressSpace_unittest.cpp
+        HostmemIdMapping_unittest.cpp
+        logging_unittest.cpp
+        GfxstreamFatalError_unittest.cpp
+        RenderDoc_unittest.cpp)
 
-target_include_directories(
-    gfxstream-host-common_unittests
-    PRIVATE
-    ${GFXSTREAM_REPO_ROOT}/include)
+    target_include_directories(
+        gfxstream-host-common_unittests
+        PRIVATE
+        ${GFXSTREAM_REPO_ROOT}/include)
 
-target_link_libraries(
-    gfxstream-host-common_unittests
-    PRIVATE
-    gfxstream-base
-    ${GFXSTREAM_HOST_COMMON_LIB}
-    gfxstream-host-common-testing-support
-    gtest_main
-    gmock_main)
+    target_link_libraries(
+        gfxstream-host-common_unittests
+        PRIVATE
+        gfxstream-base
+        ${GFXSTREAM_HOST_COMMON_LIB}
+        gfxstream-host-common-testing-support
+        gtest_main
+        gmock_main)
 
-gtest_discover_tests(gfxstream-host-common_unittests)
+    gtest_discover_tests(gfxstream-host-common_unittests)
 
-set_test_include_files()
+    set_test_include_files()
+endif()
