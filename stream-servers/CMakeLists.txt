@@ -69,8 +69,7 @@ target_link_libraries(
         gfxstream_backend_static
         PUBLIC
         GLES_CM_translator_static
-        ${GFXSTREAM_HOST_COMMON_LIB}
-        gfxstream-base
+        ${GFXSTREAM_BASE_LIB}
         OpenGLESDispatch
         gles1_dec
         gles2_dec
@@ -78,7 +77,8 @@ target_link_libraries(
         gfxstream-vulkan-server
         gfxstream-snapshot
         apigen-codec-common
-        perfetto-tracing-only)
+        perfetto-tracing-only
+        ${GFXSTREAM_HOST_COMMON_LIB})
 
 target_include_directories(
         gfxstream_backend_static
@@ -120,7 +120,7 @@ if (ENABLE_VKCEREAL_TESTS)
         PRIVATE
         OSWindow
         gfxstream_backend
-        gfxstream-base
+        ${GFXSTREAM_BASE_LIB}
         gtest_main)
     gtest_discover_tests(gfxstream_backend_unittests)
 endif()
@@ -165,7 +165,7 @@ add_library(
     tests/X11TestingSupport.cpp)
 target_link_libraries(
     x11_testing_support
-    gfxstream-base)
+    gfxstream-base.headers)
 endif()
 
 if (ENABLE_VKCEREAL_TESTS)

@@ -13,7 +13,10 @@
 // limitations under the License.
 #pragma once
 
+#include "base/c_header.h"
 #include "base/export.h"
+
+ANDROID_BEGIN_HEADER
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -229,3 +232,4 @@ void ring_buffer_consumer_hung_up(struct ring_buffer* r);
 
 // Convenient function to reschedule thread
 void ring_buffer_yield();
+ANDROID_END_HEADER
