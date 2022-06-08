@@ -69,7 +69,7 @@ class Globals {
 public:
     Globals() :
         mPerContextBufferSize(
-                android_hw->hw_gltransport_asg_writeBufferSize) { }
+                aemu_get_android_hw()->hw_gltransport_asg_writeBufferSize) { }
 
     ~Globals() { clear(); }
 
@@ -588,7 +588,7 @@ AddressSpaceGraphicsContext::AddressSpaceGraphicsContext(
     mHostContext.ring_config->buffer_size =
         sGlobals()->perContextBufferSize();
     mHostContext.ring_config->flush_interval =
-        android_hw->hw_gltransport_asg_writeStepSize;
+        aemu_get_android_hw()->hw_gltransport_asg_writeStepSize;
     mHostContext.ring_config->host_consumed_pos = 0;
     mHostContext.ring_config->guest_write_pos = 0;
     mHostContext.ring_config->transfer_mode = 1;
@@ -743,7 +743,7 @@ bool AddressSpaceGraphicsContext::load(base::Stream* stream) {
     mHostContext.ring_config->buffer_size =
         sGlobals()->perContextBufferSize();
     mHostContext.ring_config->flush_interval =
-        android_hw->hw_gltransport_asg_writeStepSize;
+        aemu_get_android_hw()->hw_gltransport_asg_writeStepSize;
 
     // In load, the live ring config state is in shared host/guest ram.
     //
