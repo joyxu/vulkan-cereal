@@ -51,6 +51,7 @@ struct AllocationCreateInfo {
     bool fromLoad;
     uint64_t size;
     uint64_t hostmemId;
+    void *externalAddr;
 };
 
 struct Block {
@@ -63,6 +64,7 @@ struct Block {
     size_t dedicatedSize = 0;
     bool usesVirtioGpuHostmem = false;
     uint64_t hostmemId = 0;
+    bool external = false;
 };
 
 class Globals {
@@ -415,16 +417,23 @@ private:
     void fillBlockLocked(Block& block, struct AllocationCreateInfo& create) {
         if (create.dedicated) {
             if (create.virtioGpu) {
-                void* buf = aligned_buf_alloc(ADDRESS_SPACE_GRAPHICS_PAGE_SIZE, create.size);
+                void* buf;
 
-                struct MemEntry entry = { 0 };
-                entry.hva = (uint64_t)(uintptr_t)buf;
-                entry.size = create.size;
-                entry.register_fixed = create.hostmemRegisterFixed;
-                entry.fixed_id = create.hostmemId ? create.hostmemId : 0;
-                entry.caching = MAP_CACHE_CACHED;
+                if (create.externalAddr) {
+                    buf = create.externalAddr;
+                    block.external = true;
+                } else {
+                    buf = aligned_buf_alloc(ADDRESS_SPACE_GRAPHICS_PAGE_SIZE, create.size);
 
-                create.hostmemId = mControlOps->hostmem_register(&entry);
+                    struct MemEntry entry = { 0 };
+                    entry.hva = (uint64_t)(uintptr_t)buf;
+                    entry.size = create.size;
+                    entry.register_fixed = create.hostmemRegisterFixed;
+                    entry.fixed_id = create.hostmemId ? create.hostmemId : 0;
+                    entry.caching = MAP_CACHE_CACHED;
+
+                    create.hostmemId = mControlOps->hostmem_register(&entry);
+                }
 
                 block.buffer = (char*)buf;
                 block.subAlloc =
@@ -493,9 +502,9 @@ private:
 
     void destroyBlockLocked(Block& block) {
 
-        if (block.usesVirtioGpuHostmem) {
+        if (block.usesVirtioGpuHostmem && !block.external) {
             mControlOps->hostmem_unregister(block.hostmemId);
-        } else {
+        } else if (!block.external) {
             mControlOps->remove_memory_mapping(
                 get_address_space_device_hw_funcs()->getPhysAddrStartLocked() +
                     block.offsetIntoPhys,
@@ -507,8 +516,9 @@ private:
         }
 
         delete block.subAlloc;
-
-        aligned_buf_free(block.buffer);
+        if (!block.external) {
+            aligned_buf_free(block.buffer);
+        }
 
         block.isEmpty = true;
     }
