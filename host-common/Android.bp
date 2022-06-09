@@ -28,7 +28,7 @@ cc_library_static {
         "AndroidPipe.cpp",
         "HostmemIdMapping.cpp",
         "RefcountPipe.cpp",
-        "AndroidAgentFactory.cpp",
+        "GraphicsAgentFactory.cpp",
 
         "GoldfishSyncCommandQueue.cpp",
         "goldfish_sync.cpp",

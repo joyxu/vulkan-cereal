@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "MockAndroidAgentFactory.h"
+#include "MockGraphicsAgentFactory.h"
 
 #include <stdio.h>
 
@@ -27,17 +27,17 @@ namespace android {
 namespace emulation {
 
 const QAndroidVmOperations* const
-MockAndroidConsoleFactory::android_get_QAndroidVmOperations() const {
+MockGraphicsAgentFactory::android_get_QAndroidVmOperations() const {
     return gMockQAndroidVmOperations;
 }
 
 const QAndroidMultiDisplayAgent* const
-MockAndroidConsoleFactory::android_get_QAndroidMultiDisplayAgent() const {
+MockGraphicsAgentFactory::android_get_QAndroidMultiDisplayAgent() const {
     return gMockQAndroidMultiDisplayAgent;
 }
 
 const QAndroidEmulatorWindowAgent* const
-MockAndroidConsoleFactory::android_get_QAndroidEmulatorWindowAgent() const {
+MockGraphicsAgentFactory::android_get_QAndroidEmulatorWindowAgent() const {
     return gMockQAndroidEmulatorWindowAgent;
 }
 }  // namespace emulation
