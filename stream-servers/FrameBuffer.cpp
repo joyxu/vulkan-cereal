@@ -1135,8 +1135,19 @@ std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
                         return false;
                     }
                     INFO("Recreating swapchain...");
-                    m_displayVk->bindToSurface(m_vkSurface, static_cast<uint32_t>(m_windowWidth),
-                                             static_cast<uint32_t>(m_windowHeight));
+                    int maxRetries = 8;
+                    while (maxRetries>=0 && !m_displayVk->bindToSurface(
+                                                       m_vkSurface,
+                                                       static_cast<uint32_t>(m_windowWidth),
+                                                       static_cast<uint32_t>(m_windowHeight))) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                        --maxRetries;
+                        INFO("Swapchain recreation failed, retrying...");
+                    }
+                    if (maxRetries < 0) {
+                        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                            << "Failed to create Swapchain.";
+                    }
                     INFO("Recreating swapchain completes.");
                     return true;
                 }

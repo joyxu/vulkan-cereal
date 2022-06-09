@@ -28,7 +28,7 @@ class DisplayVk {
               VkQueue compositorVkQueue, std::shared_ptr<android::base::Lock> compositorVkQueueLock,
               VkQueue swapChainVkQueue, std::shared_ptr<android::base::Lock> swapChainVkQueueLock);
     ~DisplayVk();
-    void bindToSurface(VkSurfaceKHR, uint32_t width, uint32_t height);
+    bool bindToSurface(VkSurfaceKHR, uint32_t width, uint32_t height);
     // The first component of the returned tuple is false when the swapchain is no longer valid and
     // bindToSurface() needs to be called again. When the first component is true, the second
     // component of the returned tuple is a/ future that will complete when the GPU side of work
