@@ -229,6 +229,7 @@ if (ENABLE_VKCEREAL_TESTS)
         tests/DisplayVk_unittest.cpp
         tests/VirtioGpuTimelines_unittest.cpp
         vulkan/vk_util_unittest.cpp
+        vulkan/VkFormatUtils_unittest.cpp
         vulkan/VkQsriTimeline_unittest.cpp
         vulkan/VkDecoderGlobalState_unittest.cpp
     )

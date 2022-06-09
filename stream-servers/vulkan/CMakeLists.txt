@@ -10,6 +10,7 @@ add_library(gfxstream-vulkan-server
             VkDecoder.cpp
             VkDecoderGlobalState.cpp
             VkDecoderSnapshot.cpp
+            VkFormatUtils.cpp
             VkReconstruction.cpp
             VulkanDispatch.cpp
             VulkanHandleMapping.cpp
