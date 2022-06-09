@@ -383,12 +383,22 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle, bool vulkanOnly = false,
                         void** mappedPtr = nullptr);
 bool teardownVkColorBuffer(uint32_t colorBufferHandle);
 VkEmulation::ColorBufferInfo getColorBufferInfo(uint32_t colorBufferHandle);
-bool updateColorBufferFromVkImage(uint32_t colorBufferHandle);
-bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle);
 VK_EXT_MEMORY_HANDLE getColorBufferExtMemoryHandle(uint32_t colorBufferHandle);
 MTLTextureRef getColorBufferMTLTexture(uint32_t colorBufferHandle);
 bool setColorBufferVulkanMode(uint32_t colorBufferHandle, uint32_t vulkanMode);
 int32_t mapGpaToBufferHandle(uint32_t bufferHandle, uint64_t gpa, uint64_t size = 0);
+
+bool readColorBufferToGl(uint32_t colorBufferHandle);
+bool readColorBufferToBytes(uint32_t colorBufferHandle, uint32_t x, uint32_t y, uint32_t w,
+                            uint32_t h, void* outPixels);
+bool readColorBufferToBytesLocked(uint32_t colorBufferHandle, uint32_t x, uint32_t y, uint32_t w,
+                                  uint32_t h, void* outPixels);
+
+bool updateColorBufferFromGl(uint32_t colorBufferHandle);
+bool updateColorBufferFromBytes(uint32_t colorBufferHandle, uint32_t x, uint32_t y, uint32_t w,
+                                uint32_t h, const void* pixels);
+bool updateColorBufferFromBytesLocked(uint32_t colorBufferHandle, uint32_t x, uint32_t y,
+                                      uint32_t w, uint32_t h, const void* pixels);
 
 // Data buffer operations
 
