@@ -15,13 +15,17 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <vector>
+
+#include "host-common/logging.h"
+#include "vulkan/vk_enum_string_helper.h"
+
 // Header library that captures common patterns when working with
 // Vulkan formats:
 // - Macros to iterate over categories of formats
 // - Add often-used parameters like the bytes per pixel and ASTC block size
 
 #define LIST_VK_FORMATS_LINEAR(f)                      \
-    f(VK_FORMAT_UNDEFINED, 0)                          \
     f(VK_FORMAT_R4G4_UNORM_PACK8, 1)                   \
     f(VK_FORMAT_R4G4B4A4_UNORM_PACK16, 2)              \
     f(VK_FORMAT_B4G4R4A4_UNORM_PACK16, 2)              \
@@ -273,6 +277,7 @@ static inline int getLinearFormatPixelSize(VkFormat format) {
 
     LIST_VK_FORMATS_LINEAR(VK_FORMATS_LINEAR_GET_PIXEL_SIZE)
 
+    ERR("Unhandled format: %s", string_VkFormat(format));
     return 0;
 }
 
@@ -643,3 +648,10 @@ constexpr bool formatRequiresSamplerYcbcrConversion(VkFormat format) {
             return false;
     }
 }
+
+// Returns the size in bytes needed to copy an image with the given format,
+// width, and height to a staging buffer and the VkBufferImageCopy-s needed
+// to copy from a staging buffer to destination VkImage.
+bool getFormatTransferInfo(VkFormat format, uint32_t width, uint32_t height,
+                           VkDeviceSize* outStagingBufferCopySize,
+                           std::vector<VkBufferImageCopy>* outBufferImageCopies);

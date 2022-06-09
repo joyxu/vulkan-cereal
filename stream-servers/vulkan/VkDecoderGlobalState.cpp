@@ -2881,7 +2881,7 @@ class VkDecoderGlobalState::Impl {
                 &localAllocInfo.allocationSize, &localAllocInfo.memoryTypeIndex, &mappedPtr);
 
             if (!vulkanOnly) {
-                updateVkImageFromColorBuffer(importCbInfoPtr->colorBuffer);
+                updateColorBufferFromGl(importCbInfoPtr->colorBuffer);
             }
 
             if (m_emu->instanceSupportsExternalMemoryCapabilities) {
