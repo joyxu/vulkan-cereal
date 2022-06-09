@@ -14,14 +14,14 @@
 
 #pragma once
 
-#include "vm_operations.h"
-#include "multi_display_agent.h"
-#include "window_agent.h"
-#include "record_screen_agent.h"
-
+struct QAndroidEmulatorWindowAgent;
+struct QAndroidDisplayAgent;
+struct QAndroidRecordScreenAgent;
+struct QAndroidMultiDisplayAgent;
+struct QAndroidVmOperations;
 typedef int (*LineConsumerCallback)(void* opaque, const char* buff, int len);
 
-#define ANDROID_CONSOLE_AGENTS_LIST(X)          \
+#define GRAPHICS_AGENTS_LIST(X)          \
     X(QAndroidEmulatorWindowAgent, emu)         \
     X(QAndroidDisplayAgent, display)         \
     X(QAndroidRecordScreenAgent, record)        \
@@ -30,45 +30,45 @@ typedef int (*LineConsumerCallback)(void* opaque, const char* buff, int len);
 
 namespace android {
 namespace emulation {
-#define ANDROID_DEFINE_CONSOLE_GETTER(typ, name) \
+#define DEFINE_GRAPHICS_AGENT_GETTER(typ, name) \
     virtual const typ* const android_get_##typ() const;
 
-// The default android console factory will not do anything, it will
-// leave the console agents intact.
+// The default graphics agent factory will not do anything, it will
+// leave the graphics agents intact.
 //
-// You an call injectConsoleAgents multiple times with this factory.
+// You an call injectGraphicsAgents multiple times with this factory.
 //
 // If you want to override existing agents you can subclass this factory,
-// override the method of interest and call injectConsoleAgents, it will replace
+// override the method of interest and call injectGraphicsAgents, it will replace
 // the existing agents with the one your factory provides.
-class AndroidConsoleFactory {
+class GraphicsAgentFactory {
 public:
-    virtual ~AndroidConsoleFactory() = default;
-    ANDROID_CONSOLE_AGENTS_LIST(ANDROID_DEFINE_CONSOLE_GETTER)
+    virtual ~GraphicsAgentFactory() = default;
+    GRAPHICS_AGENTS_LIST(DEFINE_GRAPHICS_AGENT_GETTER)
 };
 
 
-// Call this method to inject the console agents into the emulator. You usally
-// want to call this function *BEFORE* any calls to getConsoleAgents are made.
+// Call this method to inject the graphics agents into the emulator. You usually
+// want to call this function *BEFORE* any calls to getGraphicsAgents are made.
 //
 // You can provide a factory that will be used to construct all the individual
 // agents.
 //
 // Note: It is currently not safe to inject agents after the first injection has
 // taken place.
-void injectConsoleAgents(
-        const AndroidConsoleFactory& factory);
+void injectGraphicsAgents(
+        const GraphicsAgentFactory& factory);
 
 }  // namespace emulation
 }  // namespace android
 
 extern "C" {
 
-#define ANDROID_CONSOLE_DEFINE_POINTER(type, name) const type* name;
-typedef struct AndroidConsoleAgents {
-    ANDROID_CONSOLE_AGENTS_LIST(ANDROID_CONSOLE_DEFINE_POINTER)
-} AndroidConsoleAgents;
+#define GRAPHICS_AGENTS_DEFINE_POINTER(type, name) const type* name;
+typedef struct GraphicsAgents {
+    GRAPHICS_AGENTS_LIST(GRAPHICS_AGENTS_DEFINE_POINTER)
+} GraphicsAgents;
 
-const AndroidConsoleAgents* getConsoleAgents();
+const GraphicsAgents* getGraphicsAgents();
 
 } // extern "C"

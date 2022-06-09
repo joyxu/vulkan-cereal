@@ -464,7 +464,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     EmuglConfig config;
 
     // Make all the console agents available.
-    android::emulation::injectConsoleAgents(android::emulation::GfxStreamAndroidConsoleFactory());
+    android::emulation::injectGraphicsAgents(android::emulation::GfxStreamGraphicsAgentFactory());
 
     emuglConfig_init(&config, true /* gpu enabled */, "auto",
                      enable_egl2egl ? "swiftshader_indirect" : "host",
@@ -491,9 +491,9 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     int min;
     android_startOpenglesRenderer(
         display_width, display_height, 1, 28,
-        getConsoleAgents()->vm,
-        getConsoleAgents()->emu,
-        getConsoleAgents()->multi_display,
+        getGraphicsAgents()->vm,
+        getGraphicsAgents()->emu,
+        getGraphicsAgents()->multi_display,
         &maj, &min);
 
     char* vendor = nullptr;
@@ -512,7 +512,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "No renderer started, fatal";
     }
 
-    address_space_set_vm_operations(getConsoleAgents()->vm);
+    address_space_set_vm_operations(getGraphicsAgents()->vm);
     android_init_opengles_pipe();
     android_opengles_pipe_set_recv_mode(2 /* virtio-gpu */);
     android_init_refcount_pipe();
