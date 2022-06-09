@@ -88,7 +88,7 @@ DisplayVk::~DisplayVk() {
     m_vk.vkDestroyCommandPool(m_vkDevice, m_vkCommandPool, nullptr);
 }
 
-void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t height) {
+bool DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t height) {
     {
         android::base::AutoLock lock(*m_compositorVkQueueLock);
         VK_CHECK(vk_util::waitForVkQueueIdleWithRetry(m_vk, m_compositorVkQueue));
@@ -109,8 +109,7 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
         m_vk, surface, m_vkPhysicalDevice, width, height,
         {m_swapChainQueueFamilyIndex, m_compositorQueueFamilyIndex});
     if (!swapChainCi) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "Failed to create VkSwapchainCreateInfoKHR.";
+        return false;
     }
     VkFormatProperties formatProps;
     m_vk.vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice,
@@ -121,7 +120,8 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
                "attachment, and therefore can't be used as the render target of CompositorVk.";
     }
     m_swapChainStateVk =
-        std::make_unique<SwapChainStateVk>(m_vk, m_vkDevice, swapChainCi->mCreateInfo);
+        SwapChainStateVk::createSwapChainVk(m_vk, m_vkDevice, swapChainCi->mCreateInfo);
+    if (m_swapChainStateVk == nullptr) return false;
 
     int numSwapChainImages = m_swapChainStateVk->getVkImages().size();
 
@@ -136,6 +136,7 @@ void DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
     surfaceState->m_height = height;
     surfaceState->m_width = width;
     m_surfaceState = std::move(surfaceState);
+    return true;
 }
 
 std::tuple<bool, std::shared_future<void>> DisplayVk::post(
