@@ -20,7 +20,7 @@
 #include "base/System.h"
 #include "base/testing/TestSystem.h"
 #include "base/FunctorThread.h"
-#include "host-common/AndroidAgentFactory.h"
+#include "host-common/GraphicsAgentFactory.h"
 #include "host-common/multi_display_agent.h"
 #include "host-common/MultiDisplay.h"
 #include "Standalone.h"
@@ -236,8 +236,8 @@ SampleApplication::SampleApplication(int windowWidth, int windowHeight, int refr
 
     // setupStandaloneLibrarySearchPaths();
     emugl::setGLObjectCounter(android::base::GLObjectCounter::get());
-    emugl::set_emugl_window_operations(*getConsoleAgents()->emu);;
-    emugl::set_emugl_multi_display_operations(*getConsoleAgents()->multi_display);
+    emugl::set_emugl_window_operations(*getGraphicsAgents()->emu);;
+    emugl::set_emugl_multi_display_operations(*getGraphicsAgents()->multi_display);
     LazyLoadedEGLDispatch::get();
     if (glVersion == GLESApi_CM) LazyLoadedGLESv1Dispatch::get();
     LazyLoadedGLESv2Dispatch::get();

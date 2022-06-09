@@ -24,8 +24,8 @@
 #include "base/PathUtils.h"
 #include "base/System.h"
 #include "base/testing/TestSystem.h"
-#include "host-common/AndroidAgentFactory.h"
-#include "host-common/testing/MockAndroidAgentFactory.h"
+#include "host-common/GraphicsAgentFactory.h"
+#include "host-common/testing/MockGraphicsAgentFactory.h"
 
 #include "Standalone.h"
 
@@ -418,8 +418,8 @@ static void teardownVulkanTest(const VulkanDispatch* vk,
 class VulkanTest : public ::testing::Test {
 protected:
     static void SetUpTestSuite() {
-        android::emulation::injectConsoleAgents(
-                android::emulation::MockAndroidConsoleFactory());
+        android::emulation::injectGraphicsAgents(
+                android::emulation::MockGraphicsAgentFactory());
     }
 
     static void TearDownTestSuite() { }
@@ -475,8 +475,8 @@ protected:
         VulkanTest::SetUp();
 
         emugl::setGLObjectCounter(android::base::GLObjectCounter::get());
-        emugl::set_emugl_window_operations(*getConsoleAgents()->emu);
-        emugl::set_emugl_multi_display_operations(*getConsoleAgents()->multi_display);
+        emugl::set_emugl_window_operations(*getGraphicsAgents()->emu);
+        emugl::set_emugl_multi_display_operations(*getGraphicsAgents()->multi_display);
         const EGLDispatch* egl = LazyLoadedEGLDispatch::get();
         ASSERT_NE(nullptr, egl);
         ASSERT_NE(nullptr, LazyLoadedGLESv2Dispatch::get());

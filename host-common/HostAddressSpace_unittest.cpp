@@ -14,10 +14,10 @@
 #include "testing/HostAddressSpace.h"
 
 #include "base/AlignedBuf.h"
-#include "host-common/AndroidAgentFactory.h"
+#include "host-common/GraphicsAgentFactory.h"
 #include "host-common/address_space_device.h"
 #include "host-common/address_space_device.hpp"
-#include "host-common/testing/MockAndroidAgentFactory.h"
+#include "host-common/testing/MockGraphicsAgentFactory.h"
 
 #include <gtest/gtest.h>
 
@@ -26,9 +26,9 @@ namespace android {
 class HostAddressSpaceTest : public ::testing::Test {
 protected:
     static void SetUpTestSuite() {
-        android::emulation::injectConsoleAgents(
-                android::emulation::MockAndroidConsoleFactory());
-        emulation::goldfish_address_space_set_vm_operations(getConsoleAgents()->vm);
+        android::emulation::injectGraphicsAgents(
+                android::emulation::MockGraphicsAgentFactory());
+        emulation::goldfish_address_space_set_vm_operations(getGraphicsAgents()->vm);
     }
 
     static void TearDownTestSuite() { }

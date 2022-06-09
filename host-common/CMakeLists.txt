@@ -62,7 +62,7 @@ if (BUILD_STANDALONE)
         AndroidPipe.cpp
         HostmemIdMapping.cpp
         RefcountPipe.cpp
-        AndroidAgentFactory.cpp
+        GraphicsAgentFactory.cpp
 
         # goldfish sync
         GoldfishSyncCommandQueue.cpp
@@ -125,7 +125,7 @@ endif()
 add_library(
     gfxstream-host-common-testing-support
     testing/HostAddressSpace.cpp
-    testing/MockAndroidAgentFactory.cpp
+    testing/MockGraphicsAgentFactory.cpp
     testing/MockAndroidEmulatorWindowAgent.cpp
     testing/MockAndroidMultiDisplayAgent.cpp
     testing/MockAndroidVmOperations.cpp)
