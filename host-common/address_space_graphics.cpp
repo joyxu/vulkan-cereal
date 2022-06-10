@@ -249,11 +249,20 @@ public:
         deleteAllocation(alloc, mBufferBlocks);
     }
 
-    Allocation allocRingAndBufferStorageDedicated() {
+    Allocation allocRingAndBufferStorageDedicated(const struct AddressSpaceCreateInfo& asgCreate) {
         struct AllocationCreateInfo create = {0};
         create.size = sizeof(struct asg_ring_storage) + mPerContextBufferSize;
         create.dedicated = true;
         create.virtioGpu = true;
+        if (asgCreate.externalAddr) {
+            create.externalAddr = asgCreate.externalAddr;
+            if (asgCreate.externalAddrSize < static_cast<uint64_t>(create.size)) {
+                crashhandler_die("External address size too small\n");
+            }
+
+            create.size = asgCreate.externalAddrSize;
+        }
+
         return newAllocation(create, mCombinedBlocks);
     }
 
@@ -573,7 +582,7 @@ AddressSpaceGraphicsContext::AddressSpaceGraphicsContext(
     }
 
     if (mIsVirtio) {
-        mCombinedAllocation = sGlobals()->allocRingAndBufferStorageDedicated();
+        mCombinedAllocation = sGlobals()->allocRingAndBufferStorageDedicated(create);
         mRingAllocation = sGlobals()->allocRingViewIntoCombined(mCombinedAllocation);
         mBufferAllocation = sGlobals()->allocBufferViewIntoCombined(mCombinedAllocation);
     } else {
@@ -606,6 +615,11 @@ AddressSpaceGraphicsContext::AddressSpaceGraphicsContext(
     mHostContext.ring_config->in_error = 0;
 
     mSavedConfig = *mHostContext.ring_config;
+
+    if (create.createRenderThread) {
+        mCurrentConsumer = mConsumerInterface.create(
+            mHostContext, nullptr, mConsumerCallbacks);
+    }
 }
 
 AddressSpaceGraphicsContext::~AddressSpaceGraphicsContext() {
