@@ -23,6 +23,9 @@ struct AddressSpaceCreateInfo {
     uint32_t type;
     uint64_t physAddr;
     bool fromSnapshot;
+    bool createRenderThread;
+    void *externalAddr;
+    uint64_t externalAddrSize;
 };
 
 typedef uint32_t (*address_space_device_gen_handle_t)(void);
