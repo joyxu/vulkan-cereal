@@ -113,6 +113,13 @@ public:
             int snapshotterOp,
             int snapshotterStage) final;
 
+    void addListener(FrameBufferChangeEventListener* listener) override;
+    void removeListener(FrameBufferChangeEventListener* listener) override;
+
+    void setVsyncHz(int vsyncHz) final;
+    void setDisplayConfigs(int configId, int w, int h, int dpiX, int dpiY) override;
+    void setDisplayActiveConfig(int configId) override;
+
 private:
     DISALLOW_COPY_ASSIGN_AND_MOVE(RendererImpl);
 

@@ -100,6 +100,11 @@ void RenderLibImpl::setUsageTracker(android::base::CpuUsage* cpuUsage,
     emugl::setMemoryTracker(memUsage);
 }
 
+void RenderLibImpl::setGrallocImplementation(GrallocImplementation gralloc) {
+    // TODO(joshuaduong): need a full CP of go/oag/1950399
+    (void) gralloc;
+}
+
 void* RenderLibImpl::getGLESv2Dispatch(void) {
     return &s_gles2;
 }
