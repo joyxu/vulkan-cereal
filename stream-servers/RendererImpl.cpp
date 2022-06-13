@@ -233,6 +233,16 @@ RenderChannelPtr RendererImpl::createRenderChannel(
     return channel;
 }
 
+void RendererImpl::addListener(FrameBufferChangeEventListener* listener) {
+    // TODO: need CP
+    (void)listener;
+}
+
+void RendererImpl::removeListener(FrameBufferChangeEventListener* listener) {
+    // TODO: need CP
+    (void)listener;
+}
+
 void* RendererImpl::addressSpaceGraphicsConsumerCreate(
     struct asg_context context,
     android::base::Stream* loadStream,
@@ -649,4 +659,23 @@ void RendererImpl::snapshotOperationCallback(int op, int stage) {
     }
 }
 
+void RendererImpl::setVsyncHz(int vsyncHz) {
+    // TODO: need CP
+    (void)vsyncHz;
+}
+
+void RendererImpl::setDisplayConfigs(int configId, int w, int h,
+                                     int dpiX, int dpiY) {
+    // TODO: need CP
+    (void)configId;
+    (void)w;
+    (void)h;
+    (void)dpiX;
+    (void)dpiY;
+}
+
+void RendererImpl::setDisplayActiveConfig(int configId) {
+    // TODO: need CP
+    (void)configId;
+}
 }  // namespace emugl

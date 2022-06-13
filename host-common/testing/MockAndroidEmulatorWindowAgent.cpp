@@ -68,7 +68,7 @@ static const QAndroidEmulatorWindowAgent sQAndroidEmulatorWindowAgent = {
         .getFoldedArea = 0,
         .updateFoldablePostureIndicator = 0,
         .setUIDisplayRegion =
-                [](int x_offset, int y_offset, int w, int h) {
+                [](int x_offset, int y_offset, int w, int h, bool ignoreOrientation) {
                     printf("window-agent-mock-impl: .setUIDisplayRegion %d %d "
                            "%dx%d\n",
                            x_offset, y_offset, w, h);
