@@ -18,6 +18,10 @@
 
 #include <stdbool.h>
 
+#include "base/c_header.h"
+
+ANDROID_BEGIN_HEADER
+
 typedef enum {
 #define FEATURE_CONTROL_ITEM(item) kFeature_##item,
 #include "FeatureControlDefHost.h"
@@ -44,3 +48,5 @@ void feature_set_if_not_overridden_or_guest_disabled(Feature feature, bool enabl
 // asyncUpdateServerFeaturePatterns. See FeatureControl.h
 // for more info. To be called only once on startup.
 void feature_update_from_server();
+
+ANDROID_END_HEADER
