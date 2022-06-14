@@ -4,14 +4,14 @@
 #ifndef HWCFG_INT
 #error  HWCFG_INT not defined
 #endif
+#ifndef HWCFG_STRING
+#error  HWCFG_STRING not defined
+#endif
 #ifndef HWCFG_BOOL
 #error  HWCFG_BOOL not defined
 #endif
 #ifndef HWCFG_DISKSIZE
 #error  HWCFG_DISKSIZE not defined
-#endif
-#ifndef HWCFG_STRING
-#error  HWCFG_STRING not defined
 #endif
 #ifndef HWCFG_DOUBLE
 #error  HWCFG_DOUBLE not defined
@@ -233,6 +233,13 @@ HWCFG_INT(
   16,
   "LCD color depth",
   "Color bit depth of emulated framebuffer.")
+
+HWCFG_BOOL(
+  hw_lcd_circular,
+  "hw.lcd.circular",
+  "false",
+  "Display is circular",
+  "Specifies if the main display is circular (round). Default: false.")
 
 HWCFG_INT(
   hw_lcd_density,
@@ -500,6 +507,13 @@ HWCFG_INT(
   "the flag touse when the fourth display is initialized in the Android system.",
   "")
 
+HWCFG_BOOL(
+  hw_multi_display_window,
+  "hw.multi_display_window",
+  "no",
+  "Create a window for each display",
+  "When multidisplay enabled, enabling this flag will create a window for each display.")
+
 HWCFG_STRING(
   display_settings_xml,
   "display.settings.xml",
@@ -613,9 +627,16 @@ HWCFG_BOOL(
   "Provides temperature sensor values.")
 
 HWCFG_BOOL(
+  hw_sensors_rgbclight,
+  "hw.sensors.rgbclight",
+  "no",
+  "RGBC light sensor support",
+  "Provides RGBC light sensor values.")
+
+HWCFG_BOOL(
   hw_sensor_hinge,
   "hw.sensor.hinge",
-  "yes",
+  "no",
   "Enalbe hinge angle sensor.",
   "")
 
@@ -673,7 +694,7 @@ HWCFG_STRING(
   "hw.sensor.hinge_angles_posture_definitions",
   "",
   "angles ranges for each posture in posture_list.",
-  "")
+  "start-end angle pairs which define each posture. optionally, default angle may be specified for each posture, by providing a third value. default posture angle is used e.g. in quick-jump-to-posture buttons in UI.")
 
 HWCFG_INT(
   hw_sensor_hinge_fold_to_displayRegion_0_1_at_posture,
@@ -753,6 +774,20 @@ HWCFG_INT(
   "")
 
 HWCFG_BOOL(
+  hw_sensors_heart_rate,
+  "hw.sensors.heart_rate",
+  "no",
+  "Heart rate support",
+  "Whether there is a heart rate sensor in the device")
+
+HWCFG_BOOL(
+  hw_sensors_wrist_tilt,
+  "hw.sensors.wrist_tilt",
+  "no",
+  "Wrist tilt gesture",
+  "Whether there is a wrist tilt gesture sensor in the device")
+
+HWCFG_BOOL(
   hw_useext4,
   "hw.useext4",
   "yes",
@@ -779,6 +814,20 @@ HWCFG_STRING(
   "",
   "Feature flags",
   "A comma-separated list of feature flags to enable or disable, such as 'Enabled,-Disabled'.")
+
+HWCFG_STRING(
+  hw_device_name,
+  "hw.device.name",
+  "",
+  "Name of the device, e.g., pixel, resizable...# Kernel image.",
+  "")
+
+HWCFG_STRING(
+  hw_resizable_configs,
+  "hw.resizable.configs",
+  "",
+  "",
+  "A comma-separated list of resizable resolutions. Each entry is organized as name-id-width-height-dpi, where the id number matches enum in android/android-emu/android/resizable_display_config.h")
 
 HWCFG_STRING(
   kernel_path,
@@ -935,8 +984,8 @@ HWCFG_STRING(
   "This can be used by post processing tools to migrate snapshots")
 
 #undef HWCFG_INT
+#undef HWCFG_STRING
 #undef HWCFG_BOOL
 #undef HWCFG_DISKSIZE
-#undef HWCFG_STRING
 #undef HWCFG_DOUBLE
 /* end of auto-generated file */

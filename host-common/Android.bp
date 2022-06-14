@@ -43,8 +43,7 @@ cc_library_static {
         "address_space_graphics.cpp",
         "address_space_host_media.cpp",
 
-        "avd/info.cpp",
-        "avd/hw-config.cpp",
+        "hw-config.cpp",
 
         "opengles.cpp",
         "opengl/EmuglBackendList.cpp",
@@ -59,7 +58,6 @@ cc_library_static {
     ],
     local_include_dirs: [
         "include/host-common",
-        "include/host-common/avd",
         "include/host-common/opengl",
     ],
 }
