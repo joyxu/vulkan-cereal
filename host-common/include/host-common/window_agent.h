@@ -14,10 +14,14 @@
 
 #pragma once
 
+#include "base/c_header.h"
+
 #include <stdint.h>
 // #include "android/settings-agent.h"
 // #include "android/skin/rect.h"
 // #include "android/utils/compiler.h"
+
+ANDROID_BEGIN_HEADER
 
 // Window agent's possible message types
 typedef enum {
@@ -28,6 +32,8 @@ typedef enum {
     WINDOW_MESSAGE_OK,
 } WindowMessageType;
 
+typedef struct {} MultiDisplayPageChangeEvent;
+
 static const int kWindowMessageTimeoutInfinite = -1;
 
 typedef struct EmulatorWindow EmulatorWindow;
@@ -36,7 +42,7 @@ typedef void (*UiUpdateFunc)(void* data);
 
 typedef struct QAndroidEmulatorWindowAgent {
     // Get a pointer to the emulator window structure.
-    EmulatorWindow* (*getEmulatorWindow)();
+    EmulatorWindow* (*getEmulatorWindow)(void);
 
     // Rotate the screen clockwise by 90 degrees.
     // Returns true on success, false otherwise.
@@ -66,11 +72,13 @@ typedef struct QAndroidEmulatorWindowAgent {
     bool (*isFolded)(void);
     bool (*getFoldedArea)(int* x, int* y, int* w, int* h);
 
-// Update UI indicator which shows which foldable posture device is in
+    // Update UI indicator which shows which foldable posture device is in
     void (*updateFoldablePostureIndicator)(bool confirmFoldedArea);
+    // Set foldable device posture
+    bool (*setPosture)(int posture);
 
     // Set the UI display region
-    void (*setUIDisplayRegion)(int, int, int, int);
+    void (*setUIDisplayRegion)(int, int, int, int, bool);
     bool (*getMultiDisplay)(uint32_t,
                             int32_t*,
                             int32_t*,
@@ -82,11 +90,40 @@ typedef struct QAndroidEmulatorWindowAgent {
     void (*setNoSkin)(void);
     void (*restoreSkin)(void);
     void (*updateUIMultiDisplayPage)(uint32_t);
+    bool (*addMultiDisplayWindow)(uint32_t, bool, uint32_t, uint32_t);
+    bool (*paintMultiDisplayWindow)(uint32_t, uint32_t);
     bool (*getMonitorRect)(uint32_t*, uint32_t*);
+    // moves the extended window to the given position if the window was never displayed. This does nothing
+    // if the window has been show once during the lifetime of the avd.
+    void (*moveExtendedWindow)(uint32_t x, uint32_t y, int horizonalAnchor, int verticalAnchor);
+    // start extended window and switch to the pane specified by the index.
     // return true if extended controls window's visibility has changed.
-    bool (*startExtendedWindow)(void);
+    // The window is not necessarily visible when this method returns.
+    bool (*startExtendedWindow)(int index);
+
+    // Closes the extended window. At some point in time it will be gone.
     bool (*quitExtendedWindow)(void);
-    bool (*setUiTheme)(int settingsTheme);
+
+    // This will wait until the state of the visibility of the window has
+    // changed to the given value. Calling show or close does not make
+    // a qt frame immediately visible. Instead a series of events will be
+    // fired when the frame is actually added to, or removed from the display.
+    // so usually the pattern is showWindow, wait for visibility..
+    //
+    // Be careful to:
+    //   - Not run this on a looper thread. The ui controls can post actions
+    //     to the looper thread which can result in a deadlock
+    //   - Not to run this on the Qt Message pump. You will deadlock.
+    void (*waitForExtendedWindowVisibility)(bool);
+    bool (*setUiTheme)(int type);
     void (*runOnUiThread)(UiUpdateFunc f, void* data, bool wait);
     bool (*isRunningInUiThread)(void);
+    bool (*changeResizableDisplay)(int presetSize);
+    void* (*getLayout)(void);
+    bool (*resizableEnabled)(void);
+    void (*show_virtual_scene_controls)(bool);
+    void (*quit_request)(void);
+    void (*getWindowPosition)(int*, int*);
 } QAndroidEmulatorWindowAgent;
+
+ANDROID_END_HEADER

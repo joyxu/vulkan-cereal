@@ -155,7 +155,7 @@ const char* emuglConfig_renderer_to_string(SelectedRenderer renderer) {
 }
 
 bool emuglConfig_current_renderer_supports_snapshot() {
-    if (android_hw->hw_arc) {
+    if (aemu_get_android_hw()->hw_arc) {
         return sCurrentRenderer == SELECTED_RENDERER_OFF ||
                sCurrentRenderer == SELECTED_RENDERER_GUEST;
     }

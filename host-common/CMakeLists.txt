@@ -30,87 +30,102 @@ add_library(logging-base
 target_include_directories(
     logging-base
     PRIVATE
+    include/host-common
     ${GFXSTREAM_REPO_ROOT}
     ${GFXSTREAM_REPO_ROOT}/include)
 target_link_libraries(
     logging-base
     PRIVATE
+    gfxstream-base.headers
+    gfxstream-host-common.headers
     ${gfxstream-base-metrics-link-libraries})
 
-add_library(
-    gfxstream-host-common
-    STATIC
+add_library(gfxstream-host-common.headers INTERFACE)
+target_link_libraries(gfxstream-host-common.headers INTERFACE renderdoc)
+target_include_directories(gfxstream-host-common.headers INTERFACE include)
 
-    # emugl glue
-    crash_reporter.cpp
-    vm_operations.cpp
-    feature_control.cpp
-    dma_device.cpp
-    sync_device.cpp
-    misc.cpp
-    window_operations.cpp
+if (BUILD_STANDALONE)
+    add_library(
+        gfxstream-host-common
+        STATIC
 
-    # What used to be android-emu
-    AndroidPipe.cpp
-    HostmemIdMapping.cpp
-    RefcountPipe.cpp
-    AndroidAgentFactory.cpp
+        # emugl glue
+        crash_reporter.cpp
+        vm_operations.cpp
+        feature_control.cpp
+        dma_device.cpp
+        sync_device.cpp
+        misc.cpp
+        window_operations.cpp
 
-    # goldfish sync
-    GoldfishSyncCommandQueue.cpp
-    goldfish_sync.cpp
+        # What used to be android-emu
+        AndroidPipe.cpp
+        HostmemIdMapping.cpp
+        RefcountPipe.cpp
+        GraphicsAgentFactory.cpp
 
-    # goldfish dma
-    DmaMap.cpp
-    GoldfishDma.cpp
+        # goldfish sync
+        GoldfishSyncCommandQueue.cpp
+        goldfish_sync.cpp
 
-    # Address space device
-    address_space_device_control_ops.cpp
-    address_space_device.cpp
-    address_space_host_memory_allocator.cpp
-    address_space_shared_slots_host_memory_allocator.cpp
-    address_space_graphics.cpp
-    address_space_host_media.cpp
+        # goldfish dma
+        DmaMap.cpp
+        GoldfishDma.cpp
 
-    # android-emu avd globals
-    avd/info.cpp
-    avd/hw-config.cpp
+        # Address space device
+        address_space_device_control_ops.cpp
+        address_space_device.cpp
+        address_space_host_memory_allocator.cpp
+        address_space_shared_slots_host_memory_allocator.cpp
+        address_space_graphics.cpp
+        address_space_host_media.cpp
 
-    # general opengles host stuff, incl process pipe
-    # and opengl es pipe
-    opengles.cpp
-    opengl/EmuglBackendList.cpp
-    # opengl/EmuglBackendList_unittest.cpp
-    opengl/emugl_config.cpp
-    # opengl/emugl_config_unittest.cpp
-    opengl/GLProcessPipe.cpp
-    opengl/GpuFrameBridge.cpp
-    # opengl/GpuFrameBridge_unittest.cpp
-    opengl/gpuinfo.cpp
-    # opengl/gpuinfo_unittest.cpp
-    opengl/logger.cpp
-    opengl/OpenglEsPipe.cpp
-    ${gfxstream-host-common-opengles-platform-sources}
+        # android-emu avd globals
+        avd/info.cpp
+        avd/hw-config.cpp
+
+        # general opengles host stuff, incl process pipe
+        # and opengl es pipe
+        opengles.cpp
+        opengl/EmuglBackendList.cpp
+        # opengl/EmuglBackendList_unittest.cpp
+        opengl/emugl_config.cpp
+        # opengl/emugl_config_unittest.cpp
+        opengl/GLProcessPipe.cpp
+        opengl/GpuFrameBridge.cpp
+        # opengl/GpuFrameBridge_unittest.cpp
+        opengl/gpuinfo.cpp
+        # opengl/gpuinfo_unittest.cpp
+        opengl/logger.cpp
+        opengl/OpenglEsPipe.cpp
+        ${gfxstream-host-common-opengles-platform-sources}
+        )
+
+    target_include_directories(
+        gfxstream-host-common
+        PRIVATE
+        include/host-common
+        include/host-common/avd
+        include/host-common/opengl
+        ${GFXSTREAM_REPO_ROOT}
+        ${GFXSTREAM_REPO_ROOT}/include
+        ${GFXSTREAM_REPO_ROOT}/stream-servers)
+    target_link_libraries(
+        gfxstream-host-common
+        PUBLIC
+        gfxstream-base.headers
+        gfxstream-host-common.headers
+        ${GFXSTREAM_BASE_LIB}
+        PRIVATE
+        logging-base
     )
-
-target_include_directories(
-    gfxstream-host-common
-    PRIVATE
-    ${GFXSTREAM_REPO_ROOT}
-    ${GFXSTREAM_REPO_ROOT}/include
-    ${GFXSTREAM_REPO_ROOT}/stream-servers)
-target_link_libraries(
-    gfxstream-host-common
-    PRIVATE
-    gfxstream-base
-    logging-base
-)
+endif()
 
 # Tests
 add_library(
     gfxstream-host-common-testing-support
     testing/HostAddressSpace.cpp
-    testing/MockAndroidAgentFactory.cpp
+    testing/MockGraphicsAgentFactory.cpp
     testing/MockAndroidEmulatorWindowAgent.cpp
     testing/MockAndroidMultiDisplayAgent.cpp
     testing/MockAndroidVmOperations.cpp)
@@ -121,34 +136,41 @@ target_include_directories(
 target_link_libraries(
     gfxstream-host-common-testing-support
     PRIVATE
+    gfxstream-base.headers
+    gfxstream-host-common.headers
     gtest
     gmock)
 
-add_executable(
-    gfxstream-host-common_unittests
-    address_space_graphics_unittests.cpp
-    address_space_host_memory_allocator_unittests.cpp
-    address_space_shared_slots_host_memory_allocator_unittests.cpp
-    HostAddressSpace_unittest.cpp
-    HostmemIdMapping_unittest.cpp
-    logging_unittest.cpp
-    GfxstreamFatalError_unittest.cpp
-    RenderDoc_unittest.cpp)
+if (ENABLE_VKCEREAL_TESTS)
+    add_executable(
+        gfxstream-host-common_unittests
+        address_space_graphics_unittests.cpp
+        address_space_host_memory_allocator_unittests.cpp
+        address_space_shared_slots_host_memory_allocator_unittests.cpp
+        HostAddressSpace_unittest.cpp
+        HostmemIdMapping_unittest.cpp
+        logging_unittest.cpp
+        GfxstreamFatalError_unittest.cpp
+        RenderDoc_unittest.cpp)
 
-target_include_directories(
-    gfxstream-host-common_unittests
-    PRIVATE
-    ${GFXSTREAM_REPO_ROOT}/include)
+    target_include_directories(
+        gfxstream-host-common_unittests
+        PRIVATE
+        ${GFXSTREAM_REPO_ROOT}
+        ${GFXSTREAM_REPO_ROOT}/include)
 
-target_link_libraries(
-    gfxstream-host-common_unittests
-    PRIVATE
-    gfxstream-base
-    gfxstream-host-common
-    gfxstream-host-common-testing-support
-    gtest_main
-    gmock_main)
+    target_link_libraries(
+        gfxstream-host-common_unittests
+        PRIVATE
+        gfxstream-base.headers
+        gfxstream-host-common.headers
+        ${GFXSTREAM_BASE_LIB}
+        ${GFXSTREAM_HOST_COMMON_LIB}
+        gfxstream-host-common-testing-support
+        gtest_main
+        gmock_main)
 
-gtest_discover_tests(gfxstream-host-common_unittests)
+    gtest_discover_tests(gfxstream-host-common_unittests)
 
-set_test_include_files()
+    set_test_include_files()
+endif()

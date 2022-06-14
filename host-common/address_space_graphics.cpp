@@ -51,6 +51,7 @@ struct AllocationCreateInfo {
     bool fromLoad;
     uint64_t size;
     uint64_t hostmemId;
+    void *externalAddr;
 };
 
 struct Block {
@@ -63,13 +64,14 @@ struct Block {
     size_t dedicatedSize = 0;
     bool usesVirtioGpuHostmem = false;
     uint64_t hostmemId = 0;
+    bool external = false;
 };
 
 class Globals {
 public:
     Globals() :
         mPerContextBufferSize(
-                android_hw->hw_gltransport_asg_writeBufferSize) { }
+                aemu_get_android_hw()->hw_gltransport_asg_writeBufferSize) { }
 
     ~Globals() { clear(); }
 
@@ -247,11 +249,20 @@ public:
         deleteAllocation(alloc, mBufferBlocks);
     }
 
-    Allocation allocRingAndBufferStorageDedicated() {
+    Allocation allocRingAndBufferStorageDedicated(const struct AddressSpaceCreateInfo& asgCreate) {
         struct AllocationCreateInfo create = {0};
         create.size = sizeof(struct asg_ring_storage) + mPerContextBufferSize;
         create.dedicated = true;
         create.virtioGpu = true;
+        if (asgCreate.externalAddr) {
+            create.externalAddr = asgCreate.externalAddr;
+            if (asgCreate.externalAddrSize < static_cast<uint64_t>(create.size)) {
+                crashhandler_die("External address size too small\n");
+            }
+
+            create.size = asgCreate.externalAddrSize;
+        }
+
         return newAllocation(create, mCombinedBlocks);
     }
 
@@ -415,16 +426,23 @@ private:
     void fillBlockLocked(Block& block, struct AllocationCreateInfo& create) {
         if (create.dedicated) {
             if (create.virtioGpu) {
-                void* buf = aligned_buf_alloc(ADDRESS_SPACE_GRAPHICS_PAGE_SIZE, create.size);
+                void* buf;
 
-                struct MemEntry entry = { 0 };
-                entry.hva = (uint64_t)(uintptr_t)buf;
-                entry.size = create.size;
-                entry.register_fixed = create.hostmemRegisterFixed;
-                entry.fixed_id = create.hostmemId ? create.hostmemId : 0;
-                entry.caching = MAP_CACHE_CACHED;
+                if (create.externalAddr) {
+                    buf = create.externalAddr;
+                    block.external = true;
+                } else {
+                    buf = aligned_buf_alloc(ADDRESS_SPACE_GRAPHICS_PAGE_SIZE, create.size);
 
-                create.hostmemId = mControlOps->hostmem_register(&entry);
+                    struct MemEntry entry = { 0 };
+                    entry.hva = (uint64_t)(uintptr_t)buf;
+                    entry.size = create.size;
+                    entry.register_fixed = create.hostmemRegisterFixed;
+                    entry.fixed_id = create.hostmemId ? create.hostmemId : 0;
+                    entry.caching = MAP_CACHE_CACHED;
+
+                    create.hostmemId = mControlOps->hostmem_register(&entry);
+                }
 
                 block.buffer = (char*)buf;
                 block.subAlloc =
@@ -493,9 +511,9 @@ private:
 
     void destroyBlockLocked(Block& block) {
 
-        if (block.usesVirtioGpuHostmem) {
+        if (block.usesVirtioGpuHostmem && !block.external) {
             mControlOps->hostmem_unregister(block.hostmemId);
-        } else {
+        } else if (!block.external) {
             mControlOps->remove_memory_mapping(
                 get_address_space_device_hw_funcs()->getPhysAddrStartLocked() +
                     block.offsetIntoPhys,
@@ -507,8 +525,9 @@ private:
         }
 
         delete block.subAlloc;
-
-        aligned_buf_free(block.buffer);
+        if (!block.external) {
+            aligned_buf_free(block.buffer);
+        }
 
         block.isEmpty = true;
     }
@@ -563,7 +582,7 @@ AddressSpaceGraphicsContext::AddressSpaceGraphicsContext(
     }
 
     if (mIsVirtio) {
-        mCombinedAllocation = sGlobals()->allocRingAndBufferStorageDedicated();
+        mCombinedAllocation = sGlobals()->allocRingAndBufferStorageDedicated(create);
         mRingAllocation = sGlobals()->allocRingViewIntoCombined(mCombinedAllocation);
         mBufferAllocation = sGlobals()->allocBufferViewIntoCombined(mCombinedAllocation);
     } else {
@@ -588,7 +607,7 @@ AddressSpaceGraphicsContext::AddressSpaceGraphicsContext(
     mHostContext.ring_config->buffer_size =
         sGlobals()->perContextBufferSize();
     mHostContext.ring_config->flush_interval =
-        android_hw->hw_gltransport_asg_writeStepSize;
+        aemu_get_android_hw()->hw_gltransport_asg_writeStepSize;
     mHostContext.ring_config->host_consumed_pos = 0;
     mHostContext.ring_config->guest_write_pos = 0;
     mHostContext.ring_config->transfer_mode = 1;
@@ -596,6 +615,11 @@ AddressSpaceGraphicsContext::AddressSpaceGraphicsContext(
     mHostContext.ring_config->in_error = 0;
 
     mSavedConfig = *mHostContext.ring_config;
+
+    if (create.createRenderThread) {
+        mCurrentConsumer = mConsumerInterface.create(
+            mHostContext, nullptr, mConsumerCallbacks);
+    }
 }
 
 AddressSpaceGraphicsContext::~AddressSpaceGraphicsContext() {
@@ -743,7 +767,7 @@ bool AddressSpaceGraphicsContext::load(base::Stream* stream) {
     mHostContext.ring_config->buffer_size =
         sGlobals()->perContextBufferSize();
     mHostContext.ring_config->flush_interval =
-        android_hw->hw_gltransport_asg_writeStepSize;
+        aemu_get_android_hw()->hw_gltransport_asg_writeStepSize;
 
     // In load, the live ring config state is in shared host/guest ram.
     //

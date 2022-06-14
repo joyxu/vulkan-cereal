@@ -14,9 +14,14 @@
 
 #pragma once
 
+#include "base/c_header.h"
+
 #include <stdint.h>
 
+ANDROID_BEGIN_HEADER
+
 typedef struct QAndroidMultiDisplayAgent {
+    bool (*notifyDisplayChanges)();
     int (*setMultiDisplay)(uint32_t id,
                            int32_t x,
                            int32_t y,
@@ -64,4 +69,8 @@ typedef struct QAndroidMultiDisplayAgent {
     int (*getDisplayColorBuffer)(uint32_t displayId, uint32_t* colorBuffer);
     int (*getColorBufferDisplay)(uint32_t colorBuffer, uint32_t* displayId);
     int (*setDisplayColorBuffer)(uint32_t displayId, uint32_t colorBuffer);
+    bool (*isMultiDisplayWindow)();
 } QAndroidMultiDisplayAgent;
+
+
+ANDROID_END_HEADER

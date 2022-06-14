@@ -1,4 +1,4 @@
-// Copyright (C) 2015 The Android Open Source Project
+// Copyright 2019 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,23 +11,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#pragma once
 
-#include "base/FunctorThread.h"
+#include "base/Stream.h"
+#include "base/export.h"
 
-#include <assert.h>
+struct QAndroidVmOperations;
 
 namespace android {
-namespace base {
+namespace emulation {
 
-FunctorThread::FunctorThread(Functor&& func, ThreadFlags flags)
-    : Thread(flags)
-    , mThreadFunc(std::move(func)) {
-    assert(mThreadFunc);
-}
+AEMU_EXPORT void goldfish_address_space_set_vm_operations(const QAndroidVmOperations* vmops);
+AEMU_EXPORT const QAndroidVmOperations* goldfish_address_space_get_vm_operations();
 
-intptr_t FunctorThread::main() {
-    return mThreadFunc();
-}
+int goldfish_address_space_memory_state_load(android::base::Stream *stream);
+int goldfish_address_space_memory_state_save(android::base::Stream *stream);
 
-}  // namespace base
+}  // namespace emulation
 }  // namespace android
