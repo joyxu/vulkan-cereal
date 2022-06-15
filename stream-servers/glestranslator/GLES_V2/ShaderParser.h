@@ -17,7 +17,6 @@
 #ifndef SHADER_PARSER_H
 #define SHADER_PARSER_H
 
-#include "base/Lock.h"
 #include "ANGLEShaderParser.h"
 #include "GLESv2Context.h"
 #include <string>
@@ -56,9 +55,9 @@ public:
     void setDeleteStatus(bool val) { m_deleteStatus = val; }
     bool getDeleteStatus() const { return m_deleteStatus; }
 
-    void attachProgram(GLuint program);
-    void detachProgram(GLuint program);
-    bool hasAttachedPrograms() const;
+    void attachProgram(GLuint program) {m_programs.insert(program);}
+    void detachProgram(GLuint program) {m_programs.erase(program);}
+    bool hasAttachedPrograms() const {return m_programs.size()>0;}
 
     const ANGLEShaderParser::ShaderLinkInfo& getShaderLinkInfo() const { return m_shaderLinkInfo; }
     ANGLEShaderParser::ShaderLinkInfo* shaderLinkInfoPtr() { return &m_shaderLinkInfo; }
@@ -75,7 +74,6 @@ private:
     GLchar*     m_parsedLines = nullptr;
     std::string m_compiledSrc;
     std::basic_string<GLchar> m_infoLog;
-    mutable android::base::Lock m_programsLock;
     std::unordered_set<GLuint> m_programs;
     GLenum      m_type = 0;
     bool        m_compileStatus = false;

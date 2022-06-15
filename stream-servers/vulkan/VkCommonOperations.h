@@ -15,18 +15,12 @@
 
 #include <vulkan/vulkan.h>
 
-#include <atomic>
-#include <functional>
-#include <memory>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
-#include "DisplayVk.h"
-#include "base/Lock.h"
 #include "base/Optional.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
-#include "host-common/RenderDoc.h"
 
 namespace goldfish_vk {
 
@@ -76,9 +70,6 @@ struct VkEmulation {
     // Whether to fuse memory requirements getting with resource creation.
     bool useCreateResourcesWithRequirements = false;
 
-    // RenderDoc integration for guest VkInstances.
-    std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> guestRenderDoc = nullptr;
-
     // Instance and device for creating the system-wide shareable objects.
     VkInstance instance = VK_NULL_HANDLE;
     VkPhysicalDevice physdev = VK_NULL_HANDLE;
@@ -92,9 +83,6 @@ struct VkEmulation {
     bool instanceSupportsExternalMemoryCapabilities = false;
     PFN_vkGetPhysicalDeviceImageFormatProperties2KHR
             getImageFormatProperties2Func = nullptr;
-    PFN_vkGetPhysicalDeviceProperties2KHR
-            getPhysicalDeviceProperties2Func = nullptr;
-    PFN_vkGetPhysicalDeviceFeatures2 getPhysicalDeviceFeatures2Func = nullptr;
 
     bool instanceSupportsMoltenVK = false;
     PFN_vkSetMTLTextureMVK setMTLTextureFunc = nullptr;
@@ -102,9 +90,7 @@ struct VkEmulation {
 
     // Queue, command pool, and command buffer
     // for running commands to sync stuff system-wide.
-    // TODO(b/197362803): Encapsulate host side VkQueue and the lock.
     VkQueue queue = VK_NULL_HANDLE;
-    std::shared_ptr<android::base::Lock> queueLock = nullptr;
     uint32_t queueFamilyIndex = 0;
     VkCommandPool commandPool = VK_NULL_HANDLE;
     VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
@@ -139,23 +125,13 @@ struct VkEmulation {
         bool hasGraphicsQueueFamily = false;
         bool hasComputeQueueFamily = false;
         bool supportsExternalMemory = false;
-        bool supportsIdProperties = false;
-        bool supportsDriverProperties = false;
-        bool hasSamplerYcbcrConversionExtension = false;
-        bool supportsSamplerYcbcrConversion = false;
         bool glInteropSupported = false;
-
-        std::vector<VkExtensionProperties> extensions;
 
         std::vector<uint32_t> graphicsQueueFamilyIndices;
         std::vector<uint32_t> computeQueueFamilyIndices;
 
         VkPhysicalDeviceProperties physdevProps;
         VkPhysicalDeviceMemoryProperties memProps;
-        VkPhysicalDeviceIDPropertiesKHR idProps;
-
-        std::string driverVendor;
-        std::string driverVersion;
 
         PFN_vkGetImageMemoryRequirements2KHR getImageMemoryRequirements2Func = nullptr;
         PFN_vkGetBufferMemoryRequirements2KHR getBufferMemoryRequirements2Func = nullptr;
@@ -275,11 +251,6 @@ struct VkEmulation {
         VulkanMode vulkanMode = VulkanMode::Default;
 
         MTLTextureRef mtlTexture = nullptr;
-        // shared_ptr is required so that ColorBufferInfo::ownedByHost can have
-        // an uninitialized default value that is neither true or false. The
-        // actual value will be set by setupVkColorBuffer when creating
-        // ColorBufferInfo.
-        std::shared_ptr<std::atomic_bool> ownedByHost = nullptr;
     };
 
     struct BufferInfo {
@@ -301,10 +272,6 @@ struct VkEmulation {
 
     // Track what is supported on whatever device was selected.
     DeviceSupportInfo deviceInfo;
-
-    // Track additional vulkan diagnostics
-    uint32_t vulkanInstanceVersion;
-    std::vector<VkExtensionProperties> instanceExtensions;
 
     // A single staging buffer to perform most transfers to/from OpenGL on the
     // host. It is shareable across instances. The memory is shareable but the
@@ -347,25 +314,12 @@ struct VkEmulation {
     // external backing?
     // TODO: try switching to this
     ExternalMemoryInfo virtualHostVisibleHeap;
-
-    // Every command buffer in the pool is associated with a VkFence which is
-    // signaled only if the command buffer completes.
-    std::vector<std::tuple<VkCommandBuffer, VkFence>> transferQueueCommandBufferPool;
-
-    // The implementation for Vulkan native swapchain. Only initialized in initVkEmulationFeatures
-    // if useVulkanNativeSwapchain is set.
-    std::unique_ptr<DisplayVk> displayVk;
 };
 
-VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk);
-struct VkEmulationFeatures {
-    bool glInteropSupported = false;
-    bool deferredCommands = false;
-    bool createResourceWithRequirements = false;
-    bool useVulkanNativeSwapchain = false;
-    std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> guestRenderDoc = nullptr;
-};
-void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures>);
+VkEmulation* createOrGetGlobalVkEmulation(VulkanDispatch* vk);
+void setGlInteropSupported(bool supported);
+void setUseDeferredCommands(VkEmulation* emu, bool useDeferred);
+void setUseCreateResourcesWithRequirements(VkEmulation* emu, bool useCreateResourcesWithRequirements);
 
 VkEmulation* getGlobalVkEmulation();
 void teardownGlobalVkEmulation();
@@ -392,11 +346,6 @@ bool importExternalMemoryDedicatedImage(
 // ColorBuffer operations
 
 bool isColorBufferVulkanCompatible(uint32_t colorBufferHandle);
-
-std::unique_ptr<VkImageCreateInfo> generateColorBufferVkImageCreateInfo(VkFormat format,
-                                                                        uint32_t width,
-                                                                        uint32_t height,
-                                                                        VkImageTiling tiling);
 
 bool setupVkColorBuffer(uint32_t colorBufferHandle,
                         bool vulkanOnly = false,
@@ -444,14 +393,5 @@ VkExternalMemoryProperties
 transformExternalMemoryProperties_fromhost(
     VkExternalMemoryProperties props,
     VkExternalMemoryHandleTypeFlags wantedGuestHandleType);
-
-void acquireColorBuffersForHostComposing(const std::vector<uint32_t>& layerColorBuffers,
-                                         uint32_t renderTargetColorBuffer);
-
-void releaseColorBufferFromHostComposing(const std::vector<uint32_t>& colorBufferHandles);
-
-void releaseColorBufferFromHostComposingSync(const std::vector<uint32_t>& colorBufferHandles);
-
-void setColorBufferCurrentLayout(uint32_t colorBufferHandle, VkImageLayout);
 
 } // namespace goldfish_vk

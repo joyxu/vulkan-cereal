@@ -22,6 +22,9 @@ namespace emugl {
 // Line width settings to attempt
 static const GLfloat kGLES2TestLineWidths[] = {2.0f};
 
+// Polygon offset settings to attempt
+static const GLfloat kGLES2TestPolygonOffset[] = {0.5f, 0.5f};
+
 class SnapshotGlLineWidthTest : public SnapshotSetValueTest<GLfloat>,
                                 public ::testing::WithParamInterface<GLfloat> {
     void stateCheck(GLfloat expected) override {
@@ -82,7 +85,8 @@ INSTANTIATE_TEST_SUITE_P(GLES2SnapshotRasterization,
                          ::testing::ValuesIn(kGLES2FrontFaceModes));
 
 class SnapshotGlPolygonOffsetTest
-    : public SnapshotSetValueTest<GLfloat*> {
+    : public SnapshotSetValueTest<GLfloat*>,
+      public ::testing::WithParamInterface<const GLfloat*> {
     void stateCheck(GLfloat* expected) override {
         EXPECT_TRUE(compareGlobalGlFloat(gl, GL_POLYGON_OFFSET_FACTOR,
                                          expected[0]));
@@ -90,16 +94,19 @@ class SnapshotGlPolygonOffsetTest
                 compareGlobalGlFloat(gl, GL_POLYGON_OFFSET_UNITS, expected[1]));
     }
     void stateChange() override {
-        gl->glPolygonOffset(0.5f, 0.5f);
+        gl->glPolygonOffset(GetParam()[0], GetParam()[1]);
     }
 };
 
-TEST_F(SnapshotGlPolygonOffsetTest, SetPolygonOffset) {
+TEST_P(SnapshotGlPolygonOffsetTest, SetPolygonOffset) {
     GLfloat defaultOffset[2] = {0.0f, 0.0f};
-    GLfloat testOffset[2] = {0.5f, 0.5f};
+    GLfloat testOffset[2] = {GetParam()[0], GetParam()[1]};
     setExpectedValues(defaultOffset, testOffset);
     doCheckedSnapshot();
 }
 
+INSTANTIATE_TEST_SUITE_P(GLES2SnapshotRasterization,
+                         SnapshotGlPolygonOffsetTest,
+                         ::testing::Values(kGLES2TestPolygonOffset));
 
 }  // namespace emugl

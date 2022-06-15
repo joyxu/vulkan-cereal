@@ -13,6 +13,10 @@
 // limitations under the License.
 #pragma once
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include <stdio.h>
 
 #include "host-common/AndroidAgentFactory.h"
@@ -38,6 +42,18 @@ public:
 
 
 };
+
+
+#ifdef _WIN32
+// A set of flags that are only relevant for windows based unit tests
+class WindowsFlags {
+ public:
+    static bool sIsParentProcess;
+    static HANDLE sChildRead;
+    static HANDLE sChildWrite;
+    static char sFileLockPath[MAX_PATH];
+};
+#endif
 
 }  // namespace emulation
 }  // namespace android

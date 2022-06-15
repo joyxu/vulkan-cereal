@@ -29,7 +29,6 @@
 #include "host-common/address_space_device.hpp"        // for goldfish...
 #include "host-common/address_space_graphics.h"        // for AddressS...
 #include "host-common/address_space_graphics_types.h"  // for asg_context
-#include "host-common/testing/MockAndroidAgentFactory.h"
 #include "testing/HostAddressSpace.h"  // for HostAddr...
 #include "host-common/globals.h"                                 // for android_hw
 
@@ -551,13 +550,11 @@ public:
     };
 
 protected:
-    static void SetUpTestSuite() {
-        android::emulation::injectConsoleAgents(
-                android::emulation::MockAndroidConsoleFactory());
+    static void SetUpTestCase() {
         goldfish_address_space_set_vm_operations(getConsoleAgents()->vm);
     }
 
-    static void TearDownTestSuite() { }
+    static void TearDownTestCase() { }
 
     void SetUp() override {
         android_hw->hw_gltransport_asg_writeBufferSize = 524288;

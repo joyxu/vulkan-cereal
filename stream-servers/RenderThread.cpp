@@ -16,24 +16,25 @@
 #include "RenderThread.h"
 
 #include "ChannelStream.h"
-#include "FrameBuffer.h"
-#include "OpenGLESDispatch/EGLDispatch.h"
-#include "OpenGLESDispatch/GLESv1Dispatch.h"
-#include "OpenGLESDispatch/GLESv2Dispatch.h"
-#include "ReadBuffer.h"
-#include "RenderChannelImpl.h"
-#include "RenderControl.h"
-#include "RenderThreadInfo.h"
-#include "RendererImpl.h"
 #include "RingStream.h"
+#include "ErrorLog.h"
+#include "FrameBuffer.h"
+#include "ReadBuffer.h"
+#include "RenderControl.h"
+#include "RendererImpl.h"
+#include "RenderChannelImpl.h"
+#include "RenderThreadInfo.h"
+
+#include "OpenGLESDispatch/EGLDispatch.h"
+#include "OpenGLESDispatch/GLESv2Dispatch.h"
+#include "OpenGLESDispatch/GLESv1Dispatch.h"
 #include "apigen-codec-common/ChecksumCalculatorThreadInfo.h"
-#include "base/Lock.h"
-#include "base/MessageChannel.h"
-#include "base/StreamSerializing.h"
+
 #include "base/System.h"
 #include "base/Tracing.h"
-#include "host-common/logging.h"
-#include "vulkan/VkCommonOperations.h"
+#include "base/StreamSerializing.h"
+#include "base/Lock.h"
+#include "base/MessageChannel.h"
 
 #define EMUGL_DEBUG_LEVEL 0
 #include "host-common/crash_reporter.h"
@@ -111,9 +112,7 @@ RenderThread::RenderThread(
     }
 }
 
-// Note: the RenderThread destructor might be called from a different thread
-// than from RenderThread::main() so thread specific cleanup likely belongs at
-// the end of RenderThread::main().
+
 RenderThread::~RenderThread() = default;
 
 void RenderThread::pausePreSnapshot() {
@@ -247,7 +246,7 @@ void RenderThread::setFinished() {
 
 intptr_t RenderThread::main() {
     if (mFinished.load(std::memory_order_relaxed)) {
-        ERR("Error: fail loading a RenderThread @%p", this);
+        DBG("Error: fail loading a RenderThread @%p\n", this);
         return 0;
     }
 
@@ -264,7 +263,7 @@ intptr_t RenderThread::main() {
     initRenderControlContext(&tInfo.m_rcDec);
 
     if (!mChannel && !mRingStream) {
-        GL_LOG("Exited a loader RenderThread @%p", this);
+        DBG("Exited a loader RenderThread @%p\n", this);
         mFinished.store(true, std::memory_order_relaxed);
         return 0;
     }
@@ -285,15 +284,12 @@ intptr_t RenderThread::main() {
     // Framebuffer initialization is asynchronous, so we need to make sure
     // it's completely initialized before running any GL commands.
     FrameBuffer::waitUntilInitialized();
-    if (goldfish_vk::getGlobalVkEmulation()) {
-        tInfo.m_vkDec = std::make_unique<VkDecoder>();
-    }
 
     // This is the only place where we try loading from snapshot.
     // But the context bind / restoration will be delayed after receiving
     // the first GL command.
     if (doSnapshotOperation(snapshotObjects, SnapshotState::StartLoading)) {
-        GL_LOG("Loaded RenderThread @%p from snapshot", this);
+        DBG("Loaded RenderThread @%p from snapshot\n", this);
         needRestoreFromSnapshot = true;
     } else {
         // Not loading from a snapshot: continue regular startup, read
@@ -303,7 +299,7 @@ intptr_t RenderThread::main() {
             // Stream read may fail because of a pending snapshot.
             if (!doSnapshotOperation(snapshotObjects, SnapshotState::StartSaving)) {
                 setFinished();
-                GL_LOG("Exited a RenderThread @%p early", this);
+                DBG("Exited a RenderThread @%p early\n", this);
                 return 0;
             }
         }
@@ -336,12 +332,12 @@ intptr_t RenderThread::main() {
 
     uint32_t* seqnoPtr = nullptr;
 
-    while (true) {
+    while (1) {
         // Let's make sure we read enough data for at least some processing.
-        uint32_t packetSize;
+        int packetSize;
         if (readBuf.validData() >= 8) {
             // We know that packet size is the second int32_t from the start.
-            packetSize = *(uint32_t*)(readBuf.buf() + 4);
+            packetSize = *(const int32_t*)(readBuf.buf() + 4);
             if (!packetSize) {
                 // Emulator will get live-stuck here if packet size is read to be zero;
                 // crash right away so we can see these events.
@@ -355,7 +351,7 @@ intptr_t RenderThread::main() {
         }
 
         int stat = 0;
-        if (packetSize > readBuf.validData()) {
+        if (packetSize > (int)readBuf.validData()) {
             stat = readBuf.getData(ioStream, packetSize);
             if (stat <= 0) {
                 if (doSnapshotOperation(snapshotObjects, SnapshotState::StartSaving)) {
@@ -382,9 +378,9 @@ intptr_t RenderThread::main() {
             }
         }
 
-        DD("render thread read %i bytes, op %i, packet size %i",
-           readBuf.validData(), *(uint32_t*)readBuf.buf(),
-           *(uint32_t*)(readBuf.buf() + 4));
+        DD("render thread read %d bytes, op %d, packet size %d",
+           (int)readBuf.validData(), *(int32_t*)readBuf.buf(),
+           *(int32_t*)(readBuf.buf() + 4));
 
         //
         // log received bandwidth statistics
@@ -430,9 +426,9 @@ intptr_t RenderThread::main() {
             //
             // Note: It's risky to limit Vulkan decoding to one thread,
             // so we do it outside the limiter
-            if (tInfo.m_vkDec) {
-                last =
-                    tInfo.m_vkDec->decode(readBuf.buf(), readBuf.validData(), ioStream, seqnoPtr);
+            {
+                last = tInfo.m_vkDec.decode(readBuf.buf(), readBuf.validData(),
+                                            ioStream, seqnoPtr);
                 if (last > 0) {
                     readBuf.consume(last);
                     progress = true;
@@ -515,20 +511,17 @@ intptr_t RenderThread::main() {
         // Release references to the current thread's context/surfaces if any
         FrameBuffer::getFB()->bindContext(0, 0, 0);
         if (tInfo.currContext || tInfo.currDrawSurf || tInfo.currReadSurf) {
-            ERR("ERROR: RenderThread exiting with current context/surfaces");
+            fprintf(stderr,
+                    "ERROR: RenderThread exiting with current context/surfaces\n");
         }
 
         FrameBuffer::getFB()->drainWindowSurface();
         FrameBuffer::getFB()->drainRenderContext();
     }
 
-    if (!s_egl.eglReleaseThread()) {
-        ERR("Error: RenderThread @%p failed to eglReleaseThread()", this);
-    }
-
     setFinished();
 
-    GL_LOG("Exited a RenderThread @%p", this);
+    DBG("Exited a RenderThread @%p\n", this);
     return 0;
 }
 
