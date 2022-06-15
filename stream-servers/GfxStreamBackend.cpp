@@ -314,16 +314,6 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     GFXS_LOG("start. display dimensions: width %u height %u. backend flags: 0x%x renderer flags: 0x%x",
              display_width, display_height, sBackendFlags, renderer_flags);
 
-    AvdInfo** avdInfoPtr = aemu_get_android_avdInfoPtr();
-
-    (*avdInfoPtr) = avdInfo_newCustom(
-        "goldfish_opengl_test",
-        28,
-        "x86_64",
-        "x86_64",
-        true /* is google APIs */,
-        AVD_PHONE);
-
     // Flags processing
 
     // TODO: hook up "gfxstream egl" to the renderer flags
