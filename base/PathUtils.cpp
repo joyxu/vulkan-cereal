@@ -24,7 +24,7 @@
 #endif
 
 #ifdef _WIN32
-#include "Win32UnicodeString.h"
+#include "base/Win32UnicodeString.h"
 #endif
 
 static inline bool sIsEmpty(const char* str) {
