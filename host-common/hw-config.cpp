@@ -1,4 +1,4 @@
-// Copyright 2016 The Android Open Source Project
+// Copyright 2020 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,13 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include "hw-config.h"
+#include "base/export.h"
+#include <string.h>
+#include <limits.h>
+#include <stdlib.h>
 
-#include "android/avd/util.h"
+/* the global variable containing the hardware config for this device */
+AndroidHwConfig   android_hw[1];
 
-#include "android/emulation/ConfigDirs.h"
-#include "android/utils/path.h"
-
-char* path_getSdkRoot() {
-    auto root = android::ConfigDirs::getSdkRootDirectory();
-    return !root.empty() ? path_get_absolute(root.c_str()) : nullptr;
+AEMU_EXPORT AndroidHwConfig* aemu_get_android_hw() {
+    return (AndroidHwConfig*)(android_hw);
 }

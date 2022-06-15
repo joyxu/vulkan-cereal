@@ -120,6 +120,7 @@ if (ENABLE_VKCEREAL_TESTS)
         PRIVATE
         OSWindow
         gfxstream_backend
+        gfxstream-host-common-testing-support
         ${GFXSTREAM_BASE_LIB}
         gtest_main)
     gtest_discover_tests(gfxstream_backend_unittests)
