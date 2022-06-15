@@ -14,6 +14,8 @@
 
 #include "OpenGLTestContext.h"
 
+#include "host-common/GraphicsAgentFactory.h"
+#include "host-common/testing/MockGraphicsAgentFactory.h"
 #include "Standalone.h"
 
 namespace emugl {
@@ -112,6 +114,11 @@ void destroyDisplay(EGLDisplay dpy) {
         egl->eglTerminate(dpy);
     EXPECT_TRUE(terminateRes != GL_FALSE);
     sDisplayNeedsInit = true;
+}
+
+// static
+void GLTest::SetUpTestSuite() {
+    android::emulation::injectGraphicsAgents(android::emulation::MockGraphicsAgentFactory());
 }
 
 void GLTest::SetUp() {
