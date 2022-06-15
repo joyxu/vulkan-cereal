@@ -3,9 +3,10 @@
 #include "base/System.h"
 
 #ifdef _WIN32
-#include "base/Win32UnicodeString.h"
 #include <windows.h>
-#include "msvc.h"
+
+#include "base/Win32UnicodeString.h"
+#include "base/msvc.h"
 #endif
 
 #include <vector>

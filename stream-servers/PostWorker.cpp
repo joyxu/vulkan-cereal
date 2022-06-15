@@ -267,6 +267,10 @@ std::shared_future<void> PostWorker::composeImpl(const FlatComposeRequest& compo
     compositorRequest.target = mFb->borrowColorBufferForComposition(composeRequest.targetHandle,
                                                                     /*colorBufferIsTarget=*/true);
     for (const ComposeLayer& guestLayer : composeRequest.layers) {
+        // Skip the ColorBuffer whose id is 0.
+        if (!guestLayer.cbHandle) {
+            continue;
+        }
         auto& compositorLayer = compositorRequest.layers.emplace_back();
         compositorLayer.props = guestLayer;
         compositorLayer.source =
