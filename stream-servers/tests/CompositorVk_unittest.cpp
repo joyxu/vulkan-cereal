@@ -22,7 +22,7 @@ static constexpr const bool kDefaultSaveImageIfComparisonFailed = false;
 
 std::string GetTestDataPath(const std::string& basename) {
     const std::filesystem::path currentPath = std::filesystem::current_path();
-    return currentPath / "tests" / "testdata" / basename;
+    return (currentPath / "tests" / "testdata" / basename).string();
 }
 
 static constexpr const uint32_t kColorBlack = 0xFF000000;
@@ -207,8 +207,9 @@ class CompositorVkTest : public ::testing::Test {
         }
 
         if (saveImageIfComparisonFailed && comparisonFailed) {
-            const std::string output =
-                std::filesystem::temp_directory_path() / std::filesystem::path(filename).filename();
+            const std::string output = (std::filesystem::temp_directory_path() /
+                                        std::filesystem::path(filename).filename())
+                                           .string();
             SaveRGBAToPng(targetWidth, targetHeight, targetPixels.data(), output);
             ADD_FAILURE() << "Saved composition result to " << output;
         }

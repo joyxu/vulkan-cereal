@@ -137,10 +137,8 @@ TEST_F(VkDecoderGlobalStateExternalFenceDeathTest, undestroyedFences) {
             mPool.add(fence);
             mPool.~ExternalFencePool<MockDispatch>();
         },
-        "External fence pool for device 0000000022220000|0x22220000 destroyed but 1 "
-        "fences still not destroyed.");
-
+        MatchesStdRegex("External fence pool for device (0000000022220000|0x22220000) destroyed "
+                        "but 1 fences still not destroyed."));
 }
-
 }  // namespace
 }  // namespace goldfish_vk
