@@ -16,7 +16,10 @@
 
 #pragma once
 
+#include "base/c_header.h"
 #include "base/export.h"
+
+ANDROID_BEGIN_HEADER
 
 // Initialize the 'opengles' pipe - the one used for GPU emulation protocol
 // between guest and the emugl library.
@@ -27,3 +30,5 @@ AEMU_EXPORT void android_init_opengles_pipe(void);
 // 0: Android
 // 1: Fuchsia
 AEMU_EXPORT void android_opengles_pipe_set_recv_mode(int);
+
+ANDROID_END_HEADER

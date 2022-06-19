@@ -11,15 +11,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
-#include "base/c_header.h"
-#include "base/export.h"
+#include <stdint.h>
 
-ANDROID_BEGIN_HEADER
+typedef char      hw_bool_t;
+typedef int       hw_int_t;
+typedef int64_t   hw_disksize_t;
+typedef char*     hw_string_t;
+typedef double    hw_double_t;
 
-// Initialize the 'refcount' pipe.
-AEMU_EXPORT void android_init_refcount_pipe(void);
+/* these macros are used to define the fields of AndroidHwConfig
+ * declared below
+ */
+#define   HWCFG_BOOL(n,s,d,a,t)       hw_bool_t      n;
+#define   HWCFG_INT(n,s,d,a,t)        hw_int_t       n;
+#define   HWCFG_STRING(n,s,d,a,t)     hw_string_t    n;
+#define   HWCFG_DOUBLE(n,s,d,a,t)     hw_double_t    n;
+#define   HWCFG_DISKSIZE(n,s,d,a,t)   hw_disksize_t  n;
 
-ANDROID_END_HEADER
+typedef struct {
+#include "hw-config-defs.h"
+} AndroidHwConfig;

@@ -7,11 +7,10 @@
 namespace emugl {
 
 struct RenderResourceVkBase
-    : public vk_util::FindMemoryType<
-          RenderResourceVkBase,
-          vk_util::RunSingleTimeCommand<
-              RenderResourceVkBase, vk_util::RecordImageLayoutTransformCommands<
-                                        RenderResourceVkBase>>> {
+    : public vk_util::MultiCrtp<RenderResourceVkBase,                         //
+                                vk_util::FindMemoryType,                      //
+                                vk_util::RecordImageLayoutTransformCommands,  //
+                                vk_util::RunSingleTimeCommand> {
     const goldfish_vk::VulkanDispatch &m_vk;
     VkDevice m_vkDevice;
     VkPhysicalDevice m_vkPhysicalDevice;

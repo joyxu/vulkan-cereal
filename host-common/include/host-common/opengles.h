@@ -16,12 +16,17 @@
 
 #include <stddef.h>
 
+#include "base/c_header.h"
 #include "base/export.h"
 #include "host-common/multi_display_agent.h"
 #include "host-common/vm_operations.h"
 #include "host-common/window_agent.h"
 #include "../stream-servers/virtio_gpu_ops.h"
 #include "../stream-servers/RenderLib.h"
+
+#ifndef USING_ANDROID_BP
+ANDROID_BEGIN_HEADER
+#endif
 
 /* A version of android_initOpenglesEmulation that is called from a library
  * that has static access to libOpenglRender. */
@@ -142,3 +147,7 @@ AEMU_EXPORT struct AndroidVirtioGpuOps* android_getVirtioGpuOps(void);
 /* Get EGL/GLESv2 dispatch tables */
 AEMU_EXPORT const void* android_getEGLDispatch();
 AEMU_EXPORT const void* android_getGLESv2Dispatch();
+
+#ifndef USING_ANDROID_BP
+ANDROID_END_HEADER
+#endif

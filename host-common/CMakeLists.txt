@@ -80,9 +80,7 @@ if (BUILD_STANDALONE)
         address_space_graphics.cpp
         address_space_host_media.cpp
 
-        # android-emu avd globals
-        avd/info.cpp
-        avd/hw-config.cpp
+        hw-config.cpp
 
         # general opengles host stuff, incl process pipe
         # and opengl es pipe
@@ -105,7 +103,6 @@ if (BUILD_STANDALONE)
         gfxstream-host-common
         PRIVATE
         include/host-common
-        include/host-common/avd
         include/host-common/opengl
         ${GFXSTREAM_REPO_ROOT}
         ${GFXSTREAM_REPO_ROOT}/include
