@@ -73,7 +73,11 @@ if (BUILD_STANDALONE)
         ${gfxstream-base-platform-deps})
 
     target_include_directories(
-        gfxstream-base PUBLIC ${GFXSTREAM_REPO_ROOT})
+        gfxstream-base
+        PRIVATE
+        ${GFXSTREAM_REPO_ROOT}/include
+        PUBLIC
+        ${GFXSTREAM_REPO_ROOT})
     if (NOT MSVC)
         target_compile_options(
             gfxstream-base PRIVATE -fvisibility=default)
@@ -110,6 +114,7 @@ if (ENABLE_VKCEREAL_TESTS)
     add_executable(
         gfxstream-base_unittests
         AlignedBuf_unittest.cpp
+        HealthMonitor_unittest.cpp
         ArraySize_unittest.cpp
         LayoutResolver_unittest.cpp
         LruCache_unittest.cpp

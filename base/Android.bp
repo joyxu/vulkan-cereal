@@ -23,6 +23,7 @@ cc_library_static {
         "FileUtils.cpp",
         "FunctorThread.cpp",
         "GLObjectCounter.cpp",
+        "HealthMonitor.cpp",
         "LayoutResolver.cpp",
         "MemStream.cpp",
         "StdioStream.cpp",
