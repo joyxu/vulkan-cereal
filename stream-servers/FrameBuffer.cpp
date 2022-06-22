@@ -35,6 +35,7 @@
 #include "base/Lock.h"
 #include "base/Lookup.h"
 #include "base/MemoryTracker.h"
+#include "base/Metrics.h"
 #include "base/SharedLibrary.h"
 #include "base/StreamSerializing.h"
 #include "base/System.h"
@@ -900,7 +901,8 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     // Start up the single sync thread. If we are using Vulkan native
     // swapchain, then don't initialize SyncThread worker threads with EGL
     // contexts.
-    SyncThread::initialize(/* noGL */ fb->m_displayVk != nullptr);
+    SyncThread::initialize(
+        /* noGL */ fb->m_displayVk != nullptr, fb->getHealthMonitor());
 
     //
     // Keep the singleton framebuffer pointer
@@ -982,30 +984,26 @@ FrameBuffer::FrameBuffer(int p_width, int p_height, bool useSubWindow)
       m_windowHeight(p_height),
       m_useSubWindow(useSubWindow),
       m_fpsStats(getenv("SHOW_FPS_STATS") != nullptr),
-      m_perfStats(
-              !android::base::getEnvironmentVariable("SHOW_PERF_STATS").empty()),
+      m_perfStats(!android::base::getEnvironmentVariable("SHOW_PERF_STATS").empty()),
       m_perfThread(new PerfStatThread(&m_perfStats)),
       m_colorBufferHelper(new ColorBufferHelper(this)),
-      m_readbackThread([this](FrameBuffer::Readback&& readback) {
-          return sendReadbackWorkerCmd(readback);
-      }),
-      m_refCountPipeEnabled(feature_is_enabled(
-              kFeature_RefCountPipe)),
-      m_noDelayCloseColorBufferEnabled(feature_is_enabled(
-              kFeature_NoDelayCloseColorBuffer)),
-      m_postThread([this](Post&& post) {
-          return postWorkerFunc(post);
-      }) {
-     uint32_t displayId = 0;
-     if (createDisplay(&displayId) < 0) {
-         fprintf(stderr, "Failed to create default display\n");
-     }
+      m_readbackThread(
+          [this](FrameBuffer::Readback&& readback) { return sendReadbackWorkerCmd(readback); }),
+      m_refCountPipeEnabled(feature_is_enabled(kFeature_RefCountPipe)),
+      m_noDelayCloseColorBufferEnabled(feature_is_enabled(kFeature_NoDelayCloseColorBuffer)),
+      m_postThread([this](Post&& post) { return postWorkerFunc(post); }),
+      m_logger(CreateMetricsLogger()),
+      m_healthMonitor(*m_logger) {
+    uint32_t displayId = 0;
+    if (createDisplay(&displayId) < 0) {
+        fprintf(stderr, "Failed to create default display\n");
+    }
 
-     setDisplayPose(displayId, 0, 0, getWidth(), getHeight(), 0);
-     m_perfThread->start();
+    setDisplayPose(displayId, 0, 0, getWidth(), getHeight(), 0);
+    m_perfThread->start();
 
-     memset(m_vulkanUUID, 0x0, VK_UUID_SIZE);
-     memset(m_glesUUID, 0x0, GL_UUID_SIZE_EXT);
+    memset(m_vulkanUUID, 0x0, VK_UUID_SIZE);
+    memset(m_glesUUID, 0x0, GL_UUID_SIZE_EXT);
 }
 
 FrameBuffer::~FrameBuffer() {
@@ -3601,6 +3599,8 @@ void FrameBuffer::waitForGpuVulkanQsri(uint64_t image) {
 void FrameBuffer::setGuestManagedColorBufferLifetime(bool guestManaged) {
     m_guestManagedColorBufferLifetime = guestManaged;
 }
+
+HealthMonitor<>& FrameBuffer::getHealthMonitor() { return m_healthMonitor; }
 
 bool FrameBuffer::platformImportResource(uint32_t handle, uint32_t info, void* resource) {
     if (!resource) {
