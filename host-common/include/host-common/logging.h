@@ -46,6 +46,11 @@ void OutputLog(FILE* stream, char severity, const char* file, unsigned int line,
         GFXSTREAM_LOG(stderr, 'E', fmt, ##__VA_ARGS__); \
     } while (0)
 
+#define WARN(fmt, ...)                                  \
+    do {                                                \
+        GFXSTREAM_LOG(stderr, 'W', fmt, ##__VA_ARGS__); \
+    } while (0)
+
 #define INFO(fmt, ...)                                  \
     do {                                                \
         GFXSTREAM_LOG(stdout, 'I', fmt, ##__VA_ARGS__); \
