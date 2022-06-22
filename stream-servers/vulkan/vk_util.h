@@ -316,9 +316,49 @@ class CallbacksWrapper {
 void setVkCheckCallbacks(std::unique_ptr<VkCheckCallbacks>);
 const CallbacksWrapper<VkCheckCallbacks>& getVkCheckCallbacks();
 
-class CRTPBase {};
+class CrtpBase {};
 
-template <class T, class U = CRTPBase>
+// Utility class to make chaining inheritance of multiple CRTP classes more
+// readable by allowing one to replace
+//
+//    class MyClass
+//        : public vk_util::Crtp1<MyClass,
+//                                vk_util::Crtp2<MyClass,
+//                                               vk_util::Crtp3<MyClass>>> {};
+//
+// with
+//
+//    class MyClass :
+//        : public vk_util::MultiCrtp<MyClass,
+//                                    vk_util::Crtp1,
+//                                    vk_util::Crtp2,
+//                                    vk_util::Ctrp3> {};
+namespace vk_util_internal {
+
+// For the template "recursion", this is the base case where the list is empty
+// and which just inherits from the last type.
+template <typename T,  //
+          typename U,  //
+          template <typename, typename> class... CrtpClasses>
+class MultiCrtpChainHelper : public U {};
+
+// For the template "recursion", this is the case where the list is not empty
+// and which uses the "current" CRTP class as the "U" type and passes the
+// resulting type to the next step in the template "recursion".
+template <typename T,                                //
+          typename U,                                //
+          template <typename, typename> class Crtp,  //
+          template <typename, typename> class... Crtps>
+class MultiCrtpChainHelper<T, U, Crtp, Crtps...>
+    : public MultiCrtpChainHelper<T, Crtp<T, U>, Crtps...> {};
+
+}  // namespace vk_util_internal
+
+template <typename T,  //
+          template <typename, typename> class... CrtpClasses>
+class MultiCrtp : public vk_util_internal::MultiCrtpChainHelper<T, CrtpBase, CrtpClasses...> {};
+
+template <class T, class U = CrtpBase>
 class FindMemoryType : public U {
    protected:
     std::optional<uint32_t> findMemoryType(uint32_t typeFilter,
@@ -337,7 +377,7 @@ class FindMemoryType : public U {
     }
 };
 
-template <class T, class U = CRTPBase>
+template <class T, class U = CrtpBase>
 class RunSingleTimeCommand : public U {
    protected:
     void runSingleTimeCommands(VkQueue queue, std::shared_ptr<android::base::Lock> queueLock,
@@ -369,7 +409,7 @@ class RunSingleTimeCommand : public U {
         self.m_vk.vkFreeCommandBuffers(self.m_vkDevice, self.m_vkCommandPool, 1, &cmdBuff);
     }
 };
-template <class T, class U = CRTPBase>
+template <class T, class U = CrtpBase>
 class RecordImageLayoutTransformCommands : public U {
    protected:
     void recordImageLayoutTransformCommands(VkCommandBuffer cmdBuff, VkImage image,
