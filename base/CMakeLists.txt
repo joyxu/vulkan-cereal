@@ -15,6 +15,7 @@ if (BUILD_STANDALONE)
         FileUtils.cpp
         FunctorThread.cpp
         GLObjectCounter.cpp
+        HealthMonitor.cpp
         LayoutResolver.cpp
         MemStream.cpp
         StdioStream.cpp

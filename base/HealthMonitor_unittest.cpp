@@ -20,7 +20,7 @@
 #include <chrono>
 
 #include "base/Metrics.h"
-#include "base/testing/TestClock.h"
+#include "TestClock.h"
 
 namespace emugl {
 
