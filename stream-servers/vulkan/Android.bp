@@ -33,6 +33,7 @@ cc_library_static {
     srcs: [
         "BorrowedImageVk.cpp",
         "CompositorVk.cpp",
+        "DebugUtilsHelper.cpp",
         "DisplayVk.cpp",
         "SwapChainStateVk.cpp",
         "VkAndroidNativeBuffer.cpp",
