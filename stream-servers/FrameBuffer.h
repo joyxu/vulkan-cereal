@@ -44,6 +44,7 @@
 #include "WindowSurface.h"
 #include "base/HealthMonitor.h"
 #include "base/Lock.h"
+#include "base/ManagedDescriptor.hpp"
 #include "base/MessageChannel.h"
 #include "base/Metrics.h"
 #include "base/Stream.h"
@@ -522,14 +523,9 @@ class FrameBuffer {
     bool isFastBlitSupported() const { return m_fastBlitSupported; }
     bool isVulkanInteropSupported() const { return m_vulkanInteropSupported; }
     bool isVulkanEnabled() const { return m_vulkanEnabled; }
-    bool importMemoryToColorBuffer(
-#ifdef _WIN32
-        void* handle,
-#else
-        int handle,
-#endif
-        uint64_t size, bool dedicated, bool vulkanOnly, uint32_t colorBufferHandle, VkImage,
-        const VkImageCreateInfo&);
+    bool importMemoryToColorBuffer(android::base::ManagedDescriptor descriptor, uint64_t size,
+                                   bool dedicated, bool vulkanOnly, uint32_t colorBufferHandle,
+                                   VkImage, const VkImageCreateInfo&);
     void setColorBufferInUse(uint32_t colorBufferHandle, bool inUse);
 
     // Used during tests to disable fast blit.
