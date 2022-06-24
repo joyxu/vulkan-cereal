@@ -34,6 +34,7 @@
 #include "base/HybridEntityManager.h"
 #include "base/Lock.h"
 #include "base/Lookup.h"
+#include "base/ManagedDescriptor.hpp"
 #include "base/Optional.h"
 #include "base/Stream.h"
 #include "base/System.h"
@@ -65,6 +66,7 @@ using android::base::arraySize;
 using android::base::AutoLock;
 using android::base::ConditionVariable;
 using android::base::Lock;
+using android::base::ManagedDescriptor;
 using android::base::Optional;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
@@ -2893,6 +2895,7 @@ class VkDecoderGlobalState::Impl {
         lock.unlock();
 
         void* mappedPtr = nullptr;
+        ManagedDescriptor externalMemoryHandle;
         if (importCbInfoPtr) {
             bool vulkanOnly = mGuestUsesAngle;
 
@@ -2919,12 +2922,12 @@ class VkDecoderGlobalState::Impl {
                     return VK_ERROR_OUT_OF_DEVICE_MEMORY;
                 }
 
-                cbExtMemoryHandle = dupExternalMemory(cbExtMemoryHandle);
+                externalMemoryHandle = ManagedDescriptor(dupExternalMemory(cbExtMemoryHandle));
 
 #ifdef _WIN32
-                importInfo.handle = cbExtMemoryHandle;
+                importInfo.handle = externalMemoryHandle.get().value_or(static_cast<HANDLE>(NULL));
 #else
-                importInfo.fd = cbExtMemoryHandle;
+                importInfo.fd = externalMemoryHandle.get().value_or(-1);
 #endif
                 vk_append_struct(&structChainIter, &importInfo);
             }
@@ -2967,6 +2970,23 @@ class VkDecoderGlobalState::Impl {
         if (result != VK_SUCCESS) {
             return result;
         }
+
+#ifdef _WIN32
+        // Let ManagedDescriptor to close the underlying HANDLE when going out of scope. From the
+        // VkImportMemoryWin32HandleInfoKHR spec: Importing memory object payloads from Windows
+        // handles does not transfer ownership of the handle to the Vulkan implementation. For
+        // handle types defined as NT handles, the application must release handle ownership using
+        // the CloseHandle system call when the handle is no longer needed. For handle types defined
+        // as NT handles, the imported memory object holds a reference to its payload.
+#else
+        // Tell ManagedDescriptor not to close the underlying fd, because the ownership has already
+        // been transferred to the Vulkan implementation. From VkImportMemoryFdInfoKHR spec:
+        // Importing memory from a file descriptor transfers ownership of the file descriptor from
+        // the application to the Vulkan implementation. The application must not perform any
+        // operations on the file descriptor after a successful import. The imported memory object
+        // holds a reference to its payload.
+        externalMemoryHandle.release();
+#endif
 
         lock.lock();
 
