@@ -117,10 +117,12 @@ intptr_t HealthMonitor<Clock>::main() {
         int newHungTasks = mHungTasks;
         {
             AutoLock lock(mLock);
-            mCv.timedWait(
-                &mLock,
-                android::base::getUnixTimeUs() +
-                    std::chrono::duration_cast<std::chrono::microseconds>(mInterval).count());
+            if (mEventQueue.empty()) {
+                mCv.timedWait(
+                    &mLock,
+                    android::base::getUnixTimeUs() +
+                        std::chrono::duration_cast<std::chrono::microseconds>(mInterval).count());
+            }
             mEventQueue.swap(events);
         }
 
