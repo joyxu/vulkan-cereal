@@ -15,8 +15,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "VkDecoderGlobalState.h"
+
 #include "base/testing/TestUtils.h"
-#include "VkDecoderGlobalState.cpp"
 
 namespace goldfish_vk {
 namespace {
