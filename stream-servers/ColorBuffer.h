@@ -20,6 +20,8 @@
 #include <EGL/eglext.h>
 #include <GLES/gl.h>
 #include <GLES3/gl3.h>
+
+#include "base/ManagedDescriptor.hpp"
 #include "base/Stream.h"
 // #include "android/skin/rect.h"
 #include <memory>
@@ -261,13 +263,8 @@ public:
     //
     // Change to opaque fd or opaque win32 handle-backed VkDeviceMemory
     // via GL_EXT_memory_objects
-    bool importMemory(
-#ifdef _WIN32
-        void* handle,
-#else
-        int handle,
-#endif
-        uint64_t size, bool dedicated, bool linearTiling, bool vulkanOnly);
+    bool importMemory(android::base::ManagedDescriptor externalDescriptor, uint64_t size,
+                      bool dedicated, bool linearTiling, bool vulkanOnly);
     // Change to EGL native pixmap
     bool importEglNativePixmap(void* pixmap, bool preserveContent);
     // Change to some other native EGL image.  nativeEglImage must not have
