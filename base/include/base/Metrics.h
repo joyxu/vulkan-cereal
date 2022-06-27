@@ -15,16 +15,61 @@
 #pragma once
 
 #include <inttypes.h>
+
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include <variant>
 
 // Library to log metrics.
 namespace android {
 namespace base {
 
+// Struct for hanging events
+struct EventHangMetadata {
+    const char* file;
+    const char* function;
+    const char* msg;
+    const int line;
+    // Field for adding custom key value annotations
+    std::unique_ptr<std::unordered_map<std::string, std::string>> data;
+
+    // TODO: willho@ replace this enum with a generic string field embedded in the
+    // proto and replace the individual event codes with a general hang event
+    // Requires a new callback to be passed from the vm to gfxstream_backend_init
+    enum class HangType { kRenderThread, kSyncThread };
+    HangType hangType;
+
+    EventHangMetadata()
+        : file(nullptr),
+          function(nullptr),
+          msg(nullptr),
+          line(0),
+          data(nullptr),
+          hangType(HangType::kRenderThread) {}
+
+    EventHangMetadata(const char* file, const char* function, const char* msg, int line,
+                      HangType hangType,
+                      std::unique_ptr<std::unordered_map<std::string, std::string>> data)
+        : file(file),
+          function(function),
+          msg(msg),
+          line(line),
+          data(std::move(data)),
+          hangType(hangType) {}
+};
+
 // Events that can be logged.
 struct MetricEventFreeze {};
 struct MetricEventUnFreeze { int64_t frozen_ms; };
+struct MetricEventHang {
+    EventHangMetadata* metadata;
+    int64_t otherHungTasks;
+};
+struct MetricEventUnHang {
+    EventHangMetadata* metadata;
+    int64_t hung_ms;
+};
 struct GfxstreamVkAbort {
     const char* file;
     const char* function;
@@ -33,8 +78,8 @@ struct GfxstreamVkAbort {
     int64_t abort_reason;
 };
 
-using MetricEventType =
-    std::variant<std::monostate, MetricEventFreeze, MetricEventUnFreeze, GfxstreamVkAbort>;
+using MetricEventType = std::variant<std::monostate, MetricEventFreeze, MetricEventUnFreeze,
+                                     MetricEventHang, MetricEventUnHang, GfxstreamVkAbort>;
 
 class MetricsLogger {
 public:

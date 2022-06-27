@@ -58,6 +58,7 @@
         fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
 
 using android::base::AutoLock;
+using android::base::ManagedDescriptor;
 using android::base::Optional;
 using android::base::StaticLock;
 using android::base::StaticMap;
@@ -1789,13 +1790,15 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle, bool vulkanOnly, uint32_t me
 #endif
     }
 
-    if (sVkEmulation->deviceInfo.supportsExternalMemory &&
-        sVkEmulation->deviceInfo.glInteropSupported && glCompatible &&
-        FrameBuffer::getFB()->importMemoryToColorBuffer(
-            dupExternalMemory(res.memory.exportedHandle), res.memory.size, false /* dedicated */,
-            vulkanOnly, colorBufferHandle, res.image, *imageCi)) {
-        res.glExported = true;
+    bool glExported = sVkEmulation->deviceInfo.supportsExternalMemory &&
+                      sVkEmulation->deviceInfo.glInteropSupported && glCompatible;
+    if (glExported) {
+        ManagedDescriptor exportedHandle(dupExternalMemory(res.memory.exportedHandle));
+        glExported = FrameBuffer::getFB()->importMemoryToColorBuffer(
+            std::move(exportedHandle), res.memory.size, false /* dedicated */, vulkanOnly,
+            colorBufferHandle, res.image, *imageCi);
     }
+    res.glExported = glExported;
 
     if (exported) *exported = res.glExported;
     if (allocSize) *allocSize = res.memory.size;

@@ -28,9 +28,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "CompositorGl.h"
 #include "ColorBuffer.h"
 #include "Compositor.h"
+#include "CompositorGl.h"
 #include "DisplayVk.h"
 #include "FbConfig.h"
 #include "GLESVersionDetector.h"
@@ -42,8 +42,11 @@
 #include "Renderer.h"
 #include "TextureDraw.h"
 #include "WindowSurface.h"
+#include "base/HealthMonitor.h"
 #include "base/Lock.h"
+#include "base/ManagedDescriptor.hpp"
 #include "base/MessageChannel.h"
+#include "base/Metrics.h"
 #include "base/Stream.h"
 #include "base/Thread.h"
 #include "base/WorkerThread.h"
@@ -52,6 +55,10 @@
 #include "snapshot/common.h"
 #include "virtio_gpu_ops.h"
 #include "vulkan/vk_util.h"
+
+using android::base::CreateMetricsLogger;
+using emugl::HealthMonitor;
+using emugl::MetricsLogger;
 
 struct ColorBufferRef {
     ColorBufferPtr cb;
@@ -516,14 +523,9 @@ class FrameBuffer {
     bool isFastBlitSupported() const { return m_fastBlitSupported; }
     bool isVulkanInteropSupported() const { return m_vulkanInteropSupported; }
     bool isVulkanEnabled() const { return m_vulkanEnabled; }
-    bool importMemoryToColorBuffer(
-#ifdef _WIN32
-        void* handle,
-#else
-        int handle,
-#endif
-        uint64_t size, bool dedicated, bool vulkanOnly, uint32_t colorBufferHandle, VkImage,
-        const VkImageCreateInfo&);
+    bool importMemoryToColorBuffer(android::base::ManagedDescriptor descriptor, uint64_t size,
+                                   bool dedicated, bool vulkanOnly, uint32_t colorBufferHandle,
+                                   VkImage, const VkImageCreateInfo&);
     void setColorBufferInUse(uint32_t colorBufferHandle, bool inUse);
 
     // Used during tests to disable fast blit.
@@ -595,6 +597,8 @@ class FrameBuffer {
     std::unique_ptr<BorrowedImageInfo> borrowColorBufferForComposition(uint32_t colorBufferHandle,
                                                                        bool colorBufferIsTarget);
     std::unique_ptr<BorrowedImageInfo> borrowColorBufferForDisplay(uint32_t colorBufferHandle);
+
+    HealthMonitor<>& getHealthMonitor();
 
    private:
     FrameBuffer(int p_width, int p_height, bool useSubWindow);
@@ -817,5 +821,8 @@ class FrameBuffer {
         EGLSurface surface;
     };
     std::unordered_map<void*, PlatformEglContextInfo> m_platformEglContexts;
+
+    std::unique_ptr<MetricsLogger> m_logger;
+    HealthMonitor<> m_healthMonitor;
 };
 #endif

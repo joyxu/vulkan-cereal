@@ -35,6 +35,7 @@
 
 #define DEBUG_CB_FBO 0
 
+using android::base::ManagedDescriptor;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
 
@@ -981,13 +982,8 @@ void ColorBuffer::postLayer(const ComposeLayer& l, int frameWidth, int frameHeig
     m_helper->getTextureDraw()->drawLayer(l, frameWidth, frameHeight, m_width, m_height, m_tex);
 }
 
-bool ColorBuffer::importMemory(
-#ifdef _WIN32
-    void* handle,
-#else
-    int handle,
-#endif
-    uint64_t size, bool dedicated, bool linearTiling, bool vulkanOnly) {
+bool ColorBuffer::importMemory(ManagedDescriptor externalDescriptor, uint64_t size, bool dedicated,
+                               bool linearTiling, bool vulkanOnly) {
     RecursiveScopedHelperContext context(m_helper);
     s_gles2.glCreateMemoryObjectsEXT(1, &m_memoryObject);
     if (dedicated) {
@@ -996,12 +992,37 @@ bool ColorBuffer::importMemory(
                                              GL_DEDICATED_MEMORY_OBJECT_EXT,
                                              &DEDICATED_FLAG);
     }
+    std::optional<ManagedDescriptor::DescriptorType> maybeRawDescriptor = externalDescriptor.get();
+    if (!maybeRawDescriptor.has_value()) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Uninitialized external descriptor.";
+    }
+    ManagedDescriptor::DescriptorType rawDescriptor = *maybeRawDescriptor;
 
 #ifdef _WIN32
-    s_gles2.glImportMemoryWin32HandleEXT(m_memoryObject, size, GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, handle);
+    s_gles2.glImportMemoryWin32HandleEXT(m_memoryObject, size, GL_HANDLE_TYPE_OPAQUE_WIN32_EXT,
+                                         rawDescriptor);
 #else
-    s_gles2.glImportMemoryFdEXT(m_memoryObject, size, GL_HANDLE_TYPE_OPAQUE_FD_EXT, handle);
+    s_gles2.glImportMemoryFdEXT(m_memoryObject, size, GL_HANDLE_TYPE_OPAQUE_FD_EXT, rawDescriptor);
 #endif
+    GLenum error = s_gles2.glGetError();
+    if (error == GL_NO_ERROR) {
+#ifdef _WIN32
+        // Let the external descriptor close when going out of scope. From the
+        // EXT_external_objects_win32 spec: importing a Windows handle does not transfer ownership
+        // of the handle to the GL implementation.  For handle types defined as NT handles, the
+        // application must release the handle using an appropriate system call when it is no longer
+        // needed.
+#else
+        // Inform ManagedDescriptor not to close the fd, since the owner of the fd is transferred to
+        // the GL driver. From the EXT_external_objects_fd spec: a successful import operation
+        // transfers ownership of <fd> to the GL implementation, and performing any operation on
+        // <fd> in the application after an import results in undefined behavior.
+        externalDescriptor.release();
+#endif
+    } else {
+        ERR("Failed to import external memory object with error: %d", static_cast<int>(error));
+        return false;
+    }
 
     GLuint glTiling = linearTiling ? GL_LINEAR_TILING_EXT : GL_OPTIMAL_TILING_EXT;
 
