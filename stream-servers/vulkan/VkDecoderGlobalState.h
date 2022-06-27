@@ -258,6 +258,33 @@ class VkDecoderGlobalState {
                                    uint32_t descriptorCopyCount,
                                    const VkCopyDescriptorSet* pDescriptorCopies);
 
+    VkResult on_vkCreateShaderModule(android::base::BumpPool* pool, VkDevice device,
+                                     const VkShaderModuleCreateInfo* pCreateInfo,
+                                     const VkAllocationCallbacks* pAllocator,
+                                     VkShaderModule* pShaderModule);
+
+    void on_vkDestroyShaderModule(android::base::BumpPool* pool, VkDevice device,
+                                  VkShaderModule shaderModule,
+                                  const VkAllocationCallbacks* pAllocator);
+
+    VkResult on_vkCreatePipelineCache(android::base::BumpPool* pool, VkDevice device,
+                                      const VkPipelineCacheCreateInfo* pCreateInfo,
+                                      const VkAllocationCallbacks* pAllocator,
+                                      VkPipelineCache* pPipelineCache);
+
+    void on_vkDestroyPipelineCache(android::base::BumpPool* pool, VkDevice device,
+                                   VkPipelineCache pipelineCache,
+                                   const VkAllocationCallbacks* pAllocator);
+
+    VkResult on_vkCreateGraphicsPipelines(android::base::BumpPool* pool, VkDevice device,
+                                          VkPipelineCache pipelineCache, uint32_t createInfoCount,
+                                          const VkGraphicsPipelineCreateInfo* pCreateInfos,
+                                          const VkAllocationCallbacks* pAllocator,
+                                          VkPipeline* pPipelines);
+
+    void on_vkDestroyPipeline(android::base::BumpPool* pool, VkDevice device, VkPipeline pipeline,
+                              const VkAllocationCallbacks* pAllocator);
+
     void on_vkCmdCopyBufferToImage(android::base::BumpPool* pool, VkCommandBuffer commandBuffer,
                                    VkBuffer srcBuffer, VkImage dstImage,
                                    VkImageLayout dstImageLayout, uint32_t regionCount,
@@ -496,6 +523,15 @@ class VkDecoderGlobalState {
                                    const VkRenderPassCreateInfo* pCreateInfo,
                                    const VkAllocationCallbacks* pAllocator,
                                    VkRenderPass* pRenderPass);
+    void on_vkDestroyRenderPass(android::base::BumpPool* pool, VkDevice device,
+                                VkRenderPass renderPass, const VkAllocationCallbacks* pAllocator);
+    VkResult on_vkCreateFramebuffer(android::base::BumpPool* pool, VkDevice device,
+                                    const VkFramebufferCreateInfo* pCreateInfo,
+                                    const VkAllocationCallbacks* pAllocator,
+                                    VkFramebuffer* pFramebuffer);
+    void on_vkDestroyFramebuffer(android::base::BumpPool* pool, VkDevice device,
+                                 VkFramebuffer framebuffer,
+                                 const VkAllocationCallbacks* pAllocator);
 
     // VK_GOOGLE_gfxstream
     void on_vkQueueHostSyncGOOGLE(android::base::BumpPool* pool, VkQueue queue,
