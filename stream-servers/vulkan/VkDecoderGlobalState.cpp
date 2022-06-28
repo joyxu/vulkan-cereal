@@ -4875,8 +4875,10 @@ class VkDecoderGlobalState::Impl {
     type unbox_##type(type boxed) {                                                               \
         auto elt = sBoxedHandleManager.get((uint64_t)(uintptr_t)boxed);                           \
         if (!elt) {                                                                               \
-            fprintf(stderr, "%s: unbox %p failed, not found\n", __func__, boxed);                 \
-            abort();                                                                              \
+            if constexpr(!std::is_same_v<type, VkFence>) {                                        \
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))                                   \
+                    << "Unbox " << boxed << " failed, not found.";                                \
+            }                                                                                     \
             return VK_NULL_HANDLE;                                                                \
         }                                                                                         \
         return (type)elt->underlying;                                                             \
@@ -7667,8 +7669,8 @@ GOLDFISH_VK_LIST_NON_DISPATCHABLE_HANDLE_TYPES(DEFINE_BOXED_NON_DISPATCHABLE_HAN
         if (!boxed) return boxed;                                                                 \
         auto elt = sBoxedHandleManager.get((uint64_t)(uintptr_t)boxed);                           \
         if (!elt) {                                                                               \
-            fprintf(stderr, "%s: unbox %p failed, not found\n", __func__, boxed);                 \
-            abort();                                                                              \
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))                                       \
+                << "Unbox " << boxed << " failed, not found.";                                    \
             return VK_NULL_HANDLE;                                                                \
         }                                                                                         \
         return (type)elt->underlying;                                                             \
