@@ -1495,8 +1495,8 @@ HandleType FrameBuffer::createColorBuffer(int p_width,
                                           FrameworkFormat p_frameworkFormat) {
 
     AutoLock mutex(m_lock);
-    AutoLock colorBufferMapLock(m_colorBufferMapLock);
     sweepColorBuffersLocked();
+    AutoLock colorBufferMapLock(m_colorBufferMapLock);
 
     return createColorBufferWithHandleLocked(p_width, p_height, p_internalFormat, p_frameworkFormat,
                                              genHandle_locked());
@@ -1507,6 +1507,8 @@ void FrameBuffer::createColorBufferWithHandle(int p_width, int p_height, GLenum 
                                               HandleType handle) {
     {
         AutoLock mutex(m_lock);
+        sweepColorBuffersLocked();
+
         AutoLock colorBufferMapLock(m_colorBufferMapLock);
 
         // Check for handle collision
@@ -1539,8 +1541,6 @@ HandleType FrameBuffer::createColorBufferWithHandleLocked(
     GLenum p_internalFormat,
     FrameworkFormat p_frameworkFormat,
     HandleType handle) {
-
-    sweepColorBuffersLocked();
 
     ColorBufferPtr cb(ColorBuffer::create(getDisplay(), p_width, p_height,
                                           p_internalFormat, p_frameworkFormat,
