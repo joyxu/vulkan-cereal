@@ -18,6 +18,7 @@
 #include "Features.h"
 // #include "HWMatching.h"
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -91,5 +92,8 @@ std::vector<Feature> getEnabledOverride();
 std::vector<Feature> getDisabledOverride();
 std::vector<Feature> getEnabled();
 
+// Overrides feature_is_enabled function above to use a user-provided callback
+// instead.
+void setFeatureEnabledCallback(std::function<bool(Feature)> cb);
 } // namespace android
 } // namespace featurecontrol
