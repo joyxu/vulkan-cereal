@@ -22,7 +22,7 @@ target_compile_definitions(OpenglRender_vulkan_cereal PRIVATE -DVK_ANDROID_nativ
 if (WIN32)
     target_compile_definitions(OpenglRender_vulkan_cereal PRIVATE -DVK_USE_PLATFORM_WIN32_KHR)
 endif()
-target_link_libraries(OpenglRender_vulkan_cereal PUBLIC gfxstream-base)
+target_link_libraries(OpenglRender_vulkan_cereal PUBLIC gfxstream-base.headers)
 
 target_include_directories(OpenglRender_vulkan_cereal
                            PUBLIC
