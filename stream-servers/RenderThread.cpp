@@ -27,8 +27,10 @@
 #include "RendererImpl.h"
 #include "RingStream.h"
 #include "apigen-codec-common/ChecksumCalculatorThreadInfo.h"
+#include "base/HealthMonitor.h"
 #include "base/Lock.h"
 #include "base/MessageChannel.h"
+#include "base/Metrics.h"
 #include "base/StreamSerializing.h"
 #include "base/System.h"
 #include "base/Tracing.h"
@@ -47,6 +49,7 @@
 #include <string.h>
 
 using android::base::AutoLock;
+using android::base::EventHangMetadata;
 using android::base::MessageChannel;
 
 namespace emugl {
@@ -416,6 +419,10 @@ intptr_t RenderThread::main() {
         bool progress;
 
         do {
+            HealthWatchdog watchdog(
+                FrameBuffer::getFB()->getHealthMonitor(),
+                WATCHDOG_DATA("RenderThread decode operation",
+                              EventHangMetadata::HangType::kRenderThread, nullptr));
 
             if (!seqnoPtr && tInfo.m_puid) {
                 seqnoPtr = FrameBuffer::getFB()->getProcessSequenceNumberPtr(tInfo.m_puid);

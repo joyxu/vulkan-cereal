@@ -168,6 +168,58 @@ TEST(VkCheckCallbacksDeathTest, nullVkDeviceLostErrorCallbackShouldntCrash) {
     EXPECT_EXIT(VK_CHECK(VK_ERROR_DEVICE_LOST), testing::ExitedWithCode(42), "");
 }
 
+template <typename T, class U = CrtpBase>
+class ExampleCrtpClass1 : public U {
+   public:
+    void doCtrp1() {
+        T& self = static_cast<T&>(*this);
+        EXPECT_EQ(self.value, 42);
+        self.doCtrp1WasCalled = true;
+    }
+};
+
+template <typename T, class U = CrtpBase>
+class ExampleCrtpClass2 : public U {
+   public:
+    void doCtrp2() {
+        T& self = static_cast<T&>(*this);
+        EXPECT_EQ(self.value, 42);
+        self.doCtrp2WasCalled = true;
+    }
+};
+
+template <typename T, class U = CrtpBase>
+class ExampleCrtpClass3 : public U {
+   public:
+    void doCtrp3() {
+        T& self = static_cast<T&>(*this);
+        EXPECT_EQ(self.value, 42);
+        self.doCtrp3WasCalled = true;
+    }
+};
+
+struct MultiCrtpTestStruct
+    : MultiCrtp<MultiCrtpTestStruct, ExampleCrtpClass1, ExampleCrtpClass2, ExampleCrtpClass3> {
+    void doCtrpMethods() {
+        doCtrp1();
+        doCtrp2();
+        doCtrp3();
+    }
+
+    int value = 42;
+    bool doCtrp1WasCalled = false;
+    bool doCtrp2WasCalled = false;
+    bool doCtrp3WasCalled = false;
+};
+
+TEST(MultiCrtp, MultiCrtp) {
+    MultiCrtpTestStruct object;
+    object.doCtrpMethods();
+    EXPECT_TRUE(object.doCtrp1WasCalled);
+    EXPECT_TRUE(object.doCtrp2WasCalled);
+    EXPECT_TRUE(object.doCtrp3WasCalled);
+}
+
 }  // namespace
 }  // namespace vk_fn_info
 }  // namespace vk_util

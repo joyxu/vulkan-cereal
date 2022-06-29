@@ -136,6 +136,8 @@ class CerealGenerator(OutputGenerator):
             envGetOrDefault("VK_CEREAL_BASELIB_PREFIX", "android/base")
         self.baseLibLinkName = \
             envGetOrDefault("VK_CEREAL_BASELIB_LINKNAME", "android-emu-base")
+        self.hostCommonLibLinkName = \
+            envGetOrDefault("VK_CEREAL_HOST_COMMON_LIB_LINKNAME", "")
 
         default_guest_abs_encoder_destination = \
             os.path.join(
@@ -180,7 +182,7 @@ target_compile_definitions(OpenglRender_vulkan_cereal PRIVATE -DVK_ANDROID_nativ
 if (WIN32)
     target_compile_definitions(OpenglRender_vulkan_cereal PRIVATE -DVK_USE_PLATFORM_WIN32_KHR)
 endif()
-target_link_libraries(OpenglRender_vulkan_cereal PUBLIC {self.baseLibLinkName})
+target_link_libraries(OpenglRender_vulkan_cereal PUBLIC {self.baseLibLinkName} {self.hostCommonLibLinkName})
 
 target_include_directories(OpenglRender_vulkan_cereal
                            PUBLIC

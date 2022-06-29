@@ -28,7 +28,7 @@ cc_library_static {
         "AndroidPipe.cpp",
         "HostmemIdMapping.cpp",
         "RefcountPipe.cpp",
-        "AndroidAgentFactory.cpp",
+        "GraphicsAgentFactory.cpp",
 
         "GoldfishSyncCommandQueue.cpp",
         "goldfish_sync.cpp",
@@ -43,8 +43,7 @@ cc_library_static {
         "address_space_graphics.cpp",
         "address_space_host_media.cpp",
 
-        "avd/info.cpp",
-        "avd/hw-config.cpp",
+        "hw-config.cpp",
 
         "opengles.cpp",
         "opengl/EmuglBackendList.cpp",
@@ -56,5 +55,9 @@ cc_library_static {
         "opengl/OpenglEsPipe.cpp",
 
         "opengl/NativeGpuInfo_linux.cpp",
+    ],
+    local_include_dirs: [
+        "include/host-common",
+        "include/host-common/opengl",
     ],
 }

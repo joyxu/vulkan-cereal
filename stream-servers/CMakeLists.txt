@@ -25,6 +25,7 @@ set(stream-server-core-sources
     VirtioGpuTimelines.cpp
     ChannelStream.cpp
     ColorBuffer.cpp
+    CompositorGl.cpp
     Debug.cpp
     FbConfig.cpp
     FenceSync.cpp
@@ -67,8 +68,8 @@ add_library(
 target_link_libraries(
         gfxstream_backend_static
         PUBLIC
-        gfxstream-host-common
-        gfxstream-base
+        GLES_CM_translator_static
+        ${GFXSTREAM_BASE_LIB}
         OpenGLESDispatch
         gles1_dec
         gles2_dec
@@ -76,7 +77,8 @@ target_link_libraries(
         gfxstream-vulkan-server
         gfxstream-snapshot
         apigen-codec-common
-        perfetto-tracing-only)
+        perfetto-tracing-only
+        ${GFXSTREAM_HOST_COMMON_LIB})
 
 target_include_directories(
         gfxstream_backend_static
@@ -103,27 +105,26 @@ target_link_libraries(
     PUBLIC
     gfxstream_backend_static)
 
-if (WIN32)
-    target_link_options(gfxstream_backend PRIVATE /DEBUG)
-endif()
-
 android_install_shared(gfxstream_backend)
 
 # Testing libraries
 add_subdirectory(testlibs)
 
-# Backend unit tests
-add_executable(
-    gfxstream_backend_unittests
-    gfxstream_unittest.cpp)
-target_link_libraries(
-    gfxstream_backend_unittests
-    PRIVATE
-    OSWindow
-    gfxstream_backend
-    gfxstream-base
-    gtest_main)
-gtest_discover_tests(gfxstream_backend_unittests)
+if (ENABLE_VKCEREAL_TESTS)
+    # Backend unit tests
+    add_executable(
+        gfxstream_backend_unittests
+        gfxstream_unittest.cpp)
+    target_link_libraries(
+        gfxstream_backend_unittests
+        PRIVATE
+        OSWindow
+        gfxstream_backend
+        gfxstream-host-common-testing-support
+        ${GFXSTREAM_BASE_LIB}
+        gtest_main)
+    gtest_discover_tests(gfxstream_backend_unittests)
+endif()
 
 # More functional tests#########################################################
 
@@ -138,7 +139,8 @@ add_library(
     tests/ShaderUtils.cpp
     tests/GLSnapshotTestDispatch.cpp
     tests/GLSnapshotTestStateUtils.cpp
-    tests/HelloTriangleImp.cpp)
+    tests/HelloTriangleImp.cpp
+    tests/ImageUtils.cpp)
 target_include_directories(
     stream-server-testing-support
     PUBLIC
@@ -146,12 +148,15 @@ target_include_directories(
     ${GFXSTREAM_REPO_ROOT}/base/testing
     ${GFXSTREAM_REPO_ROOT}/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/glestranslator/GLES_CM
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/glestranslator/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
     ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan)
 target_link_libraries(
     stream-server-testing-support
     PUBLIC
     gfxstream_backend_static
+    gfxstream_stb
     OSWindow
     gtest)
 
@@ -161,80 +166,95 @@ add_library(
     tests/X11TestingSupport.cpp)
 target_link_libraries(
     x11_testing_support
-    gfxstream-base)
+    gfxstream-base.headers)
 endif()
 
-# Basic opengl rendering tests##################################################
-add_executable(
-    OpenglRender_unittests
-    tests/FrameBuffer_unittest.cpp
-    tests/DefaultFramebufferBlit_unittest.cpp
-    tests/TextureDraw_unittest.cpp
-    tests/StalePtrRegistry_unittest.cpp)
-target_link_libraries(
-    OpenglRender_unittests
-    PRIVATE
-    gfxstream_backend_static
-    stream-server-testing-support
-    gfxstream-base-testing-support
-    gfxstream-host-common-testing-support
-    gtest_main)
-if (LINUX)
+if (ENABLE_VKCEREAL_TESTS)
+    # Basic opengl rendering tests##################################################
+    add_executable(
+        OpenglRender_unittests
+        tests/FrameBuffer_unittest.cpp
+        tests/GLES1Dispatch_unittest.cpp
+        tests/DefaultFramebufferBlit_unittest.cpp
+        tests/TextureDraw_unittest.cpp
+        tests/StalePtrRegistry_unittest.cpp)
     target_link_libraries(
         OpenglRender_unittests
-        PRIVATE x11_testing_support)
+        PRIVATE
+        gfxstream_backend_static
+        stream-server-testing-support
+        gfxstream-base-testing-support
+        gfxstream-host-common-testing-support
+        gtest_main)
+    if (LINUX)
+        target_link_libraries(
+            OpenglRender_unittests
+            PRIVATE x11_testing_support)
+    endif()
+    gtest_discover_tests(OpenglRender_unittests)
+
+    # Snapshot tests################################################################
+    add_executable(
+        OpenglRender_snapshot_unittests
+        tests/GLSnapshotBuffers_unittest.cpp
+        tests/GLSnapshotFramebufferControl_unittest.cpp
+        tests/GLSnapshotFramebuffers_unittest.cpp
+        tests/GLSnapshotMultisampling_unittest.cpp
+        tests/GLSnapshotPixelOperations_unittest.cpp
+        tests/GLSnapshotPixels_unittest.cpp
+        tests/GLSnapshotPrograms_unittest.cpp
+        tests/GLSnapshotRasterization_unittest.cpp
+        tests/GLSnapshotRenderbuffers_unittest.cpp
+        tests/GLSnapshotRendering_unittest.cpp
+        tests/GLSnapshotShaders_unittest.cpp
+        tests/GLSnapshotTextures_unittest.cpp
+        tests/GLSnapshotTransformation_unittest.cpp
+        tests/GLSnapshotVertexAttributes_unittest.cpp
+        tests/GLSnapshot_unittest.cpp)
+    target_link_libraries(
+        OpenglRender_snapshot_unittests
+        PRIVATE
+        gfxstream_backend_static
+        stream-server-testing-support
+        gfxstream-base-testing-support
+        gfxstream-host-common-testing-support
+        gtest_main)
+    gtest_discover_tests(OpenglRender_snapshot_unittests)
+
+    # Vulkan tests##################################################################
+    add_executable(
+        Vulkan_unittests
+        tests/Vulkan_unittest.cpp
+        tests/CompositorVk_unittest.cpp
+        tests/SwapChainStateVk_unittest.cpp
+        tests/DisplayVk_unittest.cpp
+        tests/VirtioGpuTimelines_unittest.cpp
+        vulkan/vk_util_unittest.cpp
+        vulkan/VkFormatUtils_unittest.cpp
+        vulkan/VkQsriTimeline_unittest.cpp
+        vulkan/VkDecoderGlobalState_unittest.cpp
+    )
+    target_link_libraries(
+        Vulkan_unittests
+        PRIVATE
+        gfxstream_backend_static
+        stream-server-testing-support
+        gfxstream-base-testing-support
+        gfxstream-host-common-testing-support
+        gtest
+        gtest_main
+        gmock)
+    gtest_discover_tests(
+        Vulkan_unittests
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+    file(GLOB Vulkan_unittests_datafiles "tests/testdata/*.png")
+    add_custom_command(TARGET Vulkan_unittests POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E make_directory
+                            ${CMAKE_BINARY_DIR}/tests/testdata
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                            ${Vulkan_unittests_datafiles}
+                            ${CMAKE_BINARY_DIR}/tests/testdata)
+
+    set_test_include_files()
 endif()
-gtest_discover_tests(OpenglRender_unittests)
-
-# Snapshot tests################################################################
-add_executable(
-    OpenglRender_snapshot_unittests
-    tests/GLSnapshotBuffers_unittest.cpp
-    tests/GLSnapshotFramebufferControl_unittest.cpp
-    tests/GLSnapshotFramebuffers_unittest.cpp
-    tests/GLSnapshotMultisampling_unittest.cpp
-    tests/GLSnapshotPixelOperations_unittest.cpp
-    tests/GLSnapshotPixels_unittest.cpp
-    tests/GLSnapshotPrograms_unittest.cpp
-    tests/GLSnapshotRasterization_unittest.cpp
-    tests/GLSnapshotRenderbuffers_unittest.cpp
-    tests/GLSnapshotRendering_unittest.cpp
-    tests/GLSnapshotShaders_unittest.cpp
-    tests/GLSnapshotTextures_unittest.cpp
-    tests/GLSnapshotTransformation_unittest.cpp
-    tests/GLSnapshotVertexAttributes_unittest.cpp
-    tests/GLSnapshot_unittest.cpp)
-target_link_libraries(
-    OpenglRender_snapshot_unittests
-    PRIVATE
-    gfxstream_backend_static
-    stream-server-testing-support
-    gfxstream-base-testing-support
-    gfxstream-host-common-testing-support
-    gtest_main)
-gtest_discover_tests(OpenglRender_snapshot_unittests)
-
-# Vulkan tests##################################################################
-add_executable(
-    Vulkan_unittests
-    tests/Vulkan_unittest.cpp
-    tests/CompositorVk_unittest.cpp
-    tests/SwapChainStateVk_unittest.cpp
-    tests/DisplayVk_unittest.cpp
-    tests/VirtioGpuTimelines_unittest.cpp
-    vulkan/vk_util_unittest.cpp
-    vulkan/VkQsriTimeline_unittest.cpp
-)
-target_link_libraries(
-    Vulkan_unittests
-    PRIVATE
-    gfxstream_backend_static
-    stream-server-testing-support
-    gfxstream-base-testing-support
-    gfxstream-host-common-testing-support
-    gtest
-    gtest_main
-    gmock)
-gtest_discover_tests(Vulkan_unittests)
-
-set_test_include_files()

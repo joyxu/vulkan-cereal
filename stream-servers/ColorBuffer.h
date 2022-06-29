@@ -20,10 +20,13 @@
 #include <EGL/eglext.h>
 #include <GLES/gl.h>
 #include <GLES3/gl3.h>
+
+#include "base/ManagedDescriptor.hpp"
 #include "base/Stream.h"
 // #include "android/skin/rect.h"
 #include <memory>
 
+#include "BorrowedImage.h"
 #include "DisplayVk.h"
 #include "FrameworkFormats.h"
 #include "Hwc2.h"
@@ -254,28 +257,19 @@ public:
     void postLayer(const ComposeLayer& l, int frameWidth, int frameHeight);
     GLuint getTexture();
 
-    const std::shared_ptr<DisplayVk::DisplayBufferInfo>& getDisplayBufferVk()
-        const {
-        return m_displayBufferVk;
-    };
+    std::unique_ptr<BorrowedImageInfo> getBorrowedImageInfo();
 
     // ColorBuffer backing change methods
     //
     // Change to opaque fd or opaque win32 handle-backed VkDeviceMemory
     // via GL_EXT_memory_objects
-    bool importMemory(
-#ifdef _WIN32
-        void* handle,
-#else
-        int handle,
-#endif
-        uint64_t size, bool dedicated, bool linearTiling, bool vulkanOnly,
-        std::shared_ptr<DisplayVk::DisplayBufferInfo> displayBufferVk);
+    bool importMemory(android::base::ManagedDescriptor externalDescriptor, uint64_t size,
+                      bool dedicated, bool linearTiling, bool vulkanOnly);
     // Change to EGL native pixmap
-    bool importEglNativePixmap(void* pixmap);
+    bool importEglNativePixmap(void* pixmap, bool preserveContent);
     // Change to some other native EGL image.  nativeEglImage must not have
     // been created from our s_egl.eglCreateImage.
-    bool importEglImage(void* nativeEglImage);
+    bool importEglImage(void* nativeEglImage, bool preserveContent);
 
     void setInUse(bool inUse);
     bool isInUse() const { return m_inUse; }
@@ -290,12 +284,14 @@ public:
 
 private:
     ColorBuffer(EGLDisplay display, HandleType hndl, Helper* helper);
-    // Helper function to get contents and clear current texture and EGL image.
-    std::vector<uint8_t> getContentsAndClearStorage();
-    // Helper function to rebind EGL image as texture. Assumes storage cleared.
-    void restoreContentsAndEglImage(const std::vector<uint8_t>& contents, EGLImageKHR image);
+    // Helper function to get contents.
+    std::vector<uint8_t> getContents();
+    // Helper function to clear current EGL image.
+    void clearStorage();
+    // Helper function to bind EGL image as texture. Assumes storage cleared.
+    void restoreEglImage(EGLImageKHR image);
     // Helper function that does the above two operations in one go.
-    void rebindEglImage(EGLImageKHR image);
+    void rebindEglImage(EGLImageKHR image, bool preserveContent);
 
 private:
     GLuint m_tex = 0;
@@ -346,9 +342,6 @@ private:
     GLuint m_buf = 0;
     uint32_t m_displayId = 0;
     bool m_BRSwizzle = false;
-    // Won't share with others so that m_displayBufferVk lives shorter than this
-    // ColorBuffer.
-    std::shared_ptr<DisplayVk::DisplayBufferInfo> m_displayBufferVk;
 };
 
 typedef std::shared_ptr<ColorBuffer> ColorBufferPtr;

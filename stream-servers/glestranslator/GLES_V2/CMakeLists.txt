@@ -14,4 +14,9 @@ if (NOT MSVC)
 endif()
 target_compile_options(GLES_V2_translator_static PRIVATE -Wno-macro-redefined)
 target_link_libraries(
-    GLES_V2_translator_static PRIVATE GLcommon apigen-codec-common gfxstream-base angle_shader_translator)
+    GLES_V2_translator_static PRIVATE
+    GLcommon
+    apigen-codec-common
+    gfxstream-base.headers
+    gfxstream-host-common.headers
+    angle_shader_translator)

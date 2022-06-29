@@ -29,6 +29,8 @@
 #include <unordered_set>
 
 #include "ColorBuffer.h"
+#include "Compositor.h"
+#include "CompositorGl.h"
 #include "DisplayVk.h"
 #include "FbConfig.h"
 #include "GLESVersionDetector.h"
@@ -40,8 +42,11 @@
 #include "Renderer.h"
 #include "TextureDraw.h"
 #include "WindowSurface.h"
+#include "base/HealthMonitor.h"
 #include "base/Lock.h"
+#include "base/ManagedDescriptor.hpp"
 #include "base/MessageChannel.h"
+#include "base/Metrics.h"
 #include "base/Stream.h"
 #include "base/Thread.h"
 #include "base/WorkerThread.h"
@@ -50,6 +55,10 @@
 #include "snapshot/common.h"
 #include "virtio_gpu_ops.h"
 #include "vulkan/vk_util.h"
+
+using android::base::CreateMetricsLogger;
+using emugl::HealthMonitor;
+using emugl::MetricsLogger;
 
 struct ColorBufferRef {
     ColorBufferPtr cb;
@@ -286,9 +295,6 @@ class FrameBuffer {
     RenderContextPtr getContext_locked(HandleType p_context);
 
     // Return a color buffer pointer from its handle
-    ColorBufferPtr getColorBuffer_locked(HandleType p_colorBuffer);
-
-    // Return a color buffer pointer from its handle
     WindowSurfacePtr getWindowSurface_locked(HandleType p_windowsurface);
 
     // Attach a ColorBuffer to a WindowSurface instance.
@@ -517,14 +523,9 @@ class FrameBuffer {
     bool isFastBlitSupported() const { return m_fastBlitSupported; }
     bool isVulkanInteropSupported() const { return m_vulkanInteropSupported; }
     bool isVulkanEnabled() const { return m_vulkanEnabled; }
-    bool importMemoryToColorBuffer(
-#ifdef _WIN32
-        void* handle,
-#else
-        int handle,
-#endif
-        uint64_t size, bool dedicated, bool vulkanOnly, uint32_t colorBufferHandle, VkImage,
-        const VkImageCreateInfo&);
+    bool importMemoryToColorBuffer(android::base::ManagedDescriptor descriptor, uint64_t size,
+                                   bool dedicated, bool vulkanOnly, uint32_t colorBufferHandle,
+                                   VkImage, const VkImageCreateInfo&);
     void setColorBufferInUse(uint32_t colorBufferHandle, bool inUse);
 
     // Used during tests to disable fast blit.
@@ -541,7 +542,6 @@ class FrameBuffer {
                        int desiredRotation);
     void onLastColorBufferRef(uint32_t handle);
     ColorBuffer::Helper* getColorBufferHelper() { return m_colorBufferHelper; }
-    ColorBufferPtr findColorBuffer_locked(HandleType p_colorbuffer);
     ColorBufferPtr findColorBuffer(HandleType p_colorbuffer);
 
     void registerProcessCleanupCallback(void* key,
@@ -588,16 +588,22 @@ class FrameBuffer {
     void asyncWaitForGpuVulkanQsriWithCb(uint64_t image, FenceCompletionCallback cb);
     void waitForGpuVulkanQsri(uint64_t image);
 
-    bool platformImportResource(uint32_t handle, uint32_t type, void* resource);
+    bool platformImportResource(uint32_t handle, uint32_t info, void* resource);
     void* platformCreateSharedEglContext(void);
     bool platformDestroySharedEglContext(void* context);
 
     void setGuestManagedColorBufferLifetime(bool guestManaged);
 
-    VkImageLayout getVkImageLayoutForComposeLayer() const;
+    std::unique_ptr<BorrowedImageInfo> borrowColorBufferForComposition(uint32_t colorBufferHandle,
+                                                                       bool colorBufferIsTarget);
+    std::unique_ptr<BorrowedImageInfo> borrowColorBufferForDisplay(uint32_t colorBufferHandle);
+
+    HealthMonitor<>& getHealthMonitor();
 
    private:
     FrameBuffer(int p_width, int p_height, bool useSubWindow);
+    // Requires the caller to hold the m_colorBufferMapLock until the new handle is inserted into of
+    // the object handle maps.
     HandleType genHandle_locked();
 
     bool bindSubwin_locked();
@@ -620,13 +626,9 @@ class FrameBuffer {
     bool postImpl(HandleType p_colorbuffer, bool needLockAndBind = true,
                   bool repaint = false);
     void setGuestPostedAFrame() { m_guestPostedAFrame = true; }
-    HandleType createColorBufferLocked(int p_width, int p_height,
-                                       GLenum p_internalFormat,
-                                       FrameworkFormat p_frameworkFormat);
-    HandleType createColorBufferWithHandleLocked(
-        int p_width, int p_height, GLenum p_internalFormat,
-        FrameworkFormat p_frameworkFormat, HandleType handle);
-    HandleType createBufferLocked(int p_size);
+    HandleType createColorBufferWithHandleLocked(int p_width, int p_height, GLenum p_internalFormat,
+                                                 FrameworkFormat p_frameworkFormat,
+                                                 HandleType handle);
     HandleType createBufferWithHandleLocked(int p_size, HandleType handle);
 
     void recomputeLayout();
@@ -640,8 +642,8 @@ class FrameBuffer {
     int m_y = 0;
     int m_framebufferWidth = 0;
     int m_framebufferHeight = 0;
-    int m_windowWidth = 0;
-    int m_windowHeight = 0;
+    std::atomic_int m_windowWidth = 0;
+    std::atomic_int m_windowHeight = 0;
     float m_dpr = 0;
 
     bool m_useSubWindow = false;
@@ -655,6 +657,7 @@ class FrameBuffer {
     android::base::Thread* m_perfThread;
     android::base::Lock m_lock;
     android::base::ReadWriteLock m_contextStructureLock;
+    android::base::Lock m_colorBufferMapLock;
     FbConfigList* m_configs = nullptr;
     FBNativeWindowType m_nativeWindow = 0;
     FrameBufferCaps m_caps = {};
@@ -792,6 +795,12 @@ class FrameBuffer {
     android::base::MessageChannel<HandleType, 1024>
         mOutstandingColorBufferDestroys;
 
+    Compositor* m_compositor = nullptr;
+    // FrameBuffer owns the CompositorGl if used as there is no GlEmulation
+    // equivalent to VkEmulation,
+    std::unique_ptr<CompositorGl> m_compositorGl;
+    bool m_useVulkanComposition = false;
+
     // The implementation for Vulkan native swapchain. Only initialized when useVulkan is set when
     // calling FrameBuffer::initialize(). DisplayVk is actually owned by VkEmulation.
     DisplayVk *m_displayVk = nullptr;
@@ -812,5 +821,8 @@ class FrameBuffer {
         EGLSurface surface;
     };
     std::unordered_map<void*, PlatformEglContextInfo> m_platformEglContexts;
+
+    std::unique_ptr<MetricsLogger> m_logger;
+    HealthMonitor<> m_healthMonitor;
 };
 #endif

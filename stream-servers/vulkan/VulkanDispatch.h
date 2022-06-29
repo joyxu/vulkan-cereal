@@ -22,4 +22,4 @@ namespace emugl {
 VulkanDispatch* vkDispatch(bool forTesting = false);
 bool vkDispatchValid(const VulkanDispatch* vk);
 
-} // namespace emugl
+}  // namespace emugl

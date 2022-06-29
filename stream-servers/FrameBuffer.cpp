@@ -16,11 +16,13 @@
 
 #include "FrameBuffer.h"
 
-#include <iomanip>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 
+#include <iomanip>
+
+#include "CompositorGl.h"
 #include "DispatchTables.h"
 #include "GLESVersionDetector.h"
 #include "Hwc2.h"
@@ -33,6 +35,7 @@
 #include "base/Lock.h"
 #include "base/Lookup.h"
 #include "base/MemoryTracker.h"
+#include "base/Metrics.h"
 #include "base/SharedLibrary.h"
 #include "base/StreamSerializing.h"
 #include "base/System.h"
@@ -48,6 +51,7 @@
 #include "vulkan/VkDecoderGlobalState.h"
 
 using android::base::AutoLock;
+using android::base::ManagedDescriptor;
 using android::base::Stream;
 using android::base::WorkerProcessingResult;
 using emugl::ABORT_REASON_OTHER;
@@ -313,7 +317,10 @@ void FrameBuffer::finalize() {
     sweepColorBuffersLocked();
 
     m_buffers.clear();
-    m_colorbuffers.clear();
+    {
+        AutoLock lock(m_colorBufferMapLock);
+        m_colorbuffers.clear();
+    }
     m_colorBufferDelayedCloseList.clear();
     if (m_useSubWindow) {
         removeSubWindow_locked();
@@ -511,6 +518,9 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         feature_is_enabled(
             kFeature_GuestUsesAngle);
 
+    fb->m_useVulkanComposition = feature_is_enabled(kFeature_GuestUsesAngle) ||
+                                 feature_is_enabled(kFeature_VulkanNativeSwapchain);
+
     std::unique_ptr<goldfish_vk::VkEmulationFeatures> vkEmulationFeatures =
         std::make_unique<goldfish_vk::VkEmulationFeatures>(goldfish_vk::VkEmulationFeatures{
             .glInteropSupported = false,  // Set later.
@@ -521,6 +531,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
                 android::base::getEnvironmentVariable(
                     "ANDROID_EMU_VK_DISABLE_USE_CREATE_RESOURCES_WITH_REQUIREMENTS")
                     .empty(),
+            .useVulkanComposition = fb->m_useVulkanComposition,
             .useVulkanNativeSwapchain = feature_is_enabled(kFeature_VulkanNativeSwapchain),
             .guestRenderDoc = std::move(renderDocMultipleVkInstances),
         });
@@ -869,6 +880,19 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         }
     }
 
+    if (fb->m_useVulkanComposition) {
+        if (!vkEmu->compositorVk) {
+            ERR("Failed to get CompositorVk from VkEmulation.");
+            return false;
+        }
+        GL_LOG("Performing composition using CompositorVk.");
+        fb->m_compositor = vkEmu->compositorVk.get();
+    } else {
+        GL_LOG("Performing composition using CompositorGl.");
+        fb->m_compositorGl = std::make_unique<CompositorGl>();
+        fb->m_compositor = fb->m_compositorGl.get();
+    }
+
     INFO("Graphics Adapter Vendor %s", fb->m_graphicsAdapterVendor.c_str());
     INFO("Graphics Adapter %s", fb->m_graphicsAdapterName.c_str());
     INFO("Graphics API Version %s", fb->m_graphicsApiVersion.c_str());
@@ -878,7 +902,8 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     // Start up the single sync thread. If we are using Vulkan native
     // swapchain, then don't initialize SyncThread worker threads with EGL
     // contexts.
-    SyncThread::initialize(/* noGL */ fb->m_displayVk != nullptr);
+    SyncThread::initialize(
+        /* noGL */ fb->m_displayVk != nullptr, fb->getHealthMonitor());
 
     //
     // Keep the singleton framebuffer pointer
@@ -896,34 +921,20 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     return true;
 }
 
-bool FrameBuffer::importMemoryToColorBuffer(
-#ifdef _WIN32
-    void* handle,
-#else
-    int handle,
-#endif
-    uint64_t size, bool dedicated, bool vulkanOnly, uint32_t colorBufferHandle, VkImage image,
-    const VkImageCreateInfo& imageCi) {
+bool FrameBuffer::importMemoryToColorBuffer(ManagedDescriptor externalDescriptor, uint64_t size,
+                                            bool dedicated, bool vulkanOnly,
+                                            uint32_t colorBufferHandle, VkImage image,
+                                            const VkImageCreateInfo& imageCi) {
     AutoLock mutex(m_lock);
 
-    ColorBufferMap::iterator c(m_colorbuffers.find(colorBufferHandle));
-    if (c == m_colorbuffers.end()) {
+    ColorBufferPtr cb = findColorBuffer(colorBufferHandle);
+    if (!cb) {
         // bad colorbuffer handle
         ERR("FB: importMemoryToColorBuffer cb handle %#x not found", colorBufferHandle);
         return false;
     }
-
-    auto& cb = *c->second.cb;
-    std::shared_ptr<DisplayVk::DisplayBufferInfo> db = nullptr;
-    if (m_displayVk) {
-        db = m_displayVk->createDisplayBuffer(image, imageCi);
-        if (!db) {
-            ERR("Fail to create display buffer for ColorBuffer %" PRIu64 ".",
-                static_cast<uint64_t>(colorBufferHandle));
-        }
-    }
-    return cb.importMemory(handle, size, dedicated, imageCi.tiling == VK_IMAGE_TILING_LINEAR,
-                           vulkanOnly, std::move(db));
+    return cb->importMemory(std::move(externalDescriptor), size, dedicated,
+                            imageCi.tiling == VK_IMAGE_TILING_LINEAR, vulkanOnly);
 }
 
 void FrameBuffer::setColorBufferInUse(
@@ -932,14 +943,14 @@ void FrameBuffer::setColorBufferInUse(
 
     AutoLock mutex(m_lock);
 
-    ColorBufferMap::iterator c(m_colorbuffers.find(colorBufferHandle));
-    if (c == m_colorbuffers.end()) {
+    ColorBufferPtr colorBuffer = findColorBuffer(colorBufferHandle);
+    if (!colorBuffer) {
         // bad colorbuffer handle
         ERR("FB: setColorBufferInUse cb handle %#x not found", colorBufferHandle);
         return;
     }
 
-    (*c).second.cb->setInUse(inUse);
+    colorBuffer->setInUse(inUse);
 }
 
 void FrameBuffer::disableFastBlit() {
@@ -970,30 +981,26 @@ FrameBuffer::FrameBuffer(int p_width, int p_height, bool useSubWindow)
       m_windowHeight(p_height),
       m_useSubWindow(useSubWindow),
       m_fpsStats(getenv("SHOW_FPS_STATS") != nullptr),
-      m_perfStats(
-              !android::base::getEnvironmentVariable("SHOW_PERF_STATS").empty()),
+      m_perfStats(!android::base::getEnvironmentVariable("SHOW_PERF_STATS").empty()),
       m_perfThread(new PerfStatThread(&m_perfStats)),
       m_colorBufferHelper(new ColorBufferHelper(this)),
-      m_readbackThread([this](FrameBuffer::Readback&& readback) {
-          return sendReadbackWorkerCmd(readback);
-      }),
-      m_refCountPipeEnabled(feature_is_enabled(
-              kFeature_RefCountPipe)),
-      m_noDelayCloseColorBufferEnabled(feature_is_enabled(
-              kFeature_NoDelayCloseColorBuffer)),
-      m_postThread([this](Post&& post) {
-          return postWorkerFunc(post);
-      }) {
-     uint32_t displayId = 0;
-     if (createDisplay(&displayId) < 0) {
-         fprintf(stderr, "Failed to create default display\n");
-     }
+      m_readbackThread(
+          [this](FrameBuffer::Readback&& readback) { return sendReadbackWorkerCmd(readback); }),
+      m_refCountPipeEnabled(feature_is_enabled(kFeature_RefCountPipe)),
+      m_noDelayCloseColorBufferEnabled(feature_is_enabled(kFeature_NoDelayCloseColorBuffer)),
+      m_postThread([this](Post&& post) { return postWorkerFunc(post); }),
+      m_logger(CreateMetricsLogger()),
+      m_healthMonitor(*m_logger) {
+    uint32_t displayId = 0;
+    if (createDisplay(&displayId) < 0) {
+        fprintf(stderr, "Failed to create default display\n");
+    }
 
-     setDisplayPose(displayId, 0, 0, getWidth(), getHeight(), 0);
-     m_perfThread->start();
+    setDisplayPose(displayId, 0, 0, getWidth(), getHeight(), 0);
+    m_perfThread->start();
 
-     memset(m_vulkanUUID, 0x0, VK_UUID_SIZE);
-     memset(m_glesUUID, 0x0, GL_UUID_SIZE_EXT);
+    memset(m_vulkanUUID, 0x0, VK_UUID_SIZE);
+    memset(m_glesUUID, 0x0, GL_UUID_SIZE_EXT);
 }
 
 FrameBuffer::~FrameBuffer() {
@@ -1056,16 +1063,20 @@ WorkerProcessingResult FrameBuffer::postWorkerFunc(Post& post) {
             break;
         case PostCmd::Compose: {
             std::unique_ptr<FlatComposeRequest> composeRequest;
-            std::shared_ptr<Post::ComposeCallback> composeCallback;
+            std::unique_ptr<Post::ComposeCallback> composeCallback;
             if (post.composeVersion <= 1) {
                 composeCallback = std::move(post.composeCallback);
                 composeRequest = ToFlatComposeRequest((ComposeDevice*)post.composeBuffer.data());
             } else {
-                composeCallback = std::make_shared<Post::ComposeCallback>(
-                    [composeCallback =
-                         std::move(post.composeCallback)](std::shared_future<void> waitForGpu) {
+                // std::shared_ptr(std::move(...)) is WA for MSFT STL implementation bug:
+                // https://developercommunity.visualstudio.com/t/unable-to-move-stdpackaged-task-into-any-stl-conta/108672
+                auto packageComposeCallback =
+                    std::shared_ptr<Post::ComposeCallback>(std::move(post.composeCallback));
+                composeCallback = std::make_unique<Post::ComposeCallback>(
+                    [packageComposeCallback](
+                        std::shared_future<void> waitForGpu) {
                         SyncThread::get()->triggerGeneral(
-                            [composeCallback = std::move(composeCallback), waitForGpu] {
+                            [composeCallback = std::move(packageComposeCallback), waitForGpu] {
                                 (*composeCallback)(waitForGpu);
                             },
                             "Wait for host composition");
@@ -1119,18 +1130,37 @@ std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
                         return false;
                     }
                     INFO("Recreating swapchain...");
-                    m_displayVk->bindToSurface(m_vkSurface, static_cast<uint32_t>(m_windowWidth),
-                                             static_cast<uint32_t>(m_windowHeight));
+                    int maxRetries = 8;
+                    while (maxRetries>=0 && !m_displayVk->bindToSurface(
+                                                       m_vkSurface,
+                                                       static_cast<uint32_t>(m_windowWidth),
+                                                       static_cast<uint32_t>(m_windowHeight))) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                        --maxRetries;
+                        INFO("Swapchain recreation failed, retrying...");
+                    }
+                    if (maxRetries < 0) {
+                        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                            << "Failed to create Swapchain.";
+                    }
                     INFO("Recreating swapchain completes.");
                     return true;
                 }
                 if (m_subWin) {
-                    return bindSubwin_locked();
+                    if (!bindSubwin_locked()) {
+                        return false;
+                    }
                 } else {
-                    return bindFakeWindow_locked();
+                    if (!bindFakeWindow_locked()) {
+                        return false;
+                    }
                 }
+                if (m_compositorGl) {
+                    m_compositorGl->bindToWindow();
+                }
+                return true;
             },
-            postOnlyOnMainThread, m_eglContext, m_eglSurface, m_displayVk));
+            postOnlyOnMainThread, m_eglContext, m_eglSurface, m_compositor, m_displayVk));
         m_postThread.start();
     }
 
@@ -1465,20 +1495,21 @@ HandleType FrameBuffer::createColorBuffer(int p_width,
                                           FrameworkFormat p_frameworkFormat) {
 
     AutoLock mutex(m_lock);
-    return createColorBufferLocked(p_width, p_height, p_internalFormat,
-                                   p_frameworkFormat);
+    sweepColorBuffersLocked();
+    AutoLock colorBufferMapLock(m_colorBufferMapLock);
+
+    return createColorBufferWithHandleLocked(p_width, p_height, p_internalFormat, p_frameworkFormat,
+                                             genHandle_locked());
 }
 
-void FrameBuffer::createColorBufferWithHandle(
-     int p_width,
-     int p_height,
-     GLenum p_internalFormat,
-     FrameworkFormat p_frameworkFormat,
-     HandleType handle) {
-
-    HandleType resHandle;
+void FrameBuffer::createColorBufferWithHandle(int p_width, int p_height, GLenum p_internalFormat,
+                                              FrameworkFormat p_frameworkFormat,
+                                              HandleType handle) {
     {
         AutoLock mutex(m_lock);
+        sweepColorBuffersLocked();
+
+        AutoLock colorBufferMapLock(m_colorBufferMapLock);
 
         // Check for handle collision
         if (m_colorbuffers.count(handle) != 0) {
@@ -1488,12 +1519,14 @@ void FrameBuffer::createColorBufferWithHandle(
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER));
         }
 
-        resHandle = createColorBufferWithHandleLocked(
-            p_width, p_height, p_internalFormat, p_frameworkFormat,
-            handle);
+        handle = createColorBufferWithHandleLocked(p_width, p_height, p_internalFormat,
+                                                   p_frameworkFormat, handle);
+        if (!handle) {
+            return;
+        }
     }
 
-    if (m_displayVk && resHandle == handle) {
+    if (m_displayVk || m_guestUsesAngle) {
         goldfish_vk::setupVkColorBuffer(
             handle,
             false /* not vulkan only */,
@@ -1502,25 +1535,12 @@ void FrameBuffer::createColorBufferWithHandle(
     }
 }
 
-HandleType FrameBuffer::createColorBufferLocked(int p_width,
-                                                int p_height,
-                                                GLenum p_internalFormat,
-                                                FrameworkFormat p_frameworkFormat) {
-    sweepColorBuffersLocked();
-
-    return createColorBufferWithHandleLocked(
-        p_width, p_height, p_internalFormat, p_frameworkFormat,
-        genHandle_locked());
-}
-
 HandleType FrameBuffer::createColorBufferWithHandleLocked(
     int p_width,
     int p_height,
     GLenum p_internalFormat,
     FrameworkFormat p_frameworkFormat,
     HandleType handle) {
-
-    sweepColorBuffersLocked();
 
     ColorBufferPtr cb(ColorBuffer::create(getDisplay(), p_width, p_height,
                                           p_internalFormat, p_frameworkFormat,
@@ -1566,9 +1586,14 @@ HandleType FrameBuffer::createColorBufferWithHandleLocked(
 }
 
 HandleType FrameBuffer::createBuffer(uint64_t p_size, uint32_t memoryProperty) {
-    AutoLock mutex(m_lock);
-    HandleType handle = createBufferLocked(p_size);
-    m_lock.unlock();
+    HandleType handle = 0;
+    {
+        AutoLock mutex(m_lock);
+        // Hold the ColorBuffer map lock so that the new handle won't collide with a ColorBuffer
+        // handle.
+        AutoLock colorBufferMapLock(m_colorBufferMapLock);
+        handle = createBufferWithHandleLocked(p_size, genHandle_locked());
+    }
 
     bool setupStatus =
             goldfish_vk::setupVkBuffer(handle, /* vulkanOnly */ true, memoryProperty);
@@ -1576,18 +1601,8 @@ HandleType FrameBuffer::createBuffer(uint64_t p_size, uint32_t memoryProperty) {
     return handle;
 }
 
-HandleType FrameBuffer::createBufferLocked(int p_size) {
-    return createBufferWithHandleLocked(p_size, genHandle_locked());
-}
-
 HandleType FrameBuffer::createBufferWithHandleLocked(int p_size,
                                                      HandleType handle) {
-    if (m_colorbuffers.count(handle) != 0) {
-        // emugl::emugl_crash_reporter(
-        //         "FATAL: color buffer with handle %u already exists", handle);
-        // abort();
-    }
-
     if (m_buffers.count(handle) != 0) {
         // emugl::emugl_crash_reporter(
         //         "FATAL: buffer with handle %u already exists", handle);
@@ -1610,6 +1625,8 @@ HandleType FrameBuffer::createRenderContext(int p_config,
                                             GLESApi version) {
     AutoLock mutex(m_lock);
     android::base::AutoWriteLock contextLock(m_contextStructureLock);
+    // Hold the ColorBuffer map lock so that the new handle won't collide with a ColorBuffer handle.
+    AutoLock colorBufferMapLock(m_colorBufferMapLock);
     HandleType ret = 0;
 
     const FbConfig* config = getConfigs()->get(p_config);
@@ -1654,6 +1671,8 @@ HandleType FrameBuffer::createWindowSurface(int p_config,
                                             int p_width,
                                             int p_height) {
     AutoLock mutex(m_lock);
+    // Hold the ColorBuffer map lock so that the new handle won't collide with a ColorBuffer handle.
+    AutoLock colorBufferMapLock(m_colorBufferMapLock);
 
     HandleType ret = 0;
 
@@ -1814,15 +1833,18 @@ int FrameBuffer::openColorBuffer(HandleType p_colorbuffer) {
 
     AutoLock mutex(m_lock);
 
-    ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
-    if (c == m_colorbuffers.end()) {
-        // bad colorbuffer handle
-        ERR("FB: openColorBuffer cb handle %#x not found", p_colorbuffer);
-        return -1;
+    ColorBufferMap::iterator c;
+    {
+        AutoLock colorBuffermapLock(m_colorBufferMapLock);
+        c = m_colorbuffers.find(p_colorbuffer);
+        if (c == m_colorbuffers.end()) {
+            // bad colorbuffer handle
+            ERR("FB: openColorBuffer cb handle %#x not found", p_colorbuffer);
+            return -1;
+        }
+        c->second.refcount++;
+        markOpened(&c->second);
     }
-
-    c->second.refcount++;
-    markOpened(&c->second);
 
     uint64_t puid = tInfo ? tInfo->m_puid : 0;
     if (puid) {
@@ -1887,35 +1909,36 @@ bool FrameBuffer::closeColorBufferLocked(HandleType p_colorbuffer,
     if (m_refCountPipeEnabled) {
         return false;
     }
-
-    if (m_noDelayCloseColorBufferEnabled)
-        forced = true;
-
-    ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
-    if (c == m_colorbuffers.end()) {
-        // This is harmless: it is normal for guest system to issue
-        // closeColorBuffer command when the color buffer is already
-        // garbage collected on the host. (we dont have a mechanism
-        // to give guest a notice yet)
-        return false;
-    }
-
     bool deleted = false;
-    // The guest can and will gralloc_alloc/gralloc_free and then
-    // gralloc_register a buffer, due to API level (O+) or
-    // timing issues.
-    // So, we don't actually close the color buffer when refcount
-    // reached zero, unless it has been opened at least once already.
-    // Instead, put it on a 'delayed close' list to return to it later.
-    if (--c->second.refcount == 0) {
-        if (forced) {
-            eraseDelayedCloseColorBufferLocked(c->first, c->second.closedTs);
-            m_colorbuffers.erase(c);
-            deleted = true;
-        } else {
-            c->second.closedTs = android::base::getUnixTimeUs();
-            m_colorBufferDelayedCloseList.push_back(
-                    {c->second.closedTs, p_colorbuffer});
+    {
+        AutoLock colorBufferMapLock(m_colorBufferMapLock);
+
+        if (m_noDelayCloseColorBufferEnabled) forced = true;
+
+        ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
+        if (c == m_colorbuffers.end()) {
+            // This is harmless: it is normal for guest system to issue
+            // closeColorBuffer command when the color buffer is already
+            // garbage collected on the host. (we don't have a mechanism
+            // to give guest a notice yet)
+            return false;
+        }
+
+        // The guest can and will gralloc_alloc/gralloc_free and then
+        // gralloc_register a buffer, due to API level (O+) or
+        // timing issues.
+        // So, we don't actually close the color buffer when refcount
+        // reached zero, unless it has been opened at least once already.
+        // Instead, put it on a 'delayed close' list to return to it later.
+        if (--c->second.refcount == 0) {
+            if (forced) {
+                eraseDelayedCloseColorBufferLocked(c->first, c->second.closedTs);
+                m_colorbuffers.erase(c);
+                deleted = true;
+            } else {
+                c->second.closedTs = android::base::getUnixTimeUs();
+                m_colorBufferDelayedCloseList.push_back({c->second.closedTs, p_colorbuffer});
+            }
         }
     }
 
@@ -1937,6 +1960,7 @@ void FrameBuffer::performDelayedColorBufferCloseLocked(bool forced) {
            (forced ||
            it->ts + kColorBufferClosingDelaySec <= now)) {
         if (it->cbHandle != 0) {
+            AutoLock colorBufferMapLock(m_colorBufferMapLock);
             const auto& cb = m_colorbuffers.find(it->cbHandle);
             if (cb != m_colorbuffers.end()) {
                 m_colorbuffers.erase(cb);
@@ -2147,15 +2171,21 @@ bool FrameBuffer::setWindowSurfaceColorBuffer(HandleType p_surface,
         return false;
     }
 
-    ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
-    if (c == m_colorbuffers.end()) {
-        ERR("bad color buffer handle %#x", p_colorbuffer);
-        // bad colorbuffer handle
-        return false;
-    }
+    {
+        AutoLock colorBufferMapLock(m_colorBufferMapLock);
+        ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
+        if (c == m_colorbuffers.end()) {
+            ERR("bad color buffer handle %#x", p_colorbuffer);
+            // bad colorbuffer handle
+            return false;
+        }
 
-    (*w).second.first->setColorBuffer((*c).second.cb);
-    markOpened(&c->second);
+        (*w).second.first->setColorBuffer((*c).second.cb);
+        markOpened(&c->second);
+        if (!m_guestManagedColorBufferLifetime) {
+            c->second.refcount++;
+        }
+    }
     if (w->second.second) {
         if (!m_guestManagedColorBufferLifetime) {
             if (m_refCountPipeEnabled) {
@@ -2164,10 +2194,6 @@ bool FrameBuffer::setWindowSurfaceColorBuffer(HandleType p_surface,
                 closeColorBufferLocked(w->second.second);
             }
         }
-    }
-
-    if (!m_guestManagedColorBufferLifetime) {
-        c->second.refcount++;
     }
 
     (*w).second.second = p_colorbuffer;
@@ -2185,15 +2211,20 @@ void FrameBuffer::readColorBuffer(HandleType p_colorbuffer,
                                   GLenum format,
                                   GLenum type,
                                   void* pixels) {
+    if (m_guestUsesAngle) {
+        goldfish_vk::readColorBufferToBytes(p_colorbuffer, x, y, width, height, pixels);
+        return;
+    }
+
     AutoLock mutex(m_lock);
 
-    ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
-    if (c == m_colorbuffers.end()) {
+    ColorBufferPtr colorBuffer = findColorBuffer(p_colorbuffer);
+    if (!colorBuffer) {
         // bad colorbuffer handle
         return;
     }
 
-    (*c).second.cb->readPixels(x, y, width, height, format, type, pixels);
+    colorBuffer->readPixels(x, y, width, height, format, type, pixels);
 }
 
 void FrameBuffer::readColorBufferYUV(HandleType p_colorbuffer,
@@ -2203,15 +2234,20 @@ void FrameBuffer::readColorBufferYUV(HandleType p_colorbuffer,
                                      int height,
                                      void* pixels,
                                      uint32_t pixels_size) {
+    if (m_guestUsesAngle) {
+        goldfish_vk::readColorBufferToBytes(p_colorbuffer, x, y, width, height, pixels);
+        return;
+    }
+
     AutoLock mutex(m_lock);
 
-    ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
-    if (c == m_colorbuffers.end()) {
+    ColorBufferPtr colorBuffer = findColorBuffer(p_colorbuffer);
+    if (!colorBuffer) {
         // bad colorbuffer handle
         return;
     }
 
-    (*c).second.cb->readPixelsYUVCached(x, y, width, height, pixels, pixels_size);
+    colorBuffer->readPixelsYUVCached(x, y, width, height, pixels, pixels_size);
 }
 
 void FrameBuffer::createYUVTextures(uint32_t type,
@@ -2290,12 +2326,12 @@ void FrameBuffer::swapTexturesAndUpdateColorBuffer(uint32_t p_colorbuffer,
                                                    uint32_t* textures) {
     {
         AutoLock mutex(m_lock);
-        ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
-        if (c == m_colorbuffers.end()) {
+        ColorBufferPtr colorBuffer = findColorBuffer(p_colorbuffer);
+        if (!colorBuffer) {
             // bad colorbuffer handle
             return;
         }
-        (*c).second.cb->swapYUVTextures(texture_type, textures);
+        colorBuffer->swapYUVTextures(texture_type, textures);
     }
 
     updateColorBuffer(p_colorbuffer, x, y, width, height, format, type,
@@ -2314,15 +2350,19 @@ bool FrameBuffer::updateColorBuffer(HandleType p_colorbuffer,
         return false;
     }
 
+    if (m_guestUsesAngle) {
+        return goldfish_vk::updateColorBufferFromBytes(p_colorbuffer, x, y, width, height, pixels);
+    }
+
     AutoLock mutex(m_lock);
 
-    ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
-    if (c == m_colorbuffers.end()) {
+    ColorBufferPtr colorBuffer = findColorBuffer(p_colorbuffer);
+    if (!colorBuffer) {
         // bad colorbuffer handle
         return false;
     }
 
-    (*c).second.cb->subUpdate(x, y, width, height, format, type, pixels);
+    colorBuffer->subUpdate(x, y, width, height, format, type, pixels);
 
     return true;
 }
@@ -2331,13 +2371,13 @@ bool FrameBuffer::replaceColorBufferContents(
     HandleType p_colorbuffer, const void* pixels, size_t numBytes) {
     AutoLock mutex(m_lock);
 
-    ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
-    if (c == m_colorbuffers.end()) {
+    ColorBufferPtr colorBuffer = findColorBuffer(p_colorbuffer);
+    if (!colorBuffer) {
         // bad colorbuffer handle
         return false;
     }
 
-    return (*c).second.cb->replaceContents(pixels, numBytes);
+    return colorBuffer->replaceContents(pixels, numBytes);
 }
 
 bool FrameBuffer::readColorBufferContents(
@@ -2345,13 +2385,13 @@ bool FrameBuffer::readColorBufferContents(
 
     AutoLock mutex(m_lock);
 
-    ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
-    if (c == m_colorbuffers.end()) {
+    ColorBufferPtr colorBuffer = findColorBuffer(p_colorbuffer);
+    if (!colorBuffer) {
         // bad colorbuffer handle
         return false;
     }
 
-    return (*c).second.cb->readContents(numBytes, pixels);
+    return colorBuffer->readContents(numBytes, pixels);
 }
 
 bool FrameBuffer::getColorBufferInfo(
@@ -2360,19 +2400,17 @@ bool FrameBuffer::getColorBufferInfo(
 
     AutoLock mutex(m_lock);
 
-    ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
-    if (c == m_colorbuffers.end()) {
+    ColorBufferPtr colorBuffer = findColorBuffer(p_colorbuffer);
+    if (!colorBuffer) {
         // bad colorbuffer handle
         return false;
     }
 
-    auto cb = (*c).second.cb;
-
-    *width = cb->getWidth();
-    *height = cb->getHeight();
-    *internalformat = cb->getInternalFormat();
+    *width = colorBuffer->getWidth();
+    *height = colorBuffer->getHeight();
+    *internalformat = colorBuffer->getInternalFormat();
     if (frameworkFormat) {
-        *frameworkFormat = cb->getFrameworkFormat();
+        *frameworkFormat = colorBuffer->getFrameworkFormat();
     }
 
     return true;
@@ -2395,37 +2433,37 @@ bool FrameBuffer::getBufferInfo(HandleType p_buffer, int* size) {
 bool FrameBuffer::bindColorBufferToTexture(HandleType p_colorbuffer) {
     AutoLock mutex(m_lock);
 
-    ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
-    if (c == m_colorbuffers.end()) {
+    ColorBufferPtr colorBuffer = findColorBuffer(p_colorbuffer);
+    if (!colorBuffer) {
         // bad colorbuffer handle
         return false;
     }
 
-    return (*c).second.cb->bindToTexture();
+    return colorBuffer->bindToTexture();
 }
 
 bool FrameBuffer::bindColorBufferToTexture2(HandleType p_colorbuffer) {
     AutoLock mutex(m_lock);
 
-    ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
-    if (c == m_colorbuffers.end()) {
+    ColorBufferPtr colorBuffer = findColorBuffer(p_colorbuffer);
+    if (!colorBuffer) {
         // bad colorbuffer handle
         return false;
     }
 
-    return (*c).second.cb->bindToTexture2();
+    return colorBuffer->bindToTexture2();
 }
 
 bool FrameBuffer::bindColorBufferToRenderbuffer(HandleType p_colorbuffer) {
     AutoLock mutex(m_lock);
 
-    ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
-    if (c == m_colorbuffers.end()) {
+    ColorBufferPtr colorBuffer = findColorBuffer(p_colorbuffer);
+    if (!colorBuffer) {
         // bad colorbuffer handle
         return false;
     }
 
-    return (*c).second.cb->bindToRenderbuffer();
+    return colorBuffer->bindToRenderbuffer();
 }
 
 bool FrameBuffer::bindContext(HandleType p_context,
@@ -2520,14 +2558,6 @@ bool FrameBuffer::bindContext(HandleType p_context,
 
 RenderContextPtr FrameBuffer::getContext_locked(HandleType p_context) {
     return android::base::findOrDefault(m_contexts, p_context);
-}
-
-ColorBufferPtr FrameBuffer::getColorBuffer_locked(HandleType p_colorBuffer) {
-    auto i = m_colorbuffers.find(p_colorBuffer);
-    if (i == m_colorbuffers.end()) {
-        return nullptr;
-    }
-    return i->second.cb;
 }
 
 WindowSurfacePtr FrameBuffer::getWindowSurface_locked(HandleType p_windowsurface) {
@@ -2725,7 +2755,7 @@ void FrameBuffer::destroySharedTrivialContext(EGLContext context,
 
 bool FrameBuffer::post(HandleType p_colorbuffer, bool needLockAndBind) {
     if (m_guestUsesAngle) {
-        goldfish_vk::updateColorBufferFromVkImage(p_colorbuffer);
+        goldfish_vk::updateColorBufferFromGl(p_colorbuffer);
     }
 
     bool res = postImpl(p_colorbuffer, needLockAndBind);
@@ -2740,10 +2770,17 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
         m_lock.lock();
     }
     bool ret = false;
-    ColorBufferMap::iterator c;
 
-    c = m_colorbuffers.find(p_colorbuffer);
-    if (c == m_colorbuffers.end()) {
+    ColorBufferPtr colorBuffer = nullptr;
+    {
+        AutoLock colorBufferMapLock(m_colorBufferMapLock);
+        ColorBufferMap::iterator c = m_colorbuffers.find(p_colorbuffer);
+        if (c != m_colorbuffers.end()) {
+            colorBuffer = c->second.cb;
+            markOpened(&c->second);
+        }
+    }
+    if (!colorBuffer) {
         goto EXIT;
     }
 
@@ -2752,20 +2789,18 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
     ret = true;
 
     if (m_subWin) {
-        markOpened(&c->second);
-        c->second.cb->touch();
+        colorBuffer->touch();
 
         Post postCmd;
         postCmd.cmd = PostCmd::Post;
-        postCmd.cb = c->second.cb.get();
+        postCmd.cb = colorBuffer.get();
         std::future<void> completeFuture =
             sendPostWorkerCmd(std::move(postCmd));
         completeFuture.wait();
     } else {
-        markOpened(&c->second);
-        c->second.cb->touch();
-        c->second.cb->waitSync();
-        c->second.cb->scale();
+        colorBuffer->touch();
+        colorBuffer->waitSync();
+        colorBuffer->scale();
         s_gles2.glFlush();
 
         // If there is no sub-window, don't display anything, the client will
@@ -2798,7 +2833,7 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
     for (auto& iter : m_onPost) {
         ColorBufferPtr cb;
         if (iter.first == 0) {
-            cb = c->second.cb;
+            cb = colorBuffer;
         } else {
             uint32_t colorBuffer;
             if (getDisplayColorBuffer(iter.first, &colorBuffer) < 0) {
@@ -2806,8 +2841,7 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
                 continue;
             }
 
-            // Lock is already obtained, either above or in parent function.
-            cb = findColorBuffer_locked(colorBuffer);
+            cb = findColorBuffer(colorBuffer);
             if (!cb) {
                 ERR("Failed to find colorbuffer %d, skip onPost", colorBuffer);
                 continue;
@@ -2971,8 +3005,8 @@ void FrameBuffer::getScreenshot(unsigned int nChannels, unsigned int* width,
     if (displayId == 0) {
         cb = m_lastPostedColorBuffer;
     }
-    ColorBufferMap::iterator c(m_colorbuffers.find(cb));
-    if (c == m_colorbuffers.end()) {
+    ColorBufferPtr colorBuffer = findColorBuffer(cb);
+    if (!colorBuffer) {
         *width = 0;
         *height = 0;
         pixels.resize(0);
@@ -2990,7 +3024,7 @@ void FrameBuffer::getScreenshot(unsigned int nChannels, unsigned int* width,
 
     Post scrCmd;
     scrCmd.cmd = PostCmd::Screenshot;
-    scrCmd.screenshot.cb = c->second.cb.get();
+    scrCmd.screenshot.cb = colorBuffer.get();
     scrCmd.screenshot.screenwidth = *width;
     scrCmd.screenshot.screenheight = *height;
     scrCmd.screenshot.format = format;
@@ -3011,6 +3045,7 @@ void FrameBuffer::onLastColorBufferRef(uint32_t handle) {
 }
 
 bool FrameBuffer::decColorBufferRefCountLocked(HandleType p_colorbuffer) {
+    AutoLock colorBufferMapLock(m_colorBufferMapLock);
     const auto& it = m_colorbuffers.find(p_colorbuffer);
     if (it != m_colorbuffers.end()) {
         it->second.refcount -= 1;
@@ -3070,8 +3105,7 @@ bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
         composeCmd.composeVersion = 1;
         composeCmd.composeBuffer.resize(bufferSize);
         memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
-        composeCmd.composeCallback =
-            std::make_shared<Post::ComposeCallback>(callback);
+        composeCmd.composeCallback = std::make_unique<Post::ComposeCallback>(callback);
         composeCmd.cmd = PostCmd::Compose;
         sendPostWorkerCmd(std::move(composeCmd));
         return true;
@@ -3089,8 +3123,7 @@ bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
         composeCmd.composeVersion = 2;
         composeCmd.composeBuffer.resize(bufferSize);
         memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
-        composeCmd.composeCallback =
-            std::make_shared<Post::ComposeCallback>(callback);
+        composeCmd.composeCallback = std::make_unique<Post::ComposeCallback>(callback);
         composeCmd.cmd = PostCmd::Compose;
         sendPostWorkerCmd(std::move(composeCmd));
         return true;
@@ -3154,13 +3187,16 @@ void FrameBuffer::onSave(Stream* stream,
     // information to reconstruct it when loading.
     uint64_t now = android::base::getUnixTimeUs();
 
-    saveCollection(stream, m_colorbuffers,
-                   [now](Stream* s, const ColorBufferMap::value_type& pair) {
-        pair.second.cb->onSave(s);
-        s->putBe32(pair.second.refcount);
-        s->putByte(pair.second.opened);
-        s->putBe32(std::max<uint64_t>(0, now - pair.second.closedTs));
-    });
+    {
+        AutoLock colorBufferMapLock(m_colorBufferMapLock);
+        saveCollection(stream, m_colorbuffers,
+                       [now](Stream* s, const ColorBufferMap::value_type& pair) {
+                           pair.second.cb->onSave(s);
+                           s->putBe32(pair.second.refcount);
+                           s->putByte(pair.second.opened);
+                           s->putBe32(std::max<uint64_t>(0, now - pair.second.closedTs));
+                       });
+    }
     stream->putBe32(m_lastPostedColorBuffer);
     saveCollection(stream, m_windows,
                    [](Stream* s, const WindowSurfaceMap::value_type& pair) {
@@ -3204,18 +3240,23 @@ bool FrameBuffer::onLoad(Stream* stream,
         sweepColorBuffersLocked();
 
         ScopedBind scopedBind(m_colorBufferHelper);
-        if (m_procOwnedWindowSurfaces.empty() &&
-            m_procOwnedColorBuffers.empty() && m_procOwnedEGLImages.empty() &&
-            m_procOwnedRenderContext.empty() &&
-            m_procOwnedCleanupCallbacks.empty() &&
-            (!m_contexts.empty() || !m_windows.empty() ||
-             m_colorbuffers.size() > m_colorBufferDelayedCloseList.size())) {
-            // we are likely on a legacy system image, which does not have
-            // process owned objects. We need to force cleanup everything
-            m_contexts.clear();
-            m_windows.clear();
-            m_colorbuffers.clear();
-        } else {
+        bool cleanupComplete = false;
+        {
+            AutoLock colorBufferMapLock(m_colorBufferMapLock);
+            if (m_procOwnedWindowSurfaces.empty() && m_procOwnedColorBuffers.empty() &&
+                m_procOwnedEGLImages.empty() && m_procOwnedRenderContext.empty() &&
+                m_procOwnedCleanupCallbacks.empty() &&
+                (!m_contexts.empty() || !m_windows.empty() ||
+                 m_colorbuffers.size() > m_colorBufferDelayedCloseList.size())) {
+                // we are likely on a legacy system image, which does not have
+                // process owned objects. We need to force cleanup everything
+                m_contexts.clear();
+                m_windows.clear();
+                m_colorbuffers.clear();
+                cleanupComplete = true;
+            }
+        }
+        if (!cleanupComplete) {
             std::vector<HandleType> colorBuffersToCleanup;
 
             while (m_procOwnedWindowSurfaces.size()) {
@@ -3276,15 +3317,19 @@ bool FrameBuffer::onLoad(Stream* stream,
             }
 
             lock.lock();
+            cleanupComplete = true;
         }
         m_colorBufferDelayedCloseList.clear();
         assert(m_contexts.empty());
         assert(m_windows.empty());
-        if (!m_colorbuffers.empty()) {
-            ERR("warning: on load, stale colorbuffers: %zu", m_colorbuffers.size());
-            m_colorbuffers.clear();
+        {
+            AutoLock colorBufferMapLock(m_colorBufferMapLock);
+            if (!m_colorbuffers.empty()) {
+                ERR("warning: on load, stale colorbuffers: %zu", m_colorbuffers.size());
+                m_colorbuffers.clear();
+            }
+            assert(m_colorbuffers.empty());
         }
-        assert(m_colorbuffers.empty());
 #ifdef SNAPSHOT_PROFILE
         uint64_t texTime = android::base::getUnixTimeUs();
 #endif
@@ -3317,21 +3362,22 @@ bool FrameBuffer::onLoad(Stream* stream,
     assert(!android::base::find(m_contexts, 0));
 
     auto now = android::base::getUnixTimeUs();
-    loadCollection(stream, &m_colorbuffers,
-                   [this, now](Stream* stream) -> ColorBufferMap::value_type {
-        ColorBufferPtr cb(ColorBuffer::onLoad(stream, m_eglDisplay,
-                                              m_colorBufferHelper,
-                                              m_fastBlitSupported));
-        const HandleType handle = cb->getHndl();
-        const unsigned refCount = stream->getBe32();
-        const bool opened = stream->getByte();
-        const uint64_t closedTs = now - stream->getBe32();
-        if (refCount == 0) {
-            m_colorBufferDelayedCloseList.push_back({closedTs, handle});
-        }
-        return {handle, ColorBufferRef{std::move(cb), refCount, opened,
-                                       closedTs}};
-    });
+    {
+        AutoLock colorBufferMapLock(m_colorBufferMapLock);
+        loadCollection(
+            stream, &m_colorbuffers, [this, now](Stream* stream) -> ColorBufferMap::value_type {
+                ColorBufferPtr cb(ColorBuffer::onLoad(stream, m_eglDisplay, m_colorBufferHelper,
+                                                      m_fastBlitSupported));
+                const HandleType handle = cb->getHndl();
+                const unsigned refCount = stream->getBe32();
+                const bool opened = stream->getByte();
+                const uint64_t closedTs = now - stream->getBe32();
+                if (refCount == 0) {
+                    m_colorBufferDelayedCloseList.push_back({closedTs, handle});
+                }
+                return {handle, ColorBufferRef{std::move(cb), refCount, opened, closedTs}};
+            });
+    }
     m_lastPostedColorBuffer = static_cast<HandleType>(stream->getBe32());
     GL_LOG("Got lasted posted color buffer from snapshot");
 
@@ -3356,6 +3402,7 @@ bool FrameBuffer::onLoad(Stream* stream,
 
     {
         ScopedBind scopedBind(m_colorBufferHelper);
+        AutoLock colorBufferMapLock(m_colorBufferMapLock);
         for (auto& it : m_colorbuffers) {
             if (it.second.cb) {
                 it.second.cb->touch();
@@ -3385,7 +3432,8 @@ void FrameBuffer::unlock() {
     m_lock.unlock();
 }
 
-ColorBufferPtr FrameBuffer::findColorBuffer_locked(HandleType p_colorbuffer) {
+ColorBufferPtr FrameBuffer::findColorBuffer(HandleType p_colorbuffer) {
+    AutoLock colorBufferMapLock(m_colorBufferMapLock);
     ColorBufferMap::iterator c(m_colorbuffers.find(p_colorbuffer));
     if (c == m_colorbuffers.end()) {
         return nullptr;
@@ -3393,11 +3441,6 @@ ColorBufferPtr FrameBuffer::findColorBuffer_locked(HandleType p_colorbuffer) {
     else {
         return c->second.cb;
     }
-}
-
-ColorBufferPtr FrameBuffer::findColorBuffer(HandleType p_colorbuffer) {
-    AutoLock mutex(m_lock);
-    return findColorBuffer_locked(p_colorbuffer);
 }
 
 void FrameBuffer::registerProcessCleanupCallback(void* key, std::function<void()> cb) {
@@ -3554,31 +3597,29 @@ void FrameBuffer::setGuestManagedColorBufferLifetime(bool guestManaged) {
     m_guestManagedColorBufferLifetime = guestManaged;
 }
 
-VkImageLayout FrameBuffer::getVkImageLayoutForComposeLayer() const {
-    if (m_displayVk) {
-        return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    }
-    return VK_IMAGE_LAYOUT_GENERAL;
-}
+HealthMonitor<>& FrameBuffer::getHealthMonitor() { return m_healthMonitor; }
 
-bool FrameBuffer::platformImportResource(uint32_t handle, uint32_t type, void* resource) {
+bool FrameBuffer::platformImportResource(uint32_t handle, uint32_t info, void* resource) {
     if (!resource) {
         ERR("Error: resource was null");
     }
 
     AutoLock mutex(m_lock);
 
-    ColorBufferMap::iterator c(m_colorbuffers.find(handle));
-    if (c == m_colorbuffers.end()) {
+    ColorBufferPtr colorBuffer = findColorBuffer(handle);
+    if (!colorBuffer) {
         ERR("Error: resource %u not found as a ColorBuffer", handle);
         return false;
     }
 
+    uint32_t type = (info & RESOURCE_TYPE_MASK);
+    bool preserveContent = (info & RESOURCE_USE_PRESERVE);
+
     switch (type) {
         case RESOURCE_TYPE_EGL_NATIVE_PIXMAP:
-            return (*c).second.cb->importEglNativePixmap(resource);
+            return colorBuffer->importEglNativePixmap(resource, preserveContent);
         case RESOURCE_TYPE_EGL_IMAGE:
-            return (*c).second.cb->importEglImage(resource);
+            return colorBuffer->importEglImage(resource, preserveContent);
         default:
             ERR("Error: unsupported resource type: %u", type);
             return false;
@@ -3619,4 +3660,32 @@ bool FrameBuffer::platformDestroySharedEglContext(void* underlyingContext) {
     m_platformEglContexts.erase(it);
 
     return true;
+}
+
+std::unique_ptr<BorrowedImageInfo> FrameBuffer::borrowColorBufferForComposition(
+    uint32_t colorBufferHandle, bool colorBufferIsTarget) {
+    if (m_useVulkanComposition) {
+        return goldfish_vk::borrowColorBufferForComposition(colorBufferHandle, colorBufferIsTarget);
+    }
+
+    ColorBufferPtr colorBufferPtr = findColorBuffer(colorBufferHandle);
+    if (!colorBufferPtr) {
+        ERR("Failed to get borrowed image info for ColorBuffer:%d", colorBufferHandle);
+        return nullptr;
+    }
+    return colorBufferPtr->getBorrowedImageInfo();
+}
+
+std::unique_ptr<BorrowedImageInfo> FrameBuffer::borrowColorBufferForDisplay(
+        uint32_t colorBufferHandle) {
+    if (m_useVulkanComposition) {
+        return goldfish_vk::borrowColorBufferForDisplay(colorBufferHandle);
+    }
+
+    ColorBufferPtr colorBufferPtr = findColorBuffer(colorBufferHandle);
+    if (!colorBufferPtr) {
+        ERR("Failed to get borrowed image info for ColorBuffer:%d", colorBufferHandle);
+        return nullptr;
+    }
+    return colorBufferPtr->getBorrowedImageInfo();
 }

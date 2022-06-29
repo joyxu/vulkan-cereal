@@ -43,9 +43,11 @@ void destroyDisplay(EGLDisplay dpy);
 
 class GLTest : public ::testing::Test {
 protected:
+    static void SetUpTestSuite();
     virtual void SetUp();
     virtual void TearDown();
 
+    const GLESv1Dispatch* gles1;
     const GLESv2Dispatch* gl;
     EGLDisplay m_display;
     EGLConfig m_config;
@@ -53,4 +55,14 @@ protected:
     EGLContext m_context;
 };
 
+
+#define EMUGL_SKIP_TEST_IF(COND)                        \
+    do                                                  \
+    {                                                   \
+        if (COND)                                       \
+        {                                               \
+            GTEST_SKIP() << "Test skipped: " #COND "."; \
+            return;                                     \
+        }                                               \
+    } while (0)
 }  // namespace emugl
