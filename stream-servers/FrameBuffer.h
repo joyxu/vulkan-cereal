@@ -28,6 +28,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "Buffer.h"
 #include "ColorBuffer.h"
 #include "Compositor.h"
 #include "CompositorGl.h"

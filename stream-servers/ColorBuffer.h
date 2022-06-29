@@ -296,26 +296,4 @@ private:
 
 typedef std::shared_ptr<ColorBuffer> ColorBufferPtr;
 
-class Buffer : public android::snapshot::LazySnapshotObj<Buffer> {
-public:
-    static Buffer* create(size_t sizeBytes, HandleType hndl) {
-        return new Buffer(sizeBytes, hndl);
-    }
-
-    ~Buffer() = default;
-
-    HandleType getHndl() const { return m_handle; }
-    size_t getSize() const { return m_sizeBytes; }
-
-protected:
-    Buffer(size_t sizeBytes, HandleType hndl)
-        : m_handle(hndl), m_sizeBytes(sizeBytes) {}
-
-private:
-    HandleType m_handle;
-    size_t m_sizeBytes;
-};
-
-typedef std::shared_ptr<Buffer> BufferPtr;
-
 #endif

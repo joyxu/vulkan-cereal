@@ -1607,7 +1607,7 @@ HandleType FrameBuffer::createBufferWithHandleLocked(int p_size,
         // abort();
     }
 
-    BufferPtr buffer(Buffer::create(p_size, handle));
+    BufferPtr buffer(Buffer::create(p_size, handle, m_colorBufferHelper));
 
     if (buffer) {
         m_buffers[handle] = {std::move(buffer)};
