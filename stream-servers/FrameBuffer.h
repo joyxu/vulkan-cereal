@@ -28,6 +28,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "Buffer.h"
 #include "ColorBuffer.h"
 #include "Compositor.h"
 #include "CompositorGl.h"
@@ -541,7 +542,7 @@ class FrameBuffer {
                        int displayId, int desiredWidth, int desiredHeight,
                        int desiredRotation);
     void onLastColorBufferRef(uint32_t handle);
-    ColorBuffer::Helper* getColorBufferHelper() { return m_colorBufferHelper; }
+    ContextHelper* getColorBufferHelper() { return m_colorBufferHelper; }
     ColorBufferPtr findColorBuffer(HandleType p_colorbuffer);
 
     void registerProcessCleanupCallback(void* key,
@@ -685,7 +686,7 @@ class FrameBuffer {
     using ColorBufferDelayedClose = std::vector<ColorBufferCloseInfo>;
     ColorBufferDelayedClose m_colorBufferDelayedCloseList;
 
-    ColorBuffer::Helper* m_colorBufferHelper = nullptr;
+    ContextHelper* m_colorBufferHelper = nullptr;
 
     EGLSurface m_eglSurface = EGL_NO_SURFACE;
     EGLContext m_eglContext = EGL_NO_CONTEXT;

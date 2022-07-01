@@ -54,6 +54,7 @@ cc_library_shared {
         "liblog", // gfxstream_base uses this via perfetto-libperfettobase
     ],
     srcs: [
+        "Buffer.cpp",
         "ChannelStream.cpp",
         "ColorBuffer.cpp",
         "CompositorGl.cpp",
