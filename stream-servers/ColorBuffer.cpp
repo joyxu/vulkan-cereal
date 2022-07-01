@@ -81,8 +81,6 @@ void unbindFbo() {
 
 }
 
-ColorBuffer::Helper::~Helper() = default;
-
 static GLenum sGetUnsizedColorBufferFormat(GLenum format) {
     switch (format) {
         case GL_R8:
@@ -218,7 +216,7 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
                                  GLint p_internalFormat,
                                  FrameworkFormat p_frameworkFormat,
                                  HandleType hndl,
-                                 Helper* helper,
+                                 ContextHelper* helper,
                                  bool fastBlitSupported) {
     GLenum texFormat = 0;
     GLenum pixelType = GL_UNSIGNED_BYTE;
@@ -237,7 +235,7 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
     const unsigned long bufsize = ((unsigned long)bytesPerPixel) * p_width
             * p_height;
 
-    RecursiveScopedHelperContext context(helper);
+    RecursiveScopedContextBind context(helper);
     if (!context.isOk()) {
         return NULL;
     }
@@ -330,11 +328,11 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
     return cb;
 }
 
-ColorBuffer::ColorBuffer(EGLDisplay display, HandleType hndl, Helper* helper)
+ColorBuffer::ColorBuffer(EGLDisplay display, HandleType hndl, ContextHelper* helper)
     : m_display(display), m_helper(helper), mHndl(hndl) {}
 
 ColorBuffer::~ColorBuffer() {
-    RecursiveScopedHelperContext context(m_helper);
+    RecursiveScopedContextBind context(m_helper);
 
     if (m_blitEGLImage) {
         s_egl.eglDestroyImageKHR(m_display, m_blitEGLImage);
@@ -374,7 +372,7 @@ void ColorBuffer::readPixels(int x,
                              GLenum p_format,
                              GLenum p_type,
                              void* pixels) {
-    RecursiveScopedHelperContext context(m_helper);
+    RecursiveScopedContextBind context(m_helper);
     if (!context.isOk()) {
         return;
     }
@@ -402,7 +400,7 @@ void ColorBuffer::readPixelsScaled(int width,
                                    GLenum p_type,
                                    int rotation,
                                    void* pixels) {
-    RecursiveScopedHelperContext context(m_helper);
+    RecursiveScopedContextBind context(m_helper);
     if (!context.isOk()) {
         return;
     }
@@ -427,7 +425,7 @@ void ColorBuffer::readPixelsYUVCached(int x,
                                       int height,
                                       void* pixels,
                                       uint32_t pixels_size) {
-    RecursiveScopedHelperContext context(m_helper);
+    RecursiveScopedContextBind context(m_helper);
     if (!context.isOk()) {
         return;
     }
@@ -528,7 +526,7 @@ void ColorBuffer::subUpdate(int x,
                             GLenum p_type,
                             void* pixels) {
     const GLenum p_unsizedFormat = sGetUnsizedColorBufferFormat(p_format);
-    RecursiveScopedHelperContext context(m_helper);
+    RecursiveScopedContextBind context(m_helper);
     if (!context.isOk()) {
         return;
     }
@@ -571,7 +569,7 @@ void ColorBuffer::subUpdate(int x,
 }
 
 bool ColorBuffer::replaceContents(const void* newContents, size_t numBytes) {
-    RecursiveScopedHelperContext context(m_helper);
+    RecursiveScopedContextBind context(m_helper);
     if (!context.isOk()) {
         fprintf(stderr, "%s: Failed: Could not get current context\n", __func__);
         return false;
@@ -613,7 +611,7 @@ bool ColorBuffer::readContents(size_t* numBytes, void* pixels) {
         }
         return true;
     } else {
-        RecursiveScopedHelperContext context(m_helper);
+        RecursiveScopedContextBind context(m_helper);
         *numBytes = m_numBytes;
 
         if (!pixels) return true;
@@ -756,7 +754,7 @@ bool ColorBuffer::blitFromCurrentReadBuffer() {
             }
         }
 
-        RecursiveScopedHelperContext context(m_helper);
+        RecursiveScopedContextBind context(m_helper);
         if (!context.isOk()) {
             return false;
         }
@@ -859,7 +857,7 @@ bool ColorBuffer::postWithOverlay(GLuint tex, float rotation, float dx, float dy
 }
 
 void ColorBuffer::readback(unsigned char* img, bool readbackBgra) {
-    RecursiveScopedHelperContext context(m_helper);
+    RecursiveScopedContextBind context(m_helper);
     if (!context.isOk()) {
         return;
     }
@@ -878,7 +876,7 @@ void ColorBuffer::readback(unsigned char* img, bool readbackBgra) {
 }
 
 void ColorBuffer::readbackAsync(GLuint buffer, bool readbackBgra) {
-    RecursiveScopedHelperContext context(m_helper);
+    RecursiveScopedContextBind context(m_helper);
     if (!context.isOk()) {
         return;
     }
@@ -915,7 +913,7 @@ void ColorBuffer::onSave(android::base::Stream* stream) {
 
 ColorBuffer* ColorBuffer::onLoad(android::base::Stream* stream,
                                  EGLDisplay p_display,
-                                 Helper* helper,
+                                 ContextHelper* helper,
                                  bool fastBlitSupported) {
     HandleType hndl = static_cast<HandleType>(stream->getBe32());
     GLuint width = static_cast<GLuint>(stream->getBe32());
@@ -946,7 +944,7 @@ ColorBuffer* ColorBuffer::onLoad(android::base::Stream* stream,
 }
 
 void ColorBuffer::restore() {
-    RecursiveScopedHelperContext context(m_helper);
+    RecursiveScopedContextBind context(m_helper);
     s_gles2.glGenTextures(1, &m_tex);
     s_gles2.glBindTexture(GL_TEXTURE_2D, m_tex);
     s_gles2.glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, m_eglImage);
@@ -984,7 +982,7 @@ void ColorBuffer::postLayer(const ComposeLayer& l, int frameWidth, int frameHeig
 
 bool ColorBuffer::importMemory(ManagedDescriptor externalDescriptor, uint64_t size, bool dedicated,
                                bool linearTiling, bool vulkanOnly) {
-    RecursiveScopedHelperContext context(m_helper);
+    RecursiveScopedContextBind context(m_helper);
     s_gles2.glCreateMemoryObjectsEXT(1, &m_memoryObject);
     if (dedicated) {
         static const GLint DEDICATED_FLAG = GL_TRUE;
@@ -1136,7 +1134,7 @@ void ColorBuffer::restoreEglImage(EGLImageKHR image) {
 }
 
 void ColorBuffer::rebindEglImage(EGLImageKHR image, bool preserveContent) {
-    RecursiveScopedHelperContext context(m_helper);
+    RecursiveScopedContextBind context(m_helper);
 
     std::vector<uint8_t> contents;
     if (preserveContent) {

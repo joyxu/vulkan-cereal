@@ -23,6 +23,7 @@
 #include <iomanip>
 
 #include "CompositorGl.h"
+#include "ContextHelper.h"
 #include "DispatchTables.h"
 #include "GLESVersionDetector.h"
 #include "Hwc2.h"
@@ -78,14 +79,11 @@ static void GL_APIENTRY GlDebugCallback(GLenum source,
     GL_LOG("message:%s", message);
 }
 
-// Helper class to call the bind_locked() / unbind_locked() properly.
-typedef ColorBuffer::RecursiveScopedHelperContext ScopedBind;
-
 // Implementation of a ColorBuffer::Helper instance that redirects calls
 // to a FrameBuffer instance.
-class ColorBufferHelper : public ColorBuffer::Helper {
+class FrameBufferContextHelper : public ContextHelper {
    public:
-    ColorBufferHelper(FrameBuffer* fb) : mFb(fb) {}
+    FrameBufferContextHelper(FrameBuffer* fb) : mFb(fb) {}
 
     virtual bool setupContext() override {
         mIsBound = mFb->bind_locked();
@@ -375,7 +373,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         return false;
     }
 
-    std::unique_ptr<ScopedBind> eglColorBufferBind;
+    std::unique_ptr<RecursiveScopedContextBind> eglColorBufferBind;
 
     std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> renderDocMultipleVkInstances = nullptr;
     if (!android::base::getEnvironmentVariable("ANDROID_EMU_RENDERDOC").empty()) {
@@ -638,7 +636,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
 
     GL_LOG("attempting to make context current");
     // Make the context current
-    eglColorBufferBind = std::make_unique<ScopedBind>(fb->m_colorBufferHelper);
+    eglColorBufferBind = std::make_unique<RecursiveScopedContextBind>(fb->m_colorBufferHelper);
     if (!eglColorBufferBind->isOk()) {
         ERR("Failed to make current");
         return false;
@@ -983,7 +981,7 @@ FrameBuffer::FrameBuffer(int p_width, int p_height, bool useSubWindow)
       m_fpsStats(getenv("SHOW_FPS_STATS") != nullptr),
       m_perfStats(!android::base::getEnvironmentVariable("SHOW_PERF_STATS").empty()),
       m_perfThread(new PerfStatThread(&m_perfStats)),
-      m_colorBufferHelper(new ColorBufferHelper(this)),
+      m_colorBufferHelper(new FrameBufferContextHelper(this)),
       m_readbackThread(
           [this](FrameBuffer::Readback&& readback) { return sendReadbackWorkerCmd(readback); }),
       m_refCountPipeEnabled(feature_is_enabled(kFeature_RefCountPipe)),
@@ -1609,7 +1607,7 @@ HandleType FrameBuffer::createBufferWithHandleLocked(int p_size,
         // abort();
     }
 
-    BufferPtr buffer(Buffer::create(p_size, handle));
+    BufferPtr buffer(Buffer::create(p_size, handle, m_colorBufferHelper));
 
     if (buffer) {
         m_buffers[handle] = {std::move(buffer)};
@@ -1728,7 +1726,7 @@ void FrameBuffer::drainWindowSurface() {
     std::vector<HandleType> colorBuffersToCleanup;
 
     AutoLock mutex(m_lock);
-    ScopedBind bind(m_colorBufferHelper);
+    RecursiveScopedContextBind bind(m_colorBufferHelper);
     for (const HandleType winHandle : tinfo->m_windowSet) {
         const auto winIt = m_windows.find(winHandle);
         if (winIt != m_windows.end()) {
@@ -1796,7 +1794,7 @@ std::vector<HandleType> FrameBuffer::DestroyWindowSurfaceLocked(HandleType p_sur
     std::vector<HandleType> colorBuffersToCleanUp;
     const auto w = m_windows.find(p_surface);
     if (w != m_windows.end()) {
-        ScopedBind bind(m_colorBufferHelper);
+        RecursiveScopedContextBind bind(m_colorBufferHelper);
         if (!m_guestManagedColorBufferLifetime) {
             if (m_refCountPipeEnabled) {
                 if (decColorBufferRefCountLocked(w->second.second)) {
@@ -2049,7 +2047,7 @@ void FrameBuffer::cleanupProcGLObjects(uint64_t puid) {
 std::vector<HandleType> FrameBuffer::cleanupProcGLObjects_locked(uint64_t puid, bool forced) {
     std::vector<HandleType> colorBuffersToCleanup;
     {
-        ScopedBind bind(m_colorBufferHelper);
+        RecursiveScopedContextBind bind(m_colorBufferHelper);
         // Clean up window surfaces
         {
             auto procIte = m_procOwnedWindowSurfaces.find(puid);
@@ -2257,7 +2255,7 @@ void FrameBuffer::createYUVTextures(uint32_t type,
                                     uint32_t* output) {
     FrameworkFormat format = static_cast<FrameworkFormat>(type);
     AutoLock mutex(m_lock);
-    ScopedBind bind(m_colorBufferHelper);
+    RecursiveScopedContextBind bind(m_colorBufferHelper);
     for (uint32_t i = 0; i < count; ++i) {
         if (format == FRAMEWORK_FORMAT_NV12) {
             YUVConverter::createYUVGLTex(GL_TEXTURE0, width, height,
@@ -2279,7 +2277,7 @@ void FrameBuffer::destroyYUVTextures(uint32_t type,
                                      uint32_t count,
                                      uint32_t* textures) {
     AutoLock mutex(m_lock);
-    ScopedBind bind(m_colorBufferHelper);
+    RecursiveScopedContextBind bind(m_colorBufferHelper);
     if (type == FRAMEWORK_FORMAT_NV12) {
         s_gles2.glDeleteTextures(2 * count, textures);
     } else if (type == FRAMEWORK_FORMAT_YUV_420_888) {
@@ -2298,7 +2296,7 @@ void FrameBuffer::updateYUVTextures(uint32_t type,
                                     void* privData,
                                     void* func) {
     AutoLock mutex(m_lock);
-    ScopedBind bind(m_colorBufferHelper);
+    RecursiveScopedContextBind bind(m_colorBufferHelper);
 
     yuv_updater_t updater = (yuv_updater_t)func;
     uint32_t gtextures[3] = {0, 0, 0};
@@ -3147,7 +3145,7 @@ void FrameBuffer::onSave(Stream* stream,
     //     m_prevDrawSurf
     AutoLock mutex(m_lock);
     // set up a context because some snapshot commands try using GL
-    ScopedBind scopedBind(m_colorBufferHelper);
+    RecursiveScopedContextBind scopedBind(m_colorBufferHelper);
     // eglPreSaveContext labels all guest context textures to be saved
     // (textures created by the host are not saved!)
     // eglSaveAllImages labels all EGLImages (both host and guest) to be saved
@@ -3239,7 +3237,7 @@ bool FrameBuffer::onLoad(Stream* stream,
     {
         sweepColorBuffersLocked();
 
-        ScopedBind scopedBind(m_colorBufferHelper);
+        RecursiveScopedContextBind scopedBind(m_colorBufferHelper);
         bool cleanupComplete = false;
         {
             AutoLock colorBufferMapLock(m_colorBufferMapLock);
@@ -3401,7 +3399,7 @@ bool FrameBuffer::onLoad(Stream* stream,
     registerTriggerWait();
 
     {
-        ScopedBind scopedBind(m_colorBufferHelper);
+        RecursiveScopedContextBind scopedBind(m_colorBufferHelper);
         AutoLock colorBufferMapLock(m_colorBufferMapLock);
         for (auto& it : m_colorbuffers) {
             if (it.second.cb) {
