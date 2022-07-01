@@ -47,6 +47,7 @@ void logEventHangMetadata(const EventHangMetadata* metadata) {
     ERR("\t function: %s", metadata->function);
     ERR("\t line: %d", metadata->line);
     ERR("\t msg: %s", metadata->msg);
+    ERR("\t thread: %d (0x%08x)", metadata->threadId, metadata->threadId);
     if (metadata->data) {
         ERR("\t Additional information:");
         for (auto& [key, value] : *metadata->data) {
@@ -83,6 +84,13 @@ struct MetricTypeVisitor {
                 "gfxstream_hang_line", std::to_string(hangEvent.metadata->line).c_str());
             MetricsLogger::set_crash_annotation_callback("gfxstream_hang_msg",
                                                          hangEvent.metadata->msg);
+            std::stringstream threadDesc;
+            threadDesc << hangEvent.metadata->threadId << " (0x" << std::hex
+                       << hangEvent.metadata->threadId << ")";
+            std::string threadStr = threadDesc.str();
+            MetricsLogger::set_crash_annotation_callback("gfxstream_hang_thread",
+                                                         threadStr.c_str());
+
             if (hangEvent.metadata->data) {
                 for (auto& [key, value] : *hangEvent.metadata->data) {
                     MetricsLogger::set_crash_annotation_callback(key.c_str(), value.c_str());
@@ -114,6 +122,7 @@ struct MetricTypeVisitor {
             MetricsLogger::set_crash_annotation_callback("gfxstream_hang_function", "");
             MetricsLogger::set_crash_annotation_callback("gfxstream_hang_line", "");
             MetricsLogger::set_crash_annotation_callback("gfxstream_hang_msg", "");
+            MetricsLogger::set_crash_annotation_callback("gfxstream_hang_thread", "");
             if (hangEvent.metadata->data) {
                 for (auto& [key, value] : *hangEvent.metadata->data) {
                     MetricsLogger::set_crash_annotation_callback(key.c_str(), "");
