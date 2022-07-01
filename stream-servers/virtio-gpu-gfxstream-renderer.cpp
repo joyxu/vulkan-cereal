@@ -177,7 +177,7 @@ struct PipeResEntry {
     VirtioGpuCtxId ctxId;
     uint64_t hva;
     uint64_t hvaSize;
-    uint64_t hvaId;
+    uint64_t blobId;
     uint32_t hvSlot;
     uint32_t caching;
 };
@@ -984,7 +984,7 @@ public:
         e.hostPipe = 0;
         e.hva = 0;
         e.hvaSize = 0;
-        e.hvaId = 0;
+        e.blobId = 0;
         e.hvSlot = 0;
         allocResource(e, iov, num_iovs);
 
@@ -1029,21 +1029,9 @@ public:
             entry.numIovs = 0;
         }
 
-        if (entry.hvaId) {
-            // gfxstream manages when to actually remove the hostmem id and storage
-            //
-            // fprintf(stderr, "%s: unref a hostmem resource. hostmem id: 0x%llx\n", __func__,
-            //         (unsigned long long)(entry.hvaId));
-            // HostmemIdMapping::get()->remove(entry.hvaId);
-            // auto ownedIt = mOwnedHostmemIdBuffers.find(entry.hvaId);
-            // if (ownedIt != mOwnedHostmemIdBuffers.end()) {
-            //      // android::aligned_buf_free(ownedIt->second);
-            // }
-        }
-
         entry.hva = 0;
         entry.hvaSize = 0;
-        entry.hvaId = 0;
+        entry.blobId = 0;
         entry.hvSlot = 0;
 
         mResources.erase(it);
@@ -1387,26 +1375,22 @@ public:
         }
     }
 
-    void createResourceV2(uint32_t res_handle, uint64_t hvaId) {
+    void createBlob(uint32_t ctx_id, uint32_t res_handle,
+                    const struct stream_renderer_create_blob* create_blob,
+                    const struct stream_renderer_handle* handle) {
+
         PipeResEntry e;
-        struct virgl_renderer_resource_create_args args = {
-            res_handle,
-            PIPE_BUFFER,
-            VIRGL_FORMAT_R8_UNORM,
-            PIPE_BIND_COMMAND_ARGS_BUFFER,
-            0, 1, 1,
-            0, 0, 0, 0
-        };
+        struct virgl_renderer_resource_create_args args = { 0 };
         e.args = args;
         e.hostPipe = 0;
 
-        auto entry = HostmemIdMapping::get()->get(hvaId);
+        auto entry = HostmemIdMapping::get()->get(create_blob->blob_id);
 
         e.hva = entry.hva;
         e.hvaSize = entry.size;
         e.args.width = entry.size;
         e.caching = entry.caching;
-        e.hvaId = hvaId;
+        e.blobId = create_blob->blob_id;
         e.hvSlot = 0;
         e.iov = nullptr;
         e.numIovs = 0;
@@ -1700,7 +1684,7 @@ VG_EXPORT int stream_renderer_create_blob(uint32_t ctx_id, uint32_t res_handle,
                                           const struct stream_renderer_create_blob* create_blob,
                                           const struct iovec* iovecs, uint32_t num_iovs,
                                           const struct stream_renderer_handle* handle) {
-    sRenderer()->createResourceV2(res_handle, create_blob->blob_id);
+    sRenderer()->createBlob(ctx_id, res_handle, create_blob, handle);
     return 0;
 }
 
