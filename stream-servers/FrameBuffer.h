@@ -409,6 +409,10 @@ class FrameBuffer {
     // acquiring/releasing the FrameBuffer instance's lock and binding the
     // contexts. It should be |false| only when called internally.
     bool post(HandleType p_colorbuffer, bool needLockAndBind = true);
+    // The callback will always be called; however, the callback may not be called
+    // until after this function has returned. If the callback is deferred, then it
+    // will be dispatched to run on SyncThread.
+    void postWithCallback(HandleType p_colorbuffer, Post::CompletionCallback callback, bool needLockAndBind = true);
     bool hasGuestPostedAFrame() { return m_guestPostedAFrame; }
     void resetGuestPostedAFrame() { m_guestPostedAFrame = false; }
 
@@ -498,7 +502,7 @@ class FrameBuffer {
     // When false is returned, the callback won't be called. The callback will
     // be called on the PostWorker thread without blocking the current thread.
     bool composeWithCallback(uint32_t bufferSize, void* buffer,
-                             Post::ComposeCallback callback);
+                             Post::CompletionCallback callback);
 
     ~FrameBuffer();
 
@@ -624,8 +628,9 @@ class FrameBuffer {
     void performDelayedColorBufferCloseLocked(bool forced = false);
     void eraseDelayedCloseColorBufferLocked(HandleType cb, uint64_t ts);
 
-    bool postImpl(HandleType p_colorbuffer, bool needLockAndBind = true,
-                  bool repaint = false);
+    bool postImpl(HandleType p_colorbuffer, Post::CompletionCallback callback,
+                  bool needLockAndBind = true, bool repaint = false);
+    bool postImplSync(HandleType p_colorbuffer, bool needLockAndBind = true, bool repaint = false);
     void setGuestPostedAFrame() { m_guestPostedAFrame = true; }
     HandleType createColorBufferWithHandleLocked(int p_width, int p_height, GLenum p_internalFormat,
                                                  FrameworkFormat p_frameworkFormat,
@@ -637,6 +642,7 @@ class FrameBuffer {
     void sweepColorBuffersLocked();
 
    private:
+
     static FrameBuffer* s_theFrameBuffer;
     static HandleType s_nextHandle;
     int m_x = 0;

@@ -1052,25 +1052,38 @@ FrameBuffer::sendReadbackWorkerCmd(const Readback& readback) {
 
 WorkerProcessingResult FrameBuffer::postWorkerFunc(Post& post) {
     switch (post.cmd) {
-        case PostCmd::Post:
-            m_postWorker->post(post.cb);
+        case PostCmd::Post: {
+            // We wrap the callback like this to workaround a bug in the MS STL implementation.
+            auto packagePostCmdCallback =
+                std::shared_ptr<Post::CompletionCallback>(std::move(post.completionCallback));
+            std::unique_ptr<Post::CompletionCallback> postCallback =
+                std::make_unique<Post::CompletionCallback>(
+                    [packagePostCmdCallback](std::shared_future<void> waitForGpu) {
+                        SyncThread::get()->triggerGeneral(
+                            [composeCallback = std::move(packagePostCmdCallback), waitForGpu] {
+                                (*composeCallback)(waitForGpu);
+                            },
+                            "Wait for post");
+                    });
+            m_postWorker->post(post.cb, std::move(postCallback));
             break;
+        }
         case PostCmd::Viewport:
             m_postWorker->viewport(post.viewport.width,
                                    post.viewport.height);
             break;
         case PostCmd::Compose: {
             std::unique_ptr<FlatComposeRequest> composeRequest;
-            std::unique_ptr<Post::ComposeCallback> composeCallback;
+            std::unique_ptr<Post::CompletionCallback> composeCallback;
             if (post.composeVersion <= 1) {
-                composeCallback = std::move(post.composeCallback);
+                composeCallback = std::move(post.completionCallback);
                 composeRequest = ToFlatComposeRequest((ComposeDevice*)post.composeBuffer.data());
             } else {
                 // std::shared_ptr(std::move(...)) is WA for MSFT STL implementation bug:
                 // https://developercommunity.visualstudio.com/t/unable-to-move-stdpackaged-task-into-any-stl-conta/108672
                 auto packageComposeCallback =
-                    std::shared_ptr<Post::ComposeCallback>(std::move(post.composeCallback));
-                composeCallback = std::make_unique<Post::ComposeCallback>(
+                    std::shared_ptr<Post::CompletionCallback>(std::move(post.completionCallback));
+                composeCallback = std::make_unique<Post::CompletionCallback>(
                     [packageComposeCallback](
                         std::shared_future<void> waitForGpu) {
                         SyncThread::get()->triggerGeneral(
@@ -1404,7 +1417,7 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
 
                 if (m_lastPostedColorBuffer) {
                     GL_LOG("setupSubwindow: draw last posted cb");
-                    posted = postImpl(m_lastPostedColorBuffer, false);
+                    posted = postImplSync(m_lastPostedColorBuffer, false);
                 }
 
                 if (!posted) {
@@ -2756,12 +2769,48 @@ bool FrameBuffer::post(HandleType p_colorbuffer, bool needLockAndBind) {
         goldfish_vk::updateColorBufferFromGl(p_colorbuffer);
     }
 
-    bool res = postImpl(p_colorbuffer, needLockAndBind);
+    auto res = postImplSync(p_colorbuffer, needLockAndBind);
     if (res) setGuestPostedAFrame();
     return res;
 }
 
+void FrameBuffer::postWithCallback(HandleType p_colorbuffer, Post::CompletionCallback callback,
+                                   bool needLockAndBind) {
+    if (m_guestUsesAngle) {
+        goldfish_vk::updateColorBufferFromGl(p_colorbuffer);
+    }
+
+    bool res = postImpl(p_colorbuffer, callback, needLockAndBind);
+    if (res) setGuestPostedAFrame();
+    // If postImpl fails, we have not fired the callback. postWithCallback
+    // should always ensure the callback fires.
+    if (!res) {
+        std::shared_future<void> res = std::async(std::launch::deferred, [] {});
+        callback(res);
+    }
+}
+
+bool FrameBuffer::postImplSync(HandleType p_colorbuffer,
+    bool needLockAndBind,
+    bool repaint) {
+    std::promise<void> promise;
+    std::future<void> completeFuture = promise.get_future();
+    auto posted = postImpl(
+        m_lastPostedColorBuffer,
+        [&](std::shared_future<void> waitForGpu) {
+            waitForGpu.wait();
+            promise.set_value();
+        },
+        needLockAndBind, repaint);
+    if (posted) {
+        completeFuture.wait();
+    }
+
+    return posted;
+}
+
 bool FrameBuffer::postImpl(HandleType p_colorbuffer,
+                           Post::CompletionCallback callback,
                            bool needLockAndBind,
                            bool repaint) {
     if (needLockAndBind) {
@@ -2792,9 +2841,8 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
         Post postCmd;
         postCmd.cmd = PostCmd::Post;
         postCmd.cb = colorBuffer.get();
-        std::future<void> completeFuture =
-            sendPostWorkerCmd(std::move(postCmd));
-        completeFuture.wait();
+        postCmd.completionCallback = std::make_unique<Post::CompletionCallback>(callback);
+        sendPostWorkerCmd(std::move(postCmd));
     } else {
         colorBuffer->touch();
         colorBuffer->waitSync();
@@ -2930,8 +2978,7 @@ bool FrameBuffer::repost(bool needLockAndBind) {
     if (m_lastPostedColorBuffer &&
         sInitialized.load(std::memory_order_relaxed)) {
         GL_LOG("Has last posted colorbuffer and is initialized; post.");
-        return postImpl(m_lastPostedColorBuffer, needLockAndBind,
-                        true /* need repaint */);
+        return postImplSync(m_lastPostedColorBuffer, needLockAndBind, true);
     } else {
         GL_LOG("No repost: no last posted color buffer");
         if (!sInitialized.load(std::memory_order_relaxed)) {
@@ -3093,7 +3140,7 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
 }
 
 bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
-                                      Post::ComposeCallback callback) {
+                                      Post::CompletionCallback callback) {
     ComposeDevice* p = (ComposeDevice*)buffer;
     AutoLock mutex(m_lock);
 
@@ -3103,7 +3150,7 @@ bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
         composeCmd.composeVersion = 1;
         composeCmd.composeBuffer.resize(bufferSize);
         memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
-        composeCmd.composeCallback = std::make_unique<Post::ComposeCallback>(callback);
+        composeCmd.completionCallback = std::make_unique<Post::CompletionCallback>(callback);
         composeCmd.cmd = PostCmd::Compose;
         sendPostWorkerCmd(std::move(composeCmd));
         return true;
@@ -3121,7 +3168,7 @@ bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
         composeCmd.composeVersion = 2;
         composeCmd.composeBuffer.resize(bufferSize);
         memcpy(composeCmd.composeBuffer.data(), buffer, bufferSize);
-        composeCmd.composeCallback = std::make_unique<Post::ComposeCallback>(callback);
+        composeCmd.completionCallback = std::make_unique<Post::CompletionCallback>(callback);
         composeCmd.cmd = PostCmd::Compose;
         sendPostWorkerCmd(std::move(composeCmd));
         return true;

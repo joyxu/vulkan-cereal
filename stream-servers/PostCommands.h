@@ -20,12 +20,12 @@ enum class PostCmd {
 };
 
 struct Post {
-    using ComposeCallback =
+    using CompletionCallback =
         std::function<void(std::shared_future<void> waitForGpu)>;
     PostCmd cmd;
     int composeVersion;
     std::vector<char> composeBuffer;
-    std::unique_ptr<ComposeCallback> composeCallback = nullptr;
+    std::unique_ptr<CompletionCallback> completionCallback = nullptr;
     union {
         ColorBuffer* cb;
         struct {
