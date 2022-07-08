@@ -2780,13 +2780,16 @@ void FrameBuffer::postWithCallback(HandleType p_colorbuffer, Post::CompletionCal
         goldfish_vk::updateColorBufferFromGl(p_colorbuffer);
     }
 
-    bool res = postImpl(p_colorbuffer, callback, needLockAndBind);
-    if (res) setGuestPostedAFrame();
-    // If postImpl fails, we have not fired the callback. postWithCallback
-    // should always ensure the callback fires.
-    if (!res) {
-        std::shared_future<void> res = std::async(std::launch::deferred, [] {});
-        callback(res);
+    AsyncResult res = postImpl(p_colorbuffer, callback, needLockAndBind);
+    if (res.Succeeded()) {
+        setGuestPostedAFrame();
+    }
+
+    if (!res.CallbackScheduledOrFired()) {
+        // If postImpl fails, we have not fired the callback. postWithCallback
+        // should always ensure the callback fires.
+        std::shared_future<void> callbackRes = std::async(std::launch::deferred, [] {});
+        callback(callbackRes);
     }
 }
 
@@ -2802,21 +2805,21 @@ bool FrameBuffer::postImplSync(HandleType p_colorbuffer,
             promise.set_value();
         },
         needLockAndBind, repaint);
-    if (posted) {
+    if (posted.CallbackScheduledOrFired()) {
         completeFuture.wait();
     }
 
-    return posted;
+    return posted.Succeeded();
 }
 
-bool FrameBuffer::postImpl(HandleType p_colorbuffer,
+AsyncResult FrameBuffer::postImpl(HandleType p_colorbuffer,
                            Post::CompletionCallback callback,
                            bool needLockAndBind,
                            bool repaint) {
     if (needLockAndBind) {
         m_lock.lock();
     }
-    bool ret = false;
+    AsyncResult ret = AsyncResult::FAIL_AND_CALLBACK_NOT_SCHEDULED;
 
     ColorBufferPtr colorBuffer = nullptr;
     {
@@ -2833,8 +2836,6 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
 
     m_lastPostedColorBuffer = p_colorbuffer;
 
-    ret = true;
-
     if (m_subWin) {
         colorBuffer->touch();
 
@@ -2843,15 +2844,15 @@ bool FrameBuffer::postImpl(HandleType p_colorbuffer,
         postCmd.cb = colorBuffer.get();
         postCmd.completionCallback = std::make_unique<Post::CompletionCallback>(callback);
         sendPostWorkerCmd(std::move(postCmd));
+        ret = AsyncResult::OK_AND_CALLBACK_SCHEDULED;
     } else {
+        // If there is no sub-window, don't display anything, the client will
+        // rely on m_onPost to get the pixels instead.
         colorBuffer->touch();
         colorBuffer->waitSync();
         colorBuffer->scale();
         s_gles2.glFlush();
-
-        // If there is no sub-window, don't display anything, the client will
-        // rely on m_onPost to get the pixels instead.
-        ret = true;
+        ret = AsyncResult::OK_AND_CALLBACK_NOT_SCHEDULED;
     }
 
     //
@@ -3110,10 +3111,13 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
             waitForGpu.wait();
             promise.set_value();
         });
-    if (!composeRes) {
+    if (!composeRes.Succeeded()) {
         return false;
     }
-    completeFuture.wait();
+
+    if (composeRes.CallbackScheduledOrFired()) {
+        completeFuture.wait();
+    }
 
     if (needPost) {
         ComposeDevice* composeDevice = (ComposeDevice*)buffer;
@@ -3139,7 +3143,7 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
     return true;
 }
 
-bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
+AsyncResult FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
                                       Post::CompletionCallback callback) {
     ComposeDevice* p = (ComposeDevice*)buffer;
     AutoLock mutex(m_lock);
@@ -3153,7 +3157,7 @@ bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
         composeCmd.completionCallback = std::make_unique<Post::CompletionCallback>(callback);
         composeCmd.cmd = PostCmd::Compose;
         sendPostWorkerCmd(std::move(composeCmd));
-        return true;
+        return AsyncResult::OK_AND_CALLBACK_SCHEDULED;
     }
 
     case 2: {
@@ -3171,12 +3175,12 @@ bool FrameBuffer::composeWithCallback(uint32_t bufferSize, void* buffer,
         composeCmd.completionCallback = std::make_unique<Post::CompletionCallback>(callback);
         composeCmd.cmd = PostCmd::Compose;
         sendPostWorkerCmd(std::move(composeCmd));
-        return true;
+        return AsyncResult::OK_AND_CALLBACK_SCHEDULED;
     }
 
     default:
        ERR("yet to handle composition device version: %d", p->version);
-       return false;
+        return AsyncResult::FAIL_AND_CALLBACK_NOT_SCHEDULED;
     }
 }
 

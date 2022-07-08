@@ -43,6 +43,7 @@
 #include "Renderer.h"
 #include "TextureDraw.h"
 #include "WindowSurface.h"
+#include "base/AsyncResult.h"
 #include "base/HealthMonitor.h"
 #include "base/Lock.h"
 #include "base/ManagedDescriptor.hpp"
@@ -501,7 +502,7 @@ class FrameBuffer {
     bool compose(uint32_t bufferSize, void* buffer, bool post = true);
     // When false is returned, the callback won't be called. The callback will
     // be called on the PostWorker thread without blocking the current thread.
-    bool composeWithCallback(uint32_t bufferSize, void* buffer,
+    AsyncResult composeWithCallback(uint32_t bufferSize, void* buffer,
                              Post::CompletionCallback callback);
 
     ~FrameBuffer();
@@ -628,7 +629,7 @@ class FrameBuffer {
     void performDelayedColorBufferCloseLocked(bool forced = false);
     void eraseDelayedCloseColorBufferLocked(HandleType cb, uint64_t ts);
 
-    bool postImpl(HandleType p_colorbuffer, Post::CompletionCallback callback,
+    AsyncResult postImpl(HandleType p_colorbuffer, Post::CompletionCallback callback,
                   bool needLockAndBind = true, bool repaint = false);
     bool postImplSync(HandleType p_colorbuffer, bool needLockAndBind = true, bool repaint = false);
     void setGuestPostedAFrame() { m_guestPostedAFrame = true; }

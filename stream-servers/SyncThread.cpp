@@ -183,7 +183,12 @@ void SyncThread::triggerWaitVkQsriWithCompletionCallback(VkImage vkImage, FenceC
     sendAsync(
         [vkImage, cb = std::move(cb)](WorkerId) {
             auto decoder = goldfish_vk::VkDecoderGlobalState::get();
-            decoder->registerQsriCallback(vkImage, std::move(cb));
+            auto res = decoder->registerQsriCallback(vkImage, cb);
+            // If registerQsriCallback does not schedule the callback, we still need to complete
+            // the task, otherwise we may hit deadlocks on tasks on the same ring.
+            if (!res.CallbackScheduledOrFired()) {
+                cb();
+            }
         },
         ss.str());
 }
