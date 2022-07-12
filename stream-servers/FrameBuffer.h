@@ -234,10 +234,8 @@ class FrameBuffer {
     // Variant of createColorBuffer except with a particular
     // handle already assigned. This is for use with
     // virtio-gpu's RESOURCE_CREATE ioctl.
-    void createColorBufferWithHandle(int p_width, int p_height,
-                                     GLenum p_internalFormat,
-                                     FrameworkFormat p_frameworkFormat,
-                                     HandleType handle);
+    void createColorBufferWithHandle(int p_width, int p_height, GLenum p_internalFormat,
+                                     FrameworkFormat p_frameworkFormat, HandleType handle);
 
     // Create a new data Buffer instance from this display instance.
     // The buffer will be backed by a VkBuffer and VkDeviceMemory (if Vulkan
@@ -246,6 +244,11 @@ class FrameBuffer {
     // |memoryProperty| is the requested memory property bits of the device
     // memory.
     HandleType createBuffer(uint64_t size, uint32_t memoryProperty);
+
+    // Variant of createBuffer except with a particular handle already
+    // assigned and using device local memory. This is for use with
+    // virtio-gpu's RESOURCE_CREATE ioctl for BLOB resources.
+    void createBufferWithHandle(uint64_t size, HandleType handle);
 
     // Call this function when a render thread terminates to destroy all
     // the remaining contexts it created. Necessary to avoid leaking host
@@ -331,6 +334,14 @@ class FrameBuffer {
     // Returns true on success, false on failure.
     bool bindColorBufferToRenderbuffer(HandleType p_colorbuffer);
 
+    // Read the content of a given Buffer into client memory.
+    // |p_buffer| is the Buffer's handle value.
+    // |offset| and |size| are the position and size of a slice of the buffer
+    // that will be read.
+    // |bytes| is the address of a caller-provided buffer that will be filled
+    // with the buffer data.
+    void readBuffer(HandleType p_buffer, uint64_t offset, uint64_t size, void* bytes);
+
     // Read the content of a given ColorBuffer into client memory.
     // |p_colorbuffer| is the ColorBuffer's handle value. Similar
     // to glReadPixels(), this can be a slow operation.
@@ -366,6 +377,14 @@ class FrameBuffer {
                                           uint32_t format, uint32_t type,
                                           uint32_t texture_type,
                                           uint32_t* textures);
+
+    // Update the content of a given Buffer from client data.
+    // |p_buffer| is the Buffer's handle value.
+    // |offset| and |size| are the position and size of a slice of the buffer
+    // that will be updated.
+    // |bytes| is the address of a caller-provided buffer containing the new
+    // buffer data.
+    bool updateBuffer(HandleType p_buffer, uint64_t offset, uint64_t size, void* pixels);
 
     // Update the content of a given ColorBuffer from client data.
     // |p_colorbuffer| is the ColorBuffer's handle value. Similar
@@ -544,6 +563,7 @@ class FrameBuffer {
     void onLastColorBufferRef(uint32_t handle);
     ContextHelper* getColorBufferHelper() { return m_colorBufferHelper; }
     ColorBufferPtr findColorBuffer(HandleType p_colorbuffer);
+    BufferPtr findBuffer(HandleType p_buffer);
 
     void registerProcessCleanupCallback(void* key,
                                         std::function<void()> callback);

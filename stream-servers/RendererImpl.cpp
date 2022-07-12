@@ -13,20 +13,18 @@
 // limitations under the License.
 #include "RendererImpl.h"
 
-#include "RenderChannelImpl.h"
-#include "RenderThread.h"
-
-#include "base/System.h"
-#include "snapshot/common.h"
-#include "host-common/logging.h"
-
-#include "FenceSync.h"
-#include "FrameBuffer.h"
+#include <assert.h>
 
 #include <algorithm>
 #include <utility>
 
-#include <assert.h>
+#include "FenceSync.h"
+#include "FrameBuffer.h"
+#include "RenderChannelImpl.h"
+#include "RenderThread.h"
+#include "base/System.h"
+#include "host-common/logging.h"
+#include "snapshot/common.h"
 
 namespace emugl {
 
@@ -491,6 +489,10 @@ void RendererImpl::cleanupProcGLObjects(uint64_t puid) {
 }
 
 static struct AndroidVirtioGpuOps sVirtioGpuOps = {
+        .create_buffer_with_handle =
+                [](uint64_t size, uint32_t handle) {
+                    FrameBuffer::getFB()->createBufferWithHandle(size, handle);
+                },
         .create_color_buffer_with_handle =
                 [](uint32_t width,
                    uint32_t height,
@@ -505,9 +507,21 @@ static struct AndroidVirtioGpuOps sVirtioGpuOps = {
                 [](uint32_t handle) {
                     FrameBuffer::getFB()->openColorBuffer(handle);
                 },
+        .close_buffer =
+                [](uint32_t handle) {
+                    FrameBuffer::getFB()->closeBuffer(handle);
+                },
         .close_color_buffer =
                 [](uint32_t handle) {
                     FrameBuffer::getFB()->closeColorBuffer(handle);
+                },
+        .update_buffer =
+                [](uint32_t handle,
+                   uint64_t offset,
+                   uint64_t size,
+                   void* bytes) {
+                    FrameBuffer::getFB()->updateBuffer(
+                            handle, offset, size, bytes);
                 },
         .update_color_buffer =
                 [](uint32_t handle,
@@ -520,6 +534,14 @@ static struct AndroidVirtioGpuOps sVirtioGpuOps = {
                    void* pixels) {
                     FrameBuffer::getFB()->updateColorBuffer(
                             handle, x, y, width, height, format, type, pixels);
+                },
+        .read_buffer =
+                [](uint32_t handle,
+                   uint64_t offset,
+                   uint64_t size,
+                   void* bytes) {
+                    FrameBuffer::getFB()->readBuffer(
+                            handle, offset, size, bytes);
                 },
         .read_color_buffer =
                 [](uint32_t handle,
