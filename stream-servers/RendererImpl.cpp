@@ -568,6 +568,9 @@ static struct AndroidVirtioGpuOps sVirtioGpuOps = {
                 },
         .post_color_buffer =
                 [](uint32_t handle) { FrameBuffer::getFB()->post(handle); },
+        .async_post_color_buffer =
+                [](uint32_t handle, CpuCompletionCallback cb) {
+                    FrameBuffer::getFB()->postWithCallback(handle, cb); },
         .repost = []() { FrameBuffer::getFB()->repost(); },
         .create_yuv_textures =
                 [](uint32_t type,

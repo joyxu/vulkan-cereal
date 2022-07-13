@@ -23,6 +23,7 @@
 #include "VkQsriTimeline.h"
 #include "VulkanDispatch.h"
 #include "VulkanHandleMapping.h"
+#include "base/AsyncResult.h"
 #include "base/Lock.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 #include "cereal/common/goldfish_vk_transform.h"
@@ -584,7 +585,7 @@ class VkDecoderGlobalState {
     // presented so far, so it ends up incrementing a "target present count"
     // for this image, and then waiting for the image to get vkQSRI'ed at least
     // that many times.
-    VkResult registerQsriCallback(VkImage boxed_image, VkQsriTimeline::Callback callback);
+    AsyncResult registerQsriCallback(VkImage boxed_image, VkQsriTimeline::Callback callback);
 
     // Transformations
     void deviceMemoryTransform_tohost(VkDeviceMemory* memory, uint32_t memoryCount,

@@ -14,6 +14,7 @@
 #pragma once
 
 #include <functional>
+#include <future>
 
 /* virtio-gpu interface for buffers
  * (triggered by minigbm/egl calling virtio-gpu ioctls) */
@@ -84,6 +85,8 @@ typedef void (*read_color_buffer_yuv_t)(
     uint32_t handle, int x, int y, int width, int height,
     void* pixels, uint32_t pixels_size);
 typedef void (*post_color_buffer_t)(uint32_t handle);
+using CpuCompletionCallback = std::function<void(std::shared_future<void> waitForGpu)>;
+typedef void (*async_post_color_buffer_t)(uint32_t, CpuCompletionCallback);
 typedef void (*repost_t)(void);
 typedef uint32_t (*get_last_posted_color_buffer_t)(void);
 typedef void (*bind_color_buffer_to_texture_t)(uint32_t);
@@ -127,6 +130,7 @@ struct AndroidVirtioGpuOps {
     read_color_buffer_t read_color_buffer;
     read_color_buffer_yuv_t read_color_buffer_yuv;
     post_color_buffer_t post_color_buffer;
+    async_post_color_buffer_t async_post_color_buffer;
     repost_t repost;
     /* yuv texture related */
     create_yuv_textures_t create_yuv_textures;
