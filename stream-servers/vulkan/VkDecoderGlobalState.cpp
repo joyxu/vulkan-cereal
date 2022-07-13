@@ -1087,11 +1087,9 @@ class VkDecoderGlobalState::Impl {
                     featuresFiltered.textureCompressionETC2 = false;
                 }
             }
-            if (featuresFiltered.textureCompressionASTC_LDR) {
-                if (needEmulatedAstc(physicalDevice, vk)) {
-                    emulateTextureAstc = true;
-                    featuresFiltered.textureCompressionASTC_LDR = false;
-                }
+            if (needEmulatedAstc(physicalDevice, vk)) {
+                emulateTextureAstc = true;
+                featuresFiltered.textureCompressionASTC_LDR = false;
             }
             createInfoFiltered.pEnabledFeatures = &featuresFiltered;
         }
@@ -5818,6 +5816,9 @@ class VkDecoderGlobalState::Impl {
         VK_FORMAT_FEATURE_TRANSFER_DST_BIT | VK_FORMAT_FEATURE_BLIT_SRC_BIT |
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
 
+    static const VkFormatFeatureFlags kEmulatedEtc2OptimalTilingFeatureMask =
+        kEmulatedEtc2BufferFeatureMask | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
+
     void maskFormatPropertiesForEmulatedEtc2(VkFormatProperties* pFormatProperties) {
         pFormatProperties->bufferFeatures &= kEmulatedEtc2BufferFeatureMask;
         pFormatProperties->optimalTilingFeatures &= kEmulatedEtc2BufferFeatureMask;
@@ -5826,6 +5827,17 @@ class VkDecoderGlobalState::Impl {
     void maskFormatPropertiesForEmulatedEtc2(VkFormatProperties2* pFormatProperties) {
         pFormatProperties->formatProperties.bufferFeatures &= kEmulatedEtc2BufferFeatureMask;
         pFormatProperties->formatProperties.optimalTilingFeatures &= kEmulatedEtc2BufferFeatureMask;
+    }
+
+    void maskFormatPropertiesForEmulatedAstc(VkFormatProperties* pFormatProperties) {
+        pFormatProperties->bufferFeatures &= kEmulatedEtc2BufferFeatureMask;
+        pFormatProperties->optimalTilingFeatures &= kEmulatedEtc2OptimalTilingFeatureMask;
+    }
+
+    void maskFormatPropertiesForEmulatedAstc(VkFormatProperties2* pFormatProperties) {
+        pFormatProperties->formatProperties.bufferFeatures &= kEmulatedEtc2BufferFeatureMask;
+        pFormatProperties->formatProperties.optimalTilingFeatures &=
+            kEmulatedEtc2OptimalTilingFeatureMask;
     }
 
     template <class VkFormatProperties1or2>
@@ -5856,6 +5868,7 @@ class VkDecoderGlobalState::Impl {
                 getPhysicalDeviceFormatPropertiesFunc(physicalDevice, cmpInfo.decompFormat,
                                                       pFormatProperties);
                 maskFormatPropertiesForEmulatedEtc2(pFormatProperties);
+
                 break;
             }
             case VK_FORMAT_ASTC_4x4_UNORM_BLOCK:
@@ -5887,16 +5900,16 @@ class VkDecoderGlobalState::Impl {
             case VK_FORMAT_ASTC_12x10_SRGB_BLOCK:
             case VK_FORMAT_ASTC_12x12_SRGB_BLOCK: {
                 if (!needEmulatedAstc(physicalDevice, vk)) {
-                    // Hardware supported ETC2
+                    // Hardware supported ASTC
                     getPhysicalDeviceFormatPropertiesFunc(physicalDevice, format,
                                                           pFormatProperties);
                     return;
                 }
-                // Emulate ETC formats
+                // Emulate ASTC formats
                 CompressedImageInfo cmpInfo = createCompressedImageInfo(format);
                 getPhysicalDeviceFormatPropertiesFunc(physicalDevice, cmpInfo.decompFormat,
                                                       pFormatProperties);
-                maskFormatPropertiesForEmulatedEtc2(pFormatProperties);
+                maskFormatPropertiesForEmulatedAstc(pFormatProperties);
                 break;
             }
             default:
