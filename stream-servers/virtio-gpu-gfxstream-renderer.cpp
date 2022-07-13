@@ -808,7 +808,7 @@ public:
     int submitCmd(VirtioGpuCtxId ctxId, void* buffer, int dwordCount) {
         // TODO(kaiyili): embed the ring_idx into the command buffer to make it possible to dispatch
         // commands on different ring.
-        const VirtioGpuRing ring = VirtioGpuRingGlobal{};
+        VirtioGpuRing ring = VirtioGpuRingGlobal{};
         VGPLOG("ctx: %" PRIu32 ", ring: %s buffer: %p dwords: %d", ctxId, to_string(ring).c_str(),
                buffer, dwordCount);
 
@@ -864,6 +864,15 @@ public:
                 break;
             }
             case kVirtioGpuNativeSyncVulkanQsriExport: {
+                // The guest QSRI export assumes fence context support and always uses
+                // VIRTGPU_EXECBUF_RING_IDX. With this, the task created here must use
+                // the same ring as the fence created for the virtio gpu command or the
+                // fence may be signaled without properly waiting for the task to complete.
+                ring = VirtioGpuRingContextSpecific{
+                    .mCtxId = ctxId,
+                    .mRingIdx = 0,
+                };
+
                 uint64_t image_handle_lo = dwords[1];
                 uint64_t image_handle_hi = dwords[2];
                 uint64_t image_handle = convert32to64(image_handle_lo, image_handle_hi);
