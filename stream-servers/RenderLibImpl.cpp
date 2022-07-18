@@ -57,7 +57,7 @@ void RenderLibImpl::setCrashReporter(emugl_crash_reporter_t reporter) {
 }
 
 void RenderLibImpl::setFeatureController(emugl_feature_is_enabled_t featureController) {
-    // set_emugl_feature_is_enabled(featureController);
+    android::featurecontrol::setFeatureEnabledCallback(featureController);
 }
 
 void RenderLibImpl::setSyncDevice

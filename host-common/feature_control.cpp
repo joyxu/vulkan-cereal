@@ -15,8 +15,21 @@
 */
 
 #include "feature_control.h"
+#include "FeatureControl.h"
 
 #include <vector>
+
+
+namespace android {
+namespace featurecontrol {
+
+static std::function<bool(Feature)> sFeatureEnabledCb;
+
+void setFeatureEnabledCallback(std::function<bool(Feature)> cb) {
+    sFeatureEnabledCb = cb;
+}
+}  // namespace featurecontrol
+}  // namespace android
 
 struct FeatureState {
     FeatureState() {
@@ -32,7 +45,10 @@ void feature_initialize() { }
 
 // Get the access rules given by |name| if they exist, otherwise returns NULL
 bool feature_is_enabled(Feature feature) {
-    return sFeatureState.enabled[feature];
+    return android::featurecontrol::sFeatureEnabledCb ?
+        android::featurecontrol::sFeatureEnabledCb(
+            static_cast<android::featurecontrol::Feature>(feature))
+        : sFeatureState.enabled[feature];
 }
 
 void feature_set_enabled_override(Feature feature, bool isEnabled) {

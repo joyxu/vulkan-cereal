@@ -167,6 +167,16 @@ struct PipeCtxEntry {
     bool hasAddressSpaceHandle;
 };
 
+enum class ResType {
+    // Used as a communication channel between the guest and the host
+    // which does not need an allocation on the host GPU.
+    PIPE,
+    // Used as a GPU data buffer.
+    BUFFER,
+    // Used as a GPU texture.
+    COLOR_BUFFER,
+};
+
 struct PipeResEntry {
     virgl_renderer_resource_create_args args;
     iovec* iov;
@@ -177,9 +187,10 @@ struct PipeResEntry {
     VirtioGpuCtxId ctxId;
     uint64_t hva;
     uint64_t hvaSize;
-    uint64_t hvaId;
+    uint64_t blobId;
     uint32_t hvSlot;
     uint32_t caching;
+    ResType type;
 };
 
 static inline uint32_t align_up(uint32_t n, uint32_t a) {
@@ -797,7 +808,7 @@ public:
     int submitCmd(VirtioGpuCtxId ctxId, void* buffer, int dwordCount) {
         // TODO(kaiyili): embed the ring_idx into the command buffer to make it possible to dispatch
         // commands on different ring.
-        const VirtioGpuRing ring = VirtioGpuRingGlobal{};
+        VirtioGpuRing ring = VirtioGpuRingGlobal{};
         VGPLOG("ctx: %" PRIu32 ", ring: %s buffer: %p dwords: %d", ctxId, to_string(ring).c_str(),
                buffer, dwordCount);
 
@@ -853,6 +864,15 @@ public:
                 break;
             }
             case kVirtioGpuNativeSyncVulkanQsriExport: {
+                // The guest QSRI export assumes fence context support and always uses
+                // VIRTGPU_EXECBUF_RING_IDX. With this, the task created here must use
+                // the same ring as the fence created for the virtio gpu command or the
+                // fence may be signaled without properly waiting for the task to complete.
+                ring = VirtioGpuRingContextSpecific{
+                    .mCtxId = ctxId,
+                    .mRingIdx = 0,
+                };
+
                 uint64_t image_handle_lo = dwords[1];
                 uint64_t image_handle_hi = dwords[2];
                 uint64_t image_handle = convert32to64(image_handle_lo, image_handle_hi);
@@ -948,26 +968,48 @@ public:
 #define PIPE_BIND_COMMAND_ARGS_BUFFER  (1 << 17) /* pipe_draw_info.indirect */
 #define PIPE_BIND_QUERY_BUFFER         (1 << 18) /* get_query_result_resource */
 
-
-    void handleCreateResourceGraphicsUsage(
-            struct virgl_renderer_resource_create_args *args,
-            struct iovec *iov, uint32_t num_iovs) {
-
-        if (args->target == PIPE_BUFFER) {
-            // Nothing to handle; this is generic pipe usage.
-            return;
+    ResType getResourceType(const struct virgl_renderer_resource_create_args& args) const {
+        if (args.target == PIPE_BUFFER) {
+            return ResType::PIPE;
         }
 
+        if (args.format != VIRGL_FORMAT_R8_UNORM) {
+            return ResType::COLOR_BUFFER;
+        }
+        if (args.bind & VIRGL_BIND_SAMPLER_VIEW) {
+            return ResType::COLOR_BUFFER;
+        }
+        if (args.bind & VIRGL_BIND_RENDER_TARGET) {
+            return ResType::COLOR_BUFFER;
+        }
+        if (args.bind & VIRGL_BIND_SCANOUT) {
+            return ResType::COLOR_BUFFER;
+        }
+        if (args.bind & VIRGL_BIND_CURSOR) {
+            return ResType::COLOR_BUFFER;
+        }
+        if (!(args.bind & VIRGL_BIND_LINEAR)) {
+            return ResType::COLOR_BUFFER;
+        }
+
+        return ResType::BUFFER;
+    }
+
+    void handleCreateResourceBuffer(struct virgl_renderer_resource_create_args* args) {
+        mVirtioGpuOps->create_buffer_with_handle(args->width * args->height, args->handle);
+    }
+
+    void handleCreateResourceColorBuffer(struct virgl_renderer_resource_create_args* args) {
         // corresponds to allocation of gralloc buffer in minigbm
         VGPLOG("w h %u %u resid %u -> rcCreateColorBufferWithHandle",
                args->width, args->height, args->handle);
-        uint32_t glformat = virgl_format_to_gl(args->format);
-        uint32_t fwkformat = virgl_format_to_fwk_format(args->format);
-        mVirtioGpuOps->create_color_buffer_with_handle(
-            args->width, args->height, glformat, fwkformat, args->handle);
+
+        const uint32_t glformat = virgl_format_to_gl(args->format);
+        const uint32_t fwkformat = virgl_format_to_fwk_format(args->format);
+        mVirtioGpuOps->create_color_buffer_with_handle(args->width, args->height, glformat,
+                                                       fwkformat, args->handle);
         mVirtioGpuOps->set_guest_managed_color_buffer_lifetime(true /* guest manages lifetime */);
-        mVirtioGpuOps->open_color_buffer(
-            args->handle);
+        mVirtioGpuOps->open_color_buffer(args->handle);
     }
 
     int createResource(
@@ -976,7 +1018,17 @@ public:
 
         VGPLOG("handle: %u. num iovs: %u", args->handle, num_iovs);
 
-        handleCreateResourceGraphicsUsage(args, iov, num_iovs);
+        const auto resType = getResourceType(*args);
+        switch (resType) {
+            case ResType::PIPE:
+                break;
+            case ResType::BUFFER:
+                handleCreateResourceBuffer(args);
+                break;
+            case ResType::COLOR_BUFFER:
+                handleCreateResourceColorBuffer(args);
+                break;
+        }
 
         PipeResEntry e;
         e.args = *args;
@@ -984,18 +1036,14 @@ public:
         e.hostPipe = 0;
         e.hva = 0;
         e.hvaSize = 0;
-        e.hvaId = 0;
+        e.blobId = 0;
         e.hvSlot = 0;
+        e.type = resType;
         allocResource(e, iov, num_iovs);
 
         AutoLock lock(mLock);
         mResources[args->handle] = e;
         return 0;
-    }
-
-    void handleUnrefResourceGraphicsUsage(PipeResEntry* res, uint32_t resId) {
-        if (res->args.target == PIPE_BUFFER) return;
-        mVirtioGpuOps->close_color_buffer(resId);
     }
 
     void unrefResource(uint32_t toUnrefId) {
@@ -1015,8 +1063,16 @@ public:
         }
 
         auto& entry = it->second;
-
-        handleUnrefResourceGraphicsUsage(&entry, toUnrefId);
+        switch (entry.type) {
+            case ResType::PIPE:
+                break;
+            case ResType::BUFFER:
+                mVirtioGpuOps->close_buffer(toUnrefId);
+                break;
+            case ResType::COLOR_BUFFER:
+                mVirtioGpuOps->close_color_buffer(toUnrefId);
+                break;
+        }
 
         if (entry.linear) {
             free(entry.linear);
@@ -1029,21 +1085,9 @@ public:
             entry.numIovs = 0;
         }
 
-        if (entry.hvaId) {
-            // gfxstream manages when to actually remove the hostmem id and storage
-            //
-            // fprintf(stderr, "%s: unref a hostmem resource. hostmem id: 0x%llx\n", __func__,
-            //         (unsigned long long)(entry.hvaId));
-            // HostmemIdMapping::get()->remove(entry.hvaId);
-            // auto ownedIt = mOwnedHostmemIdBuffers.find(entry.hvaId);
-            // if (ownedIt != mOwnedHostmemIdBuffers.end()) {
-            //      // android::aligned_buf_free(ownedIt->second);
-            // }
-        }
-
         entry.hva = 0;
         entry.hvaSize = 0;
-        entry.hvaId = 0;
+        entry.blobId = 0;
         entry.hvSlot = 0;
 
         mResources.erase(it);
@@ -1093,56 +1137,145 @@ public:
         VGPLOG("done");
     }
 
-    bool handleTransferReadGraphicsUsage(
-        PipeResEntry* res, uint64_t offset, virgl_box* box) {
-        // PIPE_BUFFER: Generic pipe usage
-        if (res->args.target == PIPE_BUFFER) return true;
+    int handleTransferReadPipe(PipeResEntry* res, uint64_t offset, virgl_box* box) {
+        if (res->type != ResType::PIPE) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Resource " << res->args.handle << " is not a PIPE resource.";
+            return -1;
+        }
 
-        // Others: Gralloc transfer read operation
+        // Do the pipe service op here, if there is an associated hostpipe.
+        auto hostPipe = res->hostPipe;
+        if (!hostPipe) return -1;
+
+        auto ops = ensureAndGetServiceOps();
+
+        size_t readBytes = 0;
+        size_t wantedBytes = readBytes + (size_t)box->w;
+
+        while (readBytes < wantedBytes) {
+            GoldfishPipeBuffer buf = {
+                ((char*)res->linear) + box->x + readBytes,
+                wantedBytes - readBytes,
+            };
+            auto status = ops->guest_recv(hostPipe, &buf, 1);
+
+            if (status > 0) {
+                readBytes += status;
+            } else if (status != kPipeTryAgain) {
+                return EIO;
+            }
+        }
+
+        return 0;
+    }
+
+    int handleTransferWritePipe(PipeResEntry* res, uint64_t offset, virgl_box* box) {
+        if (res->type != ResType::PIPE) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Resource " << res->args.handle << " is not a PIPE resource.";
+            return -1;
+        }
+
+        // Do the pipe service op here, if there is an associated hostpipe.
+        auto hostPipe = res->hostPipe;
+        if (!hostPipe) {
+            VGPLOG("No hostPipe");
+            return -1;
+        }
+
+        VGPLOG("resid: %d offset: 0x%llx hostpipe: %p", res->args.handle,
+               (unsigned long long)offset, hostPipe);
+
+        auto ops = ensureAndGetServiceOps();
+
+        size_t writtenBytes = 0;
+        size_t wantedBytes = (size_t)box->w;
+
+        while (writtenBytes < wantedBytes) {
+            GoldfishPipeBuffer buf = {
+                ((char*)res->linear) + box->x + writtenBytes,
+                wantedBytes - writtenBytes,
+            };
+
+            // guest_send can now reallocate the pipe.
+            void* hostPipeBefore = hostPipe;
+            auto status = ops->guest_send(&hostPipe, &buf, 1);
+            if (hostPipe != hostPipeBefore) {
+                resetPipe((GoldfishHwPipe*)(uintptr_t)(res->ctxId), hostPipe);
+                auto it = mResources.find(res->args.handle);
+                res = &it->second;
+            }
+
+            if (status > 0) {
+                writtenBytes += status;
+            } else if (status != kPipeTryAgain) {
+                return EIO;
+            }
+        }
+
+        return 0;
+    }
+
+    int handleTransferReadBuffer(PipeResEntry* res, uint64_t offset, virgl_box* box) {
+        if (res->type != ResType::BUFFER) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Resource " << res->args.handle << " is not a BUFFER resource.";
+            return -1;
+        }
+
+        mVirtioGpuOps->read_buffer(res->args.handle, 0, res->args.width * res->args.height,
+                                   res->linear);
+        return 0;
+    }
+
+    int handleTransferWriteBuffer(PipeResEntry* res, uint64_t offset, virgl_box* box) {
+        if (res->type != ResType::BUFFER) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << res->args.handle << " is not a BUFFER resource.";
+            return -1;
+        }
+
+        mVirtioGpuOps->update_buffer(res->args.handle, 0, res->args.width * res->args.height,
+                                     res->linear);
+        return 0;
+    }
+
+    void handleTransferReadColorBuffer(PipeResEntry* res, uint64_t offset, virgl_box* box) {
+        if (res->type != ResType::COLOR_BUFFER) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Resource " << res->args.handle << " is not a COLOR_BUFFER resource.";
+            return;
+        }
+
         auto glformat = virgl_format_to_gl(res->args.format);
         auto gltype = gl_format_to_natural_type(glformat);
 
         // We always xfer the whole thing again from GL
         // since it's fiddly to calc / copy-out subregions
         if (virgl_format_is_yuv(res->args.format)) {
-            mVirtioGpuOps->read_color_buffer_yuv(
-                res->args.handle,
-                0, 0,
-                res->args.width, res->args.height,
-                res->linear, res->linearSize);
+            mVirtioGpuOps->read_color_buffer_yuv(res->args.handle, 0, 0, res->args.width,
+                                                 res->args.height, res->linear, res->linearSize);
         } else {
-            mVirtioGpuOps->read_color_buffer(
-                res->args.handle,
-                0, 0,
-                res->args.width, res->args.height,
-                glformat,
-                gltype,
-                res->linear);
+            mVirtioGpuOps->read_color_buffer(res->args.handle, 0, 0, res->args.width,
+                                             res->args.height, glformat, gltype, res->linear);
         }
-
-        return false;
     }
 
-    bool handleTransferWriteGraphicsUsage(
-        PipeResEntry* res, uint64_t offset, virgl_box* box) {
-        // PIPE_BUFFER: Generic pipe usage
-        if (res->args.target == PIPE_BUFFER) return true;
+    void handleTransferWriteColorBuffer(PipeResEntry* res, uint64_t offset, virgl_box* box) {
+        if (res->type != ResType::COLOR_BUFFER) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Resource " << res->args.handle << " is not a COLOR_BUFFER resource.";
+            return;
+        }
 
-        // Others: Gralloc transfer read operation
         auto glformat = virgl_format_to_gl(res->args.format);
         auto gltype = gl_format_to_natural_type(glformat);
 
         // We always xfer the whole thing again to GL
         // since it's fiddly to calc / copy-out subregions
-        mVirtioGpuOps->update_color_buffer(
-            res->args.handle,
-            0, 0,
-            res->args.width, res->args.height,
-            glformat,
-            gltype,
-            res->linear);
-
-        return false;
+        mVirtioGpuOps->update_color_buffer(res->args.handle, 0, 0, res->args.width,
+                                           res->args.height, glformat, gltype, res->linear);
     }
 
     int transferReadIov(int resId, uint64_t offset, virgl_box* box, struct iovec* iov, int iovec_cnt) {
@@ -1158,37 +1291,26 @@ public:
         auto it = mResources.find(resId);
         if (it == mResources.end()) return EINVAL;
 
+        int ret = 0;
+
         auto& entry = it->second;
+        switch (entry.type) {
+            case ResType::PIPE:
+                ret = handleTransferReadPipe(&entry, offset, box);
+                break;
+            case ResType::BUFFER:
+                ret = handleTransferReadBuffer(&entry, offset, box);
+                break;
+            case ResType::COLOR_BUFFER:
+                handleTransferReadColorBuffer(&entry, offset, box);
+                break;
+        }
 
-        if (handleTransferReadGraphicsUsage(
-            &entry, offset, box)) {
-            // Do the pipe service op here, if there is an associated hostpipe.
-            auto hostPipe = entry.hostPipe;
-            if (!hostPipe) return -1;
-
-            auto ops = ensureAndGetServiceOps();
-
-            size_t readBytes = 0;
-            size_t wantedBytes = readBytes + (size_t)box->w;
-
-            while (readBytes < wantedBytes) {
-                GoldfishPipeBuffer buf = {
-                    ((char*)entry.linear) + box->x + readBytes,
-                    wantedBytes - readBytes,
-                };
-                auto status = ops->guest_recv(hostPipe, &buf, 1);
-
-                if (status > 0) {
-                    readBytes += status;
-                } else if (status != kPipeTryAgain) {
-                    return EIO;
-                }
-            }
+        if (ret != 0) {
+            return ret;
         }
 
         VGPLOG("Linear first word: %d", *(int*)(entry.linear));
-
-        int syncRes;
 
         if (iovec_cnt) {
             PipeResEntry e = {
@@ -1198,16 +1320,13 @@ public:
                 entry.linear,
                 entry.linearSize,
             };
-            syncRes =
-                sync_iov(&e, offset, box, LINEAR_TO_IOV);
+            ret = sync_iov(&e, offset, box, LINEAR_TO_IOV);
         } else {
-            syncRes =
-                sync_iov(&entry, offset, box, LINEAR_TO_IOV);
+            ret = sync_iov(&entry, offset, box, LINEAR_TO_IOV);
         }
 
         VGPLOG("done");
-
-        return syncRes;
+        return ret;
     }
 
     int transferWriteIov(int resId, uint64_t offset, virgl_box* box, struct iovec* iov, int iovec_cnt) {
@@ -1218,8 +1337,8 @@ public:
         if (it == mResources.end()) return EINVAL;
 
         auto& entry = it->second;
-        int syncRes;
 
+        int ret = 0;
         if (iovec_cnt) {
             PipeResEntry e = {
                 entry.args,
@@ -1228,52 +1347,29 @@ public:
                 entry.linear,
                 entry.linearSize,
             };
-            syncRes = sync_iov(&e, offset, box, IOV_TO_LINEAR);
+            ret = sync_iov(&e, offset, box, IOV_TO_LINEAR);
         } else {
-            syncRes = sync_iov(&entry, offset, box, IOV_TO_LINEAR);
+            ret = sync_iov(&entry, offset, box, IOV_TO_LINEAR);
         }
 
-        if (handleTransferWriteGraphicsUsage(&entry, offset, box)) {
-            // Do the pipe service op here, if there is an associated hostpipe.
-            auto hostPipe = entry.hostPipe;
-            if (!hostPipe) {
-                VGPLOG("No hostPipe");
-                return syncRes;
-            }
+        if (ret != 0) {
+            return ret;
+        }
 
-            VGPLOG("resid: %d offset: 0x%llx hostpipe: %p", resId,
-                   (unsigned long long)offset, hostPipe);
-
-            auto ops = ensureAndGetServiceOps();
-
-            size_t writtenBytes = 0;
-            size_t wantedBytes = (size_t)box->w;
-
-            while (writtenBytes < wantedBytes) {
-                GoldfishPipeBuffer buf = {
-                    ((char*)entry.linear) + box->x + writtenBytes,
-                    wantedBytes - writtenBytes,
-                };
-
-                // guest_send can now reallocate the pipe.
-                void* hostPipeBefore = hostPipe;
-                auto status = ops->guest_send(&hostPipe, &buf, 1);
-                if (hostPipe != hostPipeBefore) {
-                    resetPipe((GoldfishHwPipe*)(uintptr_t)(entry.ctxId), hostPipe);
-                    it = mResources.find(resId);
-                    entry = it->second;
-                }
-
-                if (status > 0) {
-                    writtenBytes += status;
-                } else if (status != kPipeTryAgain) {
-                    return EIO;
-                }
-            }
+        switch (entry.type) {
+            case ResType::PIPE:
+                ret = handleTransferWritePipe(&entry, offset, box);
+                break;
+            case ResType::BUFFER:
+                ret = handleTransferWriteBuffer(&entry, offset, box);
+                break;
+            case ResType::COLOR_BUFFER:
+                handleTransferWriteColorBuffer(&entry, offset, box);
+                break;
         }
 
         VGPLOG("done");
-        return syncRes;
+        return ret;
     }
 
     void attachResource(uint32_t ctxId, uint32_t resId) {
@@ -1379,34 +1475,40 @@ public:
         (void)y;
         (void)width;
         (void)height;
-        //TODO: displayId > 0 ?
+        if (mVirtioGpuTimelines) {
+            auto taskId = mVirtioGpuTimelines->enqueueTask(VirtioGpuRingGlobal{});
+            mVirtioGpuOps->async_post_color_buffer(
+                res_handle, [this, taskId](std::shared_future<void> waitForGpu) {
+                    waitForGpu.wait();
+                    mVirtioGpuTimelines->notifyTaskCompletion(taskId);
+                });
+        }
+        else {
+            mVirtioGpuOps->post_color_buffer(res_handle);
+        }
+        // TODO: displayId > 0 ?
         uint32_t displayId = 0;
-        mVirtioGpuOps->post_color_buffer(res_handle);
         if (pixels) {
             mReadPixelsFunc(pixels, max_bytes, displayId);
         }
     }
 
-    void createResourceV2(uint32_t res_handle, uint64_t hvaId) {
+    void createBlob(uint32_t ctx_id, uint32_t res_handle,
+                    const struct stream_renderer_create_blob* create_blob,
+                    const struct stream_renderer_handle* handle) {
+
         PipeResEntry e;
-        struct virgl_renderer_resource_create_args args = {
-            res_handle,
-            PIPE_BUFFER,
-            VIRGL_FORMAT_R8_UNORM,
-            PIPE_BIND_COMMAND_ARGS_BUFFER,
-            0, 1, 1,
-            0, 0, 0, 0
-        };
+        struct virgl_renderer_resource_create_args args = { 0 };
         e.args = args;
         e.hostPipe = 0;
 
-        auto entry = HostmemIdMapping::get()->get(hvaId);
+        auto entry = HostmemIdMapping::get()->get(create_blob->blob_id);
 
         e.hva = entry.hva;
         e.hvaSize = entry.size;
         e.args.width = entry.size;
         e.caching = entry.caching;
-        e.hvaId = hvaId;
+        e.blobId = create_blob->blob_id;
         e.hvSlot = 0;
         e.iov = nullptr;
         e.numIovs = 0;
@@ -1700,7 +1802,7 @@ VG_EXPORT int stream_renderer_create_blob(uint32_t ctx_id, uint32_t res_handle,
                                           const struct stream_renderer_create_blob* create_blob,
                                           const struct iovec* iovecs, uint32_t num_iovs,
                                           const struct stream_renderer_handle* handle) {
-    sRenderer()->createResourceV2(res_handle, create_blob->blob_id);
+    sRenderer()->createBlob(ctx_id, res_handle, create_blob, handle);
     return 0;
 }
 

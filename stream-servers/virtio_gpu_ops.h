@@ -14,6 +14,11 @@
 #pragma once
 
 #include <functional>
+#include <future>
+
+/* virtio-gpu interface for buffers
+ * (triggered by minigbm/egl calling virtio-gpu ioctls) */
+typedef void (*create_buffer_with_handle_t)(uint64_t size, uint32_t handle);
 
 /* virtio-gpu interface for color buffers
  * (triggered by minigbm/egl calling virtio-gpu ioctls) */
@@ -66,10 +71,13 @@ typedef void (*swap_textures_and_update_color_buffer_t)(
         uint32_t* textures);
 
 typedef void (*open_color_buffer_t)(uint32_t handle);
+typedef void (*close_buffer_t)(uint32_t handle);
 typedef void (*close_color_buffer_t)(uint32_t handle);
+typedef void (*update_buffer_t)(uint32_t handle, uint64_t offset, uint64_t sizeToRead, void* bytes);
 typedef void (*update_color_buffer_t)(
     uint32_t handle, int x, int y, int width, int height,
     uint32_t format, uint32_t type, void* pixels);
+typedef void (*read_buffer_t)(uint32_t handle, uint64_t offset, uint64_t sizeToRead, void* bytes);
 typedef void (*read_color_buffer_t)(
     uint32_t handle, int x, int y, int width, int height,
     uint32_t format, uint32_t type, void* pixels);
@@ -77,6 +85,8 @@ typedef void (*read_color_buffer_yuv_t)(
     uint32_t handle, int x, int y, int width, int height,
     void* pixels, uint32_t pixels_size);
 typedef void (*post_color_buffer_t)(uint32_t handle);
+using CpuCompletionCallback = std::function<void(std::shared_future<void> waitForGpu)>;
+typedef void (*async_post_color_buffer_t)(uint32_t, CpuCompletionCallback);
 typedef void (*repost_t)(void);
 typedef uint32_t (*get_last_posted_color_buffer_t)(void);
 typedef void (*bind_color_buffer_to_texture_t)(uint32_t);
@@ -109,13 +119,18 @@ typedef void* (*platform_create_shared_egl_context_t)(void);
 typedef bool (*platform_destroy_shared_egl_context_t)(void* context);
 
 struct AndroidVirtioGpuOps {
+    create_buffer_with_handle_t create_buffer_with_handle;
     create_color_buffer_with_handle_t create_color_buffer_with_handle;
     open_color_buffer_t open_color_buffer;
+    close_buffer_t close_buffer;
     close_color_buffer_t close_color_buffer;
+    update_buffer_t update_buffer;
     update_color_buffer_t update_color_buffer;
+    read_buffer_t read_buffer;
     read_color_buffer_t read_color_buffer;
     read_color_buffer_yuv_t read_color_buffer_yuv;
     post_color_buffer_t post_color_buffer;
+    async_post_color_buffer_t async_post_color_buffer;
     repost_t repost;
     /* yuv texture related */
     create_yuv_textures_t create_yuv_textures;

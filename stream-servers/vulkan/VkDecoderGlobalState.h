@@ -23,6 +23,7 @@
 #include "VkQsriTimeline.h"
 #include "VulkanDispatch.h"
 #include "VulkanHandleMapping.h"
+#include "base/AsyncResult.h"
 #include "base/Lock.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 #include "cereal/common/goldfish_vk_transform.h"
@@ -257,6 +258,33 @@ class VkDecoderGlobalState {
                                    const VkWriteDescriptorSet* pDescriptorWrites,
                                    uint32_t descriptorCopyCount,
                                    const VkCopyDescriptorSet* pDescriptorCopies);
+
+    VkResult on_vkCreateShaderModule(android::base::BumpPool* pool, VkDevice device,
+                                     const VkShaderModuleCreateInfo* pCreateInfo,
+                                     const VkAllocationCallbacks* pAllocator,
+                                     VkShaderModule* pShaderModule);
+
+    void on_vkDestroyShaderModule(android::base::BumpPool* pool, VkDevice device,
+                                  VkShaderModule shaderModule,
+                                  const VkAllocationCallbacks* pAllocator);
+
+    VkResult on_vkCreatePipelineCache(android::base::BumpPool* pool, VkDevice device,
+                                      const VkPipelineCacheCreateInfo* pCreateInfo,
+                                      const VkAllocationCallbacks* pAllocator,
+                                      VkPipelineCache* pPipelineCache);
+
+    void on_vkDestroyPipelineCache(android::base::BumpPool* pool, VkDevice device,
+                                   VkPipelineCache pipelineCache,
+                                   const VkAllocationCallbacks* pAllocator);
+
+    VkResult on_vkCreateGraphicsPipelines(android::base::BumpPool* pool, VkDevice device,
+                                          VkPipelineCache pipelineCache, uint32_t createInfoCount,
+                                          const VkGraphicsPipelineCreateInfo* pCreateInfos,
+                                          const VkAllocationCallbacks* pAllocator,
+                                          VkPipeline* pPipelines);
+
+    void on_vkDestroyPipeline(android::base::BumpPool* pool, VkDevice device, VkPipeline pipeline,
+                              const VkAllocationCallbacks* pAllocator);
 
     void on_vkCmdCopyBufferToImage(android::base::BumpPool* pool, VkCommandBuffer commandBuffer,
                                    VkBuffer srcBuffer, VkImage dstImage,
@@ -496,6 +524,15 @@ class VkDecoderGlobalState {
                                    const VkRenderPassCreateInfo* pCreateInfo,
                                    const VkAllocationCallbacks* pAllocator,
                                    VkRenderPass* pRenderPass);
+    void on_vkDestroyRenderPass(android::base::BumpPool* pool, VkDevice device,
+                                VkRenderPass renderPass, const VkAllocationCallbacks* pAllocator);
+    VkResult on_vkCreateFramebuffer(android::base::BumpPool* pool, VkDevice device,
+                                    const VkFramebufferCreateInfo* pCreateInfo,
+                                    const VkAllocationCallbacks* pAllocator,
+                                    VkFramebuffer* pFramebuffer);
+    void on_vkDestroyFramebuffer(android::base::BumpPool* pool, VkDevice device,
+                                 VkFramebuffer framebuffer,
+                                 const VkAllocationCallbacks* pAllocator);
 
     // VK_GOOGLE_gfxstream
     void on_vkQueueHostSyncGOOGLE(android::base::BumpPool* pool, VkQueue queue,
@@ -548,7 +585,7 @@ class VkDecoderGlobalState {
     // presented so far, so it ends up incrementing a "target present count"
     // for this image, and then waiting for the image to get vkQSRI'ed at least
     // that many times.
-    VkResult registerQsriCallback(VkImage boxed_image, VkQsriTimeline::Callback callback);
+    AsyncResult registerQsriCallback(VkImage boxed_image, VkQsriTimeline::Callback callback);
 
     // Transformations
     void deviceMemoryTransform_tohost(VkDeviceMemory* memory, uint32_t memoryCount,
