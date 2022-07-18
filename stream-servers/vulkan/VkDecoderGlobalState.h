@@ -547,6 +547,16 @@ class VkDecoderGlobalState {
                                  VkFramebuffer framebuffer,
                                  const VkAllocationCallbacks* pAllocator);
 
+    void on_vkCmdCopyQueryPoolResults(android::base::BumpPool* pool,
+                                      VkCommandBuffer commandBuffer,
+                                      VkQueryPool queryPool,
+                                      uint32_t firstQuery,
+                                      uint32_t queryCount,
+                                      VkBuffer dstBuffer,
+                                      VkDeviceSize dstOffset,
+                                      VkDeviceSize stride,
+                                      VkQueryResultFlags flags);
+
     // VK_GOOGLE_gfxstream
     void on_vkQueueHostSyncGOOGLE(android::base::BumpPool* pool, VkQueue queue,
                                   uint32_t needHostSync, uint32_t sequenceNumber);
