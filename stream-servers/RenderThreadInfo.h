@@ -75,6 +75,7 @@ struct RenderThreadInfo {
 
     // The unique id of owner guest process of this render thread
     uint64_t                        m_puid = 0;
+    std::optional<std::string>      m_processName;
 
     // Functions to save / load a snapshot
     // They must be called after Framebuffer snapshot
