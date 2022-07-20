@@ -72,8 +72,8 @@ class DisplayVk {
     };
 
     std::deque<std::shared_ptr<PostResource>> m_freePostResources;
-    std::optional<std::shared_future<std::shared_ptr<PostResource>>> m_postResourceFuture;
-
+    std::vector<std::optional<std::shared_future<std::shared_ptr<PostResource>>>>
+        m_postResourceFutures;
     int m_inFlightFrameIndex;
 
     std::unique_ptr<SwapChainStateVk> m_swapChainStateVk;
@@ -86,5 +86,4 @@ class DisplayVk {
 
     std::unordered_map<VkFormat, VkFormatProperties> m_vkFormatProperties;
 };
-
 #endif
