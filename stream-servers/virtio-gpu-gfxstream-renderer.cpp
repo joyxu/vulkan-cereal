@@ -1475,17 +1475,12 @@ public:
         (void)y;
         (void)width;
         (void)height;
-        if (mVirtioGpuTimelines) {
-            auto taskId = mVirtioGpuTimelines->enqueueTask(VirtioGpuRingGlobal{});
-            mVirtioGpuOps->async_post_color_buffer(
-                res_handle, [this, taskId](std::shared_future<void> waitForGpu) {
-                    waitForGpu.wait();
-                    mVirtioGpuTimelines->notifyTaskCompletion(taskId);
-                });
-        }
-        else {
-            mVirtioGpuOps->post_color_buffer(res_handle);
-        }
+        auto taskId = mVirtioGpuTimelines->enqueueTask(VirtioGpuRingGlobal{});
+        mVirtioGpuOps->async_post_color_buffer(
+            res_handle, [this, taskId](std::shared_future<void> waitForGpu) {
+                waitForGpu.wait();
+                mVirtioGpuTimelines->notifyTaskCompletion(taskId);
+            });
         // TODO: displayId > 0 ?
         uint32_t displayId = 0;
         if (pixels) {
