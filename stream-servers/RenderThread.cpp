@@ -295,7 +295,7 @@ intptr_t RenderThread::main() {
     // it's completely initialized before running any GL commands.
     FrameBuffer::waitUntilInitialized();
     if (goldfish_vk::getGlobalVkEmulation()) {
-        tInfo.m_vkDec = std::make_unique<VkDecoder>();
+        tInfo.m_vkInfo.emplace();
     }
 
     // This is the only place where we try loading from snapshot.
@@ -451,9 +451,9 @@ intptr_t RenderThread::main() {
             //
             // Note: It's risky to limit Vulkan decoding to one thread,
             // so we do it outside the limiter
-            if (tInfo.m_vkDec) {
-                last = tInfo.m_vkDec->decode(readBuf.buf(), readBuf.validData(), ioStream, seqnoPtr,
-                                             gfxLogger);
+            if (tInfo.m_vkInfo) {
+                last = tInfo.m_vkInfo->m_vkDec.decode(readBuf.buf(), readBuf.validData(), ioStream,
+                                                      seqnoPtr, gfxLogger);
                 if (last > 0) {
                     readBuf.consume(last);
                     progress = true;
