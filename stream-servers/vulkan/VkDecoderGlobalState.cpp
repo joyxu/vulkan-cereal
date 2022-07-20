@@ -6010,8 +6010,7 @@ class VkDecoderGlobalState::Impl {
 
             for (auto [commandBuffer, commandPool] :
                  findDeviceObjects(deviceToDestroy, mCmdBufferInfo, &CommandBufferInfo::cmdPool)) {
-                deviceToDestroyDispatch->vkFreeCommandBuffers(deviceToDestroy, commandPool, 1,
-                                                              &commandBuffer);
+                // The command buffer is freed with the vkDestroyCommandPool() below.
                 delete_VkCommandBuffer(unboxed_to_boxed_VkCommandBuffer(commandBuffer));
                 mCmdBufferInfo.erase(commandBuffer);
             }
