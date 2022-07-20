@@ -1,6 +1,13 @@
 add_subdirectory(cereal)
 
+if (ASTC_CPU_DECODING)
+    set(astc-cpu-decompressor-sources AstcCpuDecompressorImpl.cpp)
+else()
+    set(astc-cpu-decompressor-sources  AstcCpuDecompressorNoOp.cpp)
+endif()
+
 add_library(gfxstream-vulkan-server
+            ${astc-cpu-decompressor-sources}
             BorrowedImageVk.cpp
             CompositorVk.cpp
             DisplayVk.cpp
@@ -18,7 +25,16 @@ add_library(gfxstream-vulkan-server
             VulkanStream.cpp
             vk_util.cpp)
 set_source_files_properties(VkDecoder.cpp PROPERTIES COMPILE_FLAGS -Wno-unused-variable)
-target_link_libraries(gfxstream-vulkan-server PUBLIC OpenglRender_vulkan_cereal gfxstream-compressedTextures apigen-codec-common gfxstream-base.headers)
+
+target_link_libraries(gfxstream-vulkan-server PUBLIC
+        OpenglRender_vulkan_cereal
+        gfxstream-compressedTextures
+        apigen-codec-common
+        gfxstream-base.headers
+        )
+if(ASTC_CPU_DECODING)
+    target_link_libraries(gfxstream-vulkan-server PRIVATE astcdec-avx2-static)
+endif()
 
 if (WIN32)
 target_compile_definitions(gfxstream-vulkan-server PRIVATE -DVK_USE_PLATFORM_WIN32_KHR)

@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "AstcCpuDecompressor.h"
 #include "DecompressionShaders.h"
 #include "FrameBuffer.h"
 #include "VkAndroidNativeBuffer.h"
@@ -384,6 +385,10 @@ class VkDecoderGlobalState::Impl {
         std::vector<const char*> finalExts = filteredExtensionNames(
             pCreateInfo->enabledExtensionCount, pCreateInfo->ppEnabledExtensionNames);
 
+        INFO("Creating Vulkan instance for app: %s engine: %s",
+             pCreateInfo->pApplicationInfo->pApplicationName,
+             pCreateInfo->pApplicationInfo->pEngineName);
+
         // Create higher version instance whenever it is possible.
         uint32_t apiVersion = VK_MAKE_VERSION(1, 0, 0);
         if (pCreateInfo->pApplicationInfo) {
@@ -449,6 +454,16 @@ class VkDecoderGlobalState::Impl {
             if (!m_vk->vkSetMTLTextureMVK) {
                 GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Cannot find vkSetMTLTextureMVK";
             }
+        }
+
+        // TODO(gregschlom) Use a better criteria to determine when to use ASTC CPU decompression.
+        //   The goal is to only enable ASTC CPU decompression for specific applications.
+        //   Theoretically the pApplicationName field would be exactly what we want, unfortunately
+        //   it looks like Unity apps always set this to "Unity" instead of the actual application.
+        //   Eventually we will want to use https://r.android.com/2163499 for this purpose.
+        if (strcmp(applicationInfo.pApplicationName, "Unity") == 0 &&
+            strcmp(applicationInfo.pEngineName, "Unity") == 0) {
+            info.useAstcCpuDecompression = true;
         }
 
         mInstanceInfo[*pInstance] = info;
@@ -1321,7 +1336,6 @@ class VkDecoderGlobalState::Impl {
             auto& bufInfo = mBufferInfo[*pBuffer];
             bufInfo.device = device;
             bufInfo.size = pCreateInfo->size;
-            bufInfo.vk = vk;
             *pBuffer = new_boxed_non_dispatchable_VkBuffer(*pBuffer);
         }
 
@@ -1410,15 +1424,15 @@ class VkDecoderGlobalState::Impl {
 
         AutoLock lock(mLock);
 
-        auto deviceInfoIt = mDeviceInfo.find(device);
-        if (deviceInfoIt == mDeviceInfo.end()) {
+        auto* deviceInfo = android::base::find(mDeviceInfo, device);
+        if (!deviceInfo) {
             return VK_ERROR_OUT_OF_HOST_MEMORY;
         }
 
         CompressedImageInfo cmpInfo = {};
         VkImageCreateInfo& sizeCompInfo = cmpInfo.sizeCompImgCreateInfo;
         VkImageCreateInfo decompInfo;
-        if (deviceInfoIt->second.needEmulatedDecompression(pCreateInfo->format)) {
+        if (deviceInfo->needEmulatedDecompression(pCreateInfo->format)) {
             cmpInfo = createCompressedImageInfo(pCreateInfo->format);
             cmpInfo.imageType = pCreateInfo->imageType;
             cmpInfo.extent = pCreateInfo->extent;
@@ -1472,9 +1486,19 @@ class VkDecoderGlobalState::Impl {
 
         if (createRes != VK_SUCCESS) return createRes;
 
-        if (deviceInfoIt->second.needEmulatedDecompression(cmpInfo)) {
+        if (deviceInfo->needEmulatedDecompression(cmpInfo)) {
             cmpInfo.decompImg = *pImage;
             createSizeCompImages(vk, &cmpInfo);
+
+            if (cmpInfo.isAstc) {
+                VkInstance* instance = deviceToInstanceLocked(device);
+                InstanceInfo* instanceInfo = android::base::find(mInstanceInfo, *instance);
+                if (instanceInfo && instanceInfo->useAstcCpuDecompression) {
+                    cmpInfo.astcCpuDecompressor->initialize(
+                        m_vk, device, mDeviceInfo[device].physicalDevice, cmpInfo.extent,
+                        cmpInfo.compressedBlockWidth, cmpInfo.compressedBlockHeight);
+                }
+            }
         }
 
         auto& imageInfo = mImageInfo[*pImage];
@@ -1482,7 +1506,7 @@ class VkDecoderGlobalState::Impl {
         if (nativeBufferANDROID) imageInfo.anbInfo = std::move(anbInfo);
 
         imageInfo.device = device;
-        imageInfo.cmpInfo = cmpInfo;
+        imageInfo.cmpInfo = std::move(cmpInfo);
 
         *pImage = new_boxed_non_dispatchable_VkImage(*pImage);
 
@@ -1504,6 +1528,9 @@ class VkDecoderGlobalState::Impl {
                 for (const auto& image : cmpInfo.sizeCompImgs) {
                     deviceDispatch->vkDestroyImage(device, image, nullptr);
                 }
+
+                cmpInfo.astcCpuDecompressor->release();
+
                 deviceDispatch->vkDestroyDescriptorSetLayout(
                     device, cmpInfo.decompDescriptorSetLayout, nullptr);
                 deviceDispatch->vkDestroyDescriptorPool(device, cmpInfo.decompDescriptorPool,
@@ -2614,27 +2641,27 @@ class VkDecoderGlobalState::Impl {
         auto vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
 
         AutoLock lock(mLock);
-        auto it = mImageInfo.find(dstImage);
-        if (it == mImageInfo.end()) return;
-        auto bufferInfoIt = mBufferInfo.find(srcBuffer);
-        if (bufferInfoIt == mBufferInfo.end()) {
+        auto* imageInfo = android::base::find(mImageInfo, dstImage);
+        if (!imageInfo) return;
+        auto* bufferInfo = android::base::find(mBufferInfo, srcBuffer);
+        if (!bufferInfo) {
             return;
         }
-        VkDevice device = bufferInfoIt->second.device;
-        auto deviceInfoIt = mDeviceInfo.find(device);
-        if (deviceInfoIt == mDeviceInfo.end()) {
+        VkDevice device = bufferInfo->device;
+        auto* deviceInfo = android::base::find(mDeviceInfo, device);
+        if (!deviceInfo) {
             return;
         }
-        if (!deviceInfoIt->second.needEmulatedDecompression(it->second.cmpInfo)) {
+        if (!deviceInfo->needEmulatedDecompression(imageInfo->cmpInfo)) {
             vk->vkCmdCopyBufferToImage(commandBuffer, srcBuffer, dstImage, dstImageLayout,
                                        regionCount, pRegions);
             return;
         }
-        auto cmdBufferInfoIt = mCmdBufferInfo.find(commandBuffer);
-        if (cmdBufferInfoIt == mCmdBufferInfo.end()) {
+        auto* cmdBufferInfo = android::base::find(mCmdBufferInfo, commandBuffer);
+        if (!cmdBufferInfo) {
             return;
         }
-        CompressedImageInfo& cmp = it->second.cmpInfo;
+        CompressedImageInfo& cmp = imageInfo->cmpInfo;
         for (uint32_t r = 0; r < regionCount; r++) {
             VkBufferImageCopy dstRegion;
             dstRegion = pRegions[r];
@@ -2652,10 +2679,28 @@ class VkDecoderGlobalState::Impl {
             dstRegion.imageExtent.height =
                 (dstRegion.imageExtent.height + cmp.compressedBlockHeight - 1) /
                 cmp.compressedBlockHeight;
+
             dstRegion.imageExtent.width = std::min(dstRegion.imageExtent.width, width);
             dstRegion.imageExtent.height = std::min(dstRegion.imageExtent.height, height);
             vk->vkCmdCopyBufferToImage(commandBuffer, srcBuffer, cmp.sizeCompImgs[mipLevel],
                                        dstImageLayout, 1, &dstRegion);
+        }
+
+        // Perform CPU decompression of ASTC textures, if enabled
+        if (cmp.isAstc && cmp.astcCpuDecompressor->initialized()) {
+            // Get a pointer to the compressed image memory
+            const MappedMemoryInfo* memoryInfo = android::base::find(mMapInfo, bufferInfo->memory);
+            if (!memoryInfo) {
+                WARN("ASTC CPU decompression: couldn't find mapped memory info");
+                return;
+            }
+            if (!memoryInfo->ptr) {
+                WARN("ASTC CPU decompression: VkBuffer memory isn't host-visible");
+                return;
+            }
+            uint8_t* astcData = (uint8_t*)(memoryInfo->ptr) + bufferInfo->memoryOffset;
+            cmp.astcCpuDecompressor->on_vkCmdCopyBufferToImage(
+                commandBuffer, astcData, bufferInfo->size, dstImage, dstImageLayout, regionCount, pRegions);
         }
     }
 
@@ -2707,46 +2752,45 @@ class VkDecoderGlobalState::Impl {
             return;
         }
         AutoLock lock(mLock);
-        auto cmdBufferInfoIt = mCmdBufferInfo.find(commandBuffer);
-        if (cmdBufferInfoIt == mCmdBufferInfo.end()) {
+        CommandBufferInfo* cmdBufferInfo = android::base::find(mCmdBufferInfo, commandBuffer);
+        if (!cmdBufferInfo) {
             return;
         }
-        const auto& cmdBufferInfo = cmdBufferInfoIt->second;
 
-        auto deviceInfoIt = mDeviceInfo.find(cmdBufferInfo.device);
-        if (deviceInfoIt == mDeviceInfo.end()) {
+        DeviceInfo* deviceInfo = android::base::find(mDeviceInfo, cmdBufferInfo->device);
+        if (!deviceInfo) {
             return;
         }
-        if (!deviceInfoIt->second.emulateTextureEtc2 && !deviceInfoIt->second.emulateTextureAstc) {
+        if (!deviceInfo->emulateTextureEtc2 && !deviceInfo->emulateTextureAstc) {
             vk->vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, dependencyFlags,
                                      memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount,
                                      pBufferMemoryBarriers, imageMemoryBarrierCount,
                                      pImageMemoryBarriers);
             return;
         }
+
         // Add barrier for decompressed image
         std::vector<VkImageMemoryBarrier> persistentImageBarriers;
         bool needRebind = false;
         for (uint32_t i = 0; i < imageMemoryBarrierCount; i++) {
             const VkImageMemoryBarrier& srcBarrier = pImageMemoryBarriers[i];
             auto image = srcBarrier.image;
-            auto it = mImageInfo.find(image);
-            if (it == mImageInfo.end() ||
-                !deviceInfoIt->second.needEmulatedDecompression(it->second.cmpInfo)) {
+            auto* imageInfo = android::base::find(mImageInfo, image);
+            if (!imageInfo || !deviceInfo->needGpuDecompression(imageInfo->cmpInfo)) {
                 persistentImageBarriers.push_back(srcBarrier);
                 continue;
             }
             uint32_t baseMipLevel = srcBarrier.subresourceRange.baseMipLevel;
             uint32_t levelCount = srcBarrier.subresourceRange.levelCount;
             VkImageMemoryBarrier decompBarrier = srcBarrier;
-            decompBarrier.image = it->second.cmpInfo.decompImg;
+            decompBarrier.image = imageInfo->cmpInfo.decompImg;
             VkImageMemoryBarrier sizeCompBarrierTemplate = srcBarrier;
             sizeCompBarrierTemplate.subresourceRange.baseMipLevel = 0;
             sizeCompBarrierTemplate.subresourceRange.levelCount = 1;
             std::vector<VkImageMemoryBarrier> sizeCompBarriers(
                 srcBarrier.subresourceRange.levelCount, sizeCompBarrierTemplate);
             for (uint32_t j = 0; j < levelCount; j++) {
-                sizeCompBarriers[j].image = it->second.cmpInfo.sizeCompImgs[baseMipLevel + j];
+                sizeCompBarriers[j].image = imageInfo->cmpInfo.sizeCompImgs[baseMipLevel + j];
             }
 
             // TODO: should we use image layout or access bit?
@@ -2767,7 +2811,7 @@ class VkDecoderGlobalState::Impl {
                         srcBarrier.oldLayout, srcBarrier.newLayout);
             }
 
-            VkResult result = it->second.cmpInfo.initDecomp(vk, cmdBufferInfo.device, image);
+            VkResult result = imageInfo->cmpInfo.initDecomp(vk, cmdBufferInfo->device, image);
             if (result != VK_SUCCESS) {
                 fprintf(stderr, "WARNING: texture decompression failed\n");
                 continue;
@@ -2792,7 +2836,7 @@ class VkDecoderGlobalState::Impl {
             vk->vkCmdPipelineBarrier(commandBuffer, srcStageMask,
                                      VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0,
                                      nullptr, currImageBarriers.size(), currImageBarriers.data());
-            it->second.cmpInfo.cmdDecompress(
+            imageInfo->cmpInfo.cmdDecompress(
                 vk, commandBuffer, dstStageMask, decompBarrier.newLayout,
                 decompBarrier.dstAccessMask, baseMipLevel, levelCount,
                 srcBarrier.subresourceRange.baseArrayLayer, srcBarrier.subresourceRange.layerCount);
@@ -2825,16 +2869,16 @@ class VkDecoderGlobalState::Impl {
                                      currImageBarriers.data()   // pImageMemoryBarriers
             );
         }
-        if (needRebind && cmdBufferInfo.computePipeline) {
+        if (needRebind && cmdBufferInfo->computePipeline) {
             // Recover pipeline bindings
             vk->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                  cmdBufferInfo.computePipeline);
-            if (cmdBufferInfo.descriptorSets.size() > 0) {
+                                  cmdBufferInfo->computePipeline);
+            if (cmdBufferInfo->descriptorSets.size() > 0) {
                 vk->vkCmdBindDescriptorSets(
-                    commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, cmdBufferInfo.descriptorLayout,
-                    cmdBufferInfo.firstSet, cmdBufferInfo.descriptorSets.size(),
-                    cmdBufferInfo.descriptorSets.data(), cmdBufferInfo.dynamicOffsets.size(),
-                    cmdBufferInfo.dynamicOffsets.data());
+                    commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, cmdBufferInfo->descriptorLayout,
+                    cmdBufferInfo->firstSet, cmdBufferInfo->descriptorSets.size(),
+                    cmdBufferInfo->descriptorSets.data(), cmdBufferInfo->dynamicOffsets.size(),
+                    cmdBufferInfo->dynamicOffsets.data());
             }
         }
         if (memoryBarrierCount || bufferMemoryBarrierCount || !persistentImageBarriers.empty()) {
@@ -5053,6 +5097,9 @@ class VkDecoderGlobalState::Impl {
         uint32_t compressedBlockHeight = 1;
         uint32_t layerCount;
         uint32_t mipLevels = 1;
+
+        std::unique_ptr<AstcCpuDecompressor> astcCpuDecompressor = CreateAstcCpuDecompressor();
+
         uint32_t mipmapWidth(uint32_t level) {
             return std::max<uint32_t>(extent.width >> level, 1);
         }
@@ -6236,6 +6283,13 @@ class VkDecoderGlobalState::Impl {
         mDescriptorUpdateTemplateInfo.erase(descriptorUpdateTemplate);
     }
 
+    // Returns the VkInstance associated with a VkDevice, or null if it's not found
+    VkInstance* deviceToInstanceLocked(VkDevice device) {
+        auto* physicalDevice = android::base::find(mDeviceToPhysicalDevice, device);
+        if (!physicalDevice) return nullptr;
+        return android::base::find(mPhysicalDeviceToInstance, *physicalDevice);
+    }
+
     VulkanDispatch* m_vk;
     VkEmulation* m_emu;
     emugl::RenderDocWithMultipleVkInstances* mRenderDocWithMultipleVkInstances = nullptr;
@@ -6276,6 +6330,7 @@ class VkDecoderGlobalState::Impl {
         std::vector<std::string> enabledExtensionNames;
         uint32_t apiVersion = VK_MAKE_VERSION(1, 0, 0);
         VkInstance boxed = nullptr;
+        bool useAstcCpuDecompression = false;
     };
 
     struct PhysicalDeviceInfo {
@@ -6294,6 +6349,12 @@ class VkDecoderGlobalState::Impl {
         VkDevice boxed = nullptr;
         std::unique_ptr<ExternalFencePool<VulkanDispatch>> externalFencePool = nullptr;
 
+        // True if this is a compressed image that needs to be decompressed on the GPU (with our
+        // compute shader)
+        bool needGpuDecompression(const CompressedImageInfo& imageInfo) {
+            return needEmulatedDecompression(imageInfo) &&
+                   !imageInfo.astcCpuDecompressor->successful();
+        }
         bool needEmulatedDecompression(const CompressedImageInfo& imageInfo) {
             return imageInfo.isCompressed && ((imageInfo.isEtc2 && emulateTextureEtc2) ||
                                               (imageInfo.isAstc && emulateTextureAstc));
@@ -6359,8 +6420,6 @@ class VkDecoderGlobalState::Impl {
         VkDeviceMemory memory = 0;
         VkDeviceSize memoryOffset = 0;
         VkDeviceSize size;
-        // For compressed texture emulation
-        VulkanDispatch* vk = nullptr;
     };
 
     struct ImageInfo {
