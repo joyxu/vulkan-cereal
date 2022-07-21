@@ -78,6 +78,7 @@ void DebugUtilsHelper::cmdBeginDebugLabel(VkCommandBuffer commandBuffer, const c
         .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
         .pNext = nullptr,
         .pLabelName = labelBuffer,
+        .color = { 0.0f, 0.0f, 0.0f, 1.0f },
     };
     m_vk->vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &labelInfo);
 }
