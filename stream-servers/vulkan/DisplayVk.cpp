@@ -82,7 +82,8 @@ DisplayVk::~DisplayVk() {
         android::base::AutoLock lock(*m_compositorVkQueueLock);
         VK_CHECK(vk_util::waitForVkQueueIdleWithRetry(m_vk, m_compositorVkQueue));
     }
-    m_postResourceFuture = std::nullopt;
+    m_freePostResources.clear();
+    m_postResourceFutures.clear();
     m_surfaceState.reset();
     m_swapChainStateVk.reset();
     m_vk.vkDestroyCommandPool(m_vkDevice, m_vkCommandPool, nullptr);
@@ -97,7 +98,8 @@ bool DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
         android::base::AutoLock lock(*m_swapChainVkQueueLock);
         VK_CHECK(vk_util::waitForVkQueueIdleWithRetry(m_vk, m_swapChainVkQueue));
     }
-    m_postResourceFuture = std::nullopt;
+    m_freePostResources.clear();
+    m_postResourceFutures.clear();
     m_swapChainStateVk.reset();
 
     if (!SwapChainStateVk::validateQueueFamilyProperties(m_vk, m_vkPhysicalDevice, surface,
@@ -122,13 +124,12 @@ bool DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
     m_swapChainStateVk =
         SwapChainStateVk::createSwapChainVk(m_vk, m_vkDevice, swapChainCi->mCreateInfo);
     if (m_swapChainStateVk == nullptr) return false;
-
     int numSwapChainImages = m_swapChainStateVk->getVkImages().size();
 
-    m_postResourceFuture = std::async(std::launch::deferred, [this] {
-                               return PostResource::create(m_vk, m_vkDevice, m_vkCommandPool);
-                           }).share();
-    m_postResourceFuture.value().wait();
+    m_postResourceFutures.resize(numSwapChainImages, std::nullopt);
+    for (uint32_t i = 0; i < numSwapChainImages + 1; ++i) {
+        m_freePostResources.emplace_back(PostResource::create(m_vk, m_vkDevice, m_vkCommandPool));
+    }
 
     m_inFlightFrameIndex = 0;
 
@@ -155,7 +156,33 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
         return std::make_tuple(true, std::move(completedFuture));
     }
 
-    std::shared_ptr<PostResource> postResource = m_postResourceFuture.value().get();
+    for (auto& postResourceFutureOpt : m_postResourceFutures) {
+        if (!postResourceFutureOpt.has_value()) {
+            continue;
+        }
+        auto postResourceFuture = postResourceFutureOpt.value();
+        if (!postResourceFuture.valid()) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Invalid postResourceFuture in m_postResourceFutures.";
+        }
+        std::future_status status = postResourceFuture.wait_for(std::chrono::seconds(0));
+        if (status == std::future_status::ready) {
+            m_freePostResources.emplace_back(postResourceFuture.get());
+            postResourceFutureOpt = std::nullopt;
+        }
+    }
+    if (m_freePostResources.empty()) {
+        for (auto& postResourceFutureOpt : m_postResourceFutures) {
+            if (!postResourceFutureOpt.has_value()) {
+                continue;
+            }
+            m_freePostResources.emplace_back(postResourceFutureOpt.value().get());
+            postResourceFutureOpt = std::nullopt;
+        }
+    }
+    std::shared_ptr<PostResource> postResource = m_freePostResources.front();
+    m_freePostResources.pop_front();
+
     VkSemaphore imageReadySem = postResource->m_swapchainImageAcquireSemaphore;
 
     uint32_t imageIndex;
@@ -166,6 +193,11 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
         return std::make_tuple(false, std::shared_future<void>());
     }
     VK_CHECK(acquireRes);
+
+    if (m_postResourceFutures[imageIndex].has_value()) {
+        m_freePostResources.emplace_back(m_postResourceFutures[imageIndex].value().get());
+        m_postResourceFutures[imageIndex] = std::nullopt;
+    }
 
     VkCommandBuffer cmdBuff = postResource->m_vkCommandBuffer;
     VK_CHECK(m_vk.vkResetCommandBuffer(cmdBuff, 0));
@@ -315,7 +347,7 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
             VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &postCompleteFence, VK_TRUE, UINT64_MAX));
             return postResource;
         }).share();
-    m_postResourceFuture = postResourceFuture;
+    m_postResourceFutures[imageIndex] = postResourceFuture;
 
     auto swapChain = m_swapChainStateVk->getSwapChain();
     VkPresentInfoKHR presentInfo = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,

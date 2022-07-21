@@ -66,9 +66,9 @@ using emugl::emugl_sync_register_trigger_wait;
 #endif
 
 // GrallocSync is a class that helps to reflect the behavior of
-// grallock_lock/gralloc_unlock on the guest.
+// gralloc_lock/gralloc_unlock on the guest.
 // If we don't use this, apps that use gralloc buffers (such as webcam)
-// will have out of order frames,
+// will have out-of-order frames,
 // as GL calls from different threads in the guest
 // are allowed to arrive at the host in any ordering.
 class GrallocSync {
@@ -90,7 +90,7 @@ public:
         // width/height, but since we're using that as synchronization,
         // that lack of calling can lead to a deadlock on the host
         // in many situations
-        // (switching camera sides, exiting benchmark apps, etc)
+        // (switching camera sides, exiting benchmark apps, etc).
         // So, we put GrallocSync under the feature control.
         mEnabled = feature_is_enabled(kFeature_GrallocSync);
 
@@ -101,7 +101,7 @@ public:
         // b. The pipe doesn't have to preserve ordering of the
         // gralloc_lock and gralloc_unlock commands themselves.
         //
-        // To handle a), notice the situation is one of one type of uses
+        // To handle a), notice the situation is one of one type of user
         // needing multiple locks that needs to exclude concurrent use
         // by another type of user. This maps well to a read/write lock,
         // where gralloc_lock and gralloc_unlock users are readers

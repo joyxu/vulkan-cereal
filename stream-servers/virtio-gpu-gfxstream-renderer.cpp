@@ -1475,17 +1475,12 @@ public:
         (void)y;
         (void)width;
         (void)height;
-        if (mVirtioGpuTimelines) {
-            auto taskId = mVirtioGpuTimelines->enqueueTask(VirtioGpuRingGlobal{});
-            mVirtioGpuOps->async_post_color_buffer(
-                res_handle, [this, taskId](std::shared_future<void> waitForGpu) {
-                    waitForGpu.wait();
-                    mVirtioGpuTimelines->notifyTaskCompletion(taskId);
-                });
-        }
-        else {
-            mVirtioGpuOps->post_color_buffer(res_handle);
-        }
+        auto taskId = mVirtioGpuTimelines->enqueueTask(VirtioGpuRingGlobal{});
+        mVirtioGpuOps->async_post_color_buffer(
+            res_handle, [this, taskId](std::shared_future<void> waitForGpu) {
+                waitForGpu.wait();
+                mVirtioGpuTimelines->notifyTaskCompletion(taskId);
+            });
         // TODO: displayId > 0 ?
         uint32_t displayId = 0;
         if (pixels) {
@@ -1820,7 +1815,7 @@ VG_EXPORT int stream_renderer_resource_unmap(uint32_t res_handle) {
     return sRenderer()->resourceUnmap(res_handle);
 }
 
-VG_EXPORT int stream_renderer_create_context(uint32_t ctx_id, uint32_t nlen, const char *name,
+VG_EXPORT int stream_renderer_context_create(uint32_t ctx_id, uint32_t nlen, const char *name,
                                              uint32_t context_init) {
     return sRenderer()->createContext(ctx_id, nlen, name, context_init);
 }
