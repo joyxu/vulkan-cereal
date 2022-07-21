@@ -92,6 +92,8 @@ struct VkEmulation {
     // conversion or not.
     bool enableYcbcrEmulation = false;
 
+    bool guestUsesAngle = false;
+
     // Instance and device for creating the system-wide shareable objects.
     VkInstance instance = VK_NULL_HANDLE;
     VkPhysicalDevice physdev = VK_NULL_HANDLE;
@@ -368,6 +370,7 @@ struct VkEmulationFeatures {
     bool enableAstcLdrEmulation = false;
     bool enableEtc2Emulation = false;
     bool enableYcbcrEmulation = false;
+    bool guestUsesAngle = false;
 };
 void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures>);
 

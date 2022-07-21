@@ -216,7 +216,8 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
                                  FrameworkFormat p_frameworkFormat,
                                  HandleType hndl,
                                  ContextHelper* helper,
-                                 bool fastBlitSupported) {
+                                 bool fastBlitSupported,
+                                 bool vulkanOnly) {
     GLenum texFormat = 0;
     GLenum pixelType = GL_UNSIGNED_BYTE;
     int bytesPerPixel = 4;
@@ -230,9 +231,23 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
                 p_internalFormat);
         return NULL;
     }
-
     const unsigned long bufsize = ((unsigned long)bytesPerPixel) * p_width
             * p_height;
+
+    ColorBuffer* cb = new ColorBuffer(p_display, hndl, helper);
+    cb->m_width = p_width;
+    cb->m_height = p_height;
+    cb->m_internalFormat = p_internalFormat;
+    cb->m_sizedInternalFormat = p_sizedInternalFormat;
+    cb->m_format = texFormat;
+    cb->m_type = pixelType;
+    cb->m_frameworkFormat = p_frameworkFormat;
+    cb->m_fastBlitSupported = fastBlitSupported;
+    cb->m_numBytes = (size_t)bufsize;
+
+    if (vulkanOnly) {
+        return cb;
+    }
 
     RecursiveScopedContextBind context(helper);
     if (!context.isOk()) {
@@ -240,8 +255,6 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
     }
 
     GL_SCOPED_DEBUG_GROUP("ColorBuffer::create(handle:%d)", hndl);
-
-    ColorBuffer* cb = new ColorBuffer(p_display, hndl, helper);
 
     GLint prevUnpackAlignment;
     s_gles2.glGetIntegerv(GL_UNPACK_ALIGNMENT, &prevUnpackAlignment);
@@ -283,13 +296,6 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
         cb->m_BRSwizzle = true;
     }
 
-    cb->m_width = p_width;
-    cb->m_height = p_height;
-    cb->m_internalFormat = p_internalFormat;
-    cb->m_sizedInternalFormat = p_sizedInternalFormat;
-    cb->m_format = texFormat;
-    cb->m_type = pixelType;
-
     cb->m_eglImage = s_egl.eglCreateImageKHR(
             p_display, s_egl.eglGetCurrentContext(), EGL_GL_TEXTURE_2D_KHR,
             (EGLClientBuffer)SafePointerFromUInt(cb->m_tex), NULL);
@@ -300,7 +306,6 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
 
     cb->m_resizer = new TextureResize(p_width, p_height);
 
-    cb->m_frameworkFormat = p_frameworkFormat;
     switch (cb->m_frameworkFormat) {
         case FRAMEWORK_FORMAT_GL_COMPATIBLE:
             break;
@@ -310,16 +315,12 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
             break;
     }
 
-    cb->m_fastBlitSupported = fastBlitSupported;
-
     // desktop GL only: use GL_UNSIGNED_INT_8_8_8_8_REV for faster readback.
     if (emugl::getRenderer() == SELECTED_RENDERER_HOST) {
 #define GL_UNSIGNED_INT_8_8_8_8           0x8035
 #define GL_UNSIGNED_INT_8_8_8_8_REV       0x8367
         cb->m_asyncReadbackType = GL_UNSIGNED_INT_8_8_8_8_REV;
     }
-
-    cb->m_numBytes = (size_t)bufsize;
 
     s_gles2.glPixelStorei(GL_UNPACK_ALIGNMENT, prevUnpackAlignment);
 

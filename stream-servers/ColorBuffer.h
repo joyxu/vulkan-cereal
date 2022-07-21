@@ -87,6 +87,8 @@ public:
     // Returns NULL on failure.
     // |fastBlitSupported|: whether or not this ColorBuffer can be
     // blitted and posted to swapchain without context switches.
+    // |vulkanOnly|: whether or not the guest interacts entirely with Vulkan
+    // and does not use the GL based API.
     static ColorBuffer* create(EGLDisplay p_display,
                                int p_width,
                                int p_height,
@@ -94,7 +96,8 @@ public:
                                FrameworkFormat p_frameworkFormat,
                                HandleType hndl,
                                ContextHelper* helper,
-                               bool fastBlitSupported);
+                               bool fastBlitSupported,
+                               bool vulkanOnly = false);
 
     // Sometimes things happen and we need to reformat the GL texture
     // used. This function replaces the format of the underlying texture
