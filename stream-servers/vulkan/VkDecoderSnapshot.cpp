@@ -2282,6 +2282,16 @@ void vkCreateRenderPass2(
     VkRenderPass* pRenderPass)
 {
     // TODO: Implement
+    android::base::AutoLock lock(mLock);
+    // pRenderPass create
+    mReconstruction.addHandles((const uint64_t*)pRenderPass, 1);
+    mReconstruction.addHandleDependency((const uint64_t*)pRenderPass, 1, (uint64_t)(uintptr_t)device);
+    if (!pRenderPass) return;
+    auto apiHandle = mReconstruction.createApiInfo();
+    auto apiInfo = mReconstruction.getApiInfo(apiHandle);
+    mReconstruction.setApiTrace(apiInfo, OP_vkCreateRenderPass2, snapshotTraceBegin, snapshotTraceBytes);
+    mReconstruction.forEachHandleAddApi((const uint64_t*)pRenderPass, 1, apiHandle);
+    mReconstruction.setCreatedHandlesForApi(apiHandle, (const uint64_t*)pRenderPass, 1);
 }
 void vkCmdBeginRenderPass2(
     const uint8_t* snapshotTraceBegin,
@@ -3310,6 +3320,16 @@ void vkCreateRenderPass2KHR(
     VkRenderPass* pRenderPass)
 {
     // TODO: Implement
+    android::base::AutoLock lock(mLock);
+    // pRenderPass create
+    mReconstruction.addHandles((const uint64_t*)pRenderPass, 1);
+    mReconstruction.addHandleDependency((const uint64_t*)pRenderPass, 1, (uint64_t)(uintptr_t)device);
+    if (!pRenderPass) return;
+    auto apiHandle = mReconstruction.createApiInfo();
+    auto apiInfo = mReconstruction.getApiInfo(apiHandle);
+    mReconstruction.setApiTrace(apiInfo, OP_vkCreateRenderPass2KHR, snapshotTraceBegin, snapshotTraceBytes);
+    mReconstruction.forEachHandleAddApi((const uint64_t*)pRenderPass, 1, apiHandle);
+    mReconstruction.setCreatedHandlesForApi(apiHandle, (const uint64_t*)pRenderPass, 1);
 }
 void vkCmdBeginRenderPass2KHR(
     const uint8_t* snapshotTraceBegin,
