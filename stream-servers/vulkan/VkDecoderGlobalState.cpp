@@ -4133,6 +4133,27 @@ class VkDecoderGlobalState::Impl {
         return res;
     }
 
+    VkResult on_vkCreateRenderPass2(android::base::BumpPool* pool, VkDevice boxed_device,
+                                    const VkRenderPassCreateInfo2* pCreateInfo,
+                                    const VkAllocationCallbacks* pAllocator,
+                                    VkRenderPass* pRenderPass) {
+        auto device = unbox_VkDevice(boxed_device);
+        auto vk = dispatch_VkDevice(boxed_device);
+        AutoLock lock(mLock);
+
+        VkResult res = vk->vkCreateRenderPass2(device, pCreateInfo, pAllocator, pRenderPass);
+        if (res != VK_SUCCESS) {
+            return res;
+        }
+
+        auto& renderPassInfo = mRenderPassInfo[*pRenderPass];
+        renderPassInfo.device = device;
+
+        *pRenderPass = new_boxed_non_dispatchable_VkRenderPass(*pRenderPass);
+
+        return res;
+    }
+
     void destroyRenderPassLocked(VkDevice device, VulkanDispatch* deviceDispatch,
                                  VkRenderPass renderPass, const VkAllocationCallbacks* pAllocator) {
         deviceDispatch->vkDestroyRenderPass(device, renderPass, pAllocator);
@@ -7441,6 +7462,22 @@ VkResult VkDecoderGlobalState::on_vkCreateRenderPass(android::base::BumpPool* po
                                                      const VkAllocationCallbacks* pAllocator,
                                                      VkRenderPass* pRenderPass) {
     return mImpl->on_vkCreateRenderPass(pool, boxed_device, pCreateInfo, pAllocator, pRenderPass);
+}
+
+VkResult VkDecoderGlobalState::on_vkCreateRenderPass2(android::base::BumpPool* pool,
+                                                      VkDevice boxed_device,
+                                                      const VkRenderPassCreateInfo2* pCreateInfo,
+                                                      const VkAllocationCallbacks* pAllocator,
+                                                      VkRenderPass* pRenderPass) {
+    return mImpl->on_vkCreateRenderPass2(pool, boxed_device, pCreateInfo, pAllocator, pRenderPass);
+}
+
+VkResult VkDecoderGlobalState::on_vkCreateRenderPass2KHR(android::base::BumpPool* pool,
+                                                         VkDevice boxed_device,
+                                                         const VkRenderPassCreateInfo2KHR* pCreateInfo,
+                                                         const VkAllocationCallbacks* pAllocator,
+                                                         VkRenderPass* pRenderPass) {
+    return mImpl->on_vkCreateRenderPass2(pool, boxed_device, pCreateInfo, pAllocator, pRenderPass);
 }
 
 void VkDecoderGlobalState::on_vkDestroyRenderPass(android::base::BumpPool* pool,

@@ -524,6 +524,14 @@ class VkDecoderGlobalState {
                                    const VkRenderPassCreateInfo* pCreateInfo,
                                    const VkAllocationCallbacks* pAllocator,
                                    VkRenderPass* pRenderPass);
+    VkResult on_vkCreateRenderPass2(android::base::BumpPool* pool, VkDevice device,
+                                    const VkRenderPassCreateInfo2* pCreateInfo,
+                                    const VkAllocationCallbacks* pAllocator,
+                                    VkRenderPass* pRenderPass);
+    VkResult on_vkCreateRenderPass2KHR(android::base::BumpPool* pool, VkDevice device,
+                                       const VkRenderPassCreateInfo2KHR* pCreateInfo,
+                                       const VkAllocationCallbacks* pAllocator,
+                                       VkRenderPass* pRenderPass);
     void on_vkDestroyRenderPass(android::base::BumpPool* pool, VkDevice device,
                                 VkRenderPass renderPass, const VkAllocationCallbacks* pAllocator);
     VkResult on_vkCreateFramebuffer(android::base::BumpPool* pool, VkDevice device,
