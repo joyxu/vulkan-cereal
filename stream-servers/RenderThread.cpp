@@ -337,6 +337,8 @@ intptr_t RenderThread::main() {
         // delete[] fname;
     }
 
+    GfxApiLogger gfx_logger;
+
     uint32_t* seqnoPtr = nullptr;
 
     while (true) {
@@ -438,8 +440,8 @@ intptr_t RenderThread::main() {
             // Note: It's risky to limit Vulkan decoding to one thread,
             // so we do it outside the limiter
             if (tInfo.m_vkDec) {
-                last =
-                    tInfo.m_vkDec->decode(readBuf.buf(), readBuf.validData(), ioStream, seqnoPtr);
+                last = tInfo.m_vkDec->decode(readBuf.buf(), readBuf.validData(), ioStream, seqnoPtr,
+                                             gfx_logger);
                 if (last > 0) {
                     readBuf.consume(last);
                     progress = true;

@@ -16,6 +16,7 @@
 #include "VulkanHandleMapping.h"
 #include "VulkanHandles.h"
 #include "base/EntityManager.h"
+#include "base/GfxApiLogger.h"
 #include "base/Stream.h"
 #include "common/goldfish_vk_marshaling.h"
 
@@ -26,7 +27,7 @@ class VkReconstruction {
     VkReconstruction();
 
     void save(android::base::Stream* stream);
-    void load(android::base::Stream* stream);
+    void load(android::base::Stream* stream, emugl::GfxApiLogger& gfxLogger);
 
     struct ApiInfo {
         // Fast
