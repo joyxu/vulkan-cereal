@@ -5497,20 +5497,12 @@ class VkDecoderGlobalState::Impl {
             vk->vkCreateImage(device, &imageInfo, nullptr, cmpInfo->sizeCompImgs.data() + i);
         }
 
-        VkPhysicalDevice physicalDevice = mDeviceInfo[device].physicalDevice;
-        int32_t memIdx = -1;
         VkDeviceSize& alignment = cmpInfo->alignment;
         std::vector<VkDeviceSize> memSizes(mipLevels);
         VkDeviceSize decompImageSize = 0;
         {
             VkMemoryRequirements memRequirements;
             vk->vkGetImageMemoryRequirements(device, cmpInfo->decompImg, &memRequirements);
-            memIdx = findProperties(physicalDevice, memRequirements.memoryTypeBits,
-                                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-            if (memIdx < 0) {
-                fprintf(stderr, "Error: cannot find memory property!\n");
-                return;
-            }
             alignment = std::max(alignment, memRequirements.alignment);
             decompImageSize = memRequirements.size;
         }
@@ -6234,33 +6226,6 @@ class VkDecoderGlobalState::Impl {
     void unregisterDescriptorUpdateTemplate(VkDescriptorUpdateTemplate descriptorUpdateTemplate) {
         AutoLock lock(mLock);
         mDescriptorUpdateTemplateInfo.erase(descriptorUpdateTemplate);
-    }
-
-    // Returns the momory property index when succeeds; returns -1 when fails.
-    int32_t findProperties(VkPhysicalDevice physicalDevice, uint32_t memoryTypeBitsRequirement,
-                           VkMemoryPropertyFlags requiredProperties) {
-        VkPhysicalDeviceMemoryProperties memProperties;
-        auto ivk =
-            dispatch_VkInstance(mInstanceInfo[mPhysicalDeviceToInstance[physicalDevice]].boxed);
-
-        ivk->vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-        const uint32_t memoryCount = memProperties.memoryTypeCount;
-        for (uint32_t memoryIndex = 0; memoryIndex < memoryCount; ++memoryIndex) {
-            const uint32_t memoryTypeBits = (1 << memoryIndex);
-            const bool isRequiredMemoryType = memoryTypeBitsRequirement & memoryTypeBits;
-
-            const VkMemoryPropertyFlags properties =
-                memProperties.memoryTypes[memoryIndex].propertyFlags;
-            const bool hasRequiredProperties =
-                (properties & requiredProperties) == requiredProperties;
-
-            if (isRequiredMemoryType && hasRequiredProperties)
-                return static_cast<int32_t>(memoryIndex);
-        }
-
-        // failed to find memory type
-        return -1;
     }
 
     VulkanDispatch* m_vk;
