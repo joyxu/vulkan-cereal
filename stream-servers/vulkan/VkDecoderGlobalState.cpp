@@ -70,6 +70,7 @@ using android::base::ManagedDescriptor;
 using android::base::Optional;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
+using emugl::GfxApiLogger;
 
 // TODO: Asserts build
 #define DCHECK(condition)
@@ -317,7 +318,7 @@ class VkDecoderGlobalState::Impl {
 
     void save(android::base::Stream* stream) { snapshot()->save(stream); }
 
-    void load(android::base::Stream* stream) {
+    void load(android::base::Stream* stream, GfxApiLogger& gfxLogger) {
         // assume that we already destroyed all instances
         // from FrameBuffer's onLoad method.
 
@@ -325,7 +326,7 @@ class VkDecoderGlobalState::Impl {
         clear();
 
         // this part will replay in the decoder
-        snapshot()->load(stream);
+        snapshot()->load(stream, gfxLogger);
     }
 
     void lock() { mLock.lock(); }
@@ -4001,7 +4002,8 @@ class VkDecoderGlobalState::Impl {
 
     VkResult on_vkBeginCommandBuffer(android::base::BumpPool* pool,
                                      VkCommandBuffer boxed_commandBuffer,
-                                     const VkCommandBufferBeginInfo* pBeginInfo) {
+                                     const VkCommandBufferBeginInfo* pBeginInfo,
+                                     GfxApiLogger& gfx_logger) {
         auto commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
         auto vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
         VkResult result = vk->vkBeginCommandBuffer(commandBuffer, pBeginInfo);
@@ -4018,12 +4020,13 @@ class VkDecoderGlobalState::Impl {
 
     VkResult on_vkBeginCommandBufferAsyncGOOGLE(android::base::BumpPool* pool,
                                                 VkCommandBuffer boxed_commandBuffer,
-                                                const VkCommandBufferBeginInfo* pBeginInfo) {
-        return this->on_vkBeginCommandBuffer(pool, boxed_commandBuffer, pBeginInfo);
+                                                const VkCommandBufferBeginInfo* pBeginInfo,
+                                                GfxApiLogger& gfx_logger) {
+        return this->on_vkBeginCommandBuffer(pool, boxed_commandBuffer, pBeginInfo, gfx_logger);
     }
 
     VkResult on_vkEndCommandBuffer(android::base::BumpPool* pool,
-                                   VkCommandBuffer boxed_commandBuffer) {
+                                   VkCommandBuffer boxed_commandBuffer, GfxApiLogger& gfx_logger) {
         auto commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
         auto vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
 
@@ -4031,8 +4034,9 @@ class VkDecoderGlobalState::Impl {
     }
 
     void on_vkEndCommandBufferAsyncGOOGLE(android::base::BumpPool* pool,
-                                          VkCommandBuffer boxed_commandBuffer) {
-        on_vkEndCommandBuffer(pool, boxed_commandBuffer);
+                                          VkCommandBuffer boxed_commandBuffer,
+                                          GfxApiLogger& gfx_logger) {
+        on_vkEndCommandBuffer(pool, boxed_commandBuffer, gfx_logger);
     }
 
     void on_vkResetCommandBufferAsyncGOOGLE(android::base::BumpPool* pool,
@@ -4418,13 +4422,13 @@ class VkDecoderGlobalState::Impl {
 
     void on_vkQueueFlushCommandsGOOGLE(android::base::BumpPool* pool, VkQueue queue,
                                        VkCommandBuffer boxed_commandBuffer, VkDeviceSize dataSize,
-                                       const void* pData) {
+                                       const void* pData, GfxApiLogger& gfx_logger) {
         (void)queue;
 
         VkCommandBuffer commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
         VulkanDispatch* vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
         VulkanMemReadingStream* readStream = readstream_VkCommandBuffer(boxed_commandBuffer);
-        subDecode(readStream, vk, boxed_commandBuffer, commandBuffer, dataSize, pData);
+        subDecode(readStream, vk, boxed_commandBuffer, commandBuffer, dataSize, pData, gfx_logger);
     }
 
     VkDescriptorSet getOrAllocateDescriptorSetFromPoolAndId(VulkanDispatch* vk, VkDevice device,
@@ -4556,6 +4560,10 @@ class VkDecoderGlobalState::Impl {
             }
         }
     }
+
+    void on_DeviceLost() { GFXSTREAM_ABORT(FatalError(VK_ERROR_DEVICE_LOST)); }
+
+    void DeviceLostHandler() {}
 
     VkResult waitForFence(VkFence boxed_fence, uint64_t timeout) {
         AutoLock lock(mLock);
@@ -6689,7 +6697,9 @@ bool VkDecoderGlobalState::vkCleanupEnabled() const { return mImpl->vkCleanupEna
 
 void VkDecoderGlobalState::save(android::base::Stream* stream) { mImpl->save(stream); }
 
-void VkDecoderGlobalState::load(android::base::Stream* stream) { mImpl->load(stream); }
+void VkDecoderGlobalState::load(android::base::Stream* stream, GfxApiLogger& gfxLogger) {
+    mImpl->load(stream, gfxLogger);
+}
 
 void VkDecoderGlobalState::lock() { mImpl->lock(); }
 
@@ -7355,24 +7365,27 @@ void VkDecoderGlobalState::on_vkUpdateDescriptorSetWithTemplateSizedGOOGLE(
 
 VkResult VkDecoderGlobalState::on_vkBeginCommandBuffer(android::base::BumpPool* pool,
                                                        VkCommandBuffer commandBuffer,
-                                                       const VkCommandBufferBeginInfo* pBeginInfo) {
-    return mImpl->on_vkBeginCommandBuffer(pool, commandBuffer, pBeginInfo);
+                                                       const VkCommandBufferBeginInfo* pBeginInfo,
+                                                       GfxApiLogger& gfx_logger) {
+    return mImpl->on_vkBeginCommandBuffer(pool, commandBuffer, pBeginInfo, gfx_logger);
 }
 
 void VkDecoderGlobalState::on_vkBeginCommandBufferAsyncGOOGLE(
     android::base::BumpPool* pool, VkCommandBuffer commandBuffer,
-    const VkCommandBufferBeginInfo* pBeginInfo) {
-    mImpl->on_vkBeginCommandBuffer(pool, commandBuffer, pBeginInfo);
+    const VkCommandBufferBeginInfo* pBeginInfo, GfxApiLogger& gfx_logger) {
+    mImpl->on_vkBeginCommandBuffer(pool, commandBuffer, pBeginInfo, gfx_logger);
 }
 
 VkResult VkDecoderGlobalState::on_vkEndCommandBuffer(android::base::BumpPool* pool,
-                                                     VkCommandBuffer commandBuffer) {
-    return mImpl->on_vkEndCommandBuffer(pool, commandBuffer);
+                                                     VkCommandBuffer commandBuffer,
+                                                     GfxApiLogger& gfx_logger) {
+    return mImpl->on_vkEndCommandBuffer(pool, commandBuffer, gfx_logger);
 }
 
 void VkDecoderGlobalState::on_vkEndCommandBufferAsyncGOOGLE(android::base::BumpPool* pool,
-                                                            VkCommandBuffer commandBuffer) {
-    mImpl->on_vkEndCommandBufferAsyncGOOGLE(pool, commandBuffer);
+                                                            VkCommandBuffer commandBuffer,
+                                                            GfxApiLogger& gfx_logger) {
+    mImpl->on_vkEndCommandBufferAsyncGOOGLE(pool, commandBuffer, gfx_logger);
 }
 
 void VkDecoderGlobalState::on_vkResetCommandBufferAsyncGOOGLE(android::base::BumpPool* pool,
@@ -7508,8 +7521,9 @@ void VkDecoderGlobalState::on_vkGetLinearImageLayout2GOOGLE(android::base::BumpP
 void VkDecoderGlobalState::on_vkQueueFlushCommandsGOOGLE(android::base::BumpPool* pool,
                                                          VkQueue queue,
                                                          VkCommandBuffer commandBuffer,
-                                                         VkDeviceSize dataSize, const void* pData) {
-    mImpl->on_vkQueueFlushCommandsGOOGLE(pool, queue, commandBuffer, dataSize, pData);
+                                                         VkDeviceSize dataSize, const void* pData,
+                                                         GfxApiLogger& gfx_logger) {
+    mImpl->on_vkQueueFlushCommandsGOOGLE(pool, queue, commandBuffer, dataSize, pData, gfx_logger);
 }
 
 void VkDecoderGlobalState::on_vkQueueCommitDescriptorSetUpdatesGOOGLE(
@@ -7549,6 +7563,10 @@ void VkDecoderGlobalState::on_vkQueueSignalReleaseImageANDROIDAsyncGOOGLE(
     mImpl->on_vkQueueSignalReleaseImageANDROID(pool, queue, waitSemaphoreCount, pWaitSemaphores,
                                                image, &fenceFd);
 }
+
+void VkDecoderGlobalState::on_DeviceLost() { mImpl->on_DeviceLost(); }
+
+void VkDecoderGlobalState::DeviceLostHandler() { mImpl->DeviceLostHandler(); }
 
 VkResult VkDecoderGlobalState::waitForFence(VkFence boxed_fence, uint64_t timeout) {
     return mImpl->waitForFence(boxed_fence, timeout);

@@ -58,6 +58,8 @@ using android::base::WorkerProcessingResult;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
 
+using emugl::GfxApiLogger;
+
 namespace {
 
 static void EGLAPIENTRY EglDebugCallback(EGLenum error,
@@ -3521,7 +3523,8 @@ bool FrameBuffer::onLoad(Stream* stream,
         goldfish_vk::VkDecoderGlobalState::get()) {
 
         lock.unlock();
-        goldfish_vk::VkDecoderGlobalState::get()->load(stream);
+        GfxApiLogger gfxLogger;
+        goldfish_vk::VkDecoderGlobalState::get()->load(stream, gfxLogger);
         lock.lock();
 
     }

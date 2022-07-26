@@ -29,6 +29,7 @@
 
 
 #include <memory>
+#include "base/GfxApiLogger.h"
 #include "common/goldfish_vk_private_defs.h"
 
 
@@ -49,7 +50,7 @@ public:
     ~VkDecoderSnapshot();
 
     void save(android::base::Stream* stream);
-    void load(android::base::Stream* stream);
+    void load(android::base::Stream* stream, emugl::GfxApiLogger& gfx_logger);
 #ifdef VK_VERSION_1_0
     void vkCreateInstance(
     const uint8_t* snapshotTraceBegin,
