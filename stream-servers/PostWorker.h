@@ -76,10 +76,6 @@ class PostWorker {
     std::shared_future<void> composeImpl(const FlatComposeRequest& composeRequest);
     void clearImpl();
 
-    // Subwindow binding
-    void bind();
-    void unbind();
-
     void fillMultiDisplayPostStruct(ComposeLayer* l, hwc_rect_t displayArea,
                                     hwc_frect_t cropArea,
                                     hwc_transform_t transform);
