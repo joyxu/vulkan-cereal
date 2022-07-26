@@ -426,6 +426,7 @@ static std::vector<VkEmulation::ImageSupportInfo> getBasicImageSupportList() {
         VK_FORMAT_G8_B8R8_2PLANE_422_UNORM,
         VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM,
         VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM,
+        VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16,
 
     };
 
@@ -1645,6 +1646,9 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle, bool vulkanOnly, uint32_t me
             break;
         case FrameworkFormat::FRAMEWORK_FORMAT_NV12:
             vkFormat = VK_FORMAT_G8_B8R8_2PLANE_420_UNORM;
+            break;
+        case FrameworkFormat::FRAMEWORK_FORMAT_P010:
+            vkFormat = VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16;
             break;
         case FrameworkFormat::FRAMEWORK_FORMAT_YV12:
         case FrameworkFormat::FRAMEWORK_FORMAT_YUV_420_888:
