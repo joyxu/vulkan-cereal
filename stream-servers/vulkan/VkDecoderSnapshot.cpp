@@ -38,6 +38,7 @@
 
 
 using namespace goldfish_vk;
+using emugl::GfxApiLogger;
 
 class VkDecoderSnapshot::Impl {
 public:
@@ -47,8 +48,8 @@ public:
         mReconstruction.save(stream);
     }
 
-    void load(android::base::Stream* stream) {
-        mReconstruction.load(stream);
+    void load(android::base::Stream* stream, GfxApiLogger& gfx_logger) {
+        mReconstruction.load(stream, gfx_logger);
     }
 
 #ifdef VK_VERSION_1_0
@@ -7056,8 +7057,8 @@ void VkDecoderSnapshot::save(android::base::Stream* stream) {
     mImpl->save(stream);
 }
 
-void VkDecoderSnapshot::load(android::base::Stream* stream) {
-    mImpl->load(stream);
+void VkDecoderSnapshot::load(android::base::Stream* stream, GfxApiLogger& gfx_logger) {
+    mImpl->load(stream, gfx_logger);
 }
 
 VkDecoderSnapshot::~VkDecoderSnapshot() = default;
