@@ -254,17 +254,17 @@ class FrameBuffer {
     // Call this function when a render thread terminates to destroy all
     // resources it created. Necessary to avoid leaking host resources
     // when a guest application crashes, for example.
-    void drainRenderThreadResources();
+    void drainGlRenderThreadResources();
 
     // Call this function when a render thread terminates to destroy all
     // the remaining contexts it created. Necessary to avoid leaking host
     // contexts when a guest application crashes, for example.
-    void drainRenderThreadContexts();
+    void drainGlRenderThreadContexts();
 
     // Call this function when a render thread terminates to destroy all
     // remaining window surface it created. Necessary to avoid leaking
     // host buffers when a guest application crashes, for example.
-    void drainRenderThreadWindowSurfaces();
+    void drainGlRenderThreadWindowSurfaces();
 
     // Destroy a given RenderContext instance. |p_context| is its handle
     // value as returned by createRenderContext().

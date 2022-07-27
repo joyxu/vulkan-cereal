@@ -34,6 +34,7 @@
 #include "base/StreamSerializing.h"
 #include "base/System.h"
 #include "base/Tracing.h"
+#include "host-common/feature_control.h"
 #include "host-common/logging.h"
 #include "vulkan/VkCommonOperations.h"
 
@@ -268,7 +269,9 @@ intptr_t RenderThread::main() {
     //
     // initialize decoders
     //
-    tInfo.initGl();
+    if (!feature_is_enabled(kFeature_GuestUsesAngle)) {
+        tInfo.initGl();
+    }
 
     initRenderControlContext(&tInfo.m_rcDec);
 
@@ -523,7 +526,9 @@ intptr_t RenderThread::main() {
         fclose(dumpFP);
     }
 
-    FrameBuffer::getFB()->drainRenderThreadResources();
+    if (tInfo.m_glInfo) {
+        FrameBuffer::getFB()->drainGlRenderThreadResources();
+    }
 
     setFinished();
 

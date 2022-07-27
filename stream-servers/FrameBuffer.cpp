@@ -1781,7 +1781,7 @@ HandleType FrameBuffer::createWindowSurface(int p_config,
     return ret;
 }
 
-void FrameBuffer::drainRenderThreadResources() {
+void FrameBuffer::drainGlRenderThreadResources() {
     // If we're already exiting then snapshot should not contain
     // this thread information at all.
     if (isShuttingDown()) {
@@ -1791,15 +1791,15 @@ void FrameBuffer::drainRenderThreadResources() {
     // Release references to the current thread's context/surfaces if any
     bindContext(0, 0, 0);
 
-    drainRenderThreadWindowSurfaces();
-    drainRenderThreadContexts();
+    drainGlRenderThreadWindowSurfaces();
+    drainGlRenderThreadContexts();
 
     if (!s_egl.eglReleaseThread()) {
         ERR("Error: RenderThread @%p failed to eglReleaseThread()", this);
     }
 }
 
-void FrameBuffer::drainRenderThreadContexts() {
+void FrameBuffer::drainGlRenderThreadContexts() {
     if (isShuttingDown()) {
         return;
     }
@@ -1822,7 +1822,7 @@ void FrameBuffer::drainRenderThreadContexts() {
     tinfo->m_contextSet.clear();
 }
 
-void FrameBuffer::drainRenderThreadWindowSurfaces() {
+void FrameBuffer::drainGlRenderThreadWindowSurfaces() {
     if (isShuttingDown()) {
         return;
     }
