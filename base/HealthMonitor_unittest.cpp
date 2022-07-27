@@ -288,4 +288,32 @@ TEST_F(HealthMonitorTest, twoTasksHangOverlappingTest) {
     healthMonitor.stopMonitoringTask(id2);
 }
 
+TEST_F(HealthMonitorTest, simultaneousTasks) {
+    int expectedHangDurationS = 5;
+    {
+        InSequence s;
+        EXPECT_CALL(logger, logMetricEvent(VariantWith<MetricEventHang>(
+                                Field(&MetricEventHang::otherHungTasks, 0))))
+            .Times(1);
+        EXPECT_CALL(logger, logMetricEvent(VariantWith<MetricEventHang>(
+                                Field(&MetricEventHang::otherHungTasks, 1))))
+            .Times(1);
+        EXPECT_CALL(logger,
+                    logMetricEvent(VariantWith<MetricEventUnHang>(Field(
+                        &MetricEventUnHang::hung_ms, AllOf(Ge(SToMs(expectedHangDurationS - 1)),
+                                                           Le(SToMs(expectedHangDurationS + 1)))))))
+            .Times(1);
+        EXPECT_CALL(logger,
+                    logMetricEvent(VariantWith<MetricEventUnHang>(Field(
+                        &MetricEventUnHang::hung_ms, AllOf(Ge(SToMs(expectedHangDurationS - 1)),
+                                                           Le(SToMs(expectedHangDurationS + 1)))))))
+            .Times(1);
+    }
+    auto id1 = healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>());
+    auto id2 = healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>());
+    step(defaultHangThresholdS + expectedHangDurationS);
+    healthMonitor.stopMonitoringTask(id1);
+    healthMonitor.stopMonitoringTask(id2);
+}
+
 }  // namespace emugl
