@@ -74,14 +74,7 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch& vk, VkPhysicalDevice vkP
 }
 
 DisplayVk::~DisplayVk() {
-    {
-        android::base::AutoLock lock(*m_swapChainVkQueueLock);
-        VK_CHECK(vk_util::waitForVkQueueIdleWithRetry(m_vk, m_swapChainVkQueue));
-    }
-    {
-        android::base::AutoLock lock(*m_compositorVkQueueLock);
-        VK_CHECK(vk_util::waitForVkQueueIdleWithRetry(m_vk, m_compositorVkQueue));
-    }
+    drainSwapChainQueue();
     m_freePostResources.clear();
     m_postResourceFutures.clear();
     m_surfaceState.reset();
@@ -89,15 +82,15 @@ DisplayVk::~DisplayVk() {
     m_vk.vkDestroyCommandPool(m_vkDevice, m_vkCommandPool, nullptr);
 }
 
-bool DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t height) {
-    {
-        android::base::AutoLock lock(*m_compositorVkQueueLock);
-        VK_CHECK(vk_util::waitForVkQueueIdleWithRetry(m_vk, m_compositorVkQueue));
-    }
+void DisplayVk::drainSwapChainQueue() {
     {
         android::base::AutoLock lock(*m_swapChainVkQueueLock);
         VK_CHECK(vk_util::waitForVkQueueIdleWithRetry(m_vk, m_swapChainVkQueue));
     }
+}
+
+bool DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t height) {
+    drainSwapChainQueue();
     m_freePostResources.clear();
     m_postResourceFutures.clear();
     m_swapChainStateVk.reset();
