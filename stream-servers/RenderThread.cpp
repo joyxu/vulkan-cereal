@@ -337,7 +337,7 @@ intptr_t RenderThread::main() {
         // delete[] fname;
     }
 
-    GfxApiLogger gfx_logger;
+    GfxApiLogger gfxLogger;
 
     uint32_t* seqnoPtr = nullptr;
 
@@ -441,7 +441,7 @@ intptr_t RenderThread::main() {
             // so we do it outside the limiter
             if (tInfo.m_vkDec) {
                 last = tInfo.m_vkDec->decode(readBuf.buf(), readBuf.validData(), ioStream, seqnoPtr,
-                                             gfx_logger);
+                                             gfxLogger);
                 if (last > 0) {
                     readBuf.consume(last);
                     progress = true;

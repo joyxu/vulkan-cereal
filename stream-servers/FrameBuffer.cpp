@@ -57,7 +57,6 @@ using android::base::Stream;
 using android::base::WorkerProcessingResult;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
-
 using emugl::GfxApiLogger;
 
 namespace {
