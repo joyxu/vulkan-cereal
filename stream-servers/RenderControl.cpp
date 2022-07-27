@@ -31,6 +31,7 @@
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "RenderContext.h"
 #include "RenderThreadInfo.h"
+#include "RenderThreadInfoGl.h"
 #include "SyncThread.h"
 #include "base/Tracing.h"
 #include "host-common/dma_device.h"
@@ -426,7 +427,7 @@ void removeExtension(std::string& currExts, const std::string& toRemove) {
 }
 
 static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
-    RenderThreadInfo *tInfo = RenderThreadInfo::get();
+    RenderThreadInfoGl* const tInfo = RenderThreadInfoGl::get();
 
     // whatever we end up returning,
     // it will have a terminating \0,
@@ -1163,7 +1164,11 @@ static void rcCreateSyncKHR(EGLenum type,
     // rcTriggerWait is registered.
     emugl_sync_register_trigger_wait(rcTriggerWait);
 
-    RenderThreadInfo *tInfo = RenderThreadInfo::get();
+    RenderThreadInfoGl* const tInfo = RenderThreadInfoGl::get();
+    if (!tInfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Render thread GL not available.";
+    }
 
     if (!tInfo->currContext) {
         auto fb = FrameBuffer::getFB();
@@ -1200,7 +1205,12 @@ static void rcCreateSyncKHR(EGLenum type,
 static EGLint rcClientWaitSyncKHR(uint64_t handle,
                                   EGLint flags,
                                   uint64_t timeout) {
-    RenderThreadInfo *tInfo = RenderThreadInfo::get();
+    RenderThreadInfoGl* const tInfo = RenderThreadInfoGl::get();
+    if (!tInfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Render thread GL not available.";
+    }
+
     FrameBuffer *fb = FrameBuffer::getFB();
 
     EGLSYNC_DPRINT("handle=0x%lx flags=0x%x timeout=%" PRIu64,
@@ -1232,7 +1242,12 @@ static EGLint rcClientWaitSyncKHR(uint64_t handle,
 
 static void rcWaitSyncKHR(uint64_t handle,
                                   EGLint flags) {
-    RenderThreadInfo *tInfo = RenderThreadInfo::get();
+    RenderThreadInfoGl* const tInfo = RenderThreadInfoGl::get();
+    if (!tInfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Render thread GL not available.";
+    }
+
     FrameBuffer *fb = FrameBuffer::getFB();
 
     EGLSYNC_DPRINT("handle=0x%lx flags=0x%x", handle, flags);
