@@ -1880,7 +1880,7 @@ bool colorBufferNeedsTransferBetweenGlAndVk(const VkEmulation::ColorBufferInfo& 
 
 bool readColorBufferToGl(uint32_t colorBufferHandle) {
     if (!sVkEmulation || !sVkEmulation->live) {
-        VK_COMMON_ERROR("VkEmulation not available.");
+        VK_COMMON_VERBOSE("VkEmulation not available.");
         return false;
     }
 
@@ -1890,7 +1890,7 @@ bool readColorBufferToGl(uint32_t colorBufferHandle) {
 
     auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
     if (!colorBufferInfo) {
-        VK_COMMON_ERROR("Failed to read from ColorBuffer:%d, not found.", colorBufferHandle);
+        VK_COMMON_VERBOSE("Failed to read from ColorBuffer:%d, not found.", colorBufferHandle);
         return false;
     }
 
@@ -2072,7 +2072,7 @@ bool readColorBufferToBytesLocked(uint32_t colorBufferHandle, uint32_t x, uint32
 
 bool updateColorBufferFromGl(uint32_t colorBufferHandle) {
     if (!sVkEmulation || !sVkEmulation->live) {
-        VK_COMMON_ERROR("VkEmulation not available.");
+        VK_COMMON_VERBOSE("VkEmulation not available.");
         return false;
     }
 
@@ -2080,7 +2080,7 @@ bool updateColorBufferFromGl(uint32_t colorBufferHandle) {
 
     auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
     if (!colorBufferInfo) {
-        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, not found.", colorBufferHandle);
+        VK_COMMON_VERBOSE("Failed to update ColorBuffer:%d, not found.", colorBufferHandle);
         return false;
     }
 
