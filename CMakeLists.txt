@@ -27,6 +27,8 @@ if(VIRGL_RENDERER_UNSTABLE_APIS)
     add_definitions(-DVIRGL_RENDERER_UNSTABLE_APIS)
 endif()
 
+option(ASTC_CPU_DECODING "Enable decoding ASTC textures on the CPU" OFF)
+
 if(UNIX AND NOT APPLE)
     set(LINUX TRUE)
 endif()
