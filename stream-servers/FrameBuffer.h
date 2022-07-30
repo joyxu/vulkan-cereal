@@ -852,5 +852,6 @@ class FrameBuffer {
 
     std::unique_ptr<MetricsLogger> m_logger;
     HealthMonitor<> m_healthMonitor;
+    android::base::Lock m_windowResizeLock;
 };
 #endif
