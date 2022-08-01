@@ -80,6 +80,10 @@ struct VkEmulation {
     // RenderDoc integration for guest VkInstances.
     std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> guestRenderDoc = nullptr;
 
+    // Whether to use ASTC emulation. Our current ASTC decoder implementation may lead to device
+    // lost on certain device on Windows.
+    bool enableAstcLdrEmulation = false;
+
     // Instance and device for creating the system-wide shareable objects.
     VkInstance instance = VK_NULL_HANDLE;
     VkPhysicalDevice physdev = VK_NULL_HANDLE;
@@ -352,6 +356,7 @@ struct VkEmulationFeatures {
     bool useVulkanComposition = false;
     bool useVulkanNativeSwapchain = false;
     std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> guestRenderDoc = nullptr;
+    bool enableAstcLdrEmulation = false;
 };
 void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures>);
 
