@@ -30,7 +30,7 @@ class DisplayVk {
     ~DisplayVk();
     bool bindToSurface(VkSurfaceKHR, uint32_t width, uint32_t height);
 
-    void drainSwapChainQueue();
+    void drainQueues();
 
     // The first component of the returned tuple is false when the swapchain is no longer valid and
     // bindToSurface() needs to be called again. When the first component is true, the second

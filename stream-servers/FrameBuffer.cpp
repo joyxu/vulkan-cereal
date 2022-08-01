@@ -1396,7 +1396,7 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
             // changed.
             AutoLock mutex(m_windowResizeLock);
             if (m_displayVk != nullptr) {
-                m_displayVk->drainSwapChainQueue();
+                m_displayVk->drainQueues();
             }
             m_x = wx;
             m_y = wy;
