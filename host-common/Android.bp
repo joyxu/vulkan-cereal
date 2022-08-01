@@ -18,6 +18,7 @@ cc_library_static {
         "crash_reporter.cpp",
         "vm_operations.cpp",
         "feature_control.cpp",
+        "FeatureControlOverride.cpp",
         "dma_device.cpp",
         "sync_device.cpp",
         "misc.cpp",
