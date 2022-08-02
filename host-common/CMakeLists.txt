@@ -118,6 +118,20 @@ if (BUILD_STANDALONE)
     )
 endif()
 
+if(NOT TARGET gfxstream-host-common.product-feature-override)
+    add_library(gfxstream-host-common.product-feature-override OBJECT FeatureControlOverride.cpp)
+    target_link_libraries(
+        gfxstream-host-common.product-feature-override
+        PRIVATE
+        gfxstream-host-common.headers
+        gfxstream-base.headers)
+endif()
+
+target_link_libraries(
+    ${GFXSTREAM_HOST_COMMON_LIB}
+    PRIVATE
+    gfxstream-host-common.product-feature-override)
+
 # Tests
 add_library(
     gfxstream-host-common-testing-support

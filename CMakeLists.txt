@@ -1,5 +1,11 @@
 cmake_policy(SET CMP0048 NEW)
-project(gfx-streaming-kit)
+# Set this policy to allow gfxstream to modify the passed in targets like
+# ${GFXSTREAM_HOST_COMMON_LIB}.
+cmake_policy(SET CMP0079 NEW)
+get_directory_property(hasParent PARENT_DIRECTORY)
+if(NOT hasParent)
+    project(gfx-streaming-kit)
+endif()
 cmake_minimum_required(VERSION 3.18)
 
 option(ENABLE_VKCEREAL_TESTS "Enable building vulkan-cereal unittests" ON)

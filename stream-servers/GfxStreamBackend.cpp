@@ -437,6 +437,8 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
            !syncFdDisabledByFlag &&
            (renderer_flags & GFXSTREAM_RENDERER_FLAGS_ASYNC_FENCE_CB));
 
+    android::featurecontrol::productFeatureOverride();
+
     if (useVulkanNativeSwapchain && !enableVk) {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
                             "can't enable vulkan native swapchain, Vulkan is disabled";
