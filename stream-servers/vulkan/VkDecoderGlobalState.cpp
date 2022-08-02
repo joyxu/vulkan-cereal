@@ -1725,7 +1725,9 @@ class VkDecoderGlobalState::Impl {
         AutoLock lock(mLock);
         auto& samplerInfo = mSamplerInfo[*pSampler];
         samplerInfo.device = device;
-        samplerInfo.createInfo = *pCreateInfo;
+        deepcopy_VkSamplerCreateInfo(
+                &samplerInfo.pool, VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO, pCreateInfo,
+                &samplerInfo.createInfo);
         // We emulate RGB with RGBA for some compressed textures, which does not
         // handle translarent border correctly.
         samplerInfo.needEmulatedAlpha =
@@ -6547,6 +6549,22 @@ class VkDecoderGlobalState::Impl {
         bool needEmulatedAlpha = false;
         VkSamplerCreateInfo createInfo = {};
         VkSampler emulatedborderSampler = VK_NULL_HANDLE;
+        android::base::BumpPool pool = android::base::BumpPool(256);
+        SamplerInfo() = default;
+        SamplerInfo& operator=(const SamplerInfo& other) {
+            deepcopy_VkSamplerCreateInfo(&pool,
+                    VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+                    &other.createInfo, &createInfo);
+            device = other.device;
+            needEmulatedAlpha = other.needEmulatedAlpha;
+            emulatedborderSampler = other.emulatedborderSampler;
+            return *this;
+        }
+        SamplerInfo(const SamplerInfo& other) {
+            *this = other;
+        }
+        SamplerInfo(SamplerInfo&& other) = delete;
+        SamplerInfo& operator=(SamplerInfo&& other) = delete;
     };
 
     struct FenceInfo {
