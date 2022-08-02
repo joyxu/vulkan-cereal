@@ -74,7 +74,7 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch& vk, VkPhysicalDevice vkP
 }
 
 DisplayVk::~DisplayVk() {
-    drainSwapChainQueue();
+    drainQueues();
     m_freePostResources.clear();
     m_postResourceFutures.clear();
     m_surfaceState.reset();
@@ -82,15 +82,22 @@ DisplayVk::~DisplayVk() {
     m_vk.vkDestroyCommandPool(m_vkDevice, m_vkCommandPool, nullptr);
 }
 
-void DisplayVk::drainSwapChainQueue() {
+void DisplayVk::drainQueues() {
     {
         android::base::AutoLock lock(*m_swapChainVkQueueLock);
         VK_CHECK(vk_util::waitForVkQueueIdleWithRetry(m_vk, m_swapChainVkQueue));
     }
+    // We don't assume all VkCommandBuffer submitted to m_compositorVkQueueLock is always followed
+    // by another operation on the m_swapChainVkQueue. Therefore, only waiting for the
+    // m_swapChainVkQueue is not enough to guarantee all resources used are free to be destroyed.
+    {
+        android::base::AutoLock lock(*m_compositorVkQueueLock);
+        VK_CHECK(vk_util::waitForVkQueueIdleWithRetry(m_vk, m_compositorVkQueue));
+    }
 }
 
 bool DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t height) {
-    drainSwapChainQueue();
+    drainQueues();
     m_freePostResources.clear();
     m_postResourceFutures.clear();
     m_swapChainStateVk.reset();
