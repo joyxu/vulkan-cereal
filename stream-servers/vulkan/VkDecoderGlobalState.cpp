@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "AstcCpuDecompressor.h"
 #include "DecompressionShaders.h"
 #include "FrameBuffer.h"
 #include "VkAndroidNativeBuffer.h"
@@ -70,6 +71,7 @@ using android::base::ManagedDescriptor;
 using android::base::Optional;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
+using emugl::GfxApiLogger;
 
 // TODO: Asserts build
 #define DCHECK(condition)
@@ -317,7 +319,7 @@ class VkDecoderGlobalState::Impl {
 
     void save(android::base::Stream* stream) { snapshot()->save(stream); }
 
-    void load(android::base::Stream* stream) {
+    void load(android::base::Stream* stream, GfxApiLogger& gfxLogger) {
         // assume that we already destroyed all instances
         // from FrameBuffer's onLoad method.
 
@@ -325,7 +327,7 @@ class VkDecoderGlobalState::Impl {
         clear();
 
         // this part will replay in the decoder
-        snapshot()->load(stream);
+        snapshot()->load(stream, gfxLogger);
     }
 
     void lock() { mLock.lock(); }
@@ -382,6 +384,10 @@ class VkDecoderGlobalState::Impl {
                                  const VkAllocationCallbacks* pAllocator, VkInstance* pInstance) {
         std::vector<const char*> finalExts = filteredExtensionNames(
             pCreateInfo->enabledExtensionCount, pCreateInfo->ppEnabledExtensionNames);
+
+        INFO("Creating Vulkan instance for app: %s engine: %s",
+             pCreateInfo->pApplicationInfo->pApplicationName,
+             pCreateInfo->pApplicationInfo->pEngineName);
 
         // Create higher version instance whenever it is possible.
         uint32_t apiVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -448,6 +454,16 @@ class VkDecoderGlobalState::Impl {
             if (!m_vk->vkSetMTLTextureMVK) {
                 GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Cannot find vkSetMTLTextureMVK";
             }
+        }
+
+        // TODO(gregschlom) Use a better criteria to determine when to use ASTC CPU decompression.
+        //   The goal is to only enable ASTC CPU decompression for specific applications.
+        //   Theoretically the pApplicationName field would be exactly what we want, unfortunately
+        //   it looks like Unity apps always set this to "Unity" instead of the actual application.
+        //   Eventually we will want to use https://r.android.com/2163499 for this purpose.
+        if (strcmp(applicationInfo.pApplicationName, "Unity") == 0 &&
+            strcmp(applicationInfo.pEngineName, "Unity") == 0) {
+            info.useAstcCpuDecompression = true;
         }
 
         mInstanceInfo[*pInstance] = info;
@@ -647,7 +663,7 @@ class VkDecoderGlobalState::Impl {
 
         vk->vkGetPhysicalDeviceFeatures(physicalDevice, pFeatures);
         pFeatures->textureCompressionETC2 = true;
-        pFeatures->textureCompressionASTC_LDR |= kEmulateAstc;
+        pFeatures->textureCompressionASTC_LDR |= m_emu->enableAstcLdrEmulation;
     }
 
     void on_vkGetPhysicalDeviceFeatures2(android::base::BumpPool* pool,
@@ -688,7 +704,7 @@ class VkDecoderGlobalState::Impl {
         }
 
         pFeatures->features.textureCompressionETC2 = true;
-        pFeatures->features.textureCompressionASTC_LDR |= kEmulateAstc;
+        pFeatures->features.textureCompressionASTC_LDR |= m_emu->enableAstcLdrEmulation;
     }
 
     VkResult on_vkGetPhysicalDeviceImageFormatProperties(
@@ -1320,7 +1336,6 @@ class VkDecoderGlobalState::Impl {
             auto& bufInfo = mBufferInfo[*pBuffer];
             bufInfo.device = device;
             bufInfo.size = pCreateInfo->size;
-            bufInfo.vk = vk;
             *pBuffer = new_boxed_non_dispatchable_VkBuffer(*pBuffer);
         }
 
@@ -1409,15 +1424,15 @@ class VkDecoderGlobalState::Impl {
 
         AutoLock lock(mLock);
 
-        auto deviceInfoIt = mDeviceInfo.find(device);
-        if (deviceInfoIt == mDeviceInfo.end()) {
+        auto* deviceInfo = android::base::find(mDeviceInfo, device);
+        if (!deviceInfo) {
             return VK_ERROR_OUT_OF_HOST_MEMORY;
         }
 
         CompressedImageInfo cmpInfo = {};
         VkImageCreateInfo& sizeCompInfo = cmpInfo.sizeCompImgCreateInfo;
         VkImageCreateInfo decompInfo;
-        if (deviceInfoIt->second.needEmulatedDecompression(pCreateInfo->format)) {
+        if (deviceInfo->needEmulatedDecompression(pCreateInfo->format)) {
             cmpInfo = createCompressedImageInfo(pCreateInfo->format);
             cmpInfo.imageType = pCreateInfo->imageType;
             cmpInfo.extent = pCreateInfo->extent;
@@ -1471,9 +1486,19 @@ class VkDecoderGlobalState::Impl {
 
         if (createRes != VK_SUCCESS) return createRes;
 
-        if (deviceInfoIt->second.needEmulatedDecompression(cmpInfo)) {
+        if (deviceInfo->needEmulatedDecompression(cmpInfo)) {
             cmpInfo.decompImg = *pImage;
             createSizeCompImages(vk, &cmpInfo);
+
+            if (cmpInfo.isAstc) {
+                VkInstance* instance = deviceToInstanceLocked(device);
+                InstanceInfo* instanceInfo = android::base::find(mInstanceInfo, *instance);
+                if (instanceInfo && instanceInfo->useAstcCpuDecompression) {
+                    cmpInfo.astcCpuDecompressor->initialize(
+                        m_vk, device, mDeviceInfo[device].physicalDevice, cmpInfo.extent,
+                        cmpInfo.compressedBlockWidth, cmpInfo.compressedBlockHeight);
+                }
+            }
         }
 
         auto& imageInfo = mImageInfo[*pImage];
@@ -1481,7 +1506,7 @@ class VkDecoderGlobalState::Impl {
         if (nativeBufferANDROID) imageInfo.anbInfo = std::move(anbInfo);
 
         imageInfo.device = device;
-        imageInfo.cmpInfo = cmpInfo;
+        imageInfo.cmpInfo = std::move(cmpInfo);
 
         *pImage = new_boxed_non_dispatchable_VkImage(*pImage);
 
@@ -1503,6 +1528,9 @@ class VkDecoderGlobalState::Impl {
                 for (const auto& image : cmpInfo.sizeCompImgs) {
                     deviceDispatch->vkDestroyImage(device, image, nullptr);
                 }
+
+                cmpInfo.astcCpuDecompressor->release();
+
                 deviceDispatch->vkDestroyDescriptorSetLayout(
                     device, cmpInfo.decompDescriptorSetLayout, nullptr);
                 deviceDispatch->vkDestroyDescriptorPool(device, cmpInfo.decompDescriptorPool,
@@ -2613,27 +2641,27 @@ class VkDecoderGlobalState::Impl {
         auto vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
 
         AutoLock lock(mLock);
-        auto it = mImageInfo.find(dstImage);
-        if (it == mImageInfo.end()) return;
-        auto bufferInfoIt = mBufferInfo.find(srcBuffer);
-        if (bufferInfoIt == mBufferInfo.end()) {
+        auto* imageInfo = android::base::find(mImageInfo, dstImage);
+        if (!imageInfo) return;
+        auto* bufferInfo = android::base::find(mBufferInfo, srcBuffer);
+        if (!bufferInfo) {
             return;
         }
-        VkDevice device = bufferInfoIt->second.device;
-        auto deviceInfoIt = mDeviceInfo.find(device);
-        if (deviceInfoIt == mDeviceInfo.end()) {
+        VkDevice device = bufferInfo->device;
+        auto* deviceInfo = android::base::find(mDeviceInfo, device);
+        if (!deviceInfo) {
             return;
         }
-        if (!deviceInfoIt->second.needEmulatedDecompression(it->second.cmpInfo)) {
+        if (!deviceInfo->needEmulatedDecompression(imageInfo->cmpInfo)) {
             vk->vkCmdCopyBufferToImage(commandBuffer, srcBuffer, dstImage, dstImageLayout,
                                        regionCount, pRegions);
             return;
         }
-        auto cmdBufferInfoIt = mCmdBufferInfo.find(commandBuffer);
-        if (cmdBufferInfoIt == mCmdBufferInfo.end()) {
+        auto* cmdBufferInfo = android::base::find(mCmdBufferInfo, commandBuffer);
+        if (!cmdBufferInfo) {
             return;
         }
-        CompressedImageInfo& cmp = it->second.cmpInfo;
+        CompressedImageInfo& cmp = imageInfo->cmpInfo;
         for (uint32_t r = 0; r < regionCount; r++) {
             VkBufferImageCopy dstRegion;
             dstRegion = pRegions[r];
@@ -2651,10 +2679,28 @@ class VkDecoderGlobalState::Impl {
             dstRegion.imageExtent.height =
                 (dstRegion.imageExtent.height + cmp.compressedBlockHeight - 1) /
                 cmp.compressedBlockHeight;
+
             dstRegion.imageExtent.width = std::min(dstRegion.imageExtent.width, width);
             dstRegion.imageExtent.height = std::min(dstRegion.imageExtent.height, height);
             vk->vkCmdCopyBufferToImage(commandBuffer, srcBuffer, cmp.sizeCompImgs[mipLevel],
                                        dstImageLayout, 1, &dstRegion);
+        }
+
+        // Perform CPU decompression of ASTC textures, if enabled
+        if (cmp.isAstc && cmp.astcCpuDecompressor->initialized()) {
+            // Get a pointer to the compressed image memory
+            const MappedMemoryInfo* memoryInfo = android::base::find(mMapInfo, bufferInfo->memory);
+            if (!memoryInfo) {
+                WARN("ASTC CPU decompression: couldn't find mapped memory info");
+                return;
+            }
+            if (!memoryInfo->ptr) {
+                WARN("ASTC CPU decompression: VkBuffer memory isn't host-visible");
+                return;
+            }
+            uint8_t* astcData = (uint8_t*)(memoryInfo->ptr) + bufferInfo->memoryOffset;
+            cmp.astcCpuDecompressor->on_vkCmdCopyBufferToImage(
+                commandBuffer, astcData, bufferInfo->size, dstImage, dstImageLayout, regionCount, pRegions);
         }
     }
 
@@ -2706,46 +2752,45 @@ class VkDecoderGlobalState::Impl {
             return;
         }
         AutoLock lock(mLock);
-        auto cmdBufferInfoIt = mCmdBufferInfo.find(commandBuffer);
-        if (cmdBufferInfoIt == mCmdBufferInfo.end()) {
+        CommandBufferInfo* cmdBufferInfo = android::base::find(mCmdBufferInfo, commandBuffer);
+        if (!cmdBufferInfo) {
             return;
         }
-        const auto& cmdBufferInfo = cmdBufferInfoIt->second;
 
-        auto deviceInfoIt = mDeviceInfo.find(cmdBufferInfo.device);
-        if (deviceInfoIt == mDeviceInfo.end()) {
+        DeviceInfo* deviceInfo = android::base::find(mDeviceInfo, cmdBufferInfo->device);
+        if (!deviceInfo) {
             return;
         }
-        if (!deviceInfoIt->second.emulateTextureEtc2 && !deviceInfoIt->second.emulateTextureAstc) {
+        if (!deviceInfo->emulateTextureEtc2 && !deviceInfo->emulateTextureAstc) {
             vk->vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, dependencyFlags,
                                      memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount,
                                      pBufferMemoryBarriers, imageMemoryBarrierCount,
                                      pImageMemoryBarriers);
             return;
         }
+
         // Add barrier for decompressed image
         std::vector<VkImageMemoryBarrier> persistentImageBarriers;
         bool needRebind = false;
         for (uint32_t i = 0; i < imageMemoryBarrierCount; i++) {
             const VkImageMemoryBarrier& srcBarrier = pImageMemoryBarriers[i];
             auto image = srcBarrier.image;
-            auto it = mImageInfo.find(image);
-            if (it == mImageInfo.end() ||
-                !deviceInfoIt->second.needEmulatedDecompression(it->second.cmpInfo)) {
+            auto* imageInfo = android::base::find(mImageInfo, image);
+            if (!imageInfo || !deviceInfo->needGpuDecompression(imageInfo->cmpInfo)) {
                 persistentImageBarriers.push_back(srcBarrier);
                 continue;
             }
             uint32_t baseMipLevel = srcBarrier.subresourceRange.baseMipLevel;
             uint32_t levelCount = srcBarrier.subresourceRange.levelCount;
             VkImageMemoryBarrier decompBarrier = srcBarrier;
-            decompBarrier.image = it->second.cmpInfo.decompImg;
+            decompBarrier.image = imageInfo->cmpInfo.decompImg;
             VkImageMemoryBarrier sizeCompBarrierTemplate = srcBarrier;
             sizeCompBarrierTemplate.subresourceRange.baseMipLevel = 0;
             sizeCompBarrierTemplate.subresourceRange.levelCount = 1;
             std::vector<VkImageMemoryBarrier> sizeCompBarriers(
                 srcBarrier.subresourceRange.levelCount, sizeCompBarrierTemplate);
             for (uint32_t j = 0; j < levelCount; j++) {
-                sizeCompBarriers[j].image = it->second.cmpInfo.sizeCompImgs[baseMipLevel + j];
+                sizeCompBarriers[j].image = imageInfo->cmpInfo.sizeCompImgs[baseMipLevel + j];
             }
 
             // TODO: should we use image layout or access bit?
@@ -2766,7 +2811,7 @@ class VkDecoderGlobalState::Impl {
                         srcBarrier.oldLayout, srcBarrier.newLayout);
             }
 
-            VkResult result = it->second.cmpInfo.initDecomp(vk, cmdBufferInfo.device, image);
+            VkResult result = imageInfo->cmpInfo.initDecomp(vk, cmdBufferInfo->device, image);
             if (result != VK_SUCCESS) {
                 fprintf(stderr, "WARNING: texture decompression failed\n");
                 continue;
@@ -2791,7 +2836,7 @@ class VkDecoderGlobalState::Impl {
             vk->vkCmdPipelineBarrier(commandBuffer, srcStageMask,
                                      VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0,
                                      nullptr, currImageBarriers.size(), currImageBarriers.data());
-            it->second.cmpInfo.cmdDecompress(
+            imageInfo->cmpInfo.cmdDecompress(
                 vk, commandBuffer, dstStageMask, decompBarrier.newLayout,
                 decompBarrier.dstAccessMask, baseMipLevel, levelCount,
                 srcBarrier.subresourceRange.baseArrayLayer, srcBarrier.subresourceRange.layerCount);
@@ -2824,16 +2869,16 @@ class VkDecoderGlobalState::Impl {
                                      currImageBarriers.data()   // pImageMemoryBarriers
             );
         }
-        if (needRebind && cmdBufferInfo.computePipeline) {
+        if (needRebind && cmdBufferInfo->computePipeline) {
             // Recover pipeline bindings
             vk->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                  cmdBufferInfo.computePipeline);
-            if (cmdBufferInfo.descriptorSets.size() > 0) {
+                                  cmdBufferInfo->computePipeline);
+            if (cmdBufferInfo->descriptorSets.size() > 0) {
                 vk->vkCmdBindDescriptorSets(
-                    commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, cmdBufferInfo.descriptorLayout,
-                    cmdBufferInfo.firstSet, cmdBufferInfo.descriptorSets.size(),
-                    cmdBufferInfo.descriptorSets.data(), cmdBufferInfo.dynamicOffsets.size(),
-                    cmdBufferInfo.dynamicOffsets.data());
+                    commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, cmdBufferInfo->descriptorLayout,
+                    cmdBufferInfo->firstSet, cmdBufferInfo->descriptorSets.size(),
+                    cmdBufferInfo->descriptorSets.data(), cmdBufferInfo->dynamicOffsets.size(),
+                    cmdBufferInfo->dynamicOffsets.data());
             }
         }
         if (memoryBarrierCount || bufferMemoryBarrierCount || !persistentImageBarriers.empty()) {
@@ -4001,7 +4046,8 @@ class VkDecoderGlobalState::Impl {
 
     VkResult on_vkBeginCommandBuffer(android::base::BumpPool* pool,
                                      VkCommandBuffer boxed_commandBuffer,
-                                     const VkCommandBufferBeginInfo* pBeginInfo) {
+                                     const VkCommandBufferBeginInfo* pBeginInfo,
+                                     GfxApiLogger& gfxLogger) {
         auto commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
         auto vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
         VkResult result = vk->vkBeginCommandBuffer(commandBuffer, pBeginInfo);
@@ -4018,12 +4064,13 @@ class VkDecoderGlobalState::Impl {
 
     VkResult on_vkBeginCommandBufferAsyncGOOGLE(android::base::BumpPool* pool,
                                                 VkCommandBuffer boxed_commandBuffer,
-                                                const VkCommandBufferBeginInfo* pBeginInfo) {
-        return this->on_vkBeginCommandBuffer(pool, boxed_commandBuffer, pBeginInfo);
+                                                const VkCommandBufferBeginInfo* pBeginInfo,
+                                                GfxApiLogger& gfxLogger) {
+        return this->on_vkBeginCommandBuffer(pool, boxed_commandBuffer, pBeginInfo, gfxLogger);
     }
 
     VkResult on_vkEndCommandBuffer(android::base::BumpPool* pool,
-                                   VkCommandBuffer boxed_commandBuffer) {
+                                   VkCommandBuffer boxed_commandBuffer, GfxApiLogger& gfxLogger) {
         auto commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
         auto vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
 
@@ -4031,8 +4078,9 @@ class VkDecoderGlobalState::Impl {
     }
 
     void on_vkEndCommandBufferAsyncGOOGLE(android::base::BumpPool* pool,
-                                          VkCommandBuffer boxed_commandBuffer) {
-        on_vkEndCommandBuffer(pool, boxed_commandBuffer);
+                                          VkCommandBuffer boxed_commandBuffer,
+                                          GfxApiLogger& gfxLogger) {
+        on_vkEndCommandBuffer(pool, boxed_commandBuffer, gfxLogger);
     }
 
     void on_vkResetCommandBufferAsyncGOOGLE(android::base::BumpPool* pool,
@@ -4121,6 +4169,27 @@ class VkDecoderGlobalState::Impl {
             pCreateInfo = &createInfo;
         }
         VkResult res = vk->vkCreateRenderPass(device, pCreateInfo, pAllocator, pRenderPass);
+        if (res != VK_SUCCESS) {
+            return res;
+        }
+
+        auto& renderPassInfo = mRenderPassInfo[*pRenderPass];
+        renderPassInfo.device = device;
+
+        *pRenderPass = new_boxed_non_dispatchable_VkRenderPass(*pRenderPass);
+
+        return res;
+    }
+
+    VkResult on_vkCreateRenderPass2(android::base::BumpPool* pool, VkDevice boxed_device,
+                                    const VkRenderPassCreateInfo2* pCreateInfo,
+                                    const VkAllocationCallbacks* pAllocator,
+                                    VkRenderPass* pRenderPass) {
+        auto device = unbox_VkDevice(boxed_device);
+        auto vk = dispatch_VkDevice(boxed_device);
+        AutoLock lock(mLock);
+
+        VkResult res = vk->vkCreateRenderPass2(device, pCreateInfo, pAllocator, pRenderPass);
         if (res != VK_SUCCESS) {
             return res;
         }
@@ -4397,13 +4466,13 @@ class VkDecoderGlobalState::Impl {
 
     void on_vkQueueFlushCommandsGOOGLE(android::base::BumpPool* pool, VkQueue queue,
                                        VkCommandBuffer boxed_commandBuffer, VkDeviceSize dataSize,
-                                       const void* pData) {
+                                       const void* pData, GfxApiLogger& gfxLogger) {
         (void)queue;
 
         VkCommandBuffer commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
         VulkanDispatch* vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
         VulkanMemReadingStream* readStream = readstream_VkCommandBuffer(boxed_commandBuffer);
-        subDecode(readStream, vk, boxed_commandBuffer, commandBuffer, dataSize, pData);
+        subDecode(readStream, vk, boxed_commandBuffer, commandBuffer, dataSize, pData, gfxLogger);
     }
 
     VkDescriptorSet getOrAllocateDescriptorSetFromPoolAndId(VulkanDispatch* vk, VkDevice device,
@@ -4535,6 +4604,10 @@ class VkDecoderGlobalState::Impl {
             }
         }
     }
+
+    void on_DeviceLost() { GFXSTREAM_ABORT(FatalError(VK_ERROR_DEVICE_LOST)); }
+
+    void DeviceLostHandler() {}
 
     VkResult waitForFence(VkFence boxed_fence, uint64_t timeout) {
         AutoLock lock(mLock);
@@ -4888,7 +4961,6 @@ class VkDecoderGlobalState::Impl {
     VkDecoderSnapshot* snapshot() { return &mSnapshot; }
 
    private:
-    static const bool kEmulateAstc = true;
     bool isEmulatedExtension(const char* name) const {
         for (auto emulatedExt : kEmulatedExtensions) {
             if (!strcmp(emulatedExt, name)) return true;
@@ -5024,6 +5096,9 @@ class VkDecoderGlobalState::Impl {
         uint32_t compressedBlockHeight = 1;
         uint32_t layerCount;
         uint32_t mipLevels = 1;
+
+        std::unique_ptr<AstcCpuDecompressor> astcCpuDecompressor = CreateAstcCpuDecompressor();
+
         uint32_t mipmapWidth(uint32_t level) {
             return std::max<uint32_t>(extent.width >> level, 1);
         }
@@ -5476,20 +5551,12 @@ class VkDecoderGlobalState::Impl {
             vk->vkCreateImage(device, &imageInfo, nullptr, cmpInfo->sizeCompImgs.data() + i);
         }
 
-        VkPhysicalDevice physicalDevice = mDeviceInfo[device].physicalDevice;
-        int32_t memIdx = -1;
         VkDeviceSize& alignment = cmpInfo->alignment;
         std::vector<VkDeviceSize> memSizes(mipLevels);
         VkDeviceSize decompImageSize = 0;
         {
             VkMemoryRequirements memRequirements;
             vk->vkGetImageMemoryRequirements(device, cmpInfo->decompImg, &memRequirements);
-            memIdx = findProperties(physicalDevice, memRequirements.memoryTypeBits,
-                                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-            if (memIdx < 0) {
-                fprintf(stderr, "Error: cannot find memory property!\n");
-                return;
-            }
             alignment = std::max(alignment, memRequirements.alignment);
             decompImageSize = memRequirements.size;
         }
@@ -5542,8 +5609,8 @@ class VkDecoderGlobalState::Impl {
         return !feature.textureCompressionETC2;
     }
 
-    static bool needEmulatedAstc(VkPhysicalDevice physicalDevice, goldfish_vk::VulkanDispatch* vk) {
-        if (!kEmulateAstc) {
+    bool needEmulatedAstc(VkPhysicalDevice physicalDevice, goldfish_vk::VulkanDispatch* vk) {
+        if (!m_emu->enableAstcLdrEmulation) {
             return false;
         }
         VkPhysicalDeviceFeatures feature;
@@ -6215,31 +6282,11 @@ class VkDecoderGlobalState::Impl {
         mDescriptorUpdateTemplateInfo.erase(descriptorUpdateTemplate);
     }
 
-    // Returns the momory property index when succeeds; returns -1 when fails.
-    int32_t findProperties(VkPhysicalDevice physicalDevice, uint32_t memoryTypeBitsRequirement,
-                           VkMemoryPropertyFlags requiredProperties) {
-        VkPhysicalDeviceMemoryProperties memProperties;
-        auto ivk =
-            dispatch_VkInstance(mInstanceInfo[mPhysicalDeviceToInstance[physicalDevice]].boxed);
-
-        ivk->vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-        const uint32_t memoryCount = memProperties.memoryTypeCount;
-        for (uint32_t memoryIndex = 0; memoryIndex < memoryCount; ++memoryIndex) {
-            const uint32_t memoryTypeBits = (1 << memoryIndex);
-            const bool isRequiredMemoryType = memoryTypeBitsRequirement & memoryTypeBits;
-
-            const VkMemoryPropertyFlags properties =
-                memProperties.memoryTypes[memoryIndex].propertyFlags;
-            const bool hasRequiredProperties =
-                (properties & requiredProperties) == requiredProperties;
-
-            if (isRequiredMemoryType && hasRequiredProperties)
-                return static_cast<int32_t>(memoryIndex);
-        }
-
-        // failed to find memory type
-        return -1;
+    // Returns the VkInstance associated with a VkDevice, or null if it's not found
+    VkInstance* deviceToInstanceLocked(VkDevice device) {
+        auto* physicalDevice = android::base::find(mDeviceToPhysicalDevice, device);
+        if (!physicalDevice) return nullptr;
+        return android::base::find(mPhysicalDeviceToInstance, *physicalDevice);
     }
 
     VulkanDispatch* m_vk;
@@ -6282,6 +6329,7 @@ class VkDecoderGlobalState::Impl {
         std::vector<std::string> enabledExtensionNames;
         uint32_t apiVersion = VK_MAKE_VERSION(1, 0, 0);
         VkInstance boxed = nullptr;
+        bool useAstcCpuDecompression = false;
     };
 
     struct PhysicalDeviceInfo {
@@ -6300,6 +6348,12 @@ class VkDecoderGlobalState::Impl {
         VkDevice boxed = nullptr;
         std::unique_ptr<ExternalFencePool<VulkanDispatch>> externalFencePool = nullptr;
 
+        // True if this is a compressed image that needs to be decompressed on the GPU (with our
+        // compute shader)
+        bool needGpuDecompression(const CompressedImageInfo& imageInfo) {
+            return needEmulatedDecompression(imageInfo) &&
+                   !imageInfo.astcCpuDecompressor->successful();
+        }
         bool needEmulatedDecompression(const CompressedImageInfo& imageInfo) {
             return imageInfo.isCompressed && ((imageInfo.isEtc2 && emulateTextureEtc2) ||
                                               (imageInfo.isAstc && emulateTextureAstc));
@@ -6365,8 +6419,6 @@ class VkDecoderGlobalState::Impl {
         VkDeviceMemory memory = 0;
         VkDeviceSize memoryOffset = 0;
         VkDeviceSize size;
-        // For compressed texture emulation
-        VulkanDispatch* vk = nullptr;
     };
 
     struct ImageInfo {
@@ -6703,7 +6755,9 @@ bool VkDecoderGlobalState::vkCleanupEnabled() const { return mImpl->vkCleanupEna
 
 void VkDecoderGlobalState::save(android::base::Stream* stream) { mImpl->save(stream); }
 
-void VkDecoderGlobalState::load(android::base::Stream* stream) { mImpl->load(stream); }
+void VkDecoderGlobalState::load(android::base::Stream* stream, GfxApiLogger& gfxLogger) {
+    mImpl->load(stream, gfxLogger);
+}
 
 void VkDecoderGlobalState::lock() { mImpl->lock(); }
 
@@ -7369,24 +7423,27 @@ void VkDecoderGlobalState::on_vkUpdateDescriptorSetWithTemplateSizedGOOGLE(
 
 VkResult VkDecoderGlobalState::on_vkBeginCommandBuffer(android::base::BumpPool* pool,
                                                        VkCommandBuffer commandBuffer,
-                                                       const VkCommandBufferBeginInfo* pBeginInfo) {
-    return mImpl->on_vkBeginCommandBuffer(pool, commandBuffer, pBeginInfo);
+                                                       const VkCommandBufferBeginInfo* pBeginInfo,
+                                                       GfxApiLogger& gfxLogger) {
+    return mImpl->on_vkBeginCommandBuffer(pool, commandBuffer, pBeginInfo, gfxLogger);
 }
 
 void VkDecoderGlobalState::on_vkBeginCommandBufferAsyncGOOGLE(
     android::base::BumpPool* pool, VkCommandBuffer commandBuffer,
-    const VkCommandBufferBeginInfo* pBeginInfo) {
-    mImpl->on_vkBeginCommandBuffer(pool, commandBuffer, pBeginInfo);
+    const VkCommandBufferBeginInfo* pBeginInfo, GfxApiLogger& gfxLogger) {
+    mImpl->on_vkBeginCommandBuffer(pool, commandBuffer, pBeginInfo, gfxLogger);
 }
 
 VkResult VkDecoderGlobalState::on_vkEndCommandBuffer(android::base::BumpPool* pool,
-                                                     VkCommandBuffer commandBuffer) {
-    return mImpl->on_vkEndCommandBuffer(pool, commandBuffer);
+                                                     VkCommandBuffer commandBuffer,
+                                                     GfxApiLogger& gfxLogger) {
+    return mImpl->on_vkEndCommandBuffer(pool, commandBuffer, gfxLogger);
 }
 
 void VkDecoderGlobalState::on_vkEndCommandBufferAsyncGOOGLE(android::base::BumpPool* pool,
-                                                            VkCommandBuffer commandBuffer) {
-    mImpl->on_vkEndCommandBufferAsyncGOOGLE(pool, commandBuffer);
+                                                            VkCommandBuffer commandBuffer,
+                                                            GfxApiLogger& gfxLogger) {
+    mImpl->on_vkEndCommandBufferAsyncGOOGLE(pool, commandBuffer, gfxLogger);
 }
 
 void VkDecoderGlobalState::on_vkResetCommandBufferAsyncGOOGLE(android::base::BumpPool* pool,
@@ -7441,6 +7498,22 @@ VkResult VkDecoderGlobalState::on_vkCreateRenderPass(android::base::BumpPool* po
                                                      const VkAllocationCallbacks* pAllocator,
                                                      VkRenderPass* pRenderPass) {
     return mImpl->on_vkCreateRenderPass(pool, boxed_device, pCreateInfo, pAllocator, pRenderPass);
+}
+
+VkResult VkDecoderGlobalState::on_vkCreateRenderPass2(android::base::BumpPool* pool,
+                                                      VkDevice boxed_device,
+                                                      const VkRenderPassCreateInfo2* pCreateInfo,
+                                                      const VkAllocationCallbacks* pAllocator,
+                                                      VkRenderPass* pRenderPass) {
+    return mImpl->on_vkCreateRenderPass2(pool, boxed_device, pCreateInfo, pAllocator, pRenderPass);
+}
+
+VkResult VkDecoderGlobalState::on_vkCreateRenderPass2KHR(android::base::BumpPool* pool,
+                                                         VkDevice boxed_device,
+                                                         const VkRenderPassCreateInfo2KHR* pCreateInfo,
+                                                         const VkAllocationCallbacks* pAllocator,
+                                                         VkRenderPass* pRenderPass) {
+    return mImpl->on_vkCreateRenderPass2(pool, boxed_device, pCreateInfo, pAllocator, pRenderPass);
 }
 
 void VkDecoderGlobalState::on_vkDestroyRenderPass(android::base::BumpPool* pool,
@@ -7506,8 +7579,9 @@ void VkDecoderGlobalState::on_vkGetLinearImageLayout2GOOGLE(android::base::BumpP
 void VkDecoderGlobalState::on_vkQueueFlushCommandsGOOGLE(android::base::BumpPool* pool,
                                                          VkQueue queue,
                                                          VkCommandBuffer commandBuffer,
-                                                         VkDeviceSize dataSize, const void* pData) {
-    mImpl->on_vkQueueFlushCommandsGOOGLE(pool, queue, commandBuffer, dataSize, pData);
+                                                         VkDeviceSize dataSize, const void* pData,
+                                                         GfxApiLogger& gfxLogger) {
+    mImpl->on_vkQueueFlushCommandsGOOGLE(pool, queue, commandBuffer, dataSize, pData, gfxLogger);
 }
 
 void VkDecoderGlobalState::on_vkQueueCommitDescriptorSetUpdatesGOOGLE(
@@ -7547,6 +7621,10 @@ void VkDecoderGlobalState::on_vkQueueSignalReleaseImageANDROIDAsyncGOOGLE(
     mImpl->on_vkQueueSignalReleaseImageANDROID(pool, queue, waitSemaphoreCount, pWaitSemaphores,
                                                image, &fenceFd);
 }
+
+void VkDecoderGlobalState::on_DeviceLost() { mImpl->on_DeviceLost(); }
+
+void VkDecoderGlobalState::DeviceLostHandler() { mImpl->DeviceLostHandler(); }
 
 VkResult VkDecoderGlobalState::waitForFence(VkFence boxed_fence, uint64_t timeout) {
     return mImpl->waitForFence(boxed_fence, timeout);

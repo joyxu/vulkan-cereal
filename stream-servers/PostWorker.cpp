@@ -101,10 +101,19 @@ std::shared_future<void> PostWorker::postImpl(ColorBuffer* cb) {
             return completedFuture;
         }
         const auto imageInfo = mFb->borrowColorBufferForDisplay(cb->getHndl());
-        auto [success, waitForGpu] = m_displayVk->post(imageInfo.get());
+        bool success;
+        Compositor::CompositionFinishedWaitable waitForGpu;
+        std::tie(success, waitForGpu) = m_displayVk->post(imageInfo.get());
         if (!success) {
-            m_needsToRebindWindow = true;
-            return completedFuture;
+            // Create swapChain and retry
+            if (mBindSubwin()) {
+                std::tie(success, waitForGpu) = m_displayVk->post(imageInfo.get());
+            }
+            if (!success) {
+                m_needsToRebindWindow = true;
+                return completedFuture;
+            }
+            m_needsToRebindWindow = false;
         }
         return waitForGpu;
     }
@@ -282,29 +291,6 @@ std::shared_future<void> PostWorker::composeImpl(const FlatComposeRequest& compo
     }
 
     return m_compositor->compose(compositorRequest);
-}
-
-void PostWorker::bind() {
-    if (m_mainThreadPostingOnly && !m_displayVk) {
-        if (mFb->getDisplay() != EGL_NO_DISPLAY) {
-            EGLint res = s_egl.eglMakeCurrent(mFb->getDisplay(), mFb->getWindowSurface(), mFb->getWindowSurface(), mContext);
-            if (!res) fprintf(stderr, "%s: error in binding: 0x%x\n", __func__, s_egl.eglGetError());
-        } else {
-            fprintf(stderr, "%s: no display!\n", __func__);
-        }
-    } else {
-        mBindSubwin();
-    }
-}
-
-void PostWorker::unbind() {
-    if (m_displayVk) {
-        return;
-    }
-    if (mFb->getDisplay() != EGL_NO_DISPLAY) {
-        s_egl.eglMakeCurrent(mFb->getDisplay(), EGL_NO_SURFACE, EGL_NO_SURFACE,
-                             EGL_NO_CONTEXT);
-    }
 }
 
 void PostWorker::screenshot(

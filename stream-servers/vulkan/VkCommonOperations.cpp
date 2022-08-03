@@ -426,6 +426,7 @@ static std::vector<VkEmulation::ImageSupportInfo> getBasicImageSupportList() {
         VK_FORMAT_G8_B8R8_2PLANE_422_UNORM,
         VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM,
         VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM,
+        VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16,
 
     };
 
@@ -1146,10 +1147,12 @@ void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures> features) {
     INFO("    useVulkanComposition: %s", features->useVulkanComposition ? "true" : "false");
     INFO("    useVulkanNativeSwapchain: %s", features->useVulkanNativeSwapchain ? "true" : "false");
     INFO("    enable guestRenderDoc: %s", features->guestRenderDoc ? "true" : "false");
+    INFO("    enable ASTC LDR emulation: %s", features->enableAstcLdrEmulation ? "true" : "false");
     sVkEmulation->deviceInfo.glInteropSupported = features->glInteropSupported;
     sVkEmulation->useDeferredCommands = features->deferredCommands;
     sVkEmulation->useCreateResourcesWithRequirements = features->createResourceWithRequirements;
     sVkEmulation->guestRenderDoc = std::move(features->guestRenderDoc);
+    sVkEmulation->enableAstcLdrEmulation = features->enableAstcLdrEmulation;
 
     if (features->useVulkanComposition) {
         if (sVkEmulation->compositorVk) {
@@ -1646,6 +1649,9 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle, bool vulkanOnly, uint32_t me
         case FrameworkFormat::FRAMEWORK_FORMAT_NV12:
             vkFormat = VK_FORMAT_G8_B8R8_2PLANE_420_UNORM;
             break;
+        case FrameworkFormat::FRAMEWORK_FORMAT_P010:
+            vkFormat = VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16;
+            break;
         case FrameworkFormat::FRAMEWORK_FORMAT_YV12:
         case FrameworkFormat::FRAMEWORK_FORMAT_YUV_420_888:
             vkFormat = VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM;
@@ -1876,7 +1882,7 @@ bool colorBufferNeedsTransferBetweenGlAndVk(const VkEmulation::ColorBufferInfo& 
 
 bool readColorBufferToGl(uint32_t colorBufferHandle) {
     if (!sVkEmulation || !sVkEmulation->live) {
-        VK_COMMON_ERROR("VkEmulation not available.");
+        VK_COMMON_VERBOSE("VkEmulation not available.");
         return false;
     }
 
@@ -1886,7 +1892,7 @@ bool readColorBufferToGl(uint32_t colorBufferHandle) {
 
     auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
     if (!colorBufferInfo) {
-        VK_COMMON_ERROR("Failed to read from ColorBuffer:%d, not found.", colorBufferHandle);
+        VK_COMMON_VERBOSE("Failed to read from ColorBuffer:%d, not found.", colorBufferHandle);
         return false;
     }
 
@@ -2068,7 +2074,7 @@ bool readColorBufferToBytesLocked(uint32_t colorBufferHandle, uint32_t x, uint32
 
 bool updateColorBufferFromGl(uint32_t colorBufferHandle) {
     if (!sVkEmulation || !sVkEmulation->live) {
-        VK_COMMON_ERROR("VkEmulation not available.");
+        VK_COMMON_VERBOSE("VkEmulation not available.");
         return false;
     }
 
@@ -2076,7 +2082,7 @@ bool updateColorBufferFromGl(uint32_t colorBufferHandle) {
 
     auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
     if (!colorBufferInfo) {
-        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, not found.", colorBufferHandle);
+        VK_COMMON_VERBOSE("Failed to update ColorBuffer:%d, not found.", colorBufferHandle);
         return false;
     }
 

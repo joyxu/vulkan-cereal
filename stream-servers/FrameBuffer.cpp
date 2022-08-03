@@ -57,6 +57,7 @@ using android::base::Stream;
 using android::base::WorkerProcessingResult;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
+using emugl::GfxApiLogger;
 
 namespace {
 
@@ -532,6 +533,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
             .useVulkanComposition = fb->m_useVulkanComposition,
             .useVulkanNativeSwapchain = feature_is_enabled(kFeature_VulkanNativeSwapchain),
             .guestRenderDoc = std::move(renderDocMultipleVkInstances),
+            .enableAstcLdrEmulation = feature_is_enabled(kFeature_VulkanAstcLdrEmulation),
         });
 
     //
@@ -986,7 +988,10 @@ FrameBuffer::FrameBuffer(int p_width, int p_height, bool useSubWindow)
           [this](FrameBuffer::Readback&& readback) { return sendReadbackWorkerCmd(readback); }),
       m_refCountPipeEnabled(feature_is_enabled(kFeature_RefCountPipe)),
       m_noDelayCloseColorBufferEnabled(feature_is_enabled(kFeature_NoDelayCloseColorBuffer)),
-      m_postThread([this](Post&& post) { return postWorkerFunc(post); }),
+      m_postThread([this](Post&& post) {
+          AutoLock mutex(this->m_windowResizeLock);
+          return postWorkerFunc(post);
+      }),
       m_logger(CreateMetricsLogger()),
       m_healthMonitor(*m_logger) {
     uint32_t displayId = 0;
@@ -1152,7 +1157,8 @@ std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
                     }
                     if (maxRetries < 0) {
                         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-                            << "Failed to create Swapchain.";
+                            << "Failed to create Swapchain. w:" << m_windowWidth.load()
+                            << " h:" << m_windowHeight.load();
                     }
                     INFO("Recreating swapchain completes.");
                     return true;
@@ -1389,6 +1395,10 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
         } else {
             // Only attempt to update window geometry if anything has actually
             // changed.
+            AutoLock mutex(m_windowResizeLock);
+            if (m_displayVk != nullptr) {
+                m_displayVk->drainQueues();
+            }
             m_x = wx;
             m_y = wy;
             m_windowWidth = ww;
@@ -3521,7 +3531,8 @@ bool FrameBuffer::onLoad(Stream* stream,
         goldfish_vk::VkDecoderGlobalState::get()) {
 
         lock.unlock();
-        goldfish_vk::VkDecoderGlobalState::get()->load(stream);
+        GfxApiLogger gfxLogger;
+        goldfish_vk::VkDecoderGlobalState::get()->load(stream, gfxLogger);
         lock.lock();
 
     }

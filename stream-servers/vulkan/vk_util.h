@@ -313,6 +313,9 @@ class CallbacksWrapper {
     std::unique_ptr<T> mCallbacks;
 };
 
+std::optional<uint32_t> findMemoryType(const VulkanDispatch* ivk, VkPhysicalDevice physicalDevice,
+                                       uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
 void setVkCheckCallbacks(std::unique_ptr<VkCheckCallbacks>);
 const CallbacksWrapper<VkCheckCallbacks>& getVkCheckCallbacks();
 
@@ -364,16 +367,7 @@ class FindMemoryType : public U {
     std::optional<uint32_t> findMemoryType(uint32_t typeFilter,
                                            VkMemoryPropertyFlags properties) const {
         const T& self = static_cast<const T&>(*this);
-        VkPhysicalDeviceMemoryProperties memProperties;
-        self.m_vk.vkGetPhysicalDeviceMemoryProperties(self.m_vkPhysicalDevice, &memProperties);
-
-        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-            if ((typeFilter & (1 << i)) &&
-                (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-                return i;
-            }
-        }
-        return std::nullopt;
+        return vk_util::findMemoryType(&self.m_vk, self.m_vkPhysicalDevice, typeFilter, properties);
     }
 };
 
