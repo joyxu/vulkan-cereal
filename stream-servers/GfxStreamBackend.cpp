@@ -436,6 +436,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
            kFeature_VirtioGpuFenceContexts,
            !syncFdDisabledByFlag &&
            (renderer_flags & GFXSTREAM_RENDERER_FLAGS_ASYNC_FENCE_CB));
+    feature_set_enabled_override(kFeature_VulkanAstcLdrEmulation, true);
 
     android::featurecontrol::productFeatureOverride();
 

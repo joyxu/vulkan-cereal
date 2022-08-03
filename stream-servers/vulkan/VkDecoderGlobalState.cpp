@@ -663,7 +663,7 @@ class VkDecoderGlobalState::Impl {
 
         vk->vkGetPhysicalDeviceFeatures(physicalDevice, pFeatures);
         pFeatures->textureCompressionETC2 = true;
-        pFeatures->textureCompressionASTC_LDR |= kEmulateAstc;
+        pFeatures->textureCompressionASTC_LDR |= m_emu->enableAstcLdrEmulation;
     }
 
     void on_vkGetPhysicalDeviceFeatures2(android::base::BumpPool* pool,
@@ -704,7 +704,7 @@ class VkDecoderGlobalState::Impl {
         }
 
         pFeatures->features.textureCompressionETC2 = true;
-        pFeatures->features.textureCompressionASTC_LDR |= kEmulateAstc;
+        pFeatures->features.textureCompressionASTC_LDR |= m_emu->enableAstcLdrEmulation;
     }
 
     VkResult on_vkGetPhysicalDeviceImageFormatProperties(
@@ -4961,7 +4961,6 @@ class VkDecoderGlobalState::Impl {
     VkDecoderSnapshot* snapshot() { return &mSnapshot; }
 
    private:
-    static const bool kEmulateAstc = true;
     bool isEmulatedExtension(const char* name) const {
         for (auto emulatedExt : kEmulatedExtensions) {
             if (!strcmp(emulatedExt, name)) return true;
@@ -5610,8 +5609,8 @@ class VkDecoderGlobalState::Impl {
         return !feature.textureCompressionETC2;
     }
 
-    static bool needEmulatedAstc(VkPhysicalDevice physicalDevice, goldfish_vk::VulkanDispatch* vk) {
-        if (!kEmulateAstc) {
+    bool needEmulatedAstc(VkPhysicalDevice physicalDevice, goldfish_vk::VulkanDispatch* vk) {
+        if (!m_emu->enableAstcLdrEmulation) {
             return false;
         }
         VkPhysicalDeviceFeatures feature;
