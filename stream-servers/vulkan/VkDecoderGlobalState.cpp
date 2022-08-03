@@ -403,6 +403,7 @@ class VkDecoderGlobalState::Impl {
         }
 
         VkInstanceCreateInfo createInfoFiltered;
+        VkApplicationInfo applicationInfo = {};
         deepcopy_VkInstanceCreateInfo(pool,
                                       VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
                                       pCreateInfo, &createInfoFiltered);
@@ -413,6 +414,7 @@ class VkDecoderGlobalState::Impl {
         if (createInfoFiltered.pApplicationInfo != nullptr) {
             const_cast<VkApplicationInfo*>(createInfoFiltered.pApplicationInfo)
                     ->apiVersion = apiVersion;
+            applicationInfo = *createInfoFiltered.pApplicationInfo;
         }
 
         // remove VkDebugReportCallbackCreateInfoEXT and
