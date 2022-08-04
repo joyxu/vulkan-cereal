@@ -3602,6 +3602,10 @@ void FrameBuffer::registerProcessSequenceNumberForPuid(uint64_t puid) {
 
     auto procIte = m_procOwnedSequenceNumbers.find(puid);
     if (procIte != m_procOwnedSequenceNumbers.end()) {
+        if (procIte->first != puid) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "puid for the associated RenderThread already set.";
+        }
         return;
     }
     uint32_t* seqnoPtr = new uint32_t;
