@@ -987,7 +987,8 @@ FrameBuffer::FrameBuffer(int p_width, int p_height, bool useSubWindow)
       m_readbackThread(
           [this](FrameBuffer::Readback&& readback) { return sendReadbackWorkerCmd(readback); }),
       m_refCountPipeEnabled(feature_is_enabled(kFeature_RefCountPipe)),
-      m_noDelayCloseColorBufferEnabled(feature_is_enabled(kFeature_NoDelayCloseColorBuffer)),
+      m_noDelayCloseColorBufferEnabled(feature_is_enabled(kFeature_NoDelayCloseColorBuffer) ||
+          feature_is_enabled(kFeature_Minigbm)),
       m_postThread([this](Post&& post) {
           AutoLock mutex(this->m_windowResizeLock);
           return postWorkerFunc(post);
