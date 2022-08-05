@@ -38,6 +38,8 @@ endif()
 
 if (WIN32)
 target_compile_definitions(gfxstream-vulkan-server PRIVATE -DVK_USE_PLATFORM_WIN32_KHR)
+elseif (APPLE)
+target_compile_definitions(gfxstream-vulkan-server PRIVATE -DVK_USE_PLATFORM_METAL_EXT)
 endif()
 
 if (NOT MSVC)
