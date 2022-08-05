@@ -309,6 +309,19 @@ void PostWorker::screenshot(
         width, height, format, type, rotation, pixels);
 }
 
+void PostWorker::block(std::promise<void> scheduledSignal, std::future<void> continueSignal) {
+    // MSVC STL doesn't support not copyable std::packaged_task. As a workaround, we use the
+    // copyable std::shared_ptr here.
+    auto block = std::make_shared<Post::Block>(Post::Block{
+        .scheduledSignal = std::move(scheduledSignal),
+        .continueSignal = std::move(continueSignal),
+    });
+    runTask(std::packaged_task<void()>([block] {
+        block->scheduledSignal.set_value();
+        block->continueSignal.wait();
+    }));
+}
+
 PostWorker::~PostWorker() {
     if (mFb->getDisplay() != EGL_NO_DISPLAY) {
         s_egl.eglMakeCurrent(mFb->getDisplay(), EGL_NO_SURFACE, EGL_NO_SURFACE,

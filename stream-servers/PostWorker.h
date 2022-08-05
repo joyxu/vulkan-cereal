@@ -69,6 +69,10 @@ class PostWorker {
     void screenshot(ColorBuffer* cb, int screenwidth, int screenheight,
                     GLenum format, GLenum type, int skinRotation, void* pixels);
 
+    // The block task will set the scheduledSignal promise when the task is scheduled, and wait
+    // until continueSignal is ready before completes.
+    void block(std::promise<void> scheduledSignal, std::future<void> continueSignal);
+
    private:
     // Impl versions of the above, so we can run it from separate threads
     std::shared_future<void> postImpl(ColorBuffer* cb);
