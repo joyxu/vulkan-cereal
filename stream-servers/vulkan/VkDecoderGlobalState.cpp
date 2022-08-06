@@ -4707,6 +4707,32 @@ class VkDecoderGlobalState::Impl {
         }
     }
 
+    VkResult on_vkCreateSamplerYcbcrConversion(
+        android::base::BumpPool*, VkDevice boxed_device,
+        const VkSamplerYcbcrConversionCreateInfo* pCreateInfo,
+        const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion) {
+        auto device = unbox_VkDevice(boxed_device);
+        auto vk = dispatch_VkDevice(boxed_device);
+        VkResult res =
+            vk->vkCreateSamplerYcbcrConversion(device, pCreateInfo, pAllocator, pYcbcrConversion);
+        if (res != VK_SUCCESS) {
+            return res;
+        }
+        *pYcbcrConversion = new_boxed_non_dispatchable_VkSamplerYcbcrConversion(*pYcbcrConversion);
+        return VK_SUCCESS;
+    }
+
+    void on_vkDestroySamplerYcbcrConversion(android::base::BumpPool* pool, VkDevice boxed_device,
+                                            VkSamplerYcbcrConversion boxed_ycbcrConversion,
+                                            const VkAllocationCallbacks* pAllocator) {
+        auto device = unbox_VkDevice(boxed_device);
+        auto vk = dispatch_VkDevice(boxed_device);
+        VkSamplerYcbcrConversion ycbcrConversion =
+            unbox_VkSamplerYcbcrConversion(boxed_ycbcrConversion);
+        vk->vkDestroySamplerYcbcrConversion(device, ycbcrConversion, pAllocator);
+        return;
+    }
+
     void on_DeviceLost() { GFXSTREAM_ABORT(FatalError(VK_ERROR_DEVICE_LOST)); }
 
     void DeviceLostHandler() {}
@@ -7786,6 +7812,34 @@ void VkDecoderGlobalState::on_vkQueueSignalReleaseImageANDROIDAsyncGOOGLE(
     int fenceFd;
     mImpl->on_vkQueueSignalReleaseImageANDROID(pool, queue, waitSemaphoreCount, pWaitSemaphores,
                                                image, &fenceFd);
+}
+
+VkResult VkDecoderGlobalState::on_vkCreateSamplerYcbcrConversion(
+    android::base::BumpPool* pool, VkDevice device,
+    const VkSamplerYcbcrConversionCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator,
+    VkSamplerYcbcrConversion* pYcbcrConversion) {
+    return mImpl->on_vkCreateSamplerYcbcrConversion(pool, device, pCreateInfo, pAllocator,
+                                                    pYcbcrConversion);
+}
+
+VkResult VkDecoderGlobalState::on_vkCreateSamplerYcbcrConversionKHR(
+    android::base::BumpPool* pool, VkDevice device,
+    const VkSamplerYcbcrConversionCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator,
+    VkSamplerYcbcrConversion* pYcbcrConversion) {
+    return mImpl->on_vkCreateSamplerYcbcrConversion(pool, device, pCreateInfo, pAllocator,
+                                                    pYcbcrConversion);
+}
+
+void VkDecoderGlobalState::on_vkDestroySamplerYcbcrConversion(
+    android::base::BumpPool* pool, VkDevice device, VkSamplerYcbcrConversion ycbcrConversion,
+    const VkAllocationCallbacks* pAllocator) {
+    mImpl->on_vkDestroySamplerYcbcrConversion(pool, device, ycbcrConversion, pAllocator);
+}
+
+void VkDecoderGlobalState::on_vkDestroySamplerYcbcrConversionKHR(
+    android::base::BumpPool* pool, VkDevice device, VkSamplerYcbcrConversion ycbcrConversion,
+    const VkAllocationCallbacks* pAllocator) {
+    mImpl->on_vkDestroySamplerYcbcrConversion(pool, device, ycbcrConversion, pAllocator);
 }
 
 void VkDecoderGlobalState::on_DeviceLost() { mImpl->on_DeviceLost(); }
