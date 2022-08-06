@@ -598,6 +598,21 @@ class VkDecoderGlobalState {
                                                         const VkSemaphore* pWaitSemaphores,
                                                         VkImage image);
 
+    VkResult on_vkCreateSamplerYcbcrConversion(
+        android::base::BumpPool* pool, VkDevice device,
+        const VkSamplerYcbcrConversionCreateInfo* pCreateInfo,
+        const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion);
+    VkResult on_vkCreateSamplerYcbcrConversionKHR(
+        android::base::BumpPool* pool, VkDevice device,
+        const VkSamplerYcbcrConversionCreateInfo* pCreateInfo,
+        const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion);
+    void on_vkDestroySamplerYcbcrConversion(android::base::BumpPool* pool, VkDevice device,
+                                            VkSamplerYcbcrConversion ycbcrConversion,
+                                            const VkAllocationCallbacks* pAllocator);
+    void on_vkDestroySamplerYcbcrConversionKHR(android::base::BumpPool* pool, VkDevice device,
+                                               VkSamplerYcbcrConversion ycbcrConversion,
+                                               const VkAllocationCallbacks* pAllocator);
+
     void on_DeviceLost();
 
     void DeviceLostHandler();
