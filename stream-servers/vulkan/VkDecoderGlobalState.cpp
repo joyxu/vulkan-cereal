@@ -17,6 +17,7 @@
 #include <functional>
 #include <list>
 #include <memory>
+#include <mutex>
 #include <unordered_map>
 #include <vector>
 
@@ -69,6 +70,7 @@ using android::base::ConditionVariable;
 using android::base::Lock;
 using android::base::ManagedDescriptor;
 using android::base::Optional;
+using android::base::StaticLock;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
 using emugl::GfxApiLogger;
@@ -402,27 +404,46 @@ class VkDecoderGlobalState::Impl {
             }
         }
 
-        VkInstanceCreateInfo createInfoFiltered = *pCreateInfo;
+        VkInstanceCreateInfo createInfoFiltered;
         VkApplicationInfo applicationInfo = {};
-        createInfoFiltered.enabledExtensionCount = (uint32_t)finalExts.size();
+        deepcopy_VkInstanceCreateInfo(pool,
+                                      VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+                                      pCreateInfo, &createInfoFiltered);
+
+        createInfoFiltered.enabledExtensionCount =
+                static_cast<uint32_t>(finalExts.size());
         createInfoFiltered.ppEnabledExtensionNames = finalExts.data();
-        if (createInfoFiltered.pApplicationInfo) {
+        if (createInfoFiltered.pApplicationInfo != nullptr) {
+            const_cast<VkApplicationInfo*>(createInfoFiltered.pApplicationInfo)
+                    ->apiVersion = apiVersion;
             applicationInfo = *createInfoFiltered.pApplicationInfo;
-            createInfoFiltered.pApplicationInfo = &applicationInfo;
         }
-        applicationInfo.apiVersion = apiVersion;
+
+        // remove VkDebugReportCallbackCreateInfoEXT and
+        // VkDebugUtilsMessengerCreateInfoEXT from the chain.
+        auto* curr = reinterpret_cast<vk_struct_common*>(&createInfoFiltered);
+        while (curr != nullptr) {
+            if (curr->pNext != nullptr &&
+                (curr->pNext->sType ==
+                         VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT ||
+                 curr->pNext->sType ==
+                         VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT)) {
+                curr->pNext = curr->pNext->pNext;
+            }
+            curr = curr->pNext;
+        }
 
         // bug: 155795731
         bool swiftshader =
             (android::base::getEnvironmentVariable("ANDROID_EMU_VK_ICD").compare("swiftshader") ==
              0);
-        std::unique_ptr<AutoLock> lock = nullptr;
+        std::unique_ptr<std::lock_guard<std::recursive_mutex>> lock = nullptr;
 
         if (swiftshader) {
             if (mLogging) {
                 fprintf(stderr, "%s: acquire lock\n", __func__);
             }
-            lock = std::make_unique<AutoLock>(mLock);
+            lock = std::make_unique<std::lock_guard<std::recursive_mutex>>(mLock);
         }
 
         VkResult res = m_vk->vkCreateInstance(&createInfoFiltered, pAllocator, pInstance);
@@ -432,7 +453,7 @@ class VkDecoderGlobalState::Impl {
         }
 
         if (!swiftshader) {
-            lock = std::make_unique<AutoLock>(mLock);
+            lock = std::make_unique<std::lock_guard<std::recursive_mutex>>(mLock);
         }
 
         // TODO: bug 129484301
@@ -486,7 +507,7 @@ class VkDecoderGlobalState::Impl {
         // Do delayed removes out of the lock, but get the list of devices to destroy inside the
         // lock.
         {
-            AutoLock lock(mLock);
+            std::lock_guard<std::recursive_mutex> lock(mLock);
             std::vector<VkDevice> devicesToDestroy;
 
             for (auto it : mDeviceToPhysicalDevice) {
@@ -502,7 +523,7 @@ class VkDecoderGlobalState::Impl {
             }
         }
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         teardownInstanceLocked(instance);
 
@@ -559,7 +580,7 @@ class VkDecoderGlobalState::Impl {
                                              validPhysicalDevices.data());
         if (res != VK_SUCCESS) return res;
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         if (m_emu->instanceSupportsExternalMemoryCapabilities) {
             PFN_vkGetPhysicalDeviceProperties2KHR getPhysdevProps2Func =
@@ -672,7 +693,7 @@ class VkDecoderGlobalState::Impl {
         auto physicalDevice = unbox_VkPhysicalDevice(boxed_physicalDevice);
         auto vk = dispatch_VkPhysicalDevice(boxed_physicalDevice);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
         if (!physdevInfo) return;
@@ -715,6 +736,7 @@ class VkDecoderGlobalState::Impl {
         auto vk = dispatch_VkPhysicalDevice(boxed_physicalDevice);
         bool emulatedEtc2 = needEmulatedEtc2(physicalDevice, vk);
         bool emulatedAstc = needEmulatedAstc(physicalDevice, vk);
+        bool needEmulateCompressedImage = false;
         if (emulatedEtc2 || emulatedAstc) {
             CompressedImageInfo cmpInfo = createCompressedImageInfo(format);
             if (cmpInfo.isCompressed &&
@@ -728,10 +750,19 @@ class VkDecoderGlobalState::Impl {
                 flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
                 usage |= VK_IMAGE_USAGE_STORAGE_BIT;
                 format = cmpInfo.sizeCompFormat;
+                needEmulateCompressedImage = true;
             }
         }
-        return vk->vkGetPhysicalDeviceImageFormatProperties(physicalDevice, format, type, tiling,
-                                                            usage, flags, pImageFormatProperties);
+        VkResult res = vk->vkGetPhysicalDeviceImageFormatProperties(
+                physicalDevice, format, type, tiling, usage, flags,
+                pImageFormatProperties);
+        if (res != VK_SUCCESS) {
+            return res;
+        }
+        if (needEmulateCompressedImage) {
+            maskImageFormatPropertiesForEmulatedEtc2(pImageFormatProperties);
+        }
+        return res;
     }
 
     VkResult on_vkGetPhysicalDeviceImageFormatProperties2(
@@ -743,6 +774,7 @@ class VkDecoderGlobalState::Impl {
         VkPhysicalDeviceImageFormatInfo2 imageFormatInfo;
         bool emulatedEtc2 = needEmulatedEtc2(physicalDevice, vk);
         bool emulatedAstc = needEmulatedAstc(physicalDevice, vk);
+        bool needEmulateCompressedImage = false;
         if (emulatedEtc2 || emulatedAstc) {
             CompressedImageInfo cmpInfo = createCompressedImageInfo(pImageFormatInfo->format);
             if (cmpInfo.isCompressed &&
@@ -760,9 +792,10 @@ class VkDecoderGlobalState::Impl {
                 imageFormatInfo.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
                 imageFormatInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
                 imageFormatInfo.format = cmpInfo.sizeCompFormat;
+                needEmulateCompressedImage = true;
             }
         }
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
         if (!physdevInfo) {
@@ -803,6 +836,9 @@ class VkDecoderGlobalState::Impl {
                 pImageFormatInfo->tiling, pImageFormatInfo->usage, pImageFormatInfo->flags,
                 &pImageFormatProperties->imageFormatProperties);
         }
+        if (res != VK_SUCCESS) {
+            return res;
+        }
 
         const VkPhysicalDeviceExternalImageFormatInfo* extImageFormatInfo =
             vk_find_struct<VkPhysicalDeviceExternalImageFormatInfo>(pImageFormatInfo);
@@ -813,6 +849,11 @@ class VkDecoderGlobalState::Impl {
         if (extImageFormatInfo && extImageFormatProps) {
             extImageFormatProps->externalMemoryProperties.externalMemoryFeatures |=
                 VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT;
+        }
+
+        if (needEmulateCompressedImage) {
+            maskImageFormatPropertiesForEmulatedEtc2(
+                    &pImageFormatProperties->imageFormatProperties);
         }
 
         return res;
@@ -839,7 +880,7 @@ class VkDecoderGlobalState::Impl {
         auto physicalDevice = unbox_VkPhysicalDevice(boxed_physicalDevice);
         auto vk = dispatch_VkPhysicalDevice(boxed_physicalDevice);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
         if (!physdevInfo) return;
@@ -905,7 +946,7 @@ class VkDecoderGlobalState::Impl {
         auto physicalDevice = unbox_VkPhysicalDevice(boxed_physicalDevice);
         auto vk = dispatch_VkPhysicalDevice(boxed_physicalDevice);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
         if (!physdevInfo) return;
@@ -1137,13 +1178,13 @@ class VkDecoderGlobalState::Impl {
             (android::base::getEnvironmentVariable("ANDROID_EMU_VK_ICD").compare("swiftshader") ==
              0);
 
-        std::unique_ptr<AutoLock> lock = nullptr;
+        std::unique_ptr<std::lock_guard<std::recursive_mutex>> lock = nullptr;
 
         if (swiftshader) {
             if (mLogging) {
                 fprintf(stderr, "%s: acquire lock\n", __func__);
             }
-            lock = std::make_unique<AutoLock>(mLock);
+            lock = std::make_unique<std::lock_guard<std::recursive_mutex>>(mLock);
         }
 
         if (mLogging) {
@@ -1164,7 +1205,7 @@ class VkDecoderGlobalState::Impl {
         }
 
         if (!swiftshader) {
-            lock = std::make_unique<AutoLock>(mLock);
+            lock = std::make_unique<std::lock_guard<std::recursive_mutex>>(mLock);
         }
 
         mDeviceToPhysicalDevice[*pDevice] = physicalDevice;
@@ -1252,7 +1293,7 @@ class VkDecoderGlobalState::Impl {
                              uint32_t queueFamilyIndex, uint32_t queueIndex, VkQueue* pQueue) {
         auto device = unbox_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         *pQueue = VK_NULL_HANDLE;
 
@@ -1314,7 +1355,7 @@ class VkDecoderGlobalState::Impl {
                             const VkAllocationCallbacks* pAllocator) {
         auto device = unbox_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         sBoxedHandleManager.processDelayedRemovesGlobalStateLocked(device);
         destroyDeviceLocked(device, pAllocator);
@@ -1332,7 +1373,7 @@ class VkDecoderGlobalState::Impl {
         VkResult result = vk->vkCreateBuffer(device, pCreateInfo, pAllocator, pBuffer);
 
         if (result == VK_SUCCESS) {
-            AutoLock lock(mLock);
+            std::lock_guard<std::recursive_mutex> lock(mLock);
             auto& bufInfo = mBufferInfo[*pBuffer];
             bufInfo.device = device;
             bufInfo.size = pCreateInfo->size;
@@ -1349,7 +1390,7 @@ class VkDecoderGlobalState::Impl {
 
         vk->vkDestroyBuffer(device, buffer, pAllocator);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         mBufferInfo.erase(buffer);
     }
 
@@ -1372,7 +1413,7 @@ class VkDecoderGlobalState::Impl {
         VkResult result = vk->vkBindBufferMemory(device, buffer, memory, memoryOffset);
 
         if (result == VK_SUCCESS) {
-            AutoLock lock(mLock);
+            std::lock_guard<std::recursive_mutex> lock(mLock);
             setBufferMemoryBindInfoLocked(buffer, memory, memoryOffset);
         }
         return result;
@@ -1387,7 +1428,7 @@ class VkDecoderGlobalState::Impl {
         VkResult result = vk->vkBindBufferMemory2(device, bindInfoCount, pBindInfos);
 
         if (result == VK_SUCCESS) {
-            AutoLock lock(mLock);
+            std::lock_guard<std::recursive_mutex> lock(mLock);
             for (uint32_t i = 0; i < bindInfoCount; ++i) {
                 setBufferMemoryBindInfoLocked(pBindInfos[i].buffer, pBindInfos[i].memory,
                                               pBindInfos[i].memoryOffset);
@@ -1406,7 +1447,7 @@ class VkDecoderGlobalState::Impl {
         VkResult result = vk->vkBindBufferMemory2KHR(device, bindInfoCount, pBindInfos);
 
         if (result == VK_SUCCESS) {
-            AutoLock lock(mLock);
+            std::lock_guard<std::recursive_mutex> lock(mLock);
             for (uint32_t i = 0; i < bindInfoCount; ++i) {
                 setBufferMemoryBindInfoLocked(pBindInfos[i].buffer, pBindInfos[i].memory,
                                               pBindInfos[i].memoryOffset);
@@ -1422,7 +1463,7 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto* deviceInfo = android::base::find(mDeviceInfo, device);
         if (!deviceInfo) {
@@ -1556,7 +1597,7 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto deviceDispatch = dispatch_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         destroyImageLocked(device, deviceDispatch, image, pAllocator);
     }
 
@@ -1568,7 +1609,7 @@ class VkDecoderGlobalState::Impl {
         if (VK_SUCCESS != result) {
             return result;
         }
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         auto deviceInfoIt = mDeviceInfo.find(device);
         if (deviceInfoIt == mDeviceInfo.end()) {
             return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -1613,7 +1654,7 @@ class VkDecoderGlobalState::Impl {
             return VK_ERROR_OUT_OF_HOST_MEMORY;
         }
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         auto deviceInfoIt = mDeviceInfo.find(device);
         if (deviceInfoIt == mDeviceInfo.end()) {
             return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -1672,7 +1713,7 @@ class VkDecoderGlobalState::Impl {
         auto vk = dispatch_VkDevice(boxed_device);
 
         vk->vkDestroyImageView(device, imageView, pAllocator);
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         mImageViewInfo.erase(imageView);
     }
 
@@ -1685,10 +1726,12 @@ class VkDecoderGlobalState::Impl {
         if (result != VK_SUCCESS) {
             return result;
         }
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         auto& samplerInfo = mSamplerInfo[*pSampler];
         samplerInfo.device = device;
-        samplerInfo.createInfo = *pCreateInfo;
+        deepcopy_VkSamplerCreateInfo(
+                &samplerInfo.pool, VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO, pCreateInfo,
+                &samplerInfo.createInfo);
         // We emulate RGB with RGBA for some compressed textures, which does not
         // handle translarent border correctly.
         samplerInfo.needEmulatedAlpha =
@@ -1696,7 +1739,9 @@ class VkDecoderGlobalState::Impl {
              pCreateInfo->addressModeV == VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER ||
              pCreateInfo->addressModeW == VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER) &&
             (pCreateInfo->borderColor == VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK ||
-             pCreateInfo->borderColor == VK_BORDER_COLOR_INT_TRANSPARENT_BLACK);
+             pCreateInfo->borderColor == VK_BORDER_COLOR_INT_TRANSPARENT_BLACK ||
+             pCreateInfo->borderColor == VK_BORDER_COLOR_FLOAT_CUSTOM_EXT ||
+             pCreateInfo->borderColor == VK_BORDER_COLOR_INT_CUSTOM_EXT);
 
         *pSampler = new_boxed_non_dispatchable_VkSampler(*pSampler);
 
@@ -1722,7 +1767,7 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto deviceDispatch = dispatch_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         destroySamplerLocked(device, deviceDispatch, sampler, pAllocator);
     }
 
@@ -1765,7 +1810,7 @@ class VkDecoderGlobalState::Impl {
 
         if (res != VK_SUCCESS) return res;
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto& semaphoreInfo = mSemaphoreInfo[*pSemaphore];
         semaphoreInfo.device = device;
@@ -1797,7 +1842,7 @@ class VkDecoderGlobalState::Impl {
             ExternalFencePool<VulkanDispatch>* externalFencePool = nullptr;
             vk_struct_chain_remove(exportFenceInfoPtr, &createInfo);
             {
-                AutoLock lock(mLock);
+                std::lock_guard<std::recursive_mutex> lock(mLock);
                 auto deviceInfo = mDeviceInfo.find(device);
                 if (deviceInfo == mDeviceInfo.end()) {
                     return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -1818,7 +1863,7 @@ class VkDecoderGlobalState::Impl {
         }
 
         {
-            AutoLock lock(mLock);
+            std::lock_guard<std::recursive_mutex> lock(mLock);
 
             DCHECK(fenceReused || mFenceInfo.find(*pFence) == mFenceInfo.end());
             // Create FenceInfo for *pFence.
@@ -1844,7 +1889,7 @@ class VkDecoderGlobalState::Impl {
         std::vector<VkFence> externalFences;
 
         {
-            AutoLock lock(mLock);
+            std::lock_guard<std::recursive_mutex> lock(mLock);
             for (uint32_t i = 0; i < fenceCount; i++) {
                 if (pFences[i] == VK_NULL_HANDLE) continue;
 
@@ -1877,7 +1922,7 @@ class VkDecoderGlobalState::Impl {
             deviceInfo->second.externalFencePool->add(fence);
 
             {
-                AutoLock lock(mLock);
+                std::lock_guard<std::recursive_mutex> lock(mLock);
                 auto boxed_fence = unboxed_to_boxed_non_dispatchable_VkFence(fence);
                 delete_VkFence(boxed_fence);
                 set_boxed_non_dispatchable_VkFence(boxed_fence, replacement);
@@ -1902,7 +1947,7 @@ class VkDecoderGlobalState::Impl {
         auto vk = dispatch_VkDevice(boxed_device);
 
 #ifdef _WIN32
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto infoPtr = android::base::find(mSemaphoreInfo,
                                            mExternalSemaphoresById[pImportSemaphoreFdInfo->fd]);
@@ -1947,7 +1992,7 @@ class VkDecoderGlobalState::Impl {
         if (result != VK_SUCCESS) {
             return result;
         }
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         mSemaphoreInfo[pGetFdInfo->semaphore].externalHandle = handle;
         int nextId = genSemaphoreId();
         mExternalSemaphoresById[nextId] = pGetFdInfo->semaphore;
@@ -1958,7 +2003,7 @@ class VkDecoderGlobalState::Impl {
             return result;
         }
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         mSemaphoreInfo[pGetFdInfo->semaphore].externalHandle = *pFd;
         // No next id; its already an fd
@@ -1985,7 +2030,7 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto deviceDispatch = dispatch_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         destroySemaphoreLocked(device, deviceDispatch, semaphore, pAllocator);
     }
 
@@ -1995,7 +2040,7 @@ class VkDecoderGlobalState::Impl {
         auto vk = dispatch_VkDevice(boxed_device);
 
         {
-            AutoLock lock(mLock);
+            std::lock_guard<std::recursive_mutex> lock(mLock);
             // External fences are just slated for recycling. This addresses known
             // behavior where the guest might destroy the fence prematurely. b/228221208
             if (mFenceInfo[fence].external) {
@@ -2022,7 +2067,7 @@ class VkDecoderGlobalState::Impl {
         auto res = vk->vkCreateDescriptorSetLayout(device, pCreateInfo, pAllocator, pSetLayout);
 
         if (res == VK_SUCCESS) {
-            AutoLock lock(mLock);
+            std::lock_guard<std::recursive_mutex> lock(mLock);
             auto& info = mDescriptorSetLayoutInfo[*pSetLayout];
             info.device = device;
             *pSetLayout = new_boxed_non_dispatchable_VkDescriptorSetLayout(*pSetLayout);
@@ -2045,7 +2090,7 @@ class VkDecoderGlobalState::Impl {
 
         vk->vkDestroyDescriptorSetLayout(device, descriptorSetLayout, pAllocator);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         mDescriptorSetLayoutInfo.erase(descriptorSetLayout);
     }
 
@@ -2059,7 +2104,7 @@ class VkDecoderGlobalState::Impl {
         auto res = vk->vkCreateDescriptorPool(device, pCreateInfo, pAllocator, pDescriptorPool);
 
         if (res == VK_SUCCESS) {
-            AutoLock lock(mLock);
+            std::lock_guard<std::recursive_mutex> lock(mLock);
             auto& info = mDescriptorPoolInfo[*pDescriptorPool];
             info.device = device;
             *pDescriptorPool = new_boxed_non_dispatchable_VkDescriptorPool(*pDescriptorPool);
@@ -2132,7 +2177,7 @@ class VkDecoderGlobalState::Impl {
 
         vk->vkDestroyDescriptorPool(device, descriptorPool, pAllocator);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         cleanupDescriptorPoolAllocedSetsLocked(descriptorPool, true /* destroy */);
         mDescriptorPoolInfo.erase(descriptorPool);
     }
@@ -2146,7 +2191,7 @@ class VkDecoderGlobalState::Impl {
         auto res = vk->vkResetDescriptorPool(device, descriptorPool, flags);
 
         if (res == VK_SUCCESS) {
-            AutoLock lock(mLock);
+            std::lock_guard<std::recursive_mutex> lock(mLock);
             cleanupDescriptorPoolAllocedSetsLocked(descriptorPool);
         }
 
@@ -2174,7 +2219,7 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto allocValidationRes = validateDescriptorSetAllocLocked(pAllocateInfo);
         if (allocValidationRes != VK_SUCCESS) return allocValidationRes;
@@ -2207,7 +2252,7 @@ class VkDecoderGlobalState::Impl {
             vk->vkFreeDescriptorSets(device, descriptorPool, descriptorSetCount, pDescriptorSets);
 
         if (res == VK_SUCCESS) {
-            AutoLock lock(mLock);
+            std::lock_guard<std::recursive_mutex> lock(mLock);
 
             for (uint32_t i = 0; i < descriptorSetCount; ++i) {
                 auto setInfo = android::base::find(mDescriptorSetInfo, pDescriptorSets[i]);
@@ -2251,7 +2296,7 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         on_vkUpdateDescriptorSetsImpl(pool, vk, device, descriptorWriteCount, pDescriptorWrites,
                                       descriptorCopyCount, pDescriptorCopies);
     }
@@ -2325,7 +2370,10 @@ class VkDecoderGlobalState::Impl {
                     SamplerInfo& samplerInfo = samplerIt->second;
                     if (samplerInfo.emulatedborderSampler == VK_NULL_HANDLE) {
                         // create the emulated sampler
-                        VkSamplerCreateInfo createInfo = samplerInfo.createInfo;
+                        VkSamplerCreateInfo createInfo;
+                        deepcopy_VkSamplerCreateInfo(
+                                pool, VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+                                &samplerInfo.createInfo, &createInfo);
                         switch (createInfo.borderColor) {
                             case VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK:
                                 createInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
@@ -2333,6 +2381,30 @@ class VkDecoderGlobalState::Impl {
                             case VK_BORDER_COLOR_INT_TRANSPARENT_BLACK:
                                 createInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
                                 break;
+                            case VK_BORDER_COLOR_FLOAT_CUSTOM_EXT:
+                            case VK_BORDER_COLOR_INT_CUSTOM_EXT: {
+                                VkSamplerCustomBorderColorCreateInfoEXT*
+                                        customBorderColorCreateInfo = vk_find_struct<
+                                                VkSamplerCustomBorderColorCreateInfoEXT>(
+                                                &createInfo);
+                                if (customBorderColorCreateInfo) {
+                                    switch (createInfo.borderColor) {
+                                        case VK_BORDER_COLOR_FLOAT_CUSTOM_EXT:
+                                            customBorderColorCreateInfo
+                                                    ->customBorderColor
+                                                    .float32[3] = 1.0f;
+                                            break;
+                                        case VK_BORDER_COLOR_INT_CUSTOM_EXT:
+                                            customBorderColorCreateInfo
+                                                    ->customBorderColor
+                                                    .int32[3] = 128;
+                                            break;
+                                        default:
+                                            break;
+                                    }
+                                }
+                                break;
+                            }
                             default:
                                 break;
                         }
@@ -2361,7 +2433,7 @@ class VkDecoderGlobalState::Impl {
             return result;
         }
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto& shaderModuleInfo = mShaderModuleInfo[*pShaderModule];
         shaderModuleInfo.device = device;
@@ -2385,7 +2457,7 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto deviceDispatch = dispatch_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         destroyShaderModuleLocked(device, deviceDispatch, shaderModule, pAllocator);
     }
 
@@ -2402,7 +2474,7 @@ class VkDecoderGlobalState::Impl {
             return result;
         }
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto& pipelineCacheInfo = mPipelineCacheInfo[*pPipelineCache];
         pipelineCacheInfo.device = device;
@@ -2426,7 +2498,7 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto deviceDispatch = dispatch_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         destroyPipelineCacheLocked(device, deviceDispatch, pipelineCache, pAllocator);
     }
 
@@ -2444,7 +2516,7 @@ class VkDecoderGlobalState::Impl {
             return result;
         }
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         for (uint32_t i = 0; i < createInfoCount; i++) {
             auto& pipelineInfo = mPipelineInfo[pPipelines[i]];
@@ -2468,7 +2540,7 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto deviceDispatch = dispatch_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         destroyPipelineLocked(device, deviceDispatch, pipeline, pAllocator);
     }
 
@@ -2479,7 +2551,7 @@ class VkDecoderGlobalState::Impl {
         auto commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
         auto vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         auto srcIt = mImageInfo.find(srcImage);
         if (srcIt == mImageInfo.end()) {
             return;
@@ -2545,7 +2617,7 @@ class VkDecoderGlobalState::Impl {
         auto commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
         auto vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         auto it = mImageInfo.find(srcImage);
         if (it == mImageInfo.end()) {
             return;
@@ -2593,7 +2665,7 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
         vk->vkGetImageMemoryRequirements(device, image, pMemoryRequirements);
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         updateImageMemorySizeLocked(device, image, pMemoryRequirements);
     }
 
@@ -2602,7 +2674,7 @@ class VkDecoderGlobalState::Impl {
                                           VkMemoryRequirements2* pMemoryRequirements) {
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto physicalDevice = mDeviceToPhysicalDevice[device];
         auto physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
@@ -2640,7 +2712,7 @@ class VkDecoderGlobalState::Impl {
         auto commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
         auto vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         auto* imageInfo = android::base::find(mImageInfo, dstImage);
         if (!imageInfo) return;
         auto* bufferInfo = android::base::find(mBufferInfo, srcBuffer);
@@ -2751,7 +2823,7 @@ class VkDecoderGlobalState::Impl {
                                      pImageMemoryBarriers);
             return;
         }
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         CommandBufferInfo* cmdBufferInfo = android::base::find(mCmdBufferInfo, commandBuffer);
         if (!cmdBufferInfo) {
             return;
@@ -2796,7 +2868,10 @@ class VkDecoderGlobalState::Impl {
             // TODO: should we use image layout or access bit?
             if (srcBarrier.oldLayout == 0 ||
                 (srcBarrier.newLayout != VK_IMAGE_LAYOUT_GENERAL &&
-                 srcBarrier.newLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)) {
+                 srcBarrier.newLayout !=
+                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL /* for samplers */ &&
+                 srcBarrier.newLayout !=
+                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL /* for blit */)) {
                 // TODO: might only need to push one of them?
                 persistentImageBarriers.push_back(decompBarrier);
                 persistentImageBarriers.insert(persistentImageBarriers.end(),
@@ -3044,39 +3119,40 @@ class VkDecoderGlobalState::Impl {
         };
 #endif
 
-        AutoLock lock(mLock);
+        VkMemoryPropertyFlags memoryPropertyFlags;
+        {
+            std::lock_guard<std::recursive_mutex> lock(mLock);
 
-        auto physdev = android::base::find(mDeviceToPhysicalDevice, device);
+            auto physdev = android::base::find(mDeviceToPhysicalDevice, device);
 
-        if (!physdev) {
-            // User app gave an invalid VkDevice,
-            // but we don't really want to crash here.
-            // We should allow invalid apps.
-            return VK_ERROR_DEVICE_LOST;
+            if (!physdev) {
+                // User app gave an invalid VkDevice,
+                // but we don't really want to crash here.
+                // We should allow invalid apps.
+                return VK_ERROR_DEVICE_LOST;
+            }
+
+            auto physdevInfo = android::base::find(mPhysdevInfo, *physdev);
+
+            if (!physdevInfo) {
+                // If this fails, we crash, as we assume that the memory properties
+                // map should have the info.
+                fprintf(stderr, "Error: Could not get memory properties for VkPhysicalDevice\n");
+            }
+
+            // If the memory was allocated with a type index that corresponds
+            // to a memory type that is host visible, let's also map the entire
+            // thing.
+
+            // First, check validity of the user's type index.
+            if (localAllocInfo.memoryTypeIndex >= physdevInfo->memoryProperties.memoryTypeCount) {
+                // Continue allowing invalid behavior.
+                return VK_ERROR_INCOMPATIBLE_DRIVER;
+            }
+            memoryPropertyFlags =
+                physdevInfo->memoryProperties.memoryTypes[localAllocInfo.memoryTypeIndex]
+                    .propertyFlags;
         }
-
-        auto physdevInfo = android::base::find(mPhysdevInfo, *physdev);
-
-        if (!physdevInfo) {
-            // If this fails, we crash, as we assume that the memory properties
-            // map should have the info.
-            fprintf(stderr, "Error: Could not get memory properties for VkPhysicalDevice\n");
-        }
-
-        // If the memory was allocated with a type index that corresponds
-        // to a memory type that is host visible, let's also map the entire
-        // thing.
-
-        // First, check validity of the user's type index.
-        if (localAllocInfo.memoryTypeIndex >= physdevInfo->memoryProperties.memoryTypeCount) {
-            // Continue allowing invalid behavior.
-            return VK_ERROR_INCOMPATIBLE_DRIVER;
-        }
-
-        VkMemoryPropertyFlags memoryPropertyFlags =
-            physdevInfo->memoryProperties.memoryTypes[localAllocInfo.memoryTypeIndex].propertyFlags;
-
-        lock.unlock();
 
         void* mappedPtr = nullptr;
         ManagedDescriptor externalMemoryHandle;
@@ -3172,7 +3248,7 @@ class VkDecoderGlobalState::Impl {
         externalMemoryHandle.release();
 #endif
 
-        lock.lock();
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         mMapInfo[*pMemory] = MappedMemoryInfo();
         auto& mapInfo = mMapInfo[*pMemory];
@@ -3268,7 +3344,7 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         freeMemoryLocked(vk, device, memory, pAllocator);
     }
@@ -3276,7 +3352,7 @@ class VkDecoderGlobalState::Impl {
     VkResult on_vkMapMemory(android::base::BumpPool* pool, VkDevice, VkDeviceMemory memory,
                             VkDeviceSize offset, VkDeviceSize size, VkMemoryMapFlags flags,
                             void** ppData) {
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         return on_vkMapMemoryLocked(0, memory, offset, size, flags, ppData);
     }
     VkResult on_vkMapMemoryLocked(VkDevice, VkDeviceMemory memory, VkDeviceSize offset,
@@ -3303,7 +3379,7 @@ class VkDecoderGlobalState::Impl {
     }
 
     uint8_t* getMappedHostPointer(VkDeviceMemory memory) {
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto info = android::base::find(mMapInfo, memory);
 
@@ -3316,7 +3392,7 @@ class VkDecoderGlobalState::Impl {
     }
 
     VkDeviceSize getDeviceMemorySize(VkDeviceMemory memory) {
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto info = android::base::find(mMapInfo, memory);
 
@@ -3438,7 +3514,7 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto imageInfo = android::base::find(mImageInfo, image);
         if (!imageInfo) {
@@ -3468,7 +3544,7 @@ class VkDecoderGlobalState::Impl {
         auto queue = unbox_VkQueue(boxed_queue);
         auto vk = dispatch_VkQueue(boxed_queue);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto queueInfo = android::base::find(mQueueInfo, queue);
 
@@ -3512,7 +3588,7 @@ class VkDecoderGlobalState::Impl {
                     "while GLDirectMem is not enabled!\n");
         }
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto info = android::base::find(mMapInfo, memory);
 
@@ -3536,7 +3612,7 @@ class VkDecoderGlobalState::Impl {
                                                  VkDevice boxed_device, VkDeviceMemory memory,
                                                  uint64_t* pAddress, uint64_t* pSize,
                                                  uint64_t* pHostmemId) {
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         struct MemEntry entry = {0};
 
         auto info = android::base::find(mMapInfo, memory);
@@ -3610,7 +3686,7 @@ class VkDecoderGlobalState::Impl {
             return result;
         }
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         for (uint32_t i = 0; i < pAllocateInfo->commandBufferCount; i++) {
             mCmdBufferInfo[pCommandBuffers[i]] = CommandBufferInfo();
             mCmdBufferInfo[pCommandBuffers[i]].device = device;
@@ -3634,7 +3710,7 @@ class VkDecoderGlobalState::Impl {
         if (result != VK_SUCCESS) {
             return result;
         }
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         mCmdPoolInfo[*pCommandPool] = CommandPoolInfo();
         auto& cmdPoolInfo = mCmdPoolInfo[*pCommandPool];
         cmdPoolInfo.device = device;
@@ -3652,7 +3728,7 @@ class VkDecoderGlobalState::Impl {
         auto vk = dispatch_VkDevice(boxed_device);
 
         vk->vkDestroyCommandPool(device, commandPool, pAllocator);
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         const auto ite = mCmdPoolInfo.find(commandPool);
         if (ite != mCmdPoolInfo.end()) {
             removeCommandBufferInfo(ite->second.cmdBuffers);
@@ -3679,7 +3755,7 @@ class VkDecoderGlobalState::Impl {
         auto vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
 
         vk->vkCmdExecuteCommands(commandBuffer, commandBufferCount, pCommandBuffers);
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         CommandBufferInfo& cmdBuffer = mCmdBufferInfo[commandBuffer];
         cmdBuffer.subCmds.insert(cmdBuffer.subCmds.end(), pCommandBuffers,
                                  pCommandBuffers + commandBufferCount);
@@ -3690,42 +3766,44 @@ class VkDecoderGlobalState::Impl {
         auto queue = unbox_VkQueue(boxed_queue);
         auto vk = dispatch_VkQueue(boxed_queue);
 
-        AutoLock lock(mLock);
-
+        Lock* ql;
         {
+            std::lock_guard<std::recursive_mutex> lock(mLock);
+
+            {
+                auto queueInfo = android::base::find(mQueueInfo, queue);
+                if (queueInfo) {
+                    sBoxedHandleManager.processDelayedRemovesGlobalStateLocked(queueInfo->device);
+                }
+            }
+
+            for (uint32_t i = 0; i < submitCount; i++) {
+                const VkSubmitInfo& submit = pSubmits[i];
+                for (uint32_t c = 0; c < submit.commandBufferCount; c++) {
+                    executePreprocessRecursive(0, submit.pCommandBuffers[c]);
+                }
+            }
+
             auto queueInfo = android::base::find(mQueueInfo, queue);
-            if (queueInfo) {
-                sBoxedHandleManager.processDelayedRemovesGlobalStateLocked(queueInfo->device);
-            }
+            if (!queueInfo) return VK_SUCCESS;
+            ql = queueInfo->lock;
         }
-
-        for (uint32_t i = 0; i < submitCount; i++) {
-            const VkSubmitInfo& submit = pSubmits[i];
-            for (uint32_t c = 0; c < submit.commandBufferCount; c++) {
-                executePreprocessRecursive(0, submit.pCommandBuffers[c]);
-            }
-        }
-
-        auto queueInfo = android::base::find(mQueueInfo, queue);
-        if (!queueInfo) return VK_SUCCESS;
-        Lock* ql = queueInfo->lock;
-        lock.unlock();
 
         AutoLock qlock(*ql);
-
         auto result = vk->vkQueueSubmit(queue, submitCount, pSubmits, fence);
 
         // After vkQueueSubmit is called, we can signal the conditional variable
         // in FenceInfo, so that other threads (e.g. SyncThread) can call
         // waitForFence() on this fence.
-        lock.lock();
-        auto fenceInfo = mFenceInfo.find(fence);
-        if (fenceInfo != mFenceInfo.end()) {
-            fenceInfo->second.state = FenceInfo::State::kWaitable;
-            fenceInfo->second.lock.lock();
-            fenceInfo->second.cv.signalAndUnlock(&fenceInfo->second.lock);
+        {
+            std::lock_guard<std::recursive_mutex> lock(mLock);
+            auto fenceInfo = mFenceInfo.find(fence);
+            if (fenceInfo != mFenceInfo.end()) {
+                fenceInfo->second.state = FenceInfo::State::kWaitable;
+                fenceInfo->second.lock.lock();
+                fenceInfo->second.cv.signalAndUnlock(&fenceInfo->second.lock);
+            }
         }
-        lock.unlock();
 
         return result;
     }
@@ -3736,11 +3814,13 @@ class VkDecoderGlobalState::Impl {
 
         if (!queue) return VK_SUCCESS;
 
-        AutoLock lock(mLock);
-        auto queueInfo = android::base::find(mQueueInfo, queue);
-        if (!queueInfo) return VK_SUCCESS;
-        Lock* ql = queueInfo->lock;
-        lock.unlock();
+        Lock* ql;
+        {
+            std::lock_guard<std::recursive_mutex> lock(mLock);
+            auto queueInfo = android::base::find(mQueueInfo, queue);
+            if (!queueInfo) return VK_SUCCESS;
+            ql = queueInfo->lock;
+        }
 
         AutoLock qlock(*ql);
         return vk->vkQueueWaitIdle(queue);
@@ -3754,7 +3834,7 @@ class VkDecoderGlobalState::Impl {
 
         VkResult result = vk->vkResetCommandBuffer(commandBuffer, flags);
         if (VK_SUCCESS == result) {
-            AutoLock lock(mLock);
+            std::lock_guard<std::recursive_mutex> lock(mLock);
             auto& bufferInfo = mCmdBufferInfo[commandBuffer];
             bufferInfo.preprocessFuncs.clear();
             bufferInfo.subCmds.clear();
@@ -3775,7 +3855,7 @@ class VkDecoderGlobalState::Impl {
 
         if (!device) return;
         vk->vkFreeCommandBuffers(device, commandPool, commandBufferCount, pCommandBuffers);
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         for (uint32_t i = 0; i < commandBufferCount; i++) {
             const auto& cmdBufferInfoIt = mCmdBufferInfo.find(pCommandBuffers[i]);
             if (cmdBufferInfoIt != mCmdBufferInfo.end()) {
@@ -3909,7 +3989,7 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         auto info = android::base::find(mDescriptorUpdateTemplateInfo, descriptorUpdateTemplate);
 
         if (!info) return;
@@ -4056,7 +4136,7 @@ class VkDecoderGlobalState::Impl {
             return result;
         }
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         mCmdBufferInfo[commandBuffer].preprocessFuncs.clear();
         mCmdBufferInfo[commandBuffer].subCmds.clear();
         return VK_SUCCESS;
@@ -4095,7 +4175,7 @@ class VkDecoderGlobalState::Impl {
         auto vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
         vk->vkCmdBindPipeline(commandBuffer, pipelineBindPoint, pipeline);
         if (pipelineBindPoint == VK_PIPELINE_BIND_POINT_COMPUTE) {
-            AutoLock lock(mLock);
+            std::lock_guard<std::recursive_mutex> lock(mLock);
             auto cmdBufferInfoIt = mCmdBufferInfo.find(commandBuffer);
             if (cmdBufferInfoIt != mCmdBufferInfo.end()) {
                 if (pipelineBindPoint == VK_PIPELINE_BIND_POINT_COMPUTE) {
@@ -4117,7 +4197,7 @@ class VkDecoderGlobalState::Impl {
                                     descriptorSetCount, pDescriptorSets, dynamicOffsetCount,
                                     pDynamicOffsets);
         if (pipelineBindPoint == VK_PIPELINE_BIND_POINT_COMPUTE) {
-            AutoLock lock(mLock);
+            std::lock_guard<std::recursive_mutex> lock(mLock);
             auto cmdBufferInfoIt = mCmdBufferInfo.find(commandBuffer);
             if (cmdBufferInfoIt != mCmdBufferInfo.end()) {
                 auto& cmdBufferInfo = cmdBufferInfoIt->second;
@@ -4142,7 +4222,7 @@ class VkDecoderGlobalState::Impl {
         auto vk = dispatch_VkDevice(boxed_device);
         VkRenderPassCreateInfo createInfo;
         bool needReformat = false;
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto deviceInfoIt = mDeviceInfo.find(device);
         if (deviceInfoIt == mDeviceInfo.end()) {
@@ -4187,7 +4267,7 @@ class VkDecoderGlobalState::Impl {
                                     VkRenderPass* pRenderPass) {
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         VkResult res = vk->vkCreateRenderPass2(device, pCreateInfo, pAllocator, pRenderPass);
         if (res != VK_SUCCESS) {
@@ -4214,8 +4294,30 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto deviceDispatch = dispatch_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         destroyRenderPassLocked(device, deviceDispatch, renderPass, pAllocator);
+    }
+
+    void on_vkCmdCopyQueryPoolResults(android::base::BumpPool* pool,
+                                      VkCommandBuffer boxed_commandBuffer,
+                                      VkQueryPool queryPool,
+                                      uint32_t firstQuery,
+                                      uint32_t queryCount,
+                                      VkBuffer dstBuffer,
+                                      VkDeviceSize dstOffset,
+                                      VkDeviceSize stride,
+                                      VkQueryResultFlags flags) {
+        auto commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
+        auto vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
+        if (queryCount == 1 && stride == 0) {
+            // Some drivers don't seem to handle stride==0 very well.
+            // In fact, the spec does not say what should happen with stride==0.
+            // So we just use the largest stride possible.
+            stride = mBufferInfo[dstBuffer].size - dstOffset;
+        }
+        vk->vkCmdCopyQueryPoolResults(commandBuffer, queryPool, firstQuery,
+                                      queryCount, dstBuffer, dstOffset, stride,
+                                      flags);
     }
 
     VkResult on_vkCreateFramebuffer(android::base::BumpPool* pool, VkDevice boxed_device,
@@ -4231,7 +4333,7 @@ class VkDecoderGlobalState::Impl {
             return result;
         }
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto& framebufferInfo = mFramebufferInfo[*pFramebuffer];
         framebufferInfo.device = device;
@@ -4255,7 +4357,7 @@ class VkDecoderGlobalState::Impl {
         auto device = unbox_VkDevice(boxed_device);
         auto deviceDispatch = dispatch_VkDevice(boxed_device);
 
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         destroyFramebufferLocked(device, deviceDispatch, framebuffer, pAllocator);
     }
 
@@ -4532,7 +4634,7 @@ class VkDecoderGlobalState::Impl {
         const uint32_t* pDescriptorSetWhichPool, const uint32_t* pDescriptorSetPendingAllocation,
         const uint32_t* pDescriptorWriteStartingIndices, uint32_t pendingDescriptorWriteCount,
         const VkWriteDescriptorSet* pPendingDescriptorWrites) {
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
 
         VkDevice device;
 
@@ -4594,7 +4696,7 @@ class VkDecoderGlobalState::Impl {
     void on_vkCollectDescriptorPoolIdsGOOGLE(android::base::BumpPool* pool, VkDevice device,
                                              VkDescriptorPool descriptorPool,
                                              uint32_t* pPoolIdCount, uint64_t* pPoolIds) {
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         auto& info = mDescriptorPoolInfo[descriptorPool];
         *pPoolIdCount = (uint32_t)info.poolIds.size();
 
@@ -4605,93 +4707,133 @@ class VkDecoderGlobalState::Impl {
         }
     }
 
+    VkResult on_vkCreateSamplerYcbcrConversion(
+        android::base::BumpPool*, VkDevice boxed_device,
+        const VkSamplerYcbcrConversionCreateInfo* pCreateInfo,
+        const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion) {
+        auto device = unbox_VkDevice(boxed_device);
+        auto vk = dispatch_VkDevice(boxed_device);
+        VkResult res =
+            vk->vkCreateSamplerYcbcrConversion(device, pCreateInfo, pAllocator, pYcbcrConversion);
+        if (res != VK_SUCCESS) {
+            return res;
+        }
+        *pYcbcrConversion = new_boxed_non_dispatchable_VkSamplerYcbcrConversion(*pYcbcrConversion);
+        return VK_SUCCESS;
+    }
+
+    void on_vkDestroySamplerYcbcrConversion(android::base::BumpPool* pool, VkDevice boxed_device,
+                                            VkSamplerYcbcrConversion boxed_ycbcrConversion,
+                                            const VkAllocationCallbacks* pAllocator) {
+        auto device = unbox_VkDevice(boxed_device);
+        auto vk = dispatch_VkDevice(boxed_device);
+        VkSamplerYcbcrConversion ycbcrConversion =
+            unbox_VkSamplerYcbcrConversion(boxed_ycbcrConversion);
+        vk->vkDestroySamplerYcbcrConversion(device, ycbcrConversion, pAllocator);
+        return;
+    }
+
     void on_DeviceLost() { GFXSTREAM_ABORT(FatalError(VK_ERROR_DEVICE_LOST)); }
 
     void DeviceLostHandler() {}
 
     VkResult waitForFence(VkFence boxed_fence, uint64_t timeout) {
-        AutoLock lock(mLock);
+        VkFence fence;
+        VkDevice device;
+        VulkanDispatch* vk;
+        StaticLock* fenceLock;
+        ConditionVariable* cv;
+        {
+            std::lock_guard<std::recursive_mutex> lock(mLock);
 
-        VkFence fence = unbox_VkFence(boxed_fence);
-        if (fence == VK_NULL_HANDLE || mFenceInfo.find(fence) == mFenceInfo.end()) {
-            // No fence, could be a semaphore.
-            // TODO: Async wait for semaphores
-            return VK_SUCCESS;
+            fence = unbox_VkFence(boxed_fence);
+            if (fence == VK_NULL_HANDLE || mFenceInfo.find(fence) == mFenceInfo.end()) {
+                // No fence, could be a semaphore.
+                // TODO: Async wait for semaphores
+                return VK_SUCCESS;
+            }
+
+            // Vulkan specs require fences of vkQueueSubmit to be *externally
+            // synchronized*, i.e. we cannot submit a queue while waiting for the
+            // fence in another thread. For threads that call this function, they
+            // have to wait until a vkQueueSubmit() using this fence is called
+            // before calling vkWaitForFences(). So we use a conditional variable
+            // and mutex for thread synchronization.
+            //
+            // See:
+            // https://www.khronos.org/registry/vulkan/specs/1.2/html/vkspec.html#fundamentals-threadingbehavior
+            // https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/issues/519
+
+            device = mFenceInfo[fence].device;
+            vk = mFenceInfo[fence].vk;
+            fenceLock = &mFenceInfo[fence].lock;
+            cv = &mFenceInfo[fence].cv;
         }
 
-        // Vulkan specs require fences of vkQueueSubmit to be *externally
-        // synchronized*, i.e. we cannot submit a queue while waiting for the
-        // fence in another thread. For threads that call this function, they
-        // have to wait until a vkQueueSubmit() using this fence is called
-        // before calling vkWaitForFences(). So we use a conditional variable
-        // and mutex for thread synchronization.
-        //
-        // See:
-        // https://www.khronos.org/registry/vulkan/specs/1.2/html/vkspec.html#fundamentals-threadingbehavior
-        // https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/issues/519
-
-        const VkDevice device = mFenceInfo[fence].device;
-        const VulkanDispatch* vk = mFenceInfo[fence].vk;
-        auto& fenceLock = mFenceInfo[fence].lock;
-        auto& cv = mFenceInfo[fence].cv;
-        lock.unlock();
-
-        fenceLock.lock();
-        cv.wait(&fenceLock, [this, fence] {
-            AutoLock lock(mLock);
+        fenceLock->lock();
+        cv->wait(fenceLock, [this, fence] {
+            std::lock_guard<std::recursive_mutex> lock(mLock);
             if (mFenceInfo[fence].state == FenceInfo::State::kWaitable) {
                 mFenceInfo[fence].state = FenceInfo::State::kWaiting;
                 return true;
             }
             return false;
         });
-        fenceLock.unlock();
+        fenceLock->unlock();
 
-        lock.lock();
-        if (mFenceInfo.find(fence) == mFenceInfo.end()) {
-            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-                << "Fence was destroyed before vkWaitForFences call.";
+        {
+            std::lock_guard<std::recursive_mutex> lock(mLock);
+            if (mFenceInfo.find(fence) == mFenceInfo.end()) {
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                    << "Fence was destroyed before vkWaitForFences call.";
+            }
         }
-        lock.unlock();
 
         return vk->vkWaitForFences(device, /* fenceCount */ 1u, &fence,
                                    /* waitAll */ false, timeout);
     }
 
     VkResult getFenceStatus(VkFence boxed_fence) {
-        AutoLock lock(mLock);
+        VkDevice device;
+        VkFence fence;
+        VulkanDispatch* vk;
+        {
+            std::lock_guard<std::recursive_mutex> lock(mLock);
 
-        VkFence fence = unbox_VkFence(boxed_fence);
-        if (fence == VK_NULL_HANDLE || mFenceInfo.find(fence) == mFenceInfo.end()) {
-            // No fence, could be a semaphore.
-            // TODO: Async get status for semaphores
-            return VK_SUCCESS;
+            fence = unbox_VkFence(boxed_fence);
+            if (fence == VK_NULL_HANDLE || mFenceInfo.find(fence) == mFenceInfo.end()) {
+                // No fence, could be a semaphore.
+                // TODO: Async get status for semaphores
+                return VK_SUCCESS;
+            }
+
+            device = mFenceInfo[fence].device;
+            vk = mFenceInfo[fence].vk;
         }
-
-        const VkDevice device = mFenceInfo[fence].device;
-        const VulkanDispatch* vk = mFenceInfo[fence].vk;
-        lock.unlock();
 
         return vk->vkGetFenceStatus(device, fence);
     }
 
     AsyncResult registerQsriCallback(VkImage boxed_image, VkQsriTimeline::Callback callback) {
-        AutoLock lock(mLock);
+        VkImage image;
+        std::shared_ptr<AndroidNativeBufferInfo> anbInfo;
+        {
+            std::lock_guard<std::recursive_mutex> lock(mLock);
 
-        VkImage image = unbox_VkImage(boxed_image);
+            image = unbox_VkImage(boxed_image);
 
-        if (mLogging) {
-            fprintf(stderr, "%s: for boxed image 0x%llx image %p\n", __func__,
-                    (unsigned long long)boxed_image, image);
+            if (mLogging) {
+                fprintf(stderr, "%s: for boxed image 0x%llx image %p\n", __func__,
+                        (unsigned long long)boxed_image, image);
+            }
+
+            if (image == VK_NULL_HANDLE || mImageInfo.find(image) == mImageInfo.end()) {
+                // No image
+                return AsyncResult::FAIL_AND_CALLBACK_NOT_SCHEDULED;
+            }
+
+            anbInfo = mImageInfo[image].anbInfo;  // shared ptr, take ref
         }
-
-        if (image == VK_NULL_HANDLE || mImageInfo.find(image) == mImageInfo.end()) {
-            // No image
-            return AsyncResult::FAIL_AND_CALLBACK_NOT_SCHEDULED;
-        }
-
-        auto anbInfo = mImageInfo[image].anbInfo;  // shared ptr, take ref
-        lock.unlock();
 
         if (!anbInfo) {
             fprintf(stderr, "%s: warning: image %p doesn't ahve anb info\n", __func__, image);
@@ -5880,31 +6022,50 @@ class VkDecoderGlobalState::Impl {
     }
 
     static const VkFormatFeatureFlags kEmulatedEtc2BufferFeatureMask =
-        VK_FORMAT_FEATURE_TRANSFER_DST_BIT | VK_FORMAT_FEATURE_BLIT_SRC_BIT |
+        VK_FORMAT_FEATURE_TRANSFER_SRC_BIT |
+        VK_FORMAT_FEATURE_TRANSFER_DST_BIT |
+        VK_FORMAT_FEATURE_BLIT_SRC_BIT |
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
 
     static const VkFormatFeatureFlags kEmulatedEtc2OptimalTilingFeatureMask =
-        kEmulatedEtc2BufferFeatureMask | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
+        VK_FORMAT_FEATURE_TRANSFER_SRC_BIT |
+        VK_FORMAT_FEATURE_TRANSFER_DST_BIT |
+        VK_FORMAT_FEATURE_BLIT_SRC_BIT |
+        VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT |
+        VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
 
-    void maskFormatPropertiesForEmulatedEtc2(VkFormatProperties* pFormatProperties) {
-        pFormatProperties->bufferFeatures &= kEmulatedEtc2BufferFeatureMask;
-        pFormatProperties->optimalTilingFeatures &= kEmulatedEtc2BufferFeatureMask;
+    void maskFormatPropertiesForEmulatedEtc2(
+            VkFormatProperties* pFormatProperties) {
+        pFormatProperties->linearTilingFeatures &=
+            kEmulatedEtc2BufferFeatureMask;
+        pFormatProperties->optimalTilingFeatures &=
+            kEmulatedEtc2OptimalTilingFeatureMask;
+        pFormatProperties->bufferFeatures &=
+            kEmulatedEtc2BufferFeatureMask;
     }
 
-    void maskFormatPropertiesForEmulatedEtc2(VkFormatProperties2* pFormatProperties) {
-        pFormatProperties->formatProperties.bufferFeatures &= kEmulatedEtc2BufferFeatureMask;
-        pFormatProperties->formatProperties.optimalTilingFeatures &= kEmulatedEtc2BufferFeatureMask;
+    void maskFormatPropertiesForEmulatedEtc2(
+            VkFormatProperties2* pFormatProperties) {
+        pFormatProperties->formatProperties.linearTilingFeatures &=
+            kEmulatedEtc2BufferFeatureMask;
+        pFormatProperties->formatProperties.optimalTilingFeatures &=
+            kEmulatedEtc2OptimalTilingFeatureMask;
+        pFormatProperties->formatProperties.bufferFeatures &=
+            kEmulatedEtc2BufferFeatureMask;
     }
 
     void maskFormatPropertiesForEmulatedAstc(VkFormatProperties* pFormatProperties) {
-        pFormatProperties->bufferFeatures &= kEmulatedEtc2BufferFeatureMask;
-        pFormatProperties->optimalTilingFeatures &= kEmulatedEtc2OptimalTilingFeatureMask;
+        maskFormatPropertiesForEmulatedEtc2(pFormatProperties);
     }
 
     void maskFormatPropertiesForEmulatedAstc(VkFormatProperties2* pFormatProperties) {
-        pFormatProperties->formatProperties.bufferFeatures &= kEmulatedEtc2BufferFeatureMask;
-        pFormatProperties->formatProperties.optimalTilingFeatures &=
-            kEmulatedEtc2OptimalTilingFeatureMask;
+        maskFormatPropertiesForEmulatedEtc2(pFormatProperties);
+    }
+
+    void maskImageFormatPropertiesForEmulatedEtc2(
+            VkImageFormatProperties* pProperties) {
+        // dEQP-VK.api.info.image_format_properties.2d.optimal#etc2_r8g8b8_unorm_block
+        pProperties->sampleCounts &= VK_SAMPLE_COUNT_1_BIT;
     }
 
     template <class VkFormatProperties1or2>
@@ -6273,12 +6434,12 @@ class VkDecoderGlobalState::Impl {
 
     void registerDescriptorUpdateTemplate(VkDescriptorUpdateTemplate descriptorUpdateTemplate,
                                           const DescriptorUpdateTemplateInfo& info) {
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         mDescriptorUpdateTemplateInfo[descriptorUpdateTemplate] = info;
     }
 
     void unregisterDescriptorUpdateTemplate(VkDescriptorUpdateTemplate descriptorUpdateTemplate) {
-        AutoLock lock(mLock);
+        std::lock_guard<std::recursive_mutex> lock(mLock);
         mDescriptorUpdateTemplateInfo.erase(descriptorUpdateTemplate);
     }
 
@@ -6299,7 +6460,7 @@ class VkDecoderGlobalState::Impl {
     bool mUseOldMemoryCleanupPath = false;
     bool mGuestUsesAngle = false;
 
-    Lock mLock;
+    std::recursive_mutex mLock;
 
     // We always map the whole size on host.
     // This makes it much easier to implement
@@ -6437,6 +6598,22 @@ class VkDecoderGlobalState::Impl {
         bool needEmulatedAlpha = false;
         VkSamplerCreateInfo createInfo = {};
         VkSampler emulatedborderSampler = VK_NULL_HANDLE;
+        android::base::BumpPool pool = android::base::BumpPool(256);
+        SamplerInfo() = default;
+        SamplerInfo& operator=(const SamplerInfo& other) {
+            deepcopy_VkSamplerCreateInfo(&pool,
+                    VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+                    &other.createInfo, &createInfo);
+            device = other.device;
+            needEmulatedAlpha = other.needEmulatedAlpha;
+            emulatedborderSampler = other.emulatedborderSampler;
+            return *this;
+        }
+        SamplerInfo(const SamplerInfo& other) {
+            *this = other;
+        }
+        SamplerInfo(SamplerInfo&& other) = delete;
+        SamplerInfo& operator=(SamplerInfo&& other) = delete;
     };
 
     struct FenceInfo {
@@ -6444,7 +6621,7 @@ class VkDecoderGlobalState::Impl {
         VkFence boxed = VK_NULL_HANDLE;
         VulkanDispatch* vk = nullptr;
 
-        android::base::StaticLock lock;
+        StaticLock lock;
         android::base::ConditionVariable cv;
 
         enum class State {
@@ -7542,6 +7719,21 @@ void VkDecoderGlobalState::on_vkQueueHostSyncGOOGLE(android::base::BumpPool* poo
     mImpl->hostSyncQueue("hostSyncQueue", queue, needHostSync, sequenceNumber);
 }
 
+void VkDecoderGlobalState::on_vkCmdCopyQueryPoolResults(
+        android::base::BumpPool* pool,
+        VkCommandBuffer commandBuffer,
+        VkQueryPool queryPool,
+        uint32_t firstQuery,
+        uint32_t queryCount,
+        VkBuffer dstBuffer,
+        VkDeviceSize dstOffset,
+        VkDeviceSize stride,
+        VkQueryResultFlags flags) {
+    mImpl->on_vkCmdCopyQueryPoolResults(pool, commandBuffer, queryPool,
+                                        firstQuery, queryCount, dstBuffer,
+                                        dstOffset, stride, flags);
+}
+
 void VkDecoderGlobalState::on_vkQueueSubmitAsyncGOOGLE(android::base::BumpPool* pool, VkQueue queue,
                                                        uint32_t submitCount,
                                                        const VkSubmitInfo* pSubmits,
@@ -7620,6 +7812,34 @@ void VkDecoderGlobalState::on_vkQueueSignalReleaseImageANDROIDAsyncGOOGLE(
     int fenceFd;
     mImpl->on_vkQueueSignalReleaseImageANDROID(pool, queue, waitSemaphoreCount, pWaitSemaphores,
                                                image, &fenceFd);
+}
+
+VkResult VkDecoderGlobalState::on_vkCreateSamplerYcbcrConversion(
+    android::base::BumpPool* pool, VkDevice device,
+    const VkSamplerYcbcrConversionCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator,
+    VkSamplerYcbcrConversion* pYcbcrConversion) {
+    return mImpl->on_vkCreateSamplerYcbcrConversion(pool, device, pCreateInfo, pAllocator,
+                                                    pYcbcrConversion);
+}
+
+VkResult VkDecoderGlobalState::on_vkCreateSamplerYcbcrConversionKHR(
+    android::base::BumpPool* pool, VkDevice device,
+    const VkSamplerYcbcrConversionCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator,
+    VkSamplerYcbcrConversion* pYcbcrConversion) {
+    return mImpl->on_vkCreateSamplerYcbcrConversion(pool, device, pCreateInfo, pAllocator,
+                                                    pYcbcrConversion);
+}
+
+void VkDecoderGlobalState::on_vkDestroySamplerYcbcrConversion(
+    android::base::BumpPool* pool, VkDevice device, VkSamplerYcbcrConversion ycbcrConversion,
+    const VkAllocationCallbacks* pAllocator) {
+    mImpl->on_vkDestroySamplerYcbcrConversion(pool, device, ycbcrConversion, pAllocator);
+}
+
+void VkDecoderGlobalState::on_vkDestroySamplerYcbcrConversionKHR(
+    android::base::BumpPool* pool, VkDevice device, VkSamplerYcbcrConversion ycbcrConversion,
+    const VkAllocationCallbacks* pAllocator) {
+    mImpl->on_vkDestroySamplerYcbcrConversion(pool, device, ycbcrConversion, pAllocator);
 }
 
 void VkDecoderGlobalState::on_DeviceLost() { mImpl->on_DeviceLost(); }

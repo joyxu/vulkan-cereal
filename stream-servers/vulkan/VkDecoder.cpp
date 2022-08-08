@@ -8630,14 +8630,11 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 const VkSamplerYcbcrConversionCreateInfo* pCreateInfo;
                 const VkAllocationCallbacks* pAllocator;
                 VkSamplerYcbcrConversion* pYcbcrConversion;
-                // Begin non wrapped dispatchable handle unboxing for device;
+                // Begin global wrapped dispatchable handle unboxing for device;
                 uint64_t cgen_var_0;
                 memcpy((uint64_t*)&cgen_var_0, *readStreamPtrPtr, 1 * 8);
                 *readStreamPtrPtr += 1 * 8;
                 *(VkDevice*)&device = (VkDevice)(VkDevice)((VkDevice)(*&cgen_var_0));
-                auto unboxed_device = unbox_VkDevice(device);
-                auto vk = dispatch_VkDevice(device);
-                // End manual dispatchable handle unboxing for device;
                 vkReadStream->alloc((void**)&pCreateInfo, sizeof(const VkSamplerYcbcrConversionCreateInfo));
                 reservedunmarshal_VkSamplerYcbcrConversionCreateInfo(vkReadStream, VK_STRUCTURE_TYPE_MAX_ENUM, (VkSamplerYcbcrConversionCreateInfo*)(pCreateInfo), readStreamPtrPtr);
                 // WARNING PTR CHECK
@@ -8669,16 +8666,18 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                     fprintf(stderr, "stream %p: call vkCreateSamplerYcbcrConversion 0x%llx 0x%llx 0x%llx 0x%llx \n", ioStream, (unsigned long long)device, (unsigned long long)pCreateInfo, (unsigned long long)pAllocator, (unsigned long long)pYcbcrConversion);
                 }
                 VkResult vkCreateSamplerYcbcrConversion_VkResult_return = (VkResult)0;
-                vkCreateSamplerYcbcrConversion_VkResult_return = vk->vkCreateSamplerYcbcrConversion(unboxed_device, pCreateInfo, pAllocator, pYcbcrConversion);
+                vkCreateSamplerYcbcrConversion_VkResult_return =
+                    m_state->on_vkCreateSamplerYcbcrConversion(&m_pool, device, pCreateInfo,
+                                                               pAllocator, pYcbcrConversion);
                 if ((vkCreateSamplerYcbcrConversion_VkResult_return) == VK_ERROR_DEVICE_LOST) m_state->on_DeviceLost();
                 vkStream->unsetHandleMapping();
-                // Begin auto non dispatchable handle create for pYcbcrConversion;
-                if (vkCreateSamplerYcbcrConversion_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
+                // Begin manual non dispatchable handle create for pYcbcrConversion;
+                vkStream->unsetHandleMapping();
                 uint64_t cgen_var_3;
                 static_assert(8 == sizeof(VkSamplerYcbcrConversion), "handle map overwrite requires VkSamplerYcbcrConversion to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkSamplerYcbcrConversion((VkSamplerYcbcrConversion*)pYcbcrConversion, 1);
                 vkStream->write((VkSamplerYcbcrConversion*)pYcbcrConversion, 8 * 1);
-                // Begin auto non dispatchable handle create for pYcbcrConversion;
+                // Begin manual non dispatchable handle create for pYcbcrConversion;
                 vkStream->setHandleMapping(&m_boxedHandleUnwrapMapping);
                 vkStream->write(&vkCreateSamplerYcbcrConversion_VkResult_return, sizeof(VkResult));
                 vkStream->commitWrite();
@@ -8699,14 +8698,11 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 VkDevice device;
                 VkSamplerYcbcrConversion ycbcrConversion;
                 const VkAllocationCallbacks* pAllocator;
-                // Begin non wrapped dispatchable handle unboxing for device;
+                // Begin global wrapped dispatchable handle unboxing for device;
                 uint64_t cgen_var_0;
                 memcpy((uint64_t*)&cgen_var_0, *readStreamPtrPtr, 1 * 8);
                 *readStreamPtrPtr += 1 * 8;
                 *(VkDevice*)&device = (VkDevice)(VkDevice)((VkDevice)(*&cgen_var_0));
-                auto unboxed_device = unbox_VkDevice(device);
-                auto vk = dispatch_VkDevice(device);
-                // End manual dispatchable handle unboxing for device;
                 // Begin manual non dispatchable handle destroy unboxing for ycbcrConversion;
                 VkSamplerYcbcrConversion boxed_ycbcrConversion_preserve;
                 uint64_t cgen_var_1;
@@ -8732,7 +8728,8 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     fprintf(stderr, "stream %p: call vkDestroySamplerYcbcrConversion 0x%llx 0x%llx 0x%llx \n", ioStream, (unsigned long long)device, (unsigned long long)ycbcrConversion, (unsigned long long)pAllocator);
                 }
-                vk->vkDestroySamplerYcbcrConversion(unboxed_device, ycbcrConversion, pAllocator);
+                m_state->on_vkDestroySamplerYcbcrConversion(&m_pool, device, ycbcrConversion,
+                                                            pAllocator);
                 vkStream->unsetHandleMapping();
                 vkReadStream->setReadPos((uintptr_t)(*readStreamPtrPtr) - (uintptr_t)snapshotTraceBegin);
                 size_t snapshotTraceBytes = vkReadStream->endTrace();
@@ -15463,14 +15460,11 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 const VkSamplerYcbcrConversionCreateInfo* pCreateInfo;
                 const VkAllocationCallbacks* pAllocator;
                 VkSamplerYcbcrConversion* pYcbcrConversion;
-                // Begin non wrapped dispatchable handle unboxing for device;
+                // Begin global wrapped dispatchable handle unboxing for device;
                 uint64_t cgen_var_0;
                 memcpy((uint64_t*)&cgen_var_0, *readStreamPtrPtr, 1 * 8);
                 *readStreamPtrPtr += 1 * 8;
                 *(VkDevice*)&device = (VkDevice)(VkDevice)((VkDevice)(*&cgen_var_0));
-                auto unboxed_device = unbox_VkDevice(device);
-                auto vk = dispatch_VkDevice(device);
-                // End manual dispatchable handle unboxing for device;
                 vkReadStream->alloc((void**)&pCreateInfo, sizeof(const VkSamplerYcbcrConversionCreateInfo));
                 reservedunmarshal_VkSamplerYcbcrConversionCreateInfo(vkReadStream, VK_STRUCTURE_TYPE_MAX_ENUM, (VkSamplerYcbcrConversionCreateInfo*)(pCreateInfo), readStreamPtrPtr);
                 // WARNING PTR CHECK
@@ -15502,16 +15496,18 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                     fprintf(stderr, "stream %p: call vkCreateSamplerYcbcrConversionKHR 0x%llx 0x%llx 0x%llx 0x%llx \n", ioStream, (unsigned long long)device, (unsigned long long)pCreateInfo, (unsigned long long)pAllocator, (unsigned long long)pYcbcrConversion);
                 }
                 VkResult vkCreateSamplerYcbcrConversionKHR_VkResult_return = (VkResult)0;
-                vkCreateSamplerYcbcrConversionKHR_VkResult_return = vk->vkCreateSamplerYcbcrConversionKHR(unboxed_device, pCreateInfo, pAllocator, pYcbcrConversion);
+                vkCreateSamplerYcbcrConversionKHR_VkResult_return =
+                    m_state->on_vkCreateSamplerYcbcrConversionKHR(&m_pool, device, pCreateInfo,
+                                                                  pAllocator, pYcbcrConversion);
                 if ((vkCreateSamplerYcbcrConversionKHR_VkResult_return) == VK_ERROR_DEVICE_LOST) m_state->on_DeviceLost();
                 vkStream->unsetHandleMapping();
-                // Begin auto non dispatchable handle create for pYcbcrConversion;
-                if (vkCreateSamplerYcbcrConversionKHR_VkResult_return == VK_SUCCESS) vkStream->setHandleMapping(&m_boxedHandleCreateMapping);
+                // Begin manual non dispatchable handle create for pYcbcrConversion;
+                vkStream->unsetHandleMapping();
                 uint64_t cgen_var_3;
                 static_assert(8 == sizeof(VkSamplerYcbcrConversion), "handle map overwrite requires VkSamplerYcbcrConversion to be 8 bytes long");
                 vkStream->handleMapping()->mapHandles_VkSamplerYcbcrConversion((VkSamplerYcbcrConversion*)pYcbcrConversion, 1);
                 vkStream->write((VkSamplerYcbcrConversion*)pYcbcrConversion, 8 * 1);
-                // Begin auto non dispatchable handle create for pYcbcrConversion;
+                // Begin manual non dispatchable handle create for pYcbcrConversion;
                 vkStream->setHandleMapping(&m_boxedHandleUnwrapMapping);
                 vkStream->write(&vkCreateSamplerYcbcrConversionKHR_VkResult_return, sizeof(VkResult));
                 vkStream->commitWrite();
@@ -15532,14 +15528,11 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 VkDevice device;
                 VkSamplerYcbcrConversion ycbcrConversion;
                 const VkAllocationCallbacks* pAllocator;
-                // Begin non wrapped dispatchable handle unboxing for device;
+                // Begin global wrapped dispatchable handle unboxing for device;
                 uint64_t cgen_var_0;
                 memcpy((uint64_t*)&cgen_var_0, *readStreamPtrPtr, 1 * 8);
                 *readStreamPtrPtr += 1 * 8;
                 *(VkDevice*)&device = (VkDevice)(VkDevice)((VkDevice)(*&cgen_var_0));
-                auto unboxed_device = unbox_VkDevice(device);
-                auto vk = dispatch_VkDevice(device);
-                // End manual dispatchable handle unboxing for device;
                 // Begin manual non dispatchable handle destroy unboxing for ycbcrConversion;
                 VkSamplerYcbcrConversion boxed_ycbcrConversion_preserve;
                 uint64_t cgen_var_1;
@@ -15565,7 +15558,8 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     fprintf(stderr, "stream %p: call vkDestroySamplerYcbcrConversionKHR 0x%llx 0x%llx 0x%llx \n", ioStream, (unsigned long long)device, (unsigned long long)ycbcrConversion, (unsigned long long)pAllocator);
                 }
-                vk->vkDestroySamplerYcbcrConversionKHR(unboxed_device, ycbcrConversion, pAllocator);
+                m_state->on_vkDestroySamplerYcbcrConversionKHR(&m_pool, device, ycbcrConversion,
+                                                               pAllocator);
                 vkStream->unsetHandleMapping();
                 vkReadStream->setReadPos((uintptr_t)(*readStreamPtrPtr) - (uintptr_t)snapshotTraceBegin);
                 size_t snapshotTraceBytes = vkReadStream->endTrace();
