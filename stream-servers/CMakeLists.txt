@@ -248,6 +248,12 @@ if (ENABLE_VKCEREAL_TESTS)
     gtest_discover_tests(
         Vulkan_unittests
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    if (APPLE)
+        target_compile_definitions(Vulkan_unittests PRIVATE -DVK_USE_PLATFORM_METAL_EXT)
+    elseif (UNIX)
+        target_compile_definitions(Vulkan_unittests PRIVATE -DVK_USE_PLATFORM_XCB_KHR)
+    endif()
+
 
     file(GLOB Vulkan_unittests_datafiles "tests/testdata/*.png")
     add_custom_command(TARGET Vulkan_unittests POST_BUILD
