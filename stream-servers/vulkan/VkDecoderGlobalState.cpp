@@ -729,7 +729,7 @@ class VkDecoderGlobalState::Impl {
         VkPhysicalDeviceSamplerYcbcrConversionFeatures* ycbcrFeatures =
             vk_find_struct<VkPhysicalDeviceSamplerYcbcrConversionFeatures>(pFeatures);
         if (ycbcrFeatures != nullptr) {
-            ycbcrFeatures->samplerYcbcrConversion |= kEmulateSamplerYcbcrConversion;
+            ycbcrFeatures->samplerYcbcrConversion |= m_emu->enableYcbcrEmulation;
         }
     }
 
@@ -1083,7 +1083,7 @@ class VkDecoderGlobalState::Impl {
         auto physicalDevice = unbox_VkPhysicalDevice(boxed_physicalDevice);
         auto vk = dispatch_VkPhysicalDevice(boxed_physicalDevice);
 
-        if (!m_emu->instanceSupportsMoltenVK && !kEmulateSamplerYcbcrConversion) {
+        if (!m_emu->instanceSupportsMoltenVK && !m_emu->enableYcbcrEmulation) {
             return vk->vkEnumerateDeviceExtensionProperties(physicalDevice, pLayerName,
                                                             pPropertyCount, pProperties);
         }
@@ -1106,9 +1106,8 @@ class VkDecoderGlobalState::Impl {
             properties.push_back(mvk_props);
         }
 
-        if (kEmulateSamplerYcbcrConversion &&
-            !hasDeviceExtension(
-                properties, VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME)) {
+        if (m_emu->enableYcbcrEmulation &&
+            !hasDeviceExtension(properties, VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME)) {
             VkExtensionProperties ycbcr_props;
             strncpy(ycbcr_props.extensionName, VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME,
                     sizeof(ycbcr_props.extensionName));
@@ -1182,7 +1181,7 @@ class VkDecoderGlobalState::Impl {
                     }
                     break;
                 case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES:
-                    if (kEmulateSamplerYcbcrConversion &&
+                    if (m_emu->enableYcbcrEmulation &&
                         !m_emu->deviceInfo.supportsSamplerYcbcrConversion) {
                         VkPhysicalDeviceSamplerYcbcrConversionFeatures* features2 =
                             (VkPhysicalDeviceSamplerYcbcrConversionFeatures*)ext;
@@ -4735,7 +4734,7 @@ class VkDecoderGlobalState::Impl {
         android::base::BumpPool*, VkDevice boxed_device,
         const VkSamplerYcbcrConversionCreateInfo* pCreateInfo,
         const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion) {
-        if (kEmulateSamplerYcbcrConversion && !m_emu->deviceInfo.supportsSamplerYcbcrConversion) {
+        if (m_emu->enableYcbcrEmulation && !m_emu->deviceInfo.supportsSamplerYcbcrConversion) {
             *pYcbcrConversion = new_boxed_non_dispatchable_VkSamplerYcbcrConversion(
                 (VkSamplerYcbcrConversion)((uintptr_t)0xffff0000ull));
             return VK_SUCCESS;
@@ -4754,7 +4753,7 @@ class VkDecoderGlobalState::Impl {
     void on_vkDestroySamplerYcbcrConversion(android::base::BumpPool* pool, VkDevice boxed_device,
                                             VkSamplerYcbcrConversion boxed_ycbcrConversion,
                                             const VkAllocationCallbacks* pAllocator) {
-        if (kEmulateSamplerYcbcrConversion && !m_emu->deviceInfo.supportsSamplerYcbcrConversion) {
+        if (m_emu->enableYcbcrEmulation && !m_emu->deviceInfo.supportsSamplerYcbcrConversion) {
             return;
         }
         auto device = unbox_VkDevice(boxed_device);
@@ -5135,15 +5134,13 @@ class VkDecoderGlobalState::Impl {
     VkDecoderSnapshot* snapshot() { return &mSnapshot; }
 
    private:
-    static const bool kEmulateSamplerYcbcrConversion = false;
-
     bool isEmulatedExtension(const char* name) const {
         for (auto emulatedExt : kEmulatedExtensions) {
             if (!strcmp(emulatedExt, name)) return true;
         }
         if (!strcmp(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME, name)) {
             return !m_emu->deviceInfo.hasSamplerYcbcrConversionExtension &&
-                   kEmulateSamplerYcbcrConversion;
+                   m_emu->enableYcbcrEmulation;
         }
         return false;
     }
