@@ -534,6 +534,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
             .useVulkanNativeSwapchain = feature_is_enabled(kFeature_VulkanNativeSwapchain),
             .guestRenderDoc = std::move(renderDocMultipleVkInstances),
             .enableAstcLdrEmulation = feature_is_enabled(kFeature_VulkanAstcLdrEmulation),
+            .enableEtc2Emulation = feature_is_enabled(kFeature_VulkanEtc2Emulation),
             .enableYcbcrEmulation = feature_is_enabled(kFeature_VulkanYcbcrEmulation),
         });
 
