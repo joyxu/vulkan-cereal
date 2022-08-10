@@ -435,7 +435,7 @@ private:
                     buf = aligned_buf_alloc(ADDRESS_SPACE_GRAPHICS_PAGE_SIZE, create.size);
 
                     struct MemEntry entry = { 0 };
-                    entry.hva = (uint64_t)(uintptr_t)buf;
+                    entry.hva = buf;
                     entry.size = create.size;
                     entry.register_fixed = create.hostmemRegisterFixed;
                     entry.fixed_id = create.hostmemId ? create.hostmemId : 0;

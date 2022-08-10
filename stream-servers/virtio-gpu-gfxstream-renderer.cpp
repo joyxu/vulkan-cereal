@@ -185,7 +185,7 @@ struct PipeResEntry {
     size_t linearSize;
     GoldfishHostPipe* hostPipe;
     VirtioGpuCtxId ctxId;
-    uint64_t hva;
+    void* hva;
     uint64_t hvaSize;
     uint64_t blobId;
     uint32_t hvSlot;
@@ -1034,7 +1034,7 @@ public:
         e.args = *args;
         e.linear = 0;
         e.hostPipe = 0;
-        e.hva = 0;
+        e.hva = nullptr;
         e.hvaSize = 0;
         e.blobId = 0;
         e.hvSlot = 0;
@@ -1085,7 +1085,7 @@ public:
             entry.numIovs = 0;
         }
 
-        entry.hva = 0;
+        entry.hva = nullptr;
         entry.hvaSize = 0;
         entry.blobId = 0;
         entry.hvSlot = 0;
@@ -1525,18 +1525,8 @@ public:
 
         const auto& entry = it->second;
 
-        static const uint64_t kPageSizeforBlob = 4096;
-        static const uint64_t kPageMaskForBlob = ~(0xfff);
-
-        uint64_t alignedHva =
-            entry.hva & kPageMaskForBlob;
-
-        uint64_t alignedSize =
-            kPageSizeforBlob *
-            ((entry.hvaSize + kPageSizeforBlob - 1) / kPageSizeforBlob);
-
-        if (hvaOut) *hvaOut = (void*)(uintptr_t)alignedHva;
-        if (sizeOut) *sizeOut = alignedSize;
+        if (hvaOut) *hvaOut = entry.hva;
+        if (sizeOut) *sizeOut = entry.hvaSize;
         return 0;
     }
 

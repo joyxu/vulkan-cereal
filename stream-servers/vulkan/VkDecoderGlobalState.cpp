@@ -110,6 +110,9 @@ static constexpr const char* const kEmulatedExtensions[] = {
 static constexpr uint32_t kMaxSafeVersion = VK_MAKE_VERSION(1, 1, 0);
 static constexpr uint32_t kMinVersion = VK_MAKE_VERSION(1, 0, 0);
 
+static constexpr uint64_t kPageSizeforBlob = 4096;
+static constexpr uint64_t kPageMaskForBlob = ~(0xfff);
+
 #define DEFINE_BOXED_HANDLE_TYPE_TAG(type) Tag_##type,
 
 enum BoxedHandleTypeTag {
@@ -3637,28 +3640,25 @@ class VkDecoderGlobalState::Impl {
         uint64_t hva = (uint64_t)(uintptr_t)(info->ptr);
         uint64_t size = (uint64_t)(uintptr_t)(info->size);
 
-        constexpr size_t kPageBits = 12;
-        constexpr size_t kPageSize = 1u << kPageBits;
-        constexpr size_t kPageOffsetMask = kPageSize - 1;
+        uint64_t alignedHva = hva & kPageMaskForBlob;
+        uint64_t alignedSize = kPageSizeforBlob *
+                               ((size + kPageSizeforBlob - 1) / kPageSizeforBlob);
 
-        uint64_t pageOffset = hva & kPageOffsetMask;
-        uint64_t sizeToPage = ((size + pageOffset + kPageSize - 1) >> kPageBits) << kPageBits;
-
-        entry.hva = (uint64_t)(uintptr_t)(info->ptr);
-        entry.size = (uint64_t)(uintptr_t)(info->size);
+        entry.hva = (void*)(uintptr_t)alignedHva;
+        entry.size = alignedSize;
         entry.caching = info->caching;
 
         auto id = get_emugl_vm_operations().hostmemRegister(&entry);
 
         *pAddress = hva & (0xfff);  // Don't expose exact hva to guest
-        *pSize = sizeToPage;
+        *pSize = alignedSize;
         *pHostmemId = id;
 
         info->virtioGpuMapped = true;
         info->hostmemId = id;
 
         fprintf(stderr, "%s: hva, size, sizeToPage: %p 0x%llx 0x%llx id 0x%llx\n", __func__,
-                info->ptr, (unsigned long long)(info->size), (unsigned long long)(sizeToPage),
+                info->ptr, (unsigned long long)(info->size), (unsigned long long)(alignedSize),
                 (unsigned long long)(*pHostmemId));
         return VK_SUCCESS;
     }
