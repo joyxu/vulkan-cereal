@@ -1147,49 +1147,41 @@ class VkDecoderGlobalState::Impl {
 
         // Run the underlying API call, filtering extensions.
         VkDeviceCreateInfo createInfoFiltered = *pCreateInfo;
-        bool emulateTextureEtc2 = false;
-        bool emulateTextureAstc = false;
+        // According to the spec, it seems that the application can use compressed texture formats
+        // without enabling the feature when creating the VkDevice, as long as
+        // vkGetPhysicalDeviceFormatProperties and vkGetPhysicalDeviceImageFormatProperties reports
+        // support: to query for additional properties, or if the feature is not enabled,
+        // vkGetPhysicalDeviceFormatProperties and vkGetPhysicalDeviceImageFormatProperties can be
+        // used to check for supported properties of individual formats as normal.
+        bool emulateTextureEtc2 = needEmulatedEtc2(physicalDevice, vk);
+        bool emulateTextureAstc = needEmulatedAstc(physicalDevice, vk);
         VkPhysicalDeviceFeatures featuresFiltered;
+        std::vector<VkPhysicalDeviceFeatures*> featuresToFilter;
 
         if (pCreateInfo->pEnabledFeatures) {
             featuresFiltered = *pCreateInfo->pEnabledFeatures;
-            if (featuresFiltered.textureCompressionETC2) {
-                if (needEmulatedEtc2(physicalDevice, vk)) {
-                    emulateTextureEtc2 = true;
-                    featuresFiltered.textureCompressionETC2 = false;
-                }
-            }
-            if (needEmulatedAstc(physicalDevice, vk)) {
-                emulateTextureAstc = true;
-                featuresFiltered.textureCompressionASTC_LDR = false;
-            }
             createInfoFiltered.pEnabledFeatures = &featuresFiltered;
+            featuresToFilter.emplace_back(&featuresFiltered);
         }
 
-        vk_foreach_struct(ext, pCreateInfo->pNext) {
-            switch (ext->sType) {
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2:
-                    if (needEmulatedEtc2(physicalDevice, vk)) {
-                        emulateTextureEtc2 = true;
-                        VkPhysicalDeviceFeatures2* features2 = (VkPhysicalDeviceFeatures2*)ext;
-                        features2->features.textureCompressionETC2 = false;
-                    }
-                    if (needEmulatedAstc(physicalDevice, vk)) {
-                        emulateTextureAstc = true;
-                        VkPhysicalDeviceFeatures2* features2 = (VkPhysicalDeviceFeatures2*)ext;
-                        features2->features.textureCompressionASTC_LDR = false;
-                    }
-                    break;
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES:
-                    if (m_emu->enableYcbcrEmulation &&
-                        !m_emu->deviceInfo.supportsSamplerYcbcrConversion) {
-                        VkPhysicalDeviceSamplerYcbcrConversionFeatures* features2 =
-                            (VkPhysicalDeviceSamplerYcbcrConversionFeatures*)ext;
-                        features2->samplerYcbcrConversion = false;
-                    }
-                    break;
-                default:
-                    break;
+        if (VkPhysicalDeviceFeatures2* features2 =
+                vk_find_struct<VkPhysicalDeviceFeatures2>(&createInfoFiltered)) {
+            featuresToFilter.emplace_back(&features2->features);
+        }
+
+        for (VkPhysicalDeviceFeatures* feature : featuresToFilter) {
+            if (emulateTextureEtc2) {
+                feature->textureCompressionETC2 = VK_FALSE;
+            }
+            if (emulateTextureAstc) {
+                feature->textureCompressionASTC_LDR = VK_FALSE;
+            }
+        }
+
+        if (auto* ycbcrFeatures = vk_find_struct<VkPhysicalDeviceSamplerYcbcrConversionFeatures>(
+                &createInfoFiltered)) {
+            if (m_emu->enableYcbcrEmulation && !m_emu->deviceInfo.supportsSamplerYcbcrConversion) {
+                ycbcrFeatures->samplerYcbcrConversion = VK_FALSE;
             }
         }
 
