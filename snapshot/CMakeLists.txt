@@ -11,3 +11,7 @@ target_include_directories(
     gfxstream-snapshot
     PUBLIC
     ${GFXSTREAM_REPO_ROOT})
+if (APPLE)
+    target_compile_definitions(
+        gfxstream-snapshot PRIVATE -Dfseeko64=fseek -Dftello64=ftell)
+endif()

@@ -1968,7 +1968,7 @@ bool readColorBufferToBytesLocked(uint32_t colorBufferHandle, uint32_t x, uint32
         return false;
     }
 
-    std::size_t bufferCopySize = 0;
+    VkDeviceSize bufferCopySize = 0;
     std::vector<VkBufferImageCopy> bufferImageCopies;
     if (!getFormatTransferInfo(colorBufferInfo->imageCreateInfoShallow.format,
                                colorBufferInfo->imageCreateInfoShallow.extent.width,
@@ -2153,7 +2153,7 @@ bool updateColorBufferFromBytesLocked(uint32_t colorBufferHandle, uint32_t x, ui
         return false;
     }
 
-    std::size_t bufferCopySize = 0;
+    VkDeviceSize bufferCopySize = 0;
     std::vector<VkBufferImageCopy> bufferImageCopies;
     if (!getFormatTransferInfo(colorBufferInfo->imageCreateInfoShallow.format,
                                colorBufferInfo->imageCreateInfoShallow.extent.width,

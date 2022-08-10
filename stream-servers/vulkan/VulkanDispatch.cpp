@@ -18,6 +18,7 @@
 #include "base/PathUtils.h"
 #include "base/SharedLibrary.h"
 #include "base/System.h"
+#include "host-common/misc.h"
 
 using android::base::AutoLock;
 using android::base::Lock;
@@ -144,7 +145,7 @@ static std::string getLoaderPath(const std::string& directory, bool forTesting) 
     }
 }
 
-#ifdef __APPLE_
+#ifdef __APPLE__
 static std::string getMoltenVkPath(const std::string& directory, bool forTesting) {
     auto path = android::base::getEnvironmentVariable("ANDROID_EMU_VK_LOADER_PATH");
     if (!path.empty()) {
@@ -156,7 +157,7 @@ static std::string getMoltenVkPath(const std::string& directory, bool forTesting
     // VK_MVK_moltenvk, which is required for external memory support.
     if (!forTesting && androidIcd == "moltenvk") {
         auto path = pj({directory, "lib64", "vulkan", "libMoltenVK.dylib"});
-        LOG(VERBOSE) << "Skipping loader and using ICD directly: " << path;
+        // LOG(VERBOSE) << "Skipping loader and using ICD directly: " << path;
         return path;
     }
     return "";
