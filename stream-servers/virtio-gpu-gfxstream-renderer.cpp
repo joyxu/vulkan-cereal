@@ -17,6 +17,7 @@
 #include <unordered_map>
 
 #include "VirtioGpuTimelines.h"
+#include "virtgpu_gfxstream_protocol.h"
 #include "base/AlignedBuf.h"
 #include "base/Lock.h"
 #include "base/SharedMemory.h"
@@ -511,30 +512,6 @@ static uint64_t convert32to64(uint32_t lo, uint32_t hi) {
     return ((uint64_t)lo) | (((uint64_t)hi) << 32);
 }
 
-// Commands for address space device
-// kVirtioGpuAddressSpaceContextCreateWithSubdevice | subdeviceType
-const uint32_t kVirtioGpuAddressSpaceContextCreateWithSubdevice = 0x1001;
-
-// kVirtioGpuAddressSpacePing | offset_lo | offset_hi | metadata_lo | metadata_hi | version | wait_fd | wait_flags | direction
-// no output
-const uint32_t kVirtioGpuAddressSpacePing = 0x1002;
-
-// kVirtioGpuAddressSpacePingWithResponse | resp_resid | offset_lo | offset_hi | metadata_lo | metadata_hi | version | wait_fd | wait_flags | direction
-// out: same as input then | out: error
-const uint32_t kVirtioGpuAddressSpacePingWithResponse = 0x1003;
-
-// Commands for native sync fd
-const uint32_t kVirtioGpuNativeSyncCreateExportFd = 0x9000;
-const uint32_t kVirtioGpuNativeSyncCreateImportFd = 0x9001;
-
-const uint32_t kVirtioGpuNativeSyncVulkanCreateExportFd = 0xa000;
-const uint32_t kVirtioGpuNativeSyncVulkanCreateImportFd = 0xa001;
-
-const uint32_t kVirtioGpuNativeSyncVulkanQsriExport = 0xa002;
-// Reserved for internal use. Do not reuse the same opcode for other execbuf
-// commands.
-const uint32_t kVirtioGpuReserved = 0xa003;
-
 class PipeVirglRenderer {
 public:
     PipeVirglRenderer() = default;
@@ -700,17 +677,21 @@ public:
         memcpy(iovWords, dwords, sizeof(uint32_t) * dwordCount);
     }
 
-    void addressSpaceProcessCmd(VirtioGpuCtxId ctxId, uint32_t* dwords, int dwordCount) {
-        uint32_t opcode = dwords[0];
+    #define DECODE(variable, type, input) \
+        struct type variable = {0};       \
+        memcpy(&variable, input, sizeof(type)); \
 
-        switch (opcode) {
-            case kVirtioGpuAddressSpaceContextCreateWithSubdevice: {
-                uint32_t subdevice_type = dwords[1];
+    void addressSpaceProcessCmd(VirtioGpuCtxId ctxId, uint32_t* dwords, int dwordCount) {
+        DECODE(header, gfxstreamHeader, dwords)
+
+        switch (header.opCode) {
+            case GFXSTREAM_CONTEXT_CREATE: {
+                DECODE(contextCreate, gfxstreamContextCreate, dwords)
 
                 uint32_t handle = mAddressSpaceDeviceControlOps->gen_handle();
 
                 struct android::emulation::AddressSpaceDevicePingInfo pingInfo = {
-                    .metadata = (uint64_t)subdevice_type,
+                    .metadata = (uint64_t)contextCreate.deviceType,
                 };
 
                 mAddressSpaceDeviceControlOps->ping_at_hva(handle, &pingInfo);
@@ -719,29 +700,16 @@ public:
                 setContextAddressSpaceHandleLocked(ctxId, handle);
                 break;
             }
-            case kVirtioGpuAddressSpacePing: {
-                uint32_t phys_addr_lo = dwords[1];
-                uint32_t phys_addr_hi = dwords[2];
-
-                uint32_t size_lo = dwords[3];
-                uint32_t size_hi = dwords[4];
-
-                uint32_t metadata_lo = dwords[5];
-                uint32_t metadata_hi = dwords[6];
-
-                uint32_t wait_phys_addr_lo = dwords[7];
-                uint32_t wait_phys_addr_hi = dwords[8];
-
-                uint32_t wait_flags = dwords[9];
-                uint32_t direction = dwords[10];
+            case GFXSTREAM_CONTEXT_PING: {
+                DECODE(contextPing, gfxstreamContextPing, dwords)
 
                 struct android::emulation::AddressSpaceDevicePingInfo pingInfo = {
-                    .phys_addr = convert32to64(phys_addr_lo, phys_addr_hi),
-                    .size = convert32to64(size_lo, size_hi),
-                    .metadata = convert32to64(metadata_lo, metadata_hi),
-                    .wait_phys_addr = convert32to64(wait_phys_addr_lo, wait_phys_addr_hi),
-                    .wait_flags = wait_flags,
-                    .direction = direction,
+                    .phys_addr = convert32to64(contextPing.phys_addr_lo, contextPing.phys_addr_hi),
+                    .size = convert32to64(contextPing.size_lo, contextPing.size_hi),
+                    .metadata = convert32to64(contextPing.metadata_lo, contextPing.metadata_hi),
+                    .wait_phys_addr = convert32to64(contextPing.wait_phys_addr_lo, contextPing.wait_phys_addr_hi),
+                    .wait_flags = contextPing.wait_flags,
+                    .direction = contextPing.direction,
                 };
 
                 AutoLock lock(mLock);
@@ -750,30 +718,18 @@ public:
                     &pingInfo);
                 break;
             }
-            case kVirtioGpuAddressSpacePingWithResponse: {
-                uint32_t resp_resid = dwords[1];
-                uint32_t phys_addr_lo = dwords[2];
-                uint32_t phys_addr_hi = dwords[3];
+            case GFXSTREAM_CONTEXT_PING_WITH_RESPONSE: {
+                DECODE(contextPing, gfxstreamContextPingWithResponse, dwords)
 
-                uint32_t size_lo = dwords[4];
-                uint32_t size_hi = dwords[5];
-
-                uint32_t metadata_lo = dwords[6];
-                uint32_t metadata_hi = dwords[7];
-
-                uint32_t wait_phys_addr_lo = dwords[8];
-                uint32_t wait_phys_addr_hi = dwords[9];
-
-                uint32_t wait_flags = dwords[10];
-                uint32_t direction = dwords[11];
+                uint32_t resp_resid = contextPing.resp_resid;
 
                 struct android::emulation::AddressSpaceDevicePingInfo pingInfo = {
-                    .phys_addr = convert32to64(phys_addr_lo, phys_addr_hi),
-                    .size = convert32to64(size_lo, size_hi),
-                    .metadata = convert32to64(metadata_lo, metadata_hi),
-                    .wait_phys_addr = convert32to64(wait_phys_addr_lo, wait_phys_addr_hi),
-                    .wait_flags = wait_flags,
-                    .direction = direction,
+                    .phys_addr = convert32to64(contextPing.phys_addr_lo, contextPing.phys_addr_hi),
+                    .size = convert32to64(contextPing.size_lo, contextPing.size_hi),
+                    .metadata = convert32to64(contextPing.metadata_lo, contextPing.metadata_hi),
+                    .wait_phys_addr = convert32to64(contextPing.wait_phys_addr_lo, contextPing.wait_phys_addr_hi),
+                    .wait_flags = contextPing.wait_flags,
+                    .direction = contextPing.direction,
                 };
 
                 AutoLock lock(mLock);
@@ -781,16 +737,16 @@ public:
                     getAddressSpaceHandleLocked(ctxId),
                     &pingInfo);
 
-                phys_addr_lo = (uint32_t)pingInfo.phys_addr;
-                phys_addr_hi = (uint32_t)(pingInfo.phys_addr >> 32);
-                size_lo = (uint32_t)(pingInfo.size >> 0);
-                size_hi = (uint32_t)(pingInfo.size >> 32);
-                metadata_lo = (uint32_t)(pingInfo.metadata >> 0);
-                metadata_hi = (uint32_t)(pingInfo.metadata >> 32);
-                wait_phys_addr_lo = (uint32_t)(pingInfo.wait_phys_addr >> 0);
-                wait_phys_addr_hi = (uint32_t)(pingInfo.wait_phys_addr >> 32);
-                wait_flags = (uint32_t)(pingInfo.wait_flags >> 0);
-                direction = (uint32_t)(pingInfo.direction >> 0);
+                uint32_t phys_addr_lo = (uint32_t)pingInfo.phys_addr;
+                uint32_t phys_addr_hi = (uint32_t)(pingInfo.phys_addr >> 32);
+                uint32_t size_lo = (uint32_t)(pingInfo.size >> 0);
+                uint32_t size_hi = (uint32_t)(pingInfo.size >> 32);
+                uint32_t metadata_lo = (uint32_t)(pingInfo.metadata >> 0);
+                uint32_t metadata_hi = (uint32_t)(pingInfo.metadata >> 32);
+                uint32_t wait_phys_addr_lo = (uint32_t)(pingInfo.wait_phys_addr >> 0);
+                uint32_t wait_phys_addr_hi = (uint32_t)(pingInfo.wait_phys_addr >> 32);
+                uint32_t wait_flags = (uint32_t)(pingInfo.wait_flags >> 0);
+                uint32_t direction = (uint32_t)(pingInfo.direction >> 0);
 
                 uint32_t response[] = {
                     phys_addr_lo, phys_addr_hi,
@@ -823,27 +779,23 @@ public:
             return -1;
         }
 
-        // Parse command from buffer
-        uint32_t* dwords = (uint32_t*)buffer;
-
         if (dwordCount < 1) {
             fprintf(stderr, "%s: error: not enough dwords (got %d)\n", __func__, dwordCount);
             return -1;
         }
 
-        uint32_t opcode = dwords[0];
-
-        switch (opcode) {
-            case kVirtioGpuAddressSpaceContextCreateWithSubdevice:
-            case kVirtioGpuAddressSpacePing:
-            case kVirtioGpuAddressSpacePingWithResponse:
-                addressSpaceProcessCmd(ctxId, dwords, dwordCount);
+        DECODE(header, gfxstreamHeader, buffer);
+        switch (header.opCode) {
+            case GFXSTREAM_CONTEXT_CREATE:
+            case GFXSTREAM_CONTEXT_PING:
+            case GFXSTREAM_CONTEXT_PING_WITH_RESPONSE:
+                addressSpaceProcessCmd(ctxId, (uint32_t*)buffer, dwordCount);
                 break;
-            case kVirtioGpuNativeSyncCreateExportFd:
-            case kVirtioGpuNativeSyncCreateImportFd: {
-                uint32_t sync_handle_lo = dwords[1];
-                uint32_t sync_handle_hi = dwords[2];
-                uint64_t sync_handle = convert32to64(sync_handle_lo, sync_handle_hi);
+            case GFXSTREAM_CREATE_EXPORT_SYNC: {
+                DECODE(exportSync, gfxstreamCreateExportSync, buffer)
+
+                uint64_t sync_handle = convert32to64(exportSync.syncHandleLo,
+                                                     exportSync.syncHandleHi);
 
                 VGPLOG("wait for gpu ring %s", to_string(ring));
                 auto taskId = mVirtioGpuTimelines->enqueueTask(ring);
@@ -852,15 +804,15 @@ public:
                 });
                 break;
             }
-            case kVirtioGpuNativeSyncVulkanCreateExportFd:
-            case kVirtioGpuNativeSyncVulkanCreateImportFd: {
-                uint32_t device_handle_lo = dwords[1];
-                uint32_t device_handle_hi = dwords[2];
-                uint64_t device_handle = convert32to64(device_handle_lo, device_handle_hi);
+            case GFXSTREAM_CREATE_EXPORT_SYNC_VK:
+            case GFXSTREAM_CREATE_IMPORT_SYNC_VK: {
+                DECODE(exportSyncVK, gfxstreamCreateExportSyncVK, buffer)
 
-                uint32_t fence_handle_lo = dwords[3];
-                uint32_t fence_handle_hi = dwords[4];
-                uint64_t fence_handle = convert32to64(fence_handle_lo, fence_handle_hi);
+                uint64_t device_handle = convert32to64(exportSyncVK.deviceHandleLo,
+                                                       exportSyncVK.deviceHandleHi);
+
+                uint64_t fence_handle = convert32to64(exportSyncVK.fenceHandleLo,
+                                                      exportSyncVK.fenceHandleHi);
 
                 VGPLOG("wait for gpu ring %s", to_string(ring));
                 auto taskId = mVirtioGpuTimelines->enqueueTask(ring);
@@ -869,7 +821,7 @@ public:
                     [this, taskId] { mVirtioGpuTimelines->notifyTaskCompletion(taskId); });
                 break;
             }
-            case kVirtioGpuNativeSyncVulkanQsriExport: {
+            case GFXSTREAM_CREATE_QSRI_EXPORT_VK: {
                 // The guest QSRI export assumes fence context support and always uses
                 // VIRTGPU_EXECBUF_RING_IDX. With this, the task created here must use
                 // the same ring as the fence created for the virtio gpu command or the
@@ -879,9 +831,11 @@ public:
                     .mRingIdx = 0,
                 };
 
-                uint64_t image_handle_lo = dwords[1];
-                uint64_t image_handle_hi = dwords[2];
-                uint64_t image_handle = convert32to64(image_handle_lo, image_handle_hi);
+                DECODE(exportQSRI, gfxstreamCreateQSRIExportVK, buffer)
+
+                uint64_t image_handle = convert32to64(exportQSRI.imageHandleLo,
+                                                      exportQSRI.imageHandleHi);
+
                 VGPLOG("wait for gpu vk qsri ring %u image 0x%llx", to_string(ring).c_str(),
                        (unsigned long long)image_handle);
                 auto taskId = mVirtioGpuTimelines->enqueueTask(ring);
