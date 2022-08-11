@@ -14,10 +14,10 @@
 #include <vulkan/vulkan.h>
 
 #include <deque>
+#include <type_traits>
 #include <unordered_map>
 
 #include "VirtioGpuTimelines.h"
-#include "virtgpu_gfxstream_protocol.h"
 #include "base/AlignedBuf.h"
 #include "base/Lock.h"
 #include "base/SharedMemory.h"
@@ -31,6 +31,7 @@
 #include "host-common/linux_types.h"
 #include "host-common/opengles.h"
 #include "host-common/vm_operations.h"
+#include "virtgpu_gfxstream_protocol.h"
 
 extern "C" {
 #include "virtio-gpu-gfxstream-renderer.h"
@@ -677,9 +678,9 @@ public:
         memcpy(iovWords, dwords, sizeof(uint32_t) * dwordCount);
     }
 
-    #define DECODE(variable, type, input) \
-        struct type variable = {0};       \
-        memcpy(&variable, input, sizeof(type)); \
+#define DECODE(variable, type, input) \
+    struct type variable = {};        \
+    memcpy(&variable, input, sizeof(type));
 
     void addressSpaceProcessCmd(VirtioGpuCtxId ctxId, uint32_t* dwords, int dwordCount) {
         DECODE(header, gfxstreamHeader, dwords)
@@ -1594,7 +1595,12 @@ public:
         const auto& entry = it->second;
         if (entry.ringBlob) {
             // Handle ownership transferred to VMM, gfxstream keeps the mapping.
-            handle->os_handle = entry.ringBlob->releaseHandle();
+#ifdef _WIN32
+            handle->os_handle =
+                static_cast<int64_t>(reinterpret_cast<intptr_t>(entry.ringBlob->releaseHandle()));
+#else
+            handle->os_handle = static_cast<int64_t>(entry.ringBlob->releaseHandle());
+#endif
             handle->handle_type = STREAM_MEM_HANDLE_TYPE_SHM;
             return 0;
         }
