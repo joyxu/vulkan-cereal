@@ -19,12 +19,14 @@
 #include "VirtioGpuTimelines.h"
 #include "base/AlignedBuf.h"
 #include "base/Lock.h"
+#include "base/SharedMemory.h"
 #include "base/Tracing.h"
 #include "host-common/AddressSpaceService.h"
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/HostmemIdMapping.h"
 #include "host-common/address_space_device.h"
 #include "host-common/android_pipe_common.h"
+#include "host-common/feature_control.h"
 #include "host-common/linux_types.h"
 #include "host-common/opengles.h"
 #include "host-common/vm_operations.h"
@@ -145,6 +147,8 @@ extern "C" {
 
 using android::base::AutoLock;
 using android::base::Lock;
+using android::base::SharedMemory;
+
 using android::emulation::HostmemIdMapping;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
@@ -188,9 +192,11 @@ struct PipeResEntry {
     void* hva;
     uint64_t hvaSize;
     uint64_t blobId;
-    uint32_t hvSlot;
+    uint64_t blobMem;
     uint32_t caching;
     ResType type;
+    std::shared_ptr<SharedMemory> ringBlob = nullptr;
+    bool externalAddr = false;
 };
 
 static inline uint32_t align_up(uint32_t n, uint32_t a) {
@@ -1037,7 +1043,7 @@ public:
         e.hva = nullptr;
         e.hvaSize = 0;
         e.blobId = 0;
-        e.hvSlot = 0;
+        e.blobMem = 0;
         e.type = resType;
         allocResource(e, iov, num_iovs);
 
@@ -1085,10 +1091,13 @@ public:
             entry.numIovs = 0;
         }
 
+        if (entry.externalAddr && !entry.ringBlob) {
+            android::aligned_buf_free(entry.hva);
+        }
+
         entry.hva = nullptr;
         entry.hvaSize = 0;
         entry.blobId = 0;
-        entry.hvSlot = 0;
 
         mResources.erase(it);
     }
@@ -1488,23 +1497,63 @@ public:
         }
     }
 
-    void createBlob(uint32_t ctx_id, uint32_t res_handle,
-                    const struct stream_renderer_create_blob* create_blob,
-                    const struct stream_renderer_handle* handle) {
+    int createRingBlob(PipeResEntry& entry, uint32_t res_handle,
+                       const struct stream_renderer_create_blob* create_blob,
+                       const struct stream_renderer_handle* handle) {
+
+        if (feature_is_enabled(kFeature_ExternalBlob)) {
+            std::string name = "shared-memory-" + std::to_string(res_handle);
+            auto ringBlob = std::make_shared<SharedMemory>(name, create_blob->size);
+            int ret = ringBlob->create(0600);
+            if (ret) {
+                VGPLOG("Failed to create shared memory blob");
+                return ret;
+            }
+
+            entry.ringBlob = ringBlob;
+            entry.hva = ringBlob->get();
+        } else {
+            void *addr = android::aligned_buf_alloc(ADDRESS_SPACE_GRAPHICS_PAGE_SIZE,
+                                                    create_blob->size);
+            if (addr == nullptr) {
+                VGPLOG("Failed to allocate ring blob");
+                return -ENOMEM;
+            }
+
+            entry.hva = addr;
+        }
+
+        entry.hvaSize = create_blob->size;
+        entry.externalAddr = true;
+        entry.caching = STREAM_RENDERER_MAP_CACHE_CACHED;
+
+        return 0;
+    }
+
+    int createBlob(uint32_t ctx_id, uint32_t res_handle,
+                   const struct stream_renderer_create_blob* create_blob,
+                   const struct stream_renderer_handle* handle) {
 
         PipeResEntry e;
         struct virgl_renderer_resource_create_args args = { 0 };
         e.args = args;
         e.hostPipe = 0;
 
-        auto entry = HostmemIdMapping::get()->get(create_blob->blob_id);
+        if (create_blob->blob_id == 0) {
+            int ret = createRingBlob(e, res_handle, create_blob, handle);
+            if (ret) {
+                return ret;
+            }
+        } else {
+            auto entry = HostmemIdMapping::get()->get(create_blob->blob_id);
+            e.hva = entry.hva;
+            e.hvaSize = entry.size;
+            e.args.width = entry.size;
+            e.caching = entry.caching;
+        }
 
-        e.hva = entry.hva;
-        e.hvaSize = entry.size;
-        e.args.width = entry.size;
-        e.caching = entry.caching;
         e.blobId = create_blob->blob_id;
-        e.hvSlot = 0;
+        e.blobMem = create_blob->blob_mem;
         e.iov = nullptr;
         e.numIovs = 0;
         e.linear = 0;
@@ -1512,6 +1561,7 @@ public:
 
         AutoLock lock(mLock);
         mResources[res_handle] = e;
+        return 0;
     }
 
     int resourceMap(uint32_t res_handle, void** hvaOut, uint64_t* sizeOut) {
@@ -1577,6 +1627,25 @@ public:
         const auto& entry = it->second;
         *map_info = entry.caching;
         return 0;
+    }
+
+    int exportBlob(uint32_t res_handle, struct stream_renderer_handle* handle) {
+        AutoLock lock(mLock);
+
+        auto it = mResources.find(res_handle);
+        if (it == mResources.end()) {
+            return -EINVAL;
+        }
+
+        const auto& entry = it->second;
+        if (entry.ringBlob) {
+            // Handle ownership transferred to VMM, gfxstream keeps the mapping.
+            handle->os_handle = entry.ringBlob->releaseHandle();
+            handle->handle_type = STREAM_MEM_HANDLE_TYPE_SHM;
+            return 0;
+        }
+
+        return -EINVAL;
     }
 
 private:
@@ -1793,8 +1862,7 @@ VG_EXPORT int stream_renderer_create_blob(uint32_t ctx_id, uint32_t res_handle,
 
 VG_EXPORT int stream_renderer_export_blob(uint32_t res_handle,
                                           struct stream_renderer_handle* handle) {
-    // Unimplemented for now.
-    return -EINVAL;
+    return sRenderer()->exportBlob(res_handle, handle);
 }
 
 VG_EXPORT int stream_renderer_resource_map(uint32_t res_handle, void** hvaOut, uint64_t* sizeOut) {
