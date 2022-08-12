@@ -76,7 +76,7 @@ using emugl::FatalError;
 using emugl::GfxApiLogger;
 
 // TODO: Asserts build
-#define DCHECK(condition)
+#define DCHECK(condition) (void)(condition);
 
 #define VKDGS_DEBUG 0
 
@@ -4390,6 +4390,7 @@ class VkDecoderGlobalState::Impl {
         // TODO: Detect if we are running on a driver that supports timeline
         // semaphore signal/wait operations in vkQueueBindSparse
         const bool needTimelineSubmitInfoWorkaround = true;
+        (void)needTimelineSubmitInfoWorkaround;
 
         bool hasTimelineSemaphoreSubmitInfo = false;
 
