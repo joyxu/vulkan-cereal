@@ -23,6 +23,8 @@
 #include "VkQsriTimeline.h"
 #include "VulkanDispatch.h"
 #include "VulkanHandleMapping.h"
+#include "base/AsyncResult.h"
+#include "base/GfxApiLogger.h"
 #include "base/Lock.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 #include "cereal/common/goldfish_vk_transform.h"
@@ -71,7 +73,7 @@ class VkDecoderGlobalState {
     bool vkCleanupEnabled() const;
 
     void save(android::base::Stream* stream);
-    void load(android::base::Stream* stream);
+    void load(android::base::Stream* stream, emugl::GfxApiLogger& gfxLogger);
 
     // Lock/unlock of global state to serve as a global lock
     void lock();
@@ -485,13 +487,17 @@ class VkDecoderGlobalState {
         const VkBufferView* pBufferViews);
 
     VkResult on_vkBeginCommandBuffer(android::base::BumpPool* pool, VkCommandBuffer commandBuffer,
-                                     const VkCommandBufferBeginInfo* pBeginInfo);
+                                     const VkCommandBufferBeginInfo* pBeginInfo,
+                                     emugl::GfxApiLogger& gfxLogger);
     void on_vkBeginCommandBufferAsyncGOOGLE(android::base::BumpPool* pool,
                                             VkCommandBuffer commandBuffer,
-                                            const VkCommandBufferBeginInfo* pBeginInfo);
-    VkResult on_vkEndCommandBuffer(android::base::BumpPool* pool, VkCommandBuffer commandBuffer);
+                                            const VkCommandBufferBeginInfo* pBeginInfo,
+                                            emugl::GfxApiLogger& gfxLogger);
+    VkResult on_vkEndCommandBuffer(android::base::BumpPool* pool, VkCommandBuffer commandBuffer,
+                                   emugl::GfxApiLogger& gfxLogger);
     void on_vkEndCommandBufferAsyncGOOGLE(android::base::BumpPool* pool,
-                                          VkCommandBuffer commandBuffer);
+                                          VkCommandBuffer commandBuffer,
+                                          emugl::GfxApiLogger& gfxLogger);
     void on_vkResetCommandBufferAsyncGOOGLE(android::base::BumpPool* pool,
                                             VkCommandBuffer commandBuffer,
                                             VkCommandBufferResetFlags flags);
@@ -523,6 +529,14 @@ class VkDecoderGlobalState {
                                    const VkRenderPassCreateInfo* pCreateInfo,
                                    const VkAllocationCallbacks* pAllocator,
                                    VkRenderPass* pRenderPass);
+    VkResult on_vkCreateRenderPass2(android::base::BumpPool* pool, VkDevice device,
+                                    const VkRenderPassCreateInfo2* pCreateInfo,
+                                    const VkAllocationCallbacks* pAllocator,
+                                    VkRenderPass* pRenderPass);
+    VkResult on_vkCreateRenderPass2KHR(android::base::BumpPool* pool, VkDevice device,
+                                       const VkRenderPassCreateInfo2KHR* pCreateInfo,
+                                       const VkAllocationCallbacks* pAllocator,
+                                       VkRenderPass* pRenderPass);
     void on_vkDestroyRenderPass(android::base::BumpPool* pool, VkDevice device,
                                 VkRenderPass renderPass, const VkAllocationCallbacks* pAllocator);
     VkResult on_vkCreateFramebuffer(android::base::BumpPool* pool, VkDevice device,
@@ -532,6 +546,16 @@ class VkDecoderGlobalState {
     void on_vkDestroyFramebuffer(android::base::BumpPool* pool, VkDevice device,
                                  VkFramebuffer framebuffer,
                                  const VkAllocationCallbacks* pAllocator);
+
+    void on_vkCmdCopyQueryPoolResults(android::base::BumpPool* pool,
+                                      VkCommandBuffer commandBuffer,
+                                      VkQueryPool queryPool,
+                                      uint32_t firstQuery,
+                                      uint32_t queryCount,
+                                      VkBuffer dstBuffer,
+                                      VkDeviceSize dstOffset,
+                                      VkDeviceSize stride,
+                                      VkQueryResultFlags flags);
 
     // VK_GOOGLE_gfxstream
     void on_vkQueueHostSyncGOOGLE(android::base::BumpPool* pool, VkQueue queue,
@@ -555,7 +579,7 @@ class VkDecoderGlobalState {
     // VK_GOOGLE_gfxstream
     void on_vkQueueFlushCommandsGOOGLE(android::base::BumpPool* pool, VkQueue queue,
                                        VkCommandBuffer commandBuffer, VkDeviceSize dataSize,
-                                       const void* pData);
+                                       const void* pData, emugl::GfxApiLogger& gfxLogger);
     void on_vkQueueCommitDescriptorSetUpdatesGOOGLE(
         android::base::BumpPool* pool, VkQueue queue, uint32_t descriptorPoolCount,
         const VkDescriptorPool* pDescriptorPools, uint32_t descriptorSetCount,
@@ -574,6 +598,25 @@ class VkDecoderGlobalState {
                                                         const VkSemaphore* pWaitSemaphores,
                                                         VkImage image);
 
+    VkResult on_vkCreateSamplerYcbcrConversion(
+        android::base::BumpPool* pool, VkDevice device,
+        const VkSamplerYcbcrConversionCreateInfo* pCreateInfo,
+        const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion);
+    VkResult on_vkCreateSamplerYcbcrConversionKHR(
+        android::base::BumpPool* pool, VkDevice device,
+        const VkSamplerYcbcrConversionCreateInfo* pCreateInfo,
+        const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion);
+    void on_vkDestroySamplerYcbcrConversion(android::base::BumpPool* pool, VkDevice device,
+                                            VkSamplerYcbcrConversion ycbcrConversion,
+                                            const VkAllocationCallbacks* pAllocator);
+    void on_vkDestroySamplerYcbcrConversionKHR(android::base::BumpPool* pool, VkDevice device,
+                                               VkSamplerYcbcrConversion ycbcrConversion,
+                                               const VkAllocationCallbacks* pAllocator);
+
+    void on_DeviceLost();
+
+    void DeviceLostHandler();
+
     // Fence waits
     VkResult waitForFence(VkFence boxed_fence, uint64_t timeout);
 
@@ -584,7 +627,7 @@ class VkDecoderGlobalState {
     // presented so far, so it ends up incrementing a "target present count"
     // for this image, and then waiting for the image to get vkQSRI'ed at least
     // that many times.
-    VkResult registerQsriCallback(VkImage boxed_image, VkQsriTimeline::Callback callback);
+    AsyncResult registerQsriCallback(VkImage boxed_image, VkQsriTimeline::Callback callback);
 
     // Transformations
     void deviceMemoryTransform_tohost(VkDeviceMemory* memory, uint32_t memoryCount,

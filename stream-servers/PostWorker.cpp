@@ -81,13 +81,16 @@ void PostWorker::fillMultiDisplayPostStruct(ComposeLayer* l,
     l->crop = cropArea;
 }
 
-void PostWorker::postImpl(ColorBuffer* cb) {
+std::shared_future<void> PostWorker::postImpl(ColorBuffer* cb) {
+    std::shared_future<void> completedFuture =
+        std::async(std::launch::deferred, [] {}).share();
+    completedFuture.wait();
     // bind the subwindow eglSurface
     if (!m_mainThreadPostingOnly && m_needsToRebindWindow) {
         m_needsToRebindWindow = !mBindSubwin();
         if (m_needsToRebindWindow) {
             // Do not proceed if fail to bind to the window.
-            return;
+            return completedFuture;
         }
     }
 
@@ -95,16 +98,24 @@ void PostWorker::postImpl(ColorBuffer* cb) {
         bool shouldSkip = m_lastVkComposeColorBuffer == cb->getHndl();
         m_lastVkComposeColorBuffer = std::nullopt;
         if (shouldSkip) {
-            return;
+            return completedFuture;
         }
         const auto imageInfo = mFb->borrowColorBufferForDisplay(cb->getHndl());
-        auto [success, waitForGpu] = m_displayVk->post(imageInfo.get());
-        if (success) {
-            waitForGpu.wait();
-        } else {
-            m_needsToRebindWindow = true;
+        bool success;
+        Compositor::CompositionFinishedWaitable waitForGpu;
+        std::tie(success, waitForGpu) = m_displayVk->post(imageInfo.get());
+        if (!success) {
+            // Create swapChain and retry
+            if (mBindSubwin()) {
+                std::tie(success, waitForGpu) = m_displayVk->post(imageInfo.get());
+            }
+            if (!success) {
+                m_needsToRebindWindow = true;
+                return completedFuture;
+            }
+            m_needsToRebindWindow = false;
         }
-        return;
+        return waitForGpu;
     }
 
     float dpr = mFb->getDpr();
@@ -199,6 +210,7 @@ void PostWorker::postImpl(ColorBuffer* cb) {
     }
 
     s_egl.eglSwapBuffers(mFb->getDisplay(), mFb->getWindowSurface());
+    return completedFuture;
 }
 
 // Called whenever the subwindow needs a refresh (FrameBuffer::setupSubWindow).
@@ -281,29 +293,6 @@ std::shared_future<void> PostWorker::composeImpl(const FlatComposeRequest& compo
     return m_compositor->compose(compositorRequest);
 }
 
-void PostWorker::bind() {
-    if (m_mainThreadPostingOnly && !m_displayVk) {
-        if (mFb->getDisplay() != EGL_NO_DISPLAY) {
-            EGLint res = s_egl.eglMakeCurrent(mFb->getDisplay(), mFb->getWindowSurface(), mFb->getWindowSurface(), mContext);
-            if (!res) fprintf(stderr, "%s: error in binding: 0x%x\n", __func__, s_egl.eglGetError());
-        } else {
-            fprintf(stderr, "%s: no display!\n", __func__);
-        }
-    } else {
-        mBindSubwin();
-    }
-}
-
-void PostWorker::unbind() {
-    if (m_displayVk) {
-        return;
-    }
-    if (mFb->getDisplay() != EGL_NO_DISPLAY) {
-        s_egl.eglMakeCurrent(mFb->getDisplay(), EGL_NO_SURFACE, EGL_NO_SURFACE,
-                             EGL_NO_CONTEXT);
-    }
-}
-
 void PostWorker::screenshot(
     ColorBuffer* cb,
     int width,
@@ -320,6 +309,19 @@ void PostWorker::screenshot(
         width, height, format, type, rotation, pixels);
 }
 
+void PostWorker::block(std::promise<void> scheduledSignal, std::future<void> continueSignal) {
+    // MSVC STL doesn't support not copyable std::packaged_task. As a workaround, we use the
+    // copyable std::shared_ptr here.
+    auto block = std::make_shared<Post::Block>(Post::Block{
+        .scheduledSignal = std::move(scheduledSignal),
+        .continueSignal = std::move(continueSignal),
+    });
+    runTask(std::packaged_task<void()>([block] {
+        block->scheduledSignal.set_value();
+        block->continueSignal.wait();
+    }));
+}
+
 PostWorker::~PostWorker() {
     if (mFb->getDisplay() != EGL_NO_DISPLAY) {
         s_egl.eglMakeCurrent(mFb->getDisplay(), EGL_NO_SURFACE, EGL_NO_SURFACE,
@@ -327,8 +329,13 @@ PostWorker::~PostWorker() {
     }
 }
 
-void PostWorker::post(ColorBuffer* cb) {
-    runTask(std::packaged_task<void()>([cb, this] { postImpl(cb); }));
+void PostWorker::post(ColorBuffer* cb, std::unique_ptr<Post::CompletionCallback> postCallback) {
+    auto packagedPostCallback = std::shared_ptr<Post::CompletionCallback>(std::move(postCallback));
+    runTask(
+        std::packaged_task<void()>([cb, packagedPostCallback, this] { 
+            auto completedFuture = postImpl(cb); 
+            (*packagedPostCallback)(completedFuture);
+        }));
 }
 
 void PostWorker::viewport(int width, int height) {
@@ -337,11 +344,11 @@ void PostWorker::viewport(int width, int height) {
 }
 
 void PostWorker::compose(std::unique_ptr<FlatComposeRequest> composeRequest,
-                         std::unique_ptr<Post::ComposeCallback> composeCallback) {
+                         std::unique_ptr<Post::CompletionCallback> composeCallback) {
     // std::shared_ptr(std::move(...)) is WA for MSFT STL implementation bug:
     // https://developercommunity.visualstudio.com/t/unable-to-move-stdpackaged-task-into-any-stl-conta/108672
     auto packagedComposeCallback =
-        std::shared_ptr<Post::ComposeCallback>(std::move(composeCallback));
+        std::shared_ptr<Post::CompletionCallback>(std::move(composeCallback));
     auto packagedComposeRequest = std::shared_ptr<FlatComposeRequest>(std::move(composeRequest));
     runTask(
         std::packaged_task<void()>([packagedComposeCallback, packagedComposeRequest, this] {

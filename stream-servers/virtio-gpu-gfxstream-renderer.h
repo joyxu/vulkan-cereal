@@ -86,9 +86,6 @@ VG_EXPORT void stream_renderer_flush_resource_and_readback(
     uint32_t res_handle, uint32_t x, uint32_t y, uint32_t width, uint32_t height,
     void* pixels, uint32_t max_bytes);
 
-VG_EXPORT void stream_renderer_resource_create_v2(
-    uint32_t res_handle, uint64_t hvaId);
-
 #define STREAM_MEM_HANDLE_TYPE_OPAQUE_FD 0x1
 #define STREAM_MEM_HANDLE_TYPE_DMABUF 0x2
 #define STREAM_MEM_HANDLE_TYPE_OPAQUE_WIN32 0x3

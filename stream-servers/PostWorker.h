@@ -48,7 +48,7 @@ class PostWorker {
 
     // post: posts the next color buffer.
     // Assumes framebuffer lock is held.
-    void post(ColorBuffer* cb);
+    void post(ColorBuffer* cb, std::unique_ptr<Post::CompletionCallback> postCallback);
 
     // viewport: (re)initializes viewport dimensions.
     // Assumes framebuffer lock is held.
@@ -60,7 +60,7 @@ class PostWorker {
     // called when the CPU side job completes. The passed in future in the
     // callback will be completed when the GPU opereation completes.
     void compose(std::unique_ptr<FlatComposeRequest> composeRequest,
-                 std::unique_ptr<Post::ComposeCallback> composeCallback);
+                 std::unique_ptr<Post::CompletionCallback> composeCallback);
 
     // clear: blanks out emulator display when refreshing the subwindow
     // if there is no last posted color buffer to show yet.
@@ -69,16 +69,16 @@ class PostWorker {
     void screenshot(ColorBuffer* cb, int screenwidth, int screenheight,
                     GLenum format, GLenum type, int skinRotation, void* pixels);
 
+    // The block task will set the scheduledSignal promise when the task is scheduled, and wait
+    // until continueSignal is ready before completes.
+    void block(std::promise<void> scheduledSignal, std::future<void> continueSignal);
+
    private:
     // Impl versions of the above, so we can run it from separate threads
-    void postImpl(ColorBuffer* cb);
+    std::shared_future<void> postImpl(ColorBuffer* cb);
     void viewportImpl(int width, int height);
     std::shared_future<void> composeImpl(const FlatComposeRequest& composeRequest);
     void clearImpl();
-
-    // Subwindow binding
-    void bind();
-    void unbind();
 
     void fillMultiDisplayPostStruct(ComposeLayer* l, hwc_rect_t displayArea,
                                     hwc_frect_t cropArea,

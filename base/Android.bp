@@ -33,6 +33,7 @@ cc_library_static {
         "PathUtils.cpp",
         "ring_buffer.cpp",
         "SharedLibrary.cpp",
+        "SharedMemory_posix.cpp",
         "StringFormat.cpp",
         "Stream.cpp",
         "StreamSerializing.cpp",

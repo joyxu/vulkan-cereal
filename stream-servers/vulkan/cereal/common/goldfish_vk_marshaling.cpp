@@ -4533,12 +4533,15 @@ void marshal_VkFramebufferCreateInfo(
     vkStream->handleMapping()->mapHandles_VkRenderPass_u64(&forMarshaling->renderPass, &cgen_var_0, 1);
     vkStream->write((uint64_t*)&cgen_var_0, 1 * 8);
     vkStream->write((uint32_t*)&forMarshaling->attachmentCount, sizeof(uint32_t));
-    if (forMarshaling->attachmentCount)
+    if ((!(vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT) || (((forMarshaling->flags & VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT) == 0))))
     {
-        uint64_t* cgen_var_1;
-        vkStream->alloc((void**)&cgen_var_1, forMarshaling->attachmentCount * 8);
-        vkStream->handleMapping()->mapHandles_VkImageView_u64(forMarshaling->pAttachments, cgen_var_1, forMarshaling->attachmentCount);
-        vkStream->write((uint64_t*)cgen_var_1, forMarshaling->attachmentCount * 8);
+        if (forMarshaling->attachmentCount)
+        {
+            uint64_t* cgen_var_0_0;
+            vkStream->alloc((void**)&cgen_var_0_0, forMarshaling->attachmentCount * 8);
+            vkStream->handleMapping()->mapHandles_VkImageView_u64(forMarshaling->pAttachments, cgen_var_0_0, forMarshaling->attachmentCount);
+            vkStream->write((uint64_t*)cgen_var_0_0, forMarshaling->attachmentCount * 8);
+        }
     }
     vkStream->write((uint32_t*)&forMarshaling->width, sizeof(uint32_t));
     vkStream->write((uint32_t*)&forMarshaling->height, sizeof(uint32_t));
@@ -4573,13 +4576,20 @@ void unmarshal_VkFramebufferCreateInfo(
     vkStream->read((uint64_t*)&cgen_var_0, 1 * 8);
     vkStream->handleMapping()->mapHandles_u64_VkRenderPass(&cgen_var_0, (VkRenderPass*)&forUnmarshaling->renderPass, 1);
     vkStream->read((uint32_t*)&forUnmarshaling->attachmentCount, sizeof(uint32_t));
-    vkStream->alloc((void**)&forUnmarshaling->pAttachments, forUnmarshaling->attachmentCount * sizeof(const VkImageView));
-    if (forUnmarshaling->attachmentCount)
+    if ((!(vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT) || (((forUnmarshaling->flags & VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT) == 0))))
     {
-        uint64_t* cgen_var_1;
-        vkStream->alloc((void**)&cgen_var_1, forUnmarshaling->attachmentCount * 8);
-        vkStream->read((uint64_t*)cgen_var_1, forUnmarshaling->attachmentCount * 8);
-        vkStream->handleMapping()->mapHandles_u64_VkImageView(cgen_var_1, (VkImageView*)forUnmarshaling->pAttachments, forUnmarshaling->attachmentCount);
+        vkStream->alloc((void**)&forUnmarshaling->pAttachments, forUnmarshaling->attachmentCount * sizeof(const VkImageView));
+        if (forUnmarshaling->attachmentCount)
+        {
+            uint64_t* cgen_var_0_0;
+            vkStream->alloc((void**)&cgen_var_0_0, forUnmarshaling->attachmentCount * 8);
+            vkStream->read((uint64_t*)cgen_var_0_0, forUnmarshaling->attachmentCount * 8);
+            vkStream->handleMapping()->mapHandles_u64_VkImageView(cgen_var_0_0, (VkImageView*)forUnmarshaling->pAttachments, forUnmarshaling->attachmentCount);
+        }
+    }
+    else
+    {
+        forUnmarshaling->pAttachments = 0;
     }
     vkStream->read((uint32_t*)&forUnmarshaling->width, sizeof(uint32_t));
     vkStream->read((uint32_t*)&forUnmarshaling->height, sizeof(uint32_t));

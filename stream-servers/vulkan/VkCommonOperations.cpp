@@ -426,6 +426,7 @@ static std::vector<VkEmulation::ImageSupportInfo> getBasicImageSupportList() {
         VK_FORMAT_G8_B8R8_2PLANE_422_UNORM,
         VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM,
         VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM,
+        VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16,
 
     };
 
@@ -1146,10 +1147,16 @@ void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures> features) {
     INFO("    useVulkanComposition: %s", features->useVulkanComposition ? "true" : "false");
     INFO("    useVulkanNativeSwapchain: %s", features->useVulkanNativeSwapchain ? "true" : "false");
     INFO("    enable guestRenderDoc: %s", features->guestRenderDoc ? "true" : "false");
+    INFO("    enable ASTC LDR emulation: %s", features->enableAstcLdrEmulation ? "true" : "false");
+    INFO("    enable ETC2 emulation: %s", features->enableEtc2Emulation ? "true" : "false");
+    INFO("    enable Ycbcr emulation: %s", features->enableYcbcrEmulation ? "true" : "false");
     sVkEmulation->deviceInfo.glInteropSupported = features->glInteropSupported;
     sVkEmulation->useDeferredCommands = features->deferredCommands;
     sVkEmulation->useCreateResourcesWithRequirements = features->createResourceWithRequirements;
     sVkEmulation->guestRenderDoc = std::move(features->guestRenderDoc);
+    sVkEmulation->enableAstcLdrEmulation = features->enableAstcLdrEmulation;
+    sVkEmulation->enableEtc2Emulation = features->enableEtc2Emulation;
+    sVkEmulation->enableYcbcrEmulation = features->enableYcbcrEmulation;
 
     if (features->useVulkanComposition) {
         if (sVkEmulation->compositorVk) {
@@ -1431,6 +1438,7 @@ bool importExternalMemoryDedicatedImage(VulkanDispatch* vk, VkDevice targetDevic
 
 static VkFormat glFormat2VkFormat(GLint internalformat) {
     switch (internalformat) {
+        case GL_R8:
         case GL_LUMINANCE:
             return VK_FORMAT_R8_UNORM;
         case GL_RGB:
@@ -1457,8 +1465,9 @@ static VkFormat glFormat2VkFormat(GLint internalformat) {
         case GL_BGRA_EXT:
         case GL_BGRA8_EXT:
             return VK_FORMAT_B8G8R8A8_UNORM;
-            ;
         default:
+            VK_COMMON_ERROR("Unhandled format %d, falling back to VK_FORMAT_R8G8B8A8_UNORM",
+                            internalformat);
             return VK_FORMAT_R8G8B8A8_UNORM;
     }
 };
@@ -1643,6 +1652,9 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle, bool vulkanOnly, uint32_t me
             break;
         case FrameworkFormat::FRAMEWORK_FORMAT_NV12:
             vkFormat = VK_FORMAT_G8_B8R8_2PLANE_420_UNORM;
+            break;
+        case FrameworkFormat::FRAMEWORK_FORMAT_P010:
+            vkFormat = VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16;
             break;
         case FrameworkFormat::FRAMEWORK_FORMAT_YV12:
         case FrameworkFormat::FRAMEWORK_FORMAT_YUV_420_888:
@@ -1874,7 +1886,7 @@ bool colorBufferNeedsTransferBetweenGlAndVk(const VkEmulation::ColorBufferInfo& 
 
 bool readColorBufferToGl(uint32_t colorBufferHandle) {
     if (!sVkEmulation || !sVkEmulation->live) {
-        VK_COMMON_ERROR("VkEmulation not available.");
+        VK_COMMON_VERBOSE("VkEmulation not available.");
         return false;
     }
 
@@ -1884,7 +1896,7 @@ bool readColorBufferToGl(uint32_t colorBufferHandle) {
 
     auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
     if (!colorBufferInfo) {
-        VK_COMMON_ERROR("Failed to read from ColorBuffer:%d, not found.", colorBufferHandle);
+        VK_COMMON_VERBOSE("Failed to read from ColorBuffer:%d, not found.", colorBufferHandle);
         return false;
     }
 
@@ -1958,7 +1970,7 @@ bool readColorBufferToBytesLocked(uint32_t colorBufferHandle, uint32_t x, uint32
         return false;
     }
 
-    std::size_t bufferCopySize = 0;
+    VkDeviceSize bufferCopySize = 0;
     std::vector<VkBufferImageCopy> bufferImageCopies;
     if (!getFormatTransferInfo(colorBufferInfo->imageCreateInfoShallow.format,
                                colorBufferInfo->imageCreateInfoShallow.extent.width,
@@ -2066,7 +2078,7 @@ bool readColorBufferToBytesLocked(uint32_t colorBufferHandle, uint32_t x, uint32
 
 bool updateColorBufferFromGl(uint32_t colorBufferHandle) {
     if (!sVkEmulation || !sVkEmulation->live) {
-        VK_COMMON_ERROR("VkEmulation not available.");
+        VK_COMMON_VERBOSE("VkEmulation not available.");
         return false;
     }
 
@@ -2074,7 +2086,7 @@ bool updateColorBufferFromGl(uint32_t colorBufferHandle) {
 
     auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
     if (!colorBufferInfo) {
-        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, not found.", colorBufferHandle);
+        VK_COMMON_VERBOSE("Failed to update ColorBuffer:%d, not found.", colorBufferHandle);
         return false;
     }
 
@@ -2143,7 +2155,7 @@ bool updateColorBufferFromBytesLocked(uint32_t colorBufferHandle, uint32_t x, ui
         return false;
     }
 
-    std::size_t bufferCopySize = 0;
+    VkDeviceSize bufferCopySize = 0;
     std::vector<VkBufferImageCopy> bufferImageCopies;
     if (!getFormatTransferInfo(colorBufferInfo->imageCreateInfoShallow.format,
                                colorBufferInfo->imageCreateInfoShallow.extent.width,
@@ -2535,6 +2547,177 @@ VK_EXT_MEMORY_HANDLE getBufferExtMemoryHandle(uint32_t bufferHandle) {
     }
 
     return infoPtr->memory.exportedHandle;
+}
+
+bool readBufferToBytes(uint32_t bufferHandle, uint64_t offset, uint64_t size, void* outBytes) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
+        return false;
+    }
+
+    auto vk = sVkEmulation->dvk;
+
+    AutoLock lock(sVkEmulationLock);
+
+    auto bufferInfo = android::base::find(sVkEmulation->buffers, bufferHandle);
+    if (!bufferInfo) {
+        VK_COMMON_ERROR("Failed to read from Buffer:%d, not found.", bufferHandle);
+        return false;
+    }
+
+    const auto& stagingBufferInfo = sVkEmulation->staging;
+    if (size > stagingBufferInfo.size) {
+        VK_COMMON_ERROR("Failed to read from Buffer:%d, staging buffer too small.", bufferHandle);
+        return false;
+    }
+
+    const VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = nullptr,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+
+    VkCommandBuffer commandBuffer = sVkEmulation->commandBuffer;
+
+    VK_CHECK(vk->vkBeginCommandBuffer(commandBuffer, &beginInfo));
+
+    const VkBufferCopy bufferCopy = {
+        .srcOffset = offset,
+        .dstOffset = 0,
+        .size = size,
+    };
+    vk->vkCmdCopyBuffer(commandBuffer, bufferInfo->buffer, stagingBufferInfo.buffer, 1,
+                        &bufferCopy);
+
+    VK_CHECK(vk->vkEndCommandBuffer(commandBuffer));
+
+    const VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 0,
+        .pWaitSemaphores = nullptr,
+        .pWaitDstStageMask = nullptr,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores = nullptr,
+    };
+
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        VK_CHECK(vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
+                                   sVkEmulation->commandBufferFence));
+    }
+
+    static constexpr uint64_t ANB_MAX_WAIT_NS = 5ULL * 1000ULL * 1000ULL * 1000ULL;
+
+    VK_CHECK(vk->vkWaitForFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence,
+                                 VK_TRUE, ANB_MAX_WAIT_NS));
+
+    VK_CHECK(vk->vkResetFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence));
+
+    const VkMappedMemoryRange toInvalidate = {
+        .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+        .pNext = nullptr,
+        .memory = stagingBufferInfo.memory.memory,
+        .offset = 0,
+        .size = size,
+    };
+
+    VK_CHECK(vk->vkInvalidateMappedMemoryRanges(sVkEmulation->device, 1, &toInvalidate));
+
+    const void* srcPtr = reinterpret_cast<const void*>(
+        reinterpret_cast<const char*>(stagingBufferInfo.memory.mappedPtr));
+    void* dstPtr = outBytes;
+    void* dstPtrOffset = reinterpret_cast<void*>(reinterpret_cast<char*>(dstPtr) + offset);
+    std::memcpy(dstPtrOffset, srcPtr, size);
+
+    return true;
+}
+
+bool updateBufferFromBytes(uint32_t bufferHandle, uint64_t offset, uint64_t size, void* bytes) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
+        return false;
+    }
+
+    auto vk = sVkEmulation->dvk;
+
+    AutoLock lock(sVkEmulationLock);
+
+    auto bufferInfo = android::base::find(sVkEmulation->buffers, bufferHandle);
+    if (!bufferInfo) {
+        VK_COMMON_ERROR("Failed to update Buffer:%d, not found.", bufferHandle);
+        return false;
+    }
+
+    const auto& stagingBufferInfo = sVkEmulation->staging;
+    if (size > stagingBufferInfo.size) {
+        VK_COMMON_ERROR("Failed to update Buffer:%d, staging buffer too small.", bufferHandle);
+        return false;
+    }
+
+    const void* srcPtr = bytes;
+    const void* srcPtrOffset =
+        reinterpret_cast<const void*>(reinterpret_cast<const char*>(srcPtr) + offset);
+    void* dstPtr = stagingBufferInfo.memory.mappedPtr;
+    std::memcpy(dstPtr, srcPtrOffset, size);
+
+    const VkMappedMemoryRange toFlush = {
+        .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+        .pNext = nullptr,
+        .memory = stagingBufferInfo.memory.memory,
+        .offset = 0,
+        .size = size,
+    };
+    VK_CHECK(vk->vkFlushMappedMemoryRanges(sVkEmulation->device, 1, &toFlush));
+
+    const VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = nullptr,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+
+    VkCommandBuffer commandBuffer = sVkEmulation->commandBuffer;
+
+    VK_CHECK(vk->vkBeginCommandBuffer(commandBuffer, &beginInfo));
+
+    const VkBufferCopy bufferCopy = {
+        .srcOffset = 0,
+        .dstOffset = offset,
+        .size = size,
+    };
+    vk->vkCmdCopyBuffer(commandBuffer, stagingBufferInfo.buffer, bufferInfo->buffer, 1,
+                        &bufferCopy);
+
+    VK_CHECK(vk->vkEndCommandBuffer(commandBuffer));
+
+    const VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 0,
+        .pWaitSemaphores = nullptr,
+        .pWaitDstStageMask = nullptr,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores = nullptr,
+    };
+
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        VK_CHECK(vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
+                                   sVkEmulation->commandBufferFence));
+    }
+
+    static constexpr uint64_t ANB_MAX_WAIT_NS = 5ULL * 1000ULL * 1000ULL * 1000ULL;
+
+    VK_CHECK(vk->vkWaitForFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence,
+                                 VK_TRUE, ANB_MAX_WAIT_NS));
+
+    VK_CHECK(vk->vkResetFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence));
+
+    return true;
 }
 
 VkExternalMemoryHandleTypeFlags transformExternalMemoryHandleTypeFlags_tohost(

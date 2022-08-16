@@ -27,6 +27,7 @@
 #include <memory>
 
 #include "BorrowedImage.h"
+#include "ContextHelper.h"
 #include "DisplayVk.h"
 #include "FrameworkFormats.h"
 #include "Hwc2.h"
@@ -71,57 +72,6 @@ class YUVConverter;
 class ColorBuffer :
         public android::snapshot::LazySnapshotObj<ColorBuffer> {
 public:
-    // Helper interface class used during ColorBuffer operations. This is
-    // introduced to remove coupling from the FrameBuffer class implementation.
-    class Helper {
-    public:
-        Helper() = default;
-        virtual ~Helper();
-        virtual bool setupContext() = 0;
-        virtual void teardownContext() = 0;
-        virtual TextureDraw* getTextureDraw() const = 0;
-        virtual bool isBound() const = 0;
-    };
-
-    // Helper class to use a ColorBuffer::Helper context.
-    // Usage is pretty simple:
-    //
-    //     {
-    //        RecursiveScopedHelperContext context(m_helper);
-    //        if (!context.isOk()) {
-    //            return false;   // something bad happened.
-    //        }
-    //        .... do something ....
-    //     }   // automatically calls m_helper->teardownContext();
-    //
-    class RecursiveScopedHelperContext {
-    public:
-        RecursiveScopedHelperContext(ColorBuffer::Helper* helper) : mHelper(helper) {
-            if (helper->isBound()) return;
-            if (!helper->setupContext()) {
-                mHelper = NULL;
-                return;
-            }
-            mNeedUnbind = true;
-        }
-
-        bool isOk() const { return mHelper != NULL; }
-
-        ~RecursiveScopedHelperContext() { release(); }
-
-        void release() {
-            if (mNeedUnbind) {
-                mHelper->teardownContext();
-                mNeedUnbind = false;
-            }
-            mHelper = NULL;
-        }
-
-    private:
-        ColorBuffer::Helper* mHelper;
-        bool mNeedUnbind = false;
-    };
-
     // Create a new ColorBuffer instance.
     // |p_display| is the host EGLDisplay handle.
     // |p_width| and |p_height| are the buffer's dimensions in pixels.
@@ -143,7 +93,7 @@ public:
                                GLint p_internalFormat,
                                FrameworkFormat p_frameworkFormat,
                                HandleType hndl,
-                               Helper* helper,
+                               ContextHelper* helper,
                                bool fastBlitSupported);
 
     // Sometimes things happen and we need to reformat the GL texture
@@ -248,7 +198,7 @@ public:
     void onSave(android::base::Stream* stream);
     static ColorBuffer* onLoad(android::base::Stream* stream,
                                EGLDisplay p_display,
-                               Helper* helper,
+                               ContextHelper* helper,
                                bool fastBlitSupported);
 
     HandleType getHndl() const;
@@ -283,7 +233,7 @@ public:
     void restore();
 
 private:
-    ColorBuffer(EGLDisplay display, HandleType hndl, Helper* helper);
+    ColorBuffer(EGLDisplay display, HandleType hndl, ContextHelper* helper);
     // Helper function to get contents.
     std::vector<uint8_t> getContents();
     // Helper function to clear current EGL image.
@@ -321,7 +271,7 @@ private:
     GLenum m_type = 0;
 
     EGLDisplay m_display = nullptr;
-    Helper* m_helper = nullptr;
+    ContextHelper* m_helper = nullptr;
     TextureResize* m_resizer = nullptr;
     FrameworkFormat m_frameworkFormat;
     GLuint m_yuv_conversion_fbo = 0;  // FBO to offscreen-convert YUV to RGB
@@ -345,27 +295,5 @@ private:
 };
 
 typedef std::shared_ptr<ColorBuffer> ColorBufferPtr;
-
-class Buffer : public android::snapshot::LazySnapshotObj<Buffer> {
-public:
-    static Buffer* create(size_t sizeBytes, HandleType hndl) {
-        return new Buffer(sizeBytes, hndl);
-    }
-
-    ~Buffer() = default;
-
-    HandleType getHndl() const { return m_handle; }
-    size_t getSize() const { return m_sizeBytes; }
-
-protected:
-    Buffer(size_t sizeBytes, HandleType hndl)
-        : m_handle(hndl), m_sizeBytes(sizeBytes) {}
-
-private:
-    HandleType m_handle;
-    size_t m_sizeBytes;
-};
-
-typedef std::shared_ptr<Buffer> BufferPtr;
 
 #endif

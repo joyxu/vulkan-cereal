@@ -28,6 +28,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "Buffer.h"
 #include "ColorBuffer.h"
 #include "Compositor.h"
 #include "CompositorGl.h"
@@ -42,6 +43,7 @@
 #include "Renderer.h"
 #include "TextureDraw.h"
 #include "WindowSurface.h"
+#include "base/AsyncResult.h"
 #include "base/HealthMonitor.h"
 #include "base/Lock.h"
 #include "base/ManagedDescriptor.hpp"
@@ -233,10 +235,8 @@ class FrameBuffer {
     // Variant of createColorBuffer except with a particular
     // handle already assigned. This is for use with
     // virtio-gpu's RESOURCE_CREATE ioctl.
-    void createColorBufferWithHandle(int p_width, int p_height,
-                                     GLenum p_internalFormat,
-                                     FrameworkFormat p_frameworkFormat,
-                                     HandleType handle);
+    void createColorBufferWithHandle(int p_width, int p_height, GLenum p_internalFormat,
+                                     FrameworkFormat p_frameworkFormat, HandleType handle);
 
     // Create a new data Buffer instance from this display instance.
     // The buffer will be backed by a VkBuffer and VkDeviceMemory (if Vulkan
@@ -245,6 +245,11 @@ class FrameBuffer {
     // |memoryProperty| is the requested memory property bits of the device
     // memory.
     HandleType createBuffer(uint64_t size, uint32_t memoryProperty);
+
+    // Variant of createBuffer except with a particular handle already
+    // assigned and using device local memory. This is for use with
+    // virtio-gpu's RESOURCE_CREATE ioctl for BLOB resources.
+    void createBufferWithHandle(uint64_t size, HandleType handle);
 
     // Call this function when a render thread terminates to destroy all
     // the remaining contexts it created. Necessary to avoid leaking host
@@ -330,6 +335,14 @@ class FrameBuffer {
     // Returns true on success, false on failure.
     bool bindColorBufferToRenderbuffer(HandleType p_colorbuffer);
 
+    // Read the content of a given Buffer into client memory.
+    // |p_buffer| is the Buffer's handle value.
+    // |offset| and |size| are the position and size of a slice of the buffer
+    // that will be read.
+    // |bytes| is the address of a caller-provided buffer that will be filled
+    // with the buffer data.
+    void readBuffer(HandleType p_buffer, uint64_t offset, uint64_t size, void* bytes);
+
     // Read the content of a given ColorBuffer into client memory.
     // |p_colorbuffer| is the ColorBuffer's handle value. Similar
     // to glReadPixels(), this can be a slow operation.
@@ -365,6 +378,14 @@ class FrameBuffer {
                                           uint32_t format, uint32_t type,
                                           uint32_t texture_type,
                                           uint32_t* textures);
+
+    // Update the content of a given Buffer from client data.
+    // |p_buffer| is the Buffer's handle value.
+    // |offset| and |size| are the position and size of a slice of the buffer
+    // that will be updated.
+    // |bytes| is the address of a caller-provided buffer containing the new
+    // buffer data.
+    bool updateBuffer(HandleType p_buffer, uint64_t offset, uint64_t size, void* pixels);
 
     // Update the content of a given ColorBuffer from client data.
     // |p_colorbuffer| is the ColorBuffer's handle value. Similar
@@ -408,6 +429,10 @@ class FrameBuffer {
     // acquiring/releasing the FrameBuffer instance's lock and binding the
     // contexts. It should be |false| only when called internally.
     bool post(HandleType p_colorbuffer, bool needLockAndBind = true);
+    // The callback will always be called; however, the callback may not be called
+    // until after this function has returned. If the callback is deferred, then it
+    // will be dispatched to run on SyncThread.
+    void postWithCallback(HandleType p_colorbuffer, Post::CompletionCallback callback, bool needLockAndBind = true);
     bool hasGuestPostedAFrame() { return m_guestPostedAFrame; }
     void resetGuestPostedAFrame() { m_guestPostedAFrame = false; }
 
@@ -496,8 +521,8 @@ class FrameBuffer {
     bool compose(uint32_t bufferSize, void* buffer, bool post = true);
     // When false is returned, the callback won't be called. The callback will
     // be called on the PostWorker thread without blocking the current thread.
-    bool composeWithCallback(uint32_t bufferSize, void* buffer,
-                             Post::ComposeCallback callback);
+    AsyncResult composeWithCallback(uint32_t bufferSize, void* buffer,
+                             Post::CompletionCallback callback);
 
     ~FrameBuffer();
 
@@ -541,8 +566,9 @@ class FrameBuffer {
                        int displayId, int desiredWidth, int desiredHeight,
                        int desiredRotation);
     void onLastColorBufferRef(uint32_t handle);
-    ColorBuffer::Helper* getColorBufferHelper() { return m_colorBufferHelper; }
+    ContextHelper* getColorBufferHelper() { return m_colorBufferHelper; }
     ColorBufferPtr findColorBuffer(HandleType p_colorbuffer);
+    BufferPtr findBuffer(HandleType p_buffer);
 
     void registerProcessCleanupCallback(void* key,
                                         std::function<void()> callback);
@@ -623,8 +649,9 @@ class FrameBuffer {
     void performDelayedColorBufferCloseLocked(bool forced = false);
     void eraseDelayedCloseColorBufferLocked(HandleType cb, uint64_t ts);
 
-    bool postImpl(HandleType p_colorbuffer, bool needLockAndBind = true,
-                  bool repaint = false);
+    AsyncResult postImpl(HandleType p_colorbuffer, Post::CompletionCallback callback,
+                  bool needLockAndBind = true, bool repaint = false);
+    bool postImplSync(HandleType p_colorbuffer, bool needLockAndBind = true, bool repaint = false);
     void setGuestPostedAFrame() { m_guestPostedAFrame = true; }
     HandleType createColorBufferWithHandleLocked(int p_width, int p_height, GLenum p_internalFormat,
                                                  FrameworkFormat p_frameworkFormat,
@@ -635,7 +662,10 @@ class FrameBuffer {
     void setDisplayPoseInSkinUI(int totalHeight);
     void sweepColorBuffersLocked();
 
+    std::future<void> blockPostWorker(std::future<void> continueSignal);
+
    private:
+
     static FrameBuffer* s_theFrameBuffer;
     static HandleType s_nextHandle;
     int m_x = 0;
@@ -685,7 +715,7 @@ class FrameBuffer {
     using ColorBufferDelayedClose = std::vector<ColorBufferCloseInfo>;
     ColorBufferDelayedClose m_colorBufferDelayedCloseList;
 
-    ColorBuffer::Helper* m_colorBufferHelper = nullptr;
+    ContextHelper* m_colorBufferHelper = nullptr;
 
     EGLSurface m_eglSurface = EGL_NO_SURFACE;
     EGLContext m_eglContext = EGL_NO_CONTEXT;

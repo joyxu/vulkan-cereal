@@ -3306,19 +3306,26 @@ void reservedunmarshal_VkFramebufferCreateInfo(
     *(VkRenderPass*)&forUnmarshaling->renderPass = (VkRenderPass)unbox_VkRenderPass((VkRenderPass)(*&cgen_var_0));
     memcpy((uint32_t*)&forUnmarshaling->attachmentCount, *ptr, sizeof(uint32_t));
     *ptr += sizeof(uint32_t);
-    vkStream->alloc((void**)&forUnmarshaling->pAttachments, forUnmarshaling->attachmentCount * sizeof(const VkImageView));
-    if (forUnmarshaling->attachmentCount)
+    if ((!(vkStream->getFeatureBits() & VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT) || (((forUnmarshaling->flags & VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT) == 0))))
     {
-        uint8_t* cgen_var_1_ptr = (uint8_t*)(*ptr);
-        *ptr += 8 * forUnmarshaling->attachmentCount;
-        if (forUnmarshaling)
+        vkStream->alloc((void**)&forUnmarshaling->pAttachments, forUnmarshaling->attachmentCount * sizeof(const VkImageView));
+        if (forUnmarshaling->attachmentCount)
         {
-            for (uint32_t k = 0; k < forUnmarshaling->attachmentCount; ++k)
+            uint8_t* cgen_var_0_0_ptr = (uint8_t*)(*ptr);
+            *ptr += 8 * forUnmarshaling->attachmentCount;
+            if (forUnmarshaling)
             {
-                uint64_t tmpval; memcpy(&tmpval, cgen_var_1_ptr + k * 8, sizeof(uint64_t));
-                *(((VkImageView*)forUnmarshaling->pAttachments) + k) = (VkImageView)unbox_VkImageView((VkImageView)tmpval);
+                for (uint32_t k = 0; k < forUnmarshaling->attachmentCount; ++k)
+                {
+                    uint64_t tmpval; memcpy(&tmpval, cgen_var_0_0_ptr + k * 8, sizeof(uint64_t));
+                    *(((VkImageView*)forUnmarshaling->pAttachments) + k) = (VkImageView)unbox_VkImageView((VkImageView)tmpval);
+                }
             }
         }
+    }
+    else
+    {
+        forUnmarshaling->pAttachments = 0;
     }
     memcpy((uint32_t*)&forUnmarshaling->width, *ptr, sizeof(uint32_t));
     *ptr += sizeof(uint32_t);

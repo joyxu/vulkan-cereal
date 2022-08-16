@@ -57,7 +57,7 @@ if (BUILD_STANDALONE)
         ${gfxstream-platform-sources})
 
     if (WIN32)
-        set(gfxstream-base-platform-deps "")
+        set(gfxstream-base-platform-deps Shlwapi)
     else()
         set(gfxstream-base-platform-deps dl)
     endif()
