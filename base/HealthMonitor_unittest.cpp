@@ -47,6 +47,7 @@ class HealthMonitorTest : public Test {
     class MockLogger : public MetricsLogger {
        public:
         MOCK_METHOD(void, logMetricEvent, (MetricEventType eventType), (override));
+        void setCrashAnnotation(const char* key, const char* value) override {}
     };
 
     HealthMonitorTest() : healthMonitor(logger, SToMs(1)) { TestClock::reset(); }
