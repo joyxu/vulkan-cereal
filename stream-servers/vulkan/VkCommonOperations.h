@@ -84,6 +84,14 @@ struct VkEmulation {
     // lost on certain device on Windows.
     bool enableAstcLdrEmulation = false;
 
+    // Whether to use ETC2 emulation.
+    bool enableEtc2Emulation = false;
+
+    // Whether to use Ycbcr emulation. If this feature is turned on, Ycbcr request will always use
+    // the emulation path regardless of whether the host Vulkan driver actually supports Ycbcr
+    // conversion or not.
+    bool enableYcbcrEmulation = false;
+
     // Instance and device for creating the system-wide shareable objects.
     VkInstance instance = VK_NULL_HANDLE;
     VkPhysicalDevice physdev = VK_NULL_HANDLE;
@@ -357,6 +365,8 @@ struct VkEmulationFeatures {
     bool useVulkanNativeSwapchain = false;
     std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> guestRenderDoc = nullptr;
     bool enableAstcLdrEmulation = false;
+    bool enableEtc2Emulation = false;
+    bool enableYcbcrEmulation = false;
 };
 void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures>);
 

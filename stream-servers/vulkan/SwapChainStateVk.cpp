@@ -134,15 +134,15 @@ SwapChainStateVk::~SwapChainStateVk() {
 
 std::vector<const char*> SwapChainStateVk::getRequiredInstanceExtensions() {
     return {
-        VK_KHR_SURFACE_EXTENSION_NAME,
+            VK_KHR_SURFACE_EXTENSION_NAME,
 #ifdef _WIN32
-        VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+            VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
 #endif
 #ifdef __APPLE__
-        VK_EXT_METAL_SURFACE_EXTENSION_NAME,
+            VK_EXT_METAL_SURFACE_EXTENSION_NAME,
 #endif
 #ifdef VK_USE_PLATFORM_XCB_KHR
-        VK_KHR_XCB_SURFACE_EXTENSION_NAME,
+            VK_KHR_XCB_SURFACE_EXTENSION_NAME,
 #endif
     };
 }
