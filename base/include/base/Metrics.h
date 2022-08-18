@@ -81,13 +81,10 @@ struct GfxstreamVkAbort {
 using MetricEventType = std::variant<std::monostate, MetricEventFreeze, MetricEventUnFreeze,
                                      MetricEventHang, MetricEventUnHang, GfxstreamVkAbort>;
 
-// TODO: We should split annotations/crash logic into a CrashHandler class
 class MetricsLogger {
 public:
     // Log a MetricEventType.
     virtual void logMetricEvent(MetricEventType eventType) = 0;
-    // Set a crash annotation
-    virtual void setCrashAnnotation(const char* key, const char* value) = 0;
     // Virtual destructor.
     virtual ~MetricsLogger() = default;
 

@@ -27,7 +27,6 @@ void (*MetricsLogger::set_crash_annotation_callback)(const char* key, const char
 
 class MetricsLogLibNoOp : public MetricsLogger {
     void logMetricEvent(MetricEventType eventType) override {}
-    void setCrashAnnotation(const char* key, const char* value) override {}
 };
 
 std::unique_ptr<MetricsLogger> CreateMetricsLogger() {

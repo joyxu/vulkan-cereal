@@ -32,7 +32,6 @@
 #include "common/goldfish_vk_transform.h"
 
 #include "base/BumpPool.h"
-#include "base/Metrics.h"
 #include "base/System.h"
 #include "base/Tracing.h"
 #include "stream-servers/IOStream.h"
@@ -52,13 +51,10 @@
 
 
 
-using android::base::CreateMetricsLogger;
 using emugl::vkDispatch;
 using emugl::GfxApiLogger;
 
 using namespace goldfish_vk;
-
-static uint32_t kSeqnoLoopLimit = 25'000;
 
 class VkDecoder::Impl {
 public:
@@ -135,20 +131,12 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
         if (queueSubmitWithCommandsEnabled && ((opcode >= OP_vkFirst && opcode < OP_vkLast) || (opcode >= OP_vkFirst_old && opcode < OP_vkLast_old))) {
             uint32_t seqno; memcpy(&seqno, *readStreamPtrPtr, sizeof(uint32_t)); *readStreamPtrPtr += sizeof(uint32_t);
             if (seqnoPtr && !m_forSnapshotLoad) {
-                uint32_t count = 0;
-                while ((seqno - __atomic_load_n(seqnoPtr, __ATOMIC_SEQ_CST) != 1) && count < kSeqnoLoopLimit) {
-                    count++;
-                    #if (defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64)))
-                    _mm_pause();
-                    #elif (defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__)))
-                    __asm__ __volatile__("pause;");
-                    #endif
-                }
-                if (count == kSeqnoLoopLimit) {
-                    auto logger = CreateMetricsLogger();
-                    logger->setCrashAnnotation("seqnoPtr", std::to_string(__atomic_load_n(seqnoPtr, __ATOMIC_SEQ_CST)).c_str());
-                    logger->setCrashAnnotation("seqno", std::to_string(seqno).c_str());
-                    GFXSTREAM_ABORT(::emugl::FatalError(::emugl::ABORT_REASON_OTHER));
+                while ((seqno - __atomic_load_n(seqnoPtr, __ATOMIC_SEQ_CST) != 1)) {
+                #if (defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64)))
+                _mm_pause();
+                #elif (defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__)))
+                __asm__ __volatile__("pause;");
+                #endif
                 }
             }
         }
