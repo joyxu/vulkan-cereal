@@ -76,7 +76,7 @@ using emugl::FatalError;
 using emugl::GfxApiLogger;
 
 // TODO: Asserts build
-#define DCHECK(condition)
+#define DCHECK(condition) (void)(condition);
 
 #define VKDGS_DEBUG 0
 
@@ -4390,6 +4390,7 @@ class VkDecoderGlobalState::Impl {
         // TODO: Detect if we are running on a driver that supports timeline
         // semaphore signal/wait operations in vkQueueBindSparse
         const bool needTimelineSubmitInfoWorkaround = true;
+        (void)needTimelineSubmitInfoWorkaround;
 
         bool hasTimelineSemaphoreSubmitInfo = false;
 
@@ -4911,61 +4912,133 @@ class VkDecoderGlobalState::Impl {
                 const_cast<VkImageCreateInfo&>(pImageCreateInfos[i]);
             const VkExternalMemoryImageCreateInfo* pExternalMemoryImageCi =
                 vk_find_struct<VkExternalMemoryImageCreateInfo>(&imageCreateInfo);
-
-            if (pExternalMemoryImageCi &&
+            bool importAndroidHardwareBuffer =
+                pExternalMemoryImageCi &&
                 (pExternalMemoryImageCi->handleTypes &
-                 VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID)) {
-                std::unique_ptr<VkImageCreateInfo> colorBufferVkImageCi =
-                    goldfish_vk::generateColorBufferVkImageCreateInfo(
-                        imageCreateInfo.format, imageCreateInfo.extent.width,
-                        imageCreateInfo.extent.height, imageCreateInfo.tiling);
-                if (imageCreateInfo.flags & (~colorBufferVkImageCi->flags)) {
-                    ERR("The VkImageCreateInfo to import AHardwareBuffer contains unsupported "
-                        "VkImageCreateFlags. All supported VkImageCreateFlags are %s, the input "
-                        "VkImageCreateInfo requires support for %s.",
-                        string_VkImageCreateFlags(colorBufferVkImageCi->flags).c_str(),
-                        string_VkImageCreateFlags(imageCreateInfo.flags).c_str());
+                 VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID);
+            const VkNativeBufferANDROID* pNativeBufferANDROID =
+                vk_find_struct<VkNativeBufferANDROID>(&imageCreateInfo);
+
+            // If the VkImage is going to bind to a ColorBuffer, we have to make sure the VkImage
+            // that backs the ColorBuffer is created with identical parameters. From the spec: If
+            // two aliases are both images that were created with identical creation parameters,
+            // both were created with the VK_IMAGE_CREATE_ALIAS_BIT flag set, and both are bound
+            // identically to memory except for VkBindImageMemoryDeviceGroupInfo::pDeviceIndices and
+            // VkBindImageMemoryDeviceGroupInfo::pSplitInstanceBindRegions, then they interpret the
+            // contents of the memory in consistent ways, and data written to one alias can be read
+            // by the other alias. ... Aliases created by binding the same memory to resources in
+            // multiple Vulkan instances or external APIs using external memory handle export and
+            // import mechanisms interpret the contents of the memory in consistent ways, and data
+            // written to one alias can be read by the other alias. Otherwise, the aliases interpret
+            // the contents of the memory differently, ...
+            std::unique_ptr<VkImageCreateInfo> colorBufferVkImageCi = nullptr;
+            std::string importSource;
+            if (importAndroidHardwareBuffer) {
+                // For AHardwareBufferImage binding, we can't know which ColorBuffer this
+                // to-be-created VkImage will bind to, so we try our best to infer the creation
+                // parameters.
+                colorBufferVkImageCi = goldfish_vk::generateColorBufferVkImageCreateInfo(
+                    imageCreateInfo.format, imageCreateInfo.extent.width,
+                    imageCreateInfo.extent.height, imageCreateInfo.tiling);
+                importSource = "AHardwareBuffer";
+            } else if (pNativeBufferANDROID) {
+                // For native buffer binding, we can query the creation parameters from handle.
+                auto colorBufferInfo =
+                    goldfish_vk::getColorBufferInfo(*pNativeBufferANDROID->handle);
+                if (colorBufferInfo.handle == *pNativeBufferANDROID->handle) {
+                    colorBufferVkImageCi =
+                        std::make_unique<VkImageCreateInfo>(colorBufferInfo.imageCreateInfoShallow);
+                } else {
+                    ERR("Unknown ColorBuffer handle: %" PRIu32 ".", *pNativeBufferANDROID->handle);
                 }
-                imageCreateInfo.flags |= colorBufferVkImageCi->flags;
-                if (imageCreateInfo.imageType != colorBufferVkImageCi->imageType) {
-                    ERR("The VkImageCreateInfo to import AHardwareBuffer has an unexpected "
-                        "VkImageType: %s, %s expected.",
-                        string_VkImageType(imageCreateInfo.imageType),
-                        string_VkImageType(colorBufferVkImageCi->imageType));
-                }
-                // VkImageCreateInfo::extent::{width, height} are guaranteed to match.
-                if (imageCreateInfo.extent.depth != colorBufferVkImageCi->extent.depth) {
-                    ERR("The VkImageCreateInfo to import AHardwareBuffer has an unexpected "
-                        "VkExtent::depth: %" PRIu32 ", %" PRIu32 " expected.",
-                        imageCreateInfo.extent.depth, colorBufferVkImageCi->extent.depth);
-                }
-                if (imageCreateInfo.mipLevels != colorBufferVkImageCi->mipLevels) {
-                    ERR("The VkImageCreateInfo to import AHardwareBuffer has an unexpected "
-                        "mipLevels: %" PRIu32 ", %" PRIu32 " expected.",
-                        imageCreateInfo.mipLevels, colorBufferVkImageCi->mipLevels);
-                }
-                if (imageCreateInfo.arrayLayers != colorBufferVkImageCi->arrayLayers) {
-                    ERR("The VkImageCreateInfo to import AHardwareBuffer has an unexpected "
-                        "arrayLayers: %" PRIu32 ", %" PRIu32 " expected.",
-                        imageCreateInfo.arrayLayers, colorBufferVkImageCi->arrayLayers);
-                }
-                if (imageCreateInfo.samples != colorBufferVkImageCi->samples) {
-                    ERR("The VkImageCreateInfo to import AHardwareBuffer has an unexpected "
-                        "VkSampleCountFlagBits: %s, %s expected.",
-                        string_VkSampleCountFlagBits(imageCreateInfo.samples),
-                        string_VkSampleCountFlagBits(colorBufferVkImageCi->samples));
-                }
-                // VkImageCreateInfo::tiling is guaranteed to match.
-                if (imageCreateInfo.usage & (~colorBufferVkImageCi->usage)) {
-                    ERR("The VkImageCreateInfo to import AHardwareBuffer contains unsupported "
-                        "VkImageUsageFlags. All supported VkImageUsageFlags are %s, the input "
-                        "VkImageCreateInfo requires support for %s.",
-                        string_VkImageUsageFlags(colorBufferVkImageCi->usage).c_str(),
-                        string_VkImageUsageFlags(imageCreateInfo.usage).c_str());
-                }
-                imageCreateInfo.usage |= colorBufferVkImageCi->usage;
-                // VkImageCreateInfo::{sharingMode, queueFamilyIndexCount, pQueueFamilyIndices,
-                // initialLayout} aren't filled in generateColorBufferVkImageCreateInfo.
+                importSource = "NativeBufferANDROID";
+            }
+            if (!colorBufferVkImageCi) {
+                continue;
+            }
+            if (imageCreateInfo.flags & (~colorBufferVkImageCi->flags)) {
+                ERR("The VkImageCreateInfo to import %s contains unsupported VkImageCreateFlags. "
+                    "All supported VkImageCreateFlags are %s, the input VkImageCreateInfo requires "
+                    "support for %s.",
+                    importSource.c_str(),
+                    string_VkImageCreateFlags(colorBufferVkImageCi->flags).c_str(),
+                    string_VkImageCreateFlags(imageCreateInfo.flags).c_str());
+            }
+            imageCreateInfo.flags |= colorBufferVkImageCi->flags;
+            if (imageCreateInfo.imageType != colorBufferVkImageCi->imageType) {
+                ERR("The VkImageCreateInfo to import %s has an unexpected VkImageType: %s, %s "
+                    "expected.",
+                    importSource.c_str(), string_VkImageType(imageCreateInfo.imageType),
+                    string_VkImageType(colorBufferVkImageCi->imageType));
+            }
+            if (imageCreateInfo.extent.depth != colorBufferVkImageCi->extent.depth) {
+                ERR("The VkImageCreateInfo to import %s has an unexpected VkExtent::depth: %" PRIu32
+                    ", %" PRIu32 " expected.",
+                    importSource.c_str(), imageCreateInfo.extent.depth,
+                    colorBufferVkImageCi->extent.depth);
+            }
+            if (imageCreateInfo.mipLevels != colorBufferVkImageCi->mipLevels) {
+                ERR("The VkImageCreateInfo to import %s has an unexpected mipLevels: %" PRIu32
+                    ", %" PRIu32 " expected.",
+                    importSource.c_str(), imageCreateInfo.mipLevels,
+                    colorBufferVkImageCi->mipLevels);
+            }
+            if (imageCreateInfo.arrayLayers != colorBufferVkImageCi->arrayLayers) {
+                ERR("The VkImageCreateInfo to import %s has an unexpected arrayLayers: %" PRIu32
+                    ", %" PRIu32 " expected.",
+                    importSource.c_str(), imageCreateInfo.arrayLayers,
+                    colorBufferVkImageCi->arrayLayers);
+            }
+            if (imageCreateInfo.samples != colorBufferVkImageCi->samples) {
+                ERR("The VkImageCreateInfo to import %s has an unexpected VkSampleCountFlagBits: "
+                    "%s, %s expected.",
+                    importSource.c_str(), string_VkSampleCountFlagBits(imageCreateInfo.samples),
+                    string_VkSampleCountFlagBits(colorBufferVkImageCi->samples));
+            }
+            if (imageCreateInfo.usage & (~colorBufferVkImageCi->usage)) {
+                ERR("The VkImageCreateInfo to import %s contains unsupported VkImageUsageFlags. "
+                    "All supported VkImageUsageFlags are %s, the input VkImageCreateInfo requires "
+                    "support for %s.",
+                    importSource.c_str(),
+                    string_VkImageUsageFlags(colorBufferVkImageCi->usage).c_str(),
+                    string_VkImageUsageFlags(imageCreateInfo.usage).c_str());
+            }
+            imageCreateInfo.usage |= colorBufferVkImageCi->usage;
+            // For the AndroidHardwareBuffer binding case VkImageCreateInfo::sharingMode isn't
+            // filled in generateColorBufferVkImageCreateInfo, and
+            // VkImageCreateInfo::{format,extent::{width, height}, tiling} are guaranteed to match.
+            if (importAndroidHardwareBuffer) {
+                continue;
+            }
+            if (imageCreateInfo.format != colorBufferVkImageCi->format) {
+                ERR("The VkImageCreateInfo to import %s contains unexpected VkFormat: %s. %s "
+                    "expected.",
+                    importSource.c_str(), string_VkFormat(imageCreateInfo.format),
+                    string_VkFormat(colorBufferVkImageCi->format));
+            }
+            if (imageCreateInfo.extent.width != colorBufferVkImageCi->extent.width) {
+                ERR("The VkImageCreateInfo to import %s contains unexpected VkExtent::width: "
+                    "%" PRIu32 ". %" PRIu32 " expected.",
+                    importSource.c_str(), imageCreateInfo.extent.width,
+                    colorBufferVkImageCi->extent.width);
+            }
+            if (imageCreateInfo.extent.height != colorBufferVkImageCi->extent.height) {
+                ERR("The VkImageCreateInfo to import %s contains unexpected VkExtent::height: "
+                    "%" PRIu32 ". %" PRIu32 " expected.",
+                    importSource.c_str(), imageCreateInfo.extent.height,
+                    colorBufferVkImageCi->extent.height);
+            }
+            if (imageCreateInfo.tiling != colorBufferVkImageCi->tiling) {
+                ERR("The VkImageCreateInfo to import %s contains unexpected VkImageTiling: %s. %s "
+                    "expected.",
+                    importSource.c_str(), string_VkImageTiling(imageCreateInfo.tiling),
+                    string_VkImageTiling(colorBufferVkImageCi->tiling));
+            }
+            if (imageCreateInfo.sharingMode != colorBufferVkImageCi->sharingMode) {
+                ERR("The VkImageCreateInfo to import %s contains unexpected VkSharingMode: %s. %s "
+                    "expected.",
+                    importSource.c_str(), string_VkSharingMode(imageCreateInfo.sharingMode),
+                    string_VkSharingMode(colorBufferVkImageCi->sharingMode));
             }
         }
     }

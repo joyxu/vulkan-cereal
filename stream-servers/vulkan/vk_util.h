@@ -229,14 +229,14 @@ T vk_make_orphan_copy(const T& vk_struct) {
 
 template <class T>
 vk_struct_chain_iterator vk_make_chain_iterator(T* vk_struct) {
-    vk_get_vk_struct_id<T>::id;
+    (void)vk_get_vk_struct_id<T>::id;
     vk_struct_chain_iterator result = {reinterpret_cast<vk_struct_common*>(vk_struct)};
     return result;
 }
 
 template <class T>
 void vk_append_struct(vk_struct_chain_iterator* i, T* vk_struct) {
-    vk_get_vk_struct_id<T>::id;
+    (void)vk_get_vk_struct_id<T>::id;
 
     vk_struct_common* p = i->value;
     if (p->pNext) {
