@@ -485,7 +485,9 @@ class VkDecoderGlobalState::Impl {
         //   Theoretically the pApplicationName field would be exactly what we want, unfortunately
         //   it looks like Unity apps always set this to "Unity" instead of the actual application.
         //   Eventually we will want to use https://r.android.com/2163499 for this purpose.
-        if (strcmp(applicationInfo.pApplicationName, "Unity") == 0 &&
+        if (applicationInfo.pApplicationName != nullptr &&
+            applicationInfo.pEngineName != nullptr &&
+            strcmp(applicationInfo.pApplicationName, "Unity") == 0 &&
             strcmp(applicationInfo.pEngineName, "Unity") == 0) {
             info.useAstcCpuDecompression = true;
         }
