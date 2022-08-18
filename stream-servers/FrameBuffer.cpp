@@ -3616,7 +3616,7 @@ bool FrameBuffer::onLoad(Stream* stream,
 
         lock.unlock();
         GfxApiLogger gfxLogger;
-        goldfish_vk::VkDecoderGlobalState::get()->load(stream, gfxLogger);
+        goldfish_vk::VkDecoderGlobalState::get()->load(stream, gfxLogger, m_healthMonitor);
         lock.lock();
 
     }

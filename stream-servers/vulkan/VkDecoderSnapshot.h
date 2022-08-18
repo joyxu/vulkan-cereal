@@ -34,6 +34,7 @@
 #include <memory>
 
 #include "base/GfxApiLogger.h"
+#include "base/HealthMonitor.h"
 #include "common/goldfish_vk_private_defs.h"
 #include "vulkan_gfxstream.h"
 
@@ -50,7 +51,8 @@ class VkDecoderSnapshot {
     ~VkDecoderSnapshot();
 
     void save(android::base::Stream* stream);
-    void load(android::base::Stream* stream, emugl::GfxApiLogger& gfx_logger);
+    void load(android::base::Stream* stream, emugl::GfxApiLogger& gfx_logger,
+              emugl::HealthMonitor<>& healthMonitor);
 #ifdef VK_VERSION_1_0
     void vkCreateInstance(const uint8_t* snapshotTraceBegin, size_t snapshotTraceBytes,
                           android::base::BumpPool* pool, VkResult input_result,

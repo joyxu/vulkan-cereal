@@ -215,7 +215,8 @@ class TrivialStream : public IOStream {
     virtual unsigned char* onLoad(android::base::Stream* stream) { return nullptr; }
 };
 
-void VkReconstruction::load(android::base::Stream* stream, emugl::GfxApiLogger& gfxLogger) {
+void VkReconstruction::load(android::base::Stream* stream, emugl::GfxApiLogger& gfxLogger,
+                            emugl::HealthMonitor<>& healthMonitor) {
     DEBUG_RECON("start. assuming VkDecoderGlobalState has been cleared for loading already");
     mApiTrace.clear();
     mHandleReconstructions.clear();
@@ -251,7 +252,7 @@ void VkReconstruction::load(android::base::Stream* stream, emugl::GfxApiLogger& 
     // TODO: This needs to be the puid seqno ptr
     uint32_t seqno;
     decoderForLoading.decode(mLoadedTrace.data(), mLoadedTrace.size(), &trivialStream, &seqno,
-                             gfxLogger);
+                             gfxLogger, healthMonitor);
 
     DEBUG_RECON("finished decoding trace");
 }
