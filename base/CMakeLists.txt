@@ -59,7 +59,7 @@ if (BUILD_STANDALONE)
     if (WIN32)
         set(gfxstream-base-platform-deps Shlwapi)
     else()
-        set(gfxstream-base-platform-deps dl)
+        set(gfxstream-base-platform-deps dl rt)
     endif()
 
     target_link_libraries(
