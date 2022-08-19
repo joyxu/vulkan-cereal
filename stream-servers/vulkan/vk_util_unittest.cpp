@@ -220,6 +220,44 @@ TEST(MultiCrtp, MultiCrtp) {
     EXPECT_TRUE(object.doCtrp3WasCalled);
 }
 
+TEST(vk_util, vk_insert_struct) {
+    VkDeviceCreateInfo deviceCi = {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pNext = nullptr,
+    };
+    VkPhysicalDeviceFeatures2 physicalDeviceFeature = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .pNext = nullptr,
+    };
+    vk_insert_struct(deviceCi, physicalDeviceFeature);
+    ASSERT_EQ(deviceCi.pNext, &physicalDeviceFeature);
+    ASSERT_EQ(physicalDeviceFeature.pNext, nullptr);
+
+    VkPhysicalDeviceSamplerYcbcrConversionFeatures ycbcrFeature = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES,
+        .pNext = nullptr,
+    };
+    VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+        .pNext = nullptr,
+    };
+    vk_insert_struct(ycbcrFeature, indexingFeatures);
+    ASSERT_EQ(ycbcrFeature.pNext, &indexingFeatures);
+    ASSERT_EQ(indexingFeatures.pNext, nullptr);
+
+    vk_insert_struct(deviceCi, ycbcrFeature);
+    const VkBaseInStructure* base = reinterpret_cast<VkBaseInStructure*>(&deviceCi);
+    ASSERT_EQ(base, reinterpret_cast<VkBaseInStructure*>(&deviceCi));
+    base = base->pNext;
+    ASSERT_EQ(base, reinterpret_cast<VkBaseInStructure*>(&ycbcrFeature));
+    base = base->pNext;
+    ASSERT_EQ(base, reinterpret_cast<VkBaseInStructure*>(&indexingFeatures));
+    base = base->pNext;
+    ASSERT_EQ(base, reinterpret_cast<VkBaseInStructure*>(&physicalDeviceFeature));
+    base = base->pNext;
+    ASSERT_EQ(base, nullptr);
+}
+
 }  // namespace
 }  // namespace vk_fn_info
 }  // namespace vk_util

@@ -23,6 +23,7 @@
 
 #include "VkCommonOperations.h"
 #include "VkQsriTimeline.h"
+#include "base/BumpPool.h"
 #include "base/ConditionVariable.h"
 #include "base/Lock.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
@@ -142,6 +143,7 @@ struct AndroidNativeBufferInfo {
 };
 
 VkResult prepareAndroidNativeBufferImage(VulkanDispatch* vk, VkDevice device,
+                                         android::base::BumpPool& allocator,
                                          const VkImageCreateInfo* pCreateInfo,
                                          const VkNativeBufferANDROID* nativeBufferANDROID,
                                          const VkAllocationCallbacks* pAllocator,
