@@ -22,7 +22,7 @@ add_library(
 target_include_directories(cutils PRIVATE ${GFXSTREAM_REPO_ROOT} ${GFXSTREAM_REPO_ROOT}/include .)
 target_include_directories(cutils PUBLIC .)
 target_link_libraries(cutils PUBLIC gfxstream-base.headers)
-target_link_libraries(cutils PRIVATE log)
+target_link_libraries(cutils PRIVATE log gfxstream_vulkan_headers)
 target_compile_options(cutils PRIVATE -fvisibility=default -Wno-invalid-constexpr -Wno-macro-redefined)
 target_compile_definitions(cutils PRIVATE -D__ANDROID_API__=28)
 
@@ -77,7 +77,8 @@ target_include_directories(vulkan_android
 target_compile_options(vulkan_android PRIVATE -fvisibility=hidden
                                               -fstrict-aliasing)
 target_link_libraries(vulkan_android PRIVATE grallocusage)
-target_link_libraries(vulkan_android PUBLIC gfxstream-base.headers log gui cutils utils)
+target_link_libraries(vulkan_android
+                      PUBLIC gfxstream-base.headers log gui cutils utils gfxstream_vulkan_headers)
 
 # android_add_test(
 #   TARGET vulkanhal_unittests SRC # cmake-format: sortable

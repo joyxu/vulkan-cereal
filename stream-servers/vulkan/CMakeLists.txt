@@ -31,7 +31,7 @@ target_link_libraries(gfxstream-vulkan-server PUBLIC
         gfxstream-compressedTextures
         apigen-codec-common
         gfxstream-base.headers
-        )
+        gfxstream_vulkan_headers)
 if(ASTC_CPU_DECODING)
     target_link_libraries(gfxstream-vulkan-server PRIVATE astcdec-avx2-static)
 endif()
