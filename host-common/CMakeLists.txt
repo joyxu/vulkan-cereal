@@ -24,6 +24,8 @@ target_include_directories(
     ${GFXSTREAM_REPO_ROOT}/include)
 target_link_libraries(
     logging-base
+    PUBLIC
+    gfxstream_vulkan_headers
     PRIVATE
     gfxstream-base.headers
     gfxstream-host-common.headers)

@@ -55,6 +55,8 @@ cc_library_headers {
         "stream-servers/glestranslator/include",
         "stream-servers/OpenGLESDispatch",
     ],
+    header_libs: ["gfxstream_vulkan_headers"],
+    export_header_lib_headers: ["gfxstream_vulkan_headers"],
     apex_available: [
         "//apex_available:platform",
         "com.android.virt",

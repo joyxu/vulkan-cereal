@@ -28,3 +28,17 @@ add_subdirectory(stb)
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 add_subdirectory(googletest)
+
+set(GFXSTREAM_PROTOCOLS_PATH ${PROJECT_SOURCE_DIR}/../../../external/gfxstream-protocols)
+if (EXISTS ${GFXSTREAM_PROTOCOLS_PATH})
+    add_subdirectory(${GFXSTREAM_PROTOCOLS_PATH} gfxstream-protocols)
+else()
+    FetchContent_Declare(
+        gfxstream_protocols
+        GIT_REPOSITORY https://android.googlesource.com/platform/external/gfxstream-protocols
+        GIT_REMOTE_NAME aosp
+        GIT_TAG aosp/master
+        GIT_REMOTE_UPDATE_STRATEGY CHECKOUT
+    )
+    FetchContent_MakeAvailable(gfxstream_protocols)
+endif()

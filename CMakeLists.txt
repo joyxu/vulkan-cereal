@@ -36,6 +36,7 @@ endif()
 
 find_package(Threads)
 include(ExternalProject)
+include(FetchContent)
 
 include(GoogleTest)
 enable_testing()

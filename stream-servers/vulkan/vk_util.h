@@ -285,6 +285,9 @@ void vk_struct_chain_remove(S* unwanted, T* vk_struct) {
         }                                                               \
     } while (0)
 
+typedef void* MTLTextureRef;
+typedef void* MTLBufferRef;
+
 namespace vk_util {
 
 inline VkResult waitForVkQueueIdleWithRetry(const VulkanDispatch& vk, VkQueue queue) {
