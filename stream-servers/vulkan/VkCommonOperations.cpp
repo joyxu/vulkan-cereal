@@ -398,37 +398,47 @@ static std::string decodeDriverVersion(uint32_t vendorId, uint32_t driverVersion
 }
 
 static std::vector<VkEmulation::ImageSupportInfo> getBasicImageSupportList() {
-    std::vector<VkFormat> formats = {
+    struct ImageFeatureCombo {
+        VkFormat format;
+        VkImageCreateFlags createFlags = 0;
+    };
+    // Set the mutable flag for RGB UNORM formats so that the created image can also be sampled in
+    // the sRGB Colorspace. See
+    // https://chromium-review.googlesource.com/c/chromiumos/platform/minigbm/+/3827672/comments/77db9cb3_60663a6a
+    // for details.
+    std::vector<ImageFeatureCombo> combos = {
         // Cover all the gralloc formats
-        VK_FORMAT_R8G8B8A8_UNORM,
-        VK_FORMAT_R8G8B8_UNORM,
+        {VK_FORMAT_R8G8B8A8_UNORM,
+         VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT | VK_IMAGE_CREATE_EXTENDED_USAGE_BIT},
+        {VK_FORMAT_R8G8B8_UNORM,
+         VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT | VK_IMAGE_CREATE_EXTENDED_USAGE_BIT},
 
-        VK_FORMAT_R8G8B8A8_SRGB,
+        {VK_FORMAT_R5G6B5_UNORM_PACK16},
 
-        VK_FORMAT_R5G6B5_UNORM_PACK16,
+        {VK_FORMAT_R16G16B16A16_SFLOAT},
+        {VK_FORMAT_R16G16B16_SFLOAT},
 
-        VK_FORMAT_R16G16B16A16_SFLOAT,
-        VK_FORMAT_R16G16B16_SFLOAT,
+        {VK_FORMAT_B8G8R8A8_UNORM,
+         VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT | VK_IMAGE_CREATE_EXTENDED_USAGE_BIT},
 
-        VK_FORMAT_B8G8R8A8_UNORM,
+        {VK_FORMAT_R8_UNORM,
+         VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT | VK_IMAGE_CREATE_EXTENDED_USAGE_BIT},
 
-        VK_FORMAT_R8_UNORM,
-
-        VK_FORMAT_A2R10G10B10_UINT_PACK32,
-        VK_FORMAT_A2R10G10B10_UNORM_PACK32,
-        VK_FORMAT_A2B10G10R10_UNORM_PACK32,
+        {VK_FORMAT_A2R10G10B10_UINT_PACK32},
+        {VK_FORMAT_A2R10G10B10_UNORM_PACK32},
+        {VK_FORMAT_A2B10G10R10_UNORM_PACK32},
 
         // Compressed texture formats
-        VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK,
-        VK_FORMAT_ASTC_4x4_UNORM_BLOCK,
+        {VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK},
+        {VK_FORMAT_ASTC_4x4_UNORM_BLOCK},
 
         // TODO: YUV formats used in Android
         // Fails on Mac
-        VK_FORMAT_G8_B8R8_2PLANE_420_UNORM,
-        VK_FORMAT_G8_B8R8_2PLANE_422_UNORM,
-        VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM,
-        VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM,
-        VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16,
+        {VK_FORMAT_G8_B8R8_2PLANE_420_UNORM},
+        {VK_FORMAT_G8_B8R8_2PLANE_422_UNORM},
+        {VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM},
+        {VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM},
+        {VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16},
 
     };
 
@@ -447,27 +457,20 @@ static std::vector<VkEmulation::ImageSupportInfo> getBasicImageSupportList() {
         VK_IMAGE_USAGE_TRANSFER_DST_BIT,
     };
 
-    std::vector<VkImageCreateFlags> createFlags = {
-        0,
-    };
-
     std::vector<VkEmulation::ImageSupportInfo> res;
 
-    // Currently: 12 formats, 2 tilings, 5 usage flags -> 120 cases
-    // to check
-    for (auto f : formats) {
+    // Currently: 17 format + create flags combo, 2 tilings, 5 usage flags -> 170 cases to check.
+    for (auto combo : combos) {
         for (auto t : types) {
             for (auto ti : tilings) {
                 for (auto u : usageFlags) {
-                    for (auto c : createFlags) {
-                        VkEmulation::ImageSupportInfo info;
-                        info.format = f;
-                        info.type = t;
-                        info.tiling = ti;
-                        info.usageFlags = u;
-                        info.createFlags = c;
-                        res.push_back(info);
-                    }
+                    VkEmulation::ImageSupportInfo info;
+                    info.format = combo.format;
+                    info.type = t;
+                    info.tiling = ti;
+                    info.usageFlags = u;
+                    info.createFlags = combo.createFlags;
+                    res.push_back(info);
                 }
             }
         }
@@ -1521,18 +1524,19 @@ static uint32_t lastGoodTypeIndexWithMemoryProperties(uint32_t indices,
 // filled.
 static std::unique_ptr<VkImageCreateInfo> generateColorBufferVkImageCreateInfo_locked(
     VkFormat format, uint32_t width, uint32_t height, VkImageTiling tiling) {
-    const VkFormatProperties* maybeFormatProperties = nullptr;
+    const VkEmulation::ImageSupportInfo* maybeImageSupportInfo = nullptr;
     for (const auto& supportInfo : sVkEmulation->imageSupportInfo) {
         if (supportInfo.format == format && supportInfo.supported) {
-            maybeFormatProperties = &supportInfo.formatProps2.formatProperties;
+            maybeImageSupportInfo = &supportInfo;
             break;
         }
     }
-    if (!maybeFormatProperties) {
+    if (!maybeImageSupportInfo) {
         ERR("Format %s is not supported.", string_VkFormat(format));
         return nullptr;
     }
-    const VkFormatProperties& formatProperties = *maybeFormatProperties;
+    const VkEmulation::ImageSupportInfo& imageSupportInfo = *maybeImageSupportInfo;
+    const VkFormatProperties& formatProperties = imageSupportInfo.formatProps2.formatProperties;
 
     constexpr std::pair<VkFormatFeatureFlags, VkImageUsageFlags> formatUsagePairs[] = {
         {VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT,
@@ -1555,7 +1559,7 @@ static std::unique_ptr<VkImageCreateInfo> generateColorBufferVkImageCreateInfo_l
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         // The caller is responsible to fill pNext.
         .pNext = nullptr,
-        .flags = 0,
+        .flags = imageSupportInfo.createFlags,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = format,
         .extent =
