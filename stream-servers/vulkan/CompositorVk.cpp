@@ -832,15 +832,15 @@ CompositorVk::CompositionFinishedWaitable CompositorVk::compose(
     std::vector<VkImageMemoryBarrier> postCompositionQueueTransferBarriers;
     addNeededBarriersToUseBorrowedImage(
         *compositionVk.targetImage, m_queueFamilyIndex, kTargetImageInitialLayoutUsed,
-        kTargetImageFinalLayoutUsed, &preCompositionQueueTransferBarriers,
-        &preCompositionLayoutTransitionBarriers, &postCompositionLayoutTransitionBarriers,
-        &postCompositionQueueTransferBarriers);
+        kTargetImageFinalLayoutUsed, VK_ACCESS_MEMORY_WRITE_BIT,
+        &preCompositionQueueTransferBarriers, &preCompositionLayoutTransitionBarriers,
+        &postCompositionLayoutTransitionBarriers, &postCompositionQueueTransferBarriers);
     for (const BorrowedImageInfoVk* sourceImage : compositionVk.layersSourceImages) {
         addNeededBarriersToUseBorrowedImage(
             *sourceImage, m_queueFamilyIndex, kSourceImageInitialLayoutUsed,
-            kSourceImageFinalLayoutUsed, &preCompositionQueueTransferBarriers,
-            &preCompositionLayoutTransitionBarriers, &postCompositionLayoutTransitionBarriers,
-            &postCompositionQueueTransferBarriers);
+            kSourceImageFinalLayoutUsed, VK_ACCESS_SHADER_READ_BIT,
+            &preCompositionQueueTransferBarriers, &preCompositionLayoutTransitionBarriers,
+            &postCompositionLayoutTransitionBarriers, &postCompositionQueueTransferBarriers);
     }
 
     VkCommandBuffer& commandBuffer = frameResources->m_vkCommandBuffer;

@@ -215,7 +215,7 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
     addNeededBarriersToUseBorrowedImage(
         *sourceImageInfoVk, m_compositorQueueFamilyIndex,
         /*usedInitialImageLayout=*/VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        /*usedFinalImageLayout=*/VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        /*usedFinalImageLayout=*/VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT,
         &preBlitQueueTransferBarriers, &preBlitLayoutTransitionBarriers,
         &postBlitLayoutTransitionBarriers, &postBlitQueueTransferBarriers);
     preBlitLayoutTransitionBarriers.push_back(
@@ -256,8 +256,8 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
     if (!preBlitQueueTransferBarriers.empty()) {
         m_vk.vkCmdPipelineBarrier(
             cmdBuff, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr,
-            static_cast<uint32_t>(preBlitQueueTransferBarriers.size()),
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0,
+            nullptr, 0, nullptr, static_cast<uint32_t>(preBlitQueueTransferBarriers.size()),
             preBlitQueueTransferBarriers.data());
     }
     if (!preBlitLayoutTransitionBarriers.empty()) {
@@ -313,13 +313,13 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
 
     if (!postBlitLayoutTransitionBarriers.empty()) {
         m_vk.vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                  VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr,
+                                  VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr,
                                   static_cast<uint32_t>(postBlitLayoutTransitionBarriers.size()),
                                   postBlitLayoutTransitionBarriers.data());
     }
     if (!postBlitQueueTransferBarriers.empty()) {
         m_vk.vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                  VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr,
+                                  VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr,
                                   static_cast<uint32_t>(postBlitQueueTransferBarriers.size()),
                                   postBlitQueueTransferBarriers.data());
     }
