@@ -1536,8 +1536,9 @@ class VkDecoderGlobalState::Impl {
         if (nativeBufferANDROID) {
             auto memProps = memPropsOfDeviceLocked(device);
 
-            createRes = prepareAndroidNativeBufferImage(
-                vk, device, pCreateInfo, nativeBufferANDROID, pAllocator, memProps, anbInfo.get());
+            createRes =
+                prepareAndroidNativeBufferImage(vk, device, *pool, pCreateInfo, nativeBufferANDROID,
+                                                pAllocator, memProps, anbInfo.get());
             if (createRes == VK_SUCCESS) {
                 *pImage = anbInfo->image;
             }

@@ -1381,7 +1381,7 @@ bool importExternalMemory(VulkanDispatch* vk, VkDevice targetDevice,
     VkMemoryAllocateInfo allocInfo = {
         VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         &importInfo,
-        info->size,
+        info->actualSize,
         info->typeIndex,
     };
 

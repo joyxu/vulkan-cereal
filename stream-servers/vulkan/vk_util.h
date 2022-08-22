@@ -249,6 +249,17 @@ void vk_append_struct(vk_struct_chain_iterator* i, T* vk_struct) {
     *i = vk_make_chain_iterator(vk_struct);
 }
 
+// The caller should guarantee that all the pNext structs in the chain starting at nextChain is not
+// a const object to avoid unexpected undefined behavior.
+template <class T, class U, typename = std::enable_if_t<!std::is_const_v<T> && !std::is_const_v<U>>>
+void vk_insert_struct(T& pos, U& nextChain) {
+    vk_struct_common* nextChainTail = reinterpret_cast<vk_struct_common*>(&nextChain);
+    for (; nextChainTail->pNext; nextChainTail = nextChainTail->pNext) {}
+
+    nextChainTail->pNext = reinterpret_cast<vk_struct_common*>(const_cast<void*>(pos.pNext));
+    pos.pNext = &nextChain;
+}
+
 template <class S, class T>
 void vk_struct_chain_remove(S* unwanted, T* vk_struct) {
     if (!unwanted) return;

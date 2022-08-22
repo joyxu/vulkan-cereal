@@ -20,6 +20,7 @@
 #include "SyncThread.h"
 #include "VkCommonOperations.h"
 #include "VulkanDispatch.h"
+#include "cereal/common/goldfish_vk_deepcopy.h"
 #include "cereal/common/goldfish_vk_extension_structs.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 #include "host-common/GfxstreamFatalError.h"
@@ -113,6 +114,7 @@ bool parseAndroidNativeBufferInfo(const VkImageCreateInfo* pCreateInfo,
 }
 
 VkResult prepareAndroidNativeBufferImage(VulkanDispatch* vk, VkDevice device,
+                                         android::base::BumpPool& allocator,
                                          const VkImageCreateInfo* pCreateInfo,
                                          const VkNativeBufferANDROID* nativeBufferANDROID,
                                          const VkAllocationCallbacks* pAllocator,
@@ -148,13 +150,23 @@ VkResult prepareAndroidNativeBufferImage(VulkanDispatch* vk, VkDevice device,
         out->externallyBacked = true;
     }
 
-    // delete the info struct and pass to vkCreateImage, and also add
-    // transfer src capability to allow us to copy to CPU.
-    VkImageCreateInfo infoNoNative = *pCreateInfo;
-    infoNoNative.pNext = nullptr;
-    infoNoNative.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-
+    VkDeviceSize bindOffset = 0;
     if (out->externallyBacked) {
+        VkImageCreateInfo createImageCi;
+        deepcopy_VkImageCreateInfo(&allocator, VK_STRUCTURE_TYPE_MAX_ENUM, pCreateInfo,
+                                   &createImageCi);
+        auto* nativeBufferAndroid = vk_find_struct<VkNativeBufferANDROID>(&createImageCi);
+        if (!nativeBufferAndroid) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "VkNativeBufferANDROID is required to be included in the pNext chain of the "
+                   "VkImageCreateInfo when importing a gralloc buffer.";
+        }
+        vk_struct_chain_remove(nativeBufferAndroid, &createImageCi);
+
+        if (vk_find_struct<VkExternalMemoryImageCreateInfo>(&createImageCi)) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Unhandled VkExternalMemoryImageCreateInfo in the pNext chain.";
+        }
         // Create the image with extension structure about external backing.
         VkExternalMemoryImageCreateInfo extImageCi = {
             VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
@@ -162,9 +174,9 @@ VkResult prepareAndroidNativeBufferImage(VulkanDispatch* vk, VkDevice device,
             VK_EXT_MEMORY_HANDLE_TYPE_BIT,
         };
 
-        infoNoNative.pNext = &extImageCi;
+        vk_insert_struct(createImageCi, extImageCi);
 
-        VkResult createResult = vk->vkCreateImage(device, &infoNoNative, pAllocator, &out->image);
+        VkResult createResult = vk->vkCreateImage(device, &createImageCi, pAllocator, &out->image);
 
         if (createResult != VK_SUCCESS) return createResult;
 
@@ -174,16 +186,21 @@ VkResult prepareAndroidNativeBufferImage(VulkanDispatch* vk, VkDevice device,
 
         vk->vkGetImageMemoryRequirements(device, out->image, &out->memReqs);
 
-        if (out->memReqs.size < memInfo.size) {
-            out->memReqs.size = memInfo.size;
+        if (out->memReqs.size < memInfo.actualSize) {
+            out->memReqs.size = memInfo.actualSize;
         }
 
         if (!importExternalMemory(vk, device, &memInfo, &out->imageMemory)) {
             fprintf(stderr, "%s: Failed to import external memory\n", __func__);
             return VK_ERROR_INITIALIZATION_FAILED;
         }
-
+        bindOffset = memInfo.bindOffset;
     } else {
+        // delete the info struct and pass to vkCreateImage, and also add
+        // transfer src capability to allow us to copy to CPU.
+        VkImageCreateInfo infoNoNative = *pCreateInfo;
+        infoNoNative.pNext = nullptr;
+        infoNoNative.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         VkResult createResult = vk->vkCreateImage(device, &infoNoNative, pAllocator, &out->image);
 
         if (createResult != VK_SUCCESS) return createResult;
@@ -229,7 +246,7 @@ VkResult prepareAndroidNativeBufferImage(VulkanDispatch* vk, VkDevice device,
         }
     }
 
-    if (VK_SUCCESS != vk->vkBindImageMemory(device, out->image, out->imageMemory, 0)) {
+    if (VK_SUCCESS != vk->vkBindImageMemory(device, out->image, out->imageMemory, bindOffset)) {
         VK_ANB_ERR(
             "VK_ANDROID_native_buffer: could not bind "
             "image memory.");
