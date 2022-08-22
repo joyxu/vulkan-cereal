@@ -564,7 +564,6 @@ TEST_F(CompositorVkTest, Transformations) {
 
     Compositor::CompositionRequest compositionRequest;
     compositionRequest.layers.emplace_back(Compositor::CompositionRequestLayer{
-        .source = createBorrowedImageInfo(source.get()),
         .props =
             {
                 .composeMode = HWC2_COMPOSITION_DEVICE,
@@ -614,6 +613,7 @@ TEST_F(CompositorVkTest, Transformations) {
 
         compositionRequest.target = createBorrowedImageInfo(target.get());
         compositionRequest.layers[0].props.transform = transform;
+        compositionRequest.layers[0].source = createBorrowedImageInfo(source.get());
 
         auto compositionCompleteWaitable = compositor->compose(compositionRequest);
         compositionCompleteWaitable.wait();
@@ -641,7 +641,6 @@ TEST_F(CompositorVkTest, MultipleTargetsComposition) {
 
     Compositor::CompositionRequest compositionRequest = {};
     compositionRequest.layers.emplace_back(Compositor::CompositionRequestLayer{
-        .source = createBorrowedImageInfo(source.get()),
         .props =
             {
                 .composeMode = HWC2_COMPOSITION_DEVICE,
@@ -677,6 +676,7 @@ TEST_F(CompositorVkTest, MultipleTargetsComposition) {
         const auto& target = targets[i];
 
         compositionRequest.target = createBorrowedImageInfo(target.get());
+        compositionRequest.layers[0].source = createBorrowedImageInfo(source.get()),
         compositionRequest.layers[0].props.displayFrame.left = (i + 0) * displayFrameWidth;
         compositionRequest.layers[0].props.displayFrame.right = (i + 1) * displayFrameWidth;
 
