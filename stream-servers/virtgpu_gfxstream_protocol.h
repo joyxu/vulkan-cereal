@@ -37,12 +37,36 @@ struct gfxstreamHeader {
 
 struct gfxstreamContextCreate {
     struct gfxstreamHeader hdr;
-    uint32_t resourceId;
+    uint32_t deviceType;
 };
 
 struct gfxstreamContextPing {
     struct gfxstreamHeader hdr;
-    uint32_t resourceId;
+    uint32_t phys_addr_lo;
+    uint32_t phys_addr_hi;
+    uint32_t size_lo;
+    uint32_t size_hi;
+    uint32_t metadata_lo;
+    uint32_t metadata_hi;
+    uint32_t wait_phys_addr_lo;
+    uint32_t wait_phys_addr_hi;
+    uint32_t wait_flags;
+    uint32_t direction;
+};
+
+struct gfxstreamContextPingWithResponse {
+    struct gfxstreamHeader hdr;
+    uint32_t resp_resid;
+    uint32_t phys_addr_lo;
+    uint32_t phys_addr_hi;
+    uint32_t size_lo;
+    uint32_t size_hi;
+    uint32_t metadata_lo;
+    uint32_t metadata_hi;
+    uint32_t wait_phys_addr_lo;
+    uint32_t wait_phys_addr_hi;
+    uint32_t wait_flags;
+    uint32_t direction;
 };
 
 struct gfxstreamCreateExportSync {

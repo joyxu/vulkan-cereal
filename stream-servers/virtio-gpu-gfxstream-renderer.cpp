@@ -171,7 +171,6 @@ struct PipeCtxEntry {
     int fence;
     uint32_t addressSpaceHandle;
     bool hasAddressSpaceHandle;
-    std::unordered_map<VirtioGpuResId, uint32_t> addressSpaceHandles;
 };
 
 enum class ResType {
@@ -588,7 +587,6 @@ public:
             fprintf(stderr, "%s: failed to create hw pipe!\n", __func__);
             return -1;
         }
-        std::unordered_map<uint32_t, uint32_t> map;
 
         PipeCtxEntry res = {
             ctx_id, // ctxId
@@ -596,7 +594,6 @@ public:
             0, // fence
             0, // AS handle
             false, // does not have an AS handle
-            map,   // resourceId --> ASG handle map
         };
 
         VGPLOG("initial host pipe for ctxid %u: %p", ctx_id, hostPipe);
@@ -615,9 +612,8 @@ public:
         }
 
         if (it->second.hasAddressSpaceHandle) {
-            for (auto const& [resourceId, handle] : it->second.addressSpaceHandles) {
-                mAddressSpaceDeviceControlOps->destroy_handle(handle);
-            }
+            mAddressSpaceDeviceControlOps->destroy_handle(
+                it->second.addressSpaceHandle);
         }
 
         auto ops = ensureAndGetServiceOps();
@@ -634,8 +630,7 @@ public:
         return 0;
     }
 
-    void setContextAddressSpaceHandleLocked(VirtioGpuCtxId ctxId, uint32_t handle,
-                                            uint32_t resourceId) {
+    void setContextAddressSpaceHandleLocked(VirtioGpuCtxId ctxId, uint32_t handle) {
         auto ctxIt = mContexts.find(ctxId);
         if (ctxIt == mContexts.end()) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -645,10 +640,9 @@ public:
         auto& ctxEntry = ctxIt->second;
         ctxEntry.addressSpaceHandle = handle;
         ctxEntry.hasAddressSpaceHandle = true;
-        ctxEntry.addressSpaceHandles[resourceId] = handle;
     }
 
-    uint32_t getAddressSpaceHandleLocked(VirtioGpuCtxId ctxId, uint32_t resourceId) {
+    uint32_t getAddressSpaceHandleLocked(VirtioGpuCtxId ctxId) {
         auto ctxIt = mContexts.find(ctxId);
         if (ctxIt == mContexts.end()) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -657,12 +651,31 @@ public:
 
         auto& ctxEntry = ctxIt->second;
 
-        if (!ctxEntry.addressSpaceHandles.count(resourceId)) {
+        if (!ctxEntry.hasAddressSpaceHandle) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-                << "ASG context with resource id " << resourceId << " not found ";
+                << "ctx id " << ctxId << " doesn't have address space handle";
         }
 
-        return ctxEntry.addressSpaceHandles[resourceId];
+        return ctxEntry.addressSpaceHandle;
+    }
+
+    void writeWordsToFirstIovPageLocked(uint32_t* dwords, size_t dwordCount, uint32_t resId) {
+
+        auto resEntryIt = mResources.find(resId);
+        if (resEntryIt == mResources.end()) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << " resid " << resId << " not found";
+        }
+
+        auto& resEntry = resEntryIt->second;
+
+        if (!resEntry.iov) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "resid " << resId << " has empty iov ";
+        }
+
+        uint32_t* iovWords = (uint32_t*)(resEntry.iov[0].iov_base);
+        memcpy(iovWords, dwords, sizeof(uint32_t) * dwordCount);
     }
 
 #define DECODE(variable, type, input) \
@@ -676,39 +689,78 @@ public:
             case GFXSTREAM_CONTEXT_CREATE: {
                 DECODE(contextCreate, gfxstreamContextCreate, dwords)
 
-                auto resEntryIt = mResources.find(contextCreate.resourceId);
-                if (resEntryIt == mResources.end()) {
-                   GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-                   << " ASG coherent resource " << contextCreate.resourceId << " not found";
-                }
-
-                auto& resEntry = resEntryIt->second;
                 uint32_t handle = mAddressSpaceDeviceControlOps->gen_handle();
 
-                struct AddressSpaceCreateInfo createInfo = {
-                    .handle = handle,
-                    .type = android::emulation::VirtioGpuGraphics,
-                    .createRenderThread = true,
-                    .externalAddr = resEntry.hva,
-                    .externalAddrSize = resEntry.hvaSize,
+                struct android::emulation::AddressSpaceDevicePingInfo pingInfo = {
+                    .metadata = (uint64_t)contextCreate.deviceType,
                 };
 
-                mAddressSpaceDeviceControlOps->create_instance(createInfo);
+                mAddressSpaceDeviceControlOps->ping_at_hva(handle, &pingInfo);
+
                 AutoLock lock(mLock);
-                setContextAddressSpaceHandleLocked(ctxId, handle, contextCreate.resourceId);
+                setContextAddressSpaceHandleLocked(ctxId, handle);
                 break;
             }
             case GFXSTREAM_CONTEXT_PING: {
                 DECODE(contextPing, gfxstreamContextPing, dwords)
 
+                struct android::emulation::AddressSpaceDevicePingInfo pingInfo = {
+                    .phys_addr = convert32to64(contextPing.phys_addr_lo, contextPing.phys_addr_hi),
+                    .size = convert32to64(contextPing.size_lo, contextPing.size_hi),
+                    .metadata = convert32to64(contextPing.metadata_lo, contextPing.metadata_hi),
+                    .wait_phys_addr = convert32to64(contextPing.wait_phys_addr_lo, contextPing.wait_phys_addr_hi),
+                    .wait_flags = contextPing.wait_flags,
+                    .direction = contextPing.direction,
+                };
+
                 AutoLock lock(mLock);
-
-                struct android::emulation::AddressSpaceDevicePingInfo ping = {0};
-                ping.metadata = ASG_NOTIFY_AVAILABLE;
-
                 mAddressSpaceDeviceControlOps->ping_at_hva(
-                    getAddressSpaceHandleLocked(ctxId, contextPing.resourceId),
-                    &ping);
+                    getAddressSpaceHandleLocked(ctxId),
+                    &pingInfo);
+                break;
+            }
+            case GFXSTREAM_CONTEXT_PING_WITH_RESPONSE: {
+                DECODE(contextPing, gfxstreamContextPingWithResponse, dwords)
+
+                uint32_t resp_resid = contextPing.resp_resid;
+
+                struct android::emulation::AddressSpaceDevicePingInfo pingInfo = {
+                    .phys_addr = convert32to64(contextPing.phys_addr_lo, contextPing.phys_addr_hi),
+                    .size = convert32to64(contextPing.size_lo, contextPing.size_hi),
+                    .metadata = convert32to64(contextPing.metadata_lo, contextPing.metadata_hi),
+                    .wait_phys_addr = convert32to64(contextPing.wait_phys_addr_lo, contextPing.wait_phys_addr_hi),
+                    .wait_flags = contextPing.wait_flags,
+                    .direction = contextPing.direction,
+                };
+
+                AutoLock lock(mLock);
+                mAddressSpaceDeviceControlOps->ping_at_hva(
+                    getAddressSpaceHandleLocked(ctxId),
+                    &pingInfo);
+
+                uint32_t phys_addr_lo = (uint32_t)pingInfo.phys_addr;
+                uint32_t phys_addr_hi = (uint32_t)(pingInfo.phys_addr >> 32);
+                uint32_t size_lo = (uint32_t)(pingInfo.size >> 0);
+                uint32_t size_hi = (uint32_t)(pingInfo.size >> 32);
+                uint32_t metadata_lo = (uint32_t)(pingInfo.metadata >> 0);
+                uint32_t metadata_hi = (uint32_t)(pingInfo.metadata >> 32);
+                uint32_t wait_phys_addr_lo = (uint32_t)(pingInfo.wait_phys_addr >> 0);
+                uint32_t wait_phys_addr_hi = (uint32_t)(pingInfo.wait_phys_addr >> 32);
+                uint32_t wait_flags = (uint32_t)(pingInfo.wait_flags >> 0);
+                uint32_t direction = (uint32_t)(pingInfo.direction >> 0);
+
+                uint32_t response[] = {
+                    phys_addr_lo, phys_addr_hi,
+                    size_lo, size_hi,
+                    metadata_lo, metadata_hi,
+                    wait_phys_addr_lo, wait_phys_addr_hi,
+                    wait_flags, direction,
+                };
+
+                writeWordsToFirstIovPageLocked(
+                    response,
+                    sizeof(response) / sizeof(uint32_t),
+                    resp_resid);
                 break;
             }
             default:
@@ -1606,16 +1658,6 @@ private:
 
         resIt->second.hostPipe = 0;
         resIt->second.ctxId = 0;
-
-        auto ctxIt = mContexts.find(ctxId);
-        if (ctxIt != mContexts.end()) {
-            auto& ctxEntry = ctxIt->second;
-            if (ctxEntry.addressSpaceHandles.count(toUnrefId)) {
-                uint32_t handle = ctxEntry.addressSpaceHandles[toUnrefId];
-                mAddressSpaceDeviceControlOps->destroy_handle(handle);
-                ctxEntry.addressSpaceHandles.erase(toUnrefId);
-            }
-        }
     }
 
     inline const GoldfishPipeServiceOps* ensureAndGetServiceOps() {
