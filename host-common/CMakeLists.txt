@@ -136,6 +136,8 @@ target_include_directories(
     ${GFXSTREAM_REPO_ROOT})
 target_link_libraries(
     gfxstream-host-common-testing-support
+    PUBLIC
+    gfxstream_vulkan_headers
     PRIVATE
     gfxstream-base.headers
     gfxstream-host-common.headers

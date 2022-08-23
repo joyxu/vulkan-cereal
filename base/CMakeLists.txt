@@ -71,6 +71,7 @@ if (BUILD_STANDALONE)
         PRIVATE
         lz4
         perfetto-tracing-only
+        logging-base
         ${gfxstream-base-platform-deps})
 
     target_include_directories(
