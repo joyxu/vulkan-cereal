@@ -166,6 +166,8 @@ struct VirtioGpuCmd {
 } __attribute__((packed));
 
 struct PipeCtxEntry {
+    std::string name;
+    uint32_t capsetId;
     VirtioGpuCtxId ctxId;
     GoldfishHostPipe* hostPipe;
     int fence;
@@ -578,6 +580,9 @@ public:
     int createContext(VirtioGpuCtxId ctx_id, uint32_t nlen, const char* name,
                       uint32_t context_init) {
         AutoLock lock(mLock);
+
+        std::string contextName(name, nlen);
+
         VGPLOG("ctxid: %u len: %u name: %s", ctx_id, nlen, name);
         auto ops = ensureAndGetServiceOps();
         auto hostPipe = ops->guest_open_with_flags(
@@ -591,6 +596,8 @@ public:
         std::unordered_map<uint32_t, uint32_t> map;
 
         PipeCtxEntry res = {
+            contextName,  // contextName
+            context_init, // capsetId
             ctx_id, // ctxId
             hostPipe, // hostPipe
             0, // fence
@@ -682,7 +689,16 @@ public:
                    << " ASG coherent resource " << contextCreate.resourceId << " not found";
                 }
 
+                auto ctxIt = mContexts.find(ctxId);
+                if (ctxIt == mContexts.end()) {
+                    GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                        << "ctx id " << ctxId << " not found ";
+                }
+
+                auto& ctxEntry = ctxIt->second;
                 auto& resEntry = resEntryIt->second;
+
+                std::string name = ctxEntry.name + "-" + std::to_string(contextCreate.resourceId);
                 uint32_t handle = mAddressSpaceDeviceControlOps->gen_handle();
 
                 struct AddressSpaceCreateInfo createInfo = {
@@ -691,6 +707,10 @@ public:
                     .createRenderThread = true,
                     .externalAddr = resEntry.hva,
                     .externalAddrSize = resEntry.hvaSize,
+                    .contextId = ctxId,
+                    .capsetId = ctxEntry.capsetId,
+                    .contextName = name.c_str(),
+                    .contextNameSize = static_cast<uint32_t>(ctxEntry.name.size()),
                 };
 
                 mAddressSpaceDeviceControlOps->create_instance(createInfo);
