@@ -403,8 +403,6 @@ static std::vector<VkEmulation::ImageSupportInfo> getBasicImageSupportList() {
         VK_FORMAT_R8G8B8A8_UNORM,
         VK_FORMAT_R8G8B8_UNORM,
 
-        VK_FORMAT_R8G8B8A8_SRGB,
-
         VK_FORMAT_R5G6B5_UNORM_PACK16,
 
         VK_FORMAT_R16G16B16A16_SFLOAT,
@@ -1150,15 +1148,11 @@ void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures> features) {
     INFO("    useVulkanNativeSwapchain: %s", features->useVulkanNativeSwapchain ? "true" : "false");
     INFO("    enable guestRenderDoc: %s", features->guestRenderDoc ? "true" : "false");
     INFO("    enable ASTC LDR emulation: %s", features->enableAstcLdrEmulation ? "true" : "false");
-    INFO("    enable ETC2 emulation: %s", features->enableEtc2Emulation ? "true" : "false");
-    INFO("    enable Ycbcr emulation: %s", features->enableYcbcrEmulation ? "true" : "false");
     sVkEmulation->deviceInfo.glInteropSupported = features->glInteropSupported;
     sVkEmulation->useDeferredCommands = features->deferredCommands;
     sVkEmulation->useCreateResourcesWithRequirements = features->createResourceWithRequirements;
     sVkEmulation->guestRenderDoc = std::move(features->guestRenderDoc);
     sVkEmulation->enableAstcLdrEmulation = features->enableAstcLdrEmulation;
-    sVkEmulation->enableEtc2Emulation = features->enableEtc2Emulation;
-    sVkEmulation->enableYcbcrEmulation = features->enableYcbcrEmulation;
 
     if (features->useVulkanComposition) {
         if (sVkEmulation->compositorVk) {
@@ -1972,7 +1966,7 @@ bool readColorBufferToBytesLocked(uint32_t colorBufferHandle, uint32_t x, uint32
         return false;
     }
 
-    VkDeviceSize bufferCopySize = 0;
+    std::size_t bufferCopySize = 0;
     std::vector<VkBufferImageCopy> bufferImageCopies;
     if (!getFormatTransferInfo(colorBufferInfo->imageCreateInfoShallow.format,
                                colorBufferInfo->imageCreateInfoShallow.extent.width,
@@ -2157,7 +2151,7 @@ bool updateColorBufferFromBytesLocked(uint32_t colorBufferHandle, uint32_t x, ui
         return false;
     }
 
-    VkDeviceSize bufferCopySize = 0;
+    std::size_t bufferCopySize = 0;
     std::vector<VkBufferImageCopy> bufferImageCopies;
     if (!getFormatTransferInfo(colorBufferInfo->imageCreateInfoShallow.format,
                                colorBufferInfo->imageCreateInfoShallow.extent.width,

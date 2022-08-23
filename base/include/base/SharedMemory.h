@@ -23,7 +23,6 @@
 #endif  // _WIN32
 
 #include <string>
-#include <utility>
 
 namespace android {
 
@@ -210,13 +209,6 @@ public:
     memory_type operator*() const { return get(); }
     ShareType type() const { return mShareType; }
     handle_type getFd() { return mFd; }
-    handle_type releaseHandle() {
-        if (mShareType == ShareType::FILE_BACKED) {
-            return invalidHandle();
-        }
-
-        return std::exchange(mFd, invalidHandle());
-    }
     bool isMapped() const { return mAddr != unmappedMemory(); }
 
 private:

@@ -35,9 +35,7 @@ public:
     // All memory allocated by this pool
     // is automatically deleted when the pool
     // is deconstructed.
-    ~BumpPool() {
-        freeAll();
-    }
+    ~BumpPool() { }
 
     void* alloc(size_t wantedSize) override {
         size_t wantedSizeRoundedUp =

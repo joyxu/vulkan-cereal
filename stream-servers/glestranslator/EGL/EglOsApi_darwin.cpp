@@ -17,9 +17,10 @@
 
 #include "MacNative.h"
 
-#include "base/Lookup.h"
-#include "base/SharedLibrary.h"
+#include "android/base/containers/Lookup.h"
 
+#include "emugl/common/lazy_instance.h"
+#include "emugl/common/shared_library.h"
 #include "host-common/logging.h"
 #include "GLcommon/GLLibrary.h"
 
@@ -40,7 +41,8 @@ struct FinalizedConfigHash {
 using FinalizedConfigMap =
     std::unordered_map<FinalizedConfigKey, void*, FinalizedConfigHash>;
 
-static FinalizedConfigMap sFinalizedConfigs;
+static emugl::LazyInstance<FinalizedConfigMap> sFinalizedConfigs =
+    LAZY_INSTANCE_INIT;
 
 namespace {
 
@@ -90,17 +92,10 @@ public:
     int numNativeFormats = 0;
     MacOpenGLProfileVersions maxOpenGLProfile =
         MAC_OPENGL_PROFILE_LEGACY;
-    static MacNativeSupportInfo* get() {
-        if (!sSupportInfo) {
-            sSupportInfo = new MacNativeSupportInfo();
-        }
-        return sSupportInfo;
-    }
-private:
-    static MacNativeSupportInfo* sSupportInfo;
 };
 
-MacNativeSupportInfo* MacNativeSupportInfo::sSupportInfo = nullptr;
+static emugl::LazyInstance<MacNativeSupportInfo> sSupportInfo =
+    LAZY_INSTANCE_INIT;
 
 class MacPixelFormat : public EglOS::PixelFormat {
 public:
@@ -190,7 +185,7 @@ public:
     explicit MacDisplay(EGLNativeDisplayType dpy) : mDpy(dpy) {}
 
     virtual EglOS::GlesVersion getMaxGlesVersion() {
-        switch (MacNativeSupportInfo::get()->maxOpenGLProfile) {
+        switch (sSupportInfo->maxOpenGLProfile) {
         case MAC_OPENGL_PROFILE_LEGACY:
             return EglOS::GlesVersion::ES2;
         case MAC_OPENGL_PROFILE_3_2:
@@ -204,7 +199,7 @@ public:
     virtual void queryConfigs(int renderableType,
                               EglOS::AddConfigCallback* addConfigFunc,
                               void* addConfigOpaque) {
-        for (int i = 0; i < MacNativeSupportInfo::get()->numNativeFormats; i++) {
+        for (int i = 0; i < sSupportInfo->numNativeFormats; i++) {
             pixelFormatToConfig(
                 i,
                 addConfigFunc,
@@ -250,7 +245,7 @@ public:
         return ret && match;
     }
 
-    virtual std::shared_ptr<EglOS::Context> createContext(
+    virtual emugl::SmartPtr<EglOS::Context> createContext(
             EGLint profileMask,
             const EglOS::PixelFormat* pixelFormat,
             EglOS::Context* sharedContext) {
@@ -265,13 +260,13 @@ public:
                                   MacPixelFormat::from(pixelFormat)->handle());
 
         void* nsFormat = nullptr;
-        if (auto format = android::base::find(sFinalizedConfigs, key)) {
+        if (auto format = android::base::find(sFinalizedConfigs.get(), key)) {
             nsFormat = *format;
         } else {
             nsFormat =
                 finalizePixelFormat(isCoreProfile,
                         MacPixelFormat::from(pixelFormat)->handle());
-            sFinalizedConfigs[key] = nsFormat;
+            sFinalizedConfigs.get()[key] = nsFormat;
         }
 
         return std::make_shared<MacContext>(
@@ -294,7 +289,7 @@ public:
         }
         EGLint maxMipmap = info->hasMipmap ? MAX_PBUFFER_MIPMAP_LEVEL : 0;
         bool isLegacyOpenGL =
-            MacNativeSupportInfo::get()->maxOpenGLProfile == MAC_OPENGL_PROFILE_LEGACY;
+            sSupportInfo->maxOpenGLProfile == MAC_OPENGL_PROFILE_LEGACY;
         MacSurface* result = new MacSurface(
             isLegacyOpenGL
                 ? nsCreatePBuffer(glTexTarget, glTexFormat, maxMipmap,
@@ -368,7 +363,7 @@ public:
         static const char kLibName[] =
                 "/System/Library/Frameworks/OpenGL.framework/OpenGL";
         char error[256];
-        mLib = android::base::SharedLibrary::open(kLibName, error, sizeof(error));
+        mLib = emugl::SharedLibrary::open(kLibName, error, sizeof(error));
         if (!mLib) {
             ERR("%s: Could not open GL library %s [%s]\n",
                 __FUNCTION__, kLibName, error);
@@ -387,7 +382,7 @@ public:
     }
 
 private:
-    android::base::SharedLibrary* mLib = nullptr;
+    emugl::SharedLibrary* mLib = nullptr;
 };
 
 class MacEngine : public EglOS::Engine {
@@ -413,16 +408,13 @@ private:
     MacGlLibrary mGlLib;
 };
 
-static MacEngine* sHostEngine = nullptr;
+emugl::LazyInstance<MacEngine> sHostEngine = LAZY_INSTANCE_INIT;
 
 }  // namespace
 
 
 // static
 EglOS::Engine* EglOS::Engine::getHostInstance() {
-    if (!sHostEngine) {
-        sHostEngine = new MacEngine();
-    }
-    return sHostEngine;
+    return sHostEngine.ptr();
 }
 

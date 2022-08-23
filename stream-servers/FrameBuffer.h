@@ -662,8 +662,6 @@ class FrameBuffer {
     void setDisplayPoseInSkinUI(int totalHeight);
     void sweepColorBuffersLocked();
 
-    std::future<void> blockPostWorker(std::future<void> continueSignal);
-
    private:
 
     static FrameBuffer* s_theFrameBuffer;
@@ -854,5 +852,6 @@ class FrameBuffer {
 
     std::unique_ptr<MetricsLogger> m_logger;
     HealthMonitor<> m_healthMonitor;
+    android::base::Lock m_windowResizeLock;
 };
 #endif

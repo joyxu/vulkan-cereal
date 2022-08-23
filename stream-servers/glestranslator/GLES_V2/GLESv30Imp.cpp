@@ -735,7 +735,6 @@ GL_APICALL void GL_APIENTRY glTexStorage2D(GLenum target, GLsizei levels, GLenum
 GL_APICALL void GL_APIENTRY glBeginTransformFeedback(GLenum primitiveMode) {
     GET_CTX_V2();
     ctx->boundTransformFeedback()->mIsActive = true;
-    ctx->boundTransformFeedback()->mIsPaused = false;
     ctx->dispatcher().glBeginTransformFeedback(primitiveMode);
 }
 
@@ -785,13 +784,11 @@ GL_APICALL void GL_APIENTRY glBindTransformFeedback(GLenum target, GLuint id) {
 
 GL_APICALL void GL_APIENTRY glPauseTransformFeedback() {
     GET_CTX_V2();
-    ctx->boundTransformFeedback()->mIsPaused = true;
     ctx->dispatcher().glPauseTransformFeedback();
 }
 
 GL_APICALL void GL_APIENTRY glResumeTransformFeedback() {
     GET_CTX_V2();
-    ctx->boundTransformFeedback()->mIsPaused = false;
     ctx->dispatcher().glResumeTransformFeedback();
 }
 

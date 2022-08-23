@@ -18,7 +18,6 @@
 #include "base/PathUtils.h"
 #include "base/SharedLibrary.h"
 #include "base/System.h"
-#include "host-common/misc.h"
 
 using android::base::AutoLock;
 using android::base::Lock;
@@ -42,18 +41,6 @@ static std::string icdJsonNameToProgramAndLauncherPaths(const std::string& icdFi
            pj({android::base::getLauncherDirectory(), suffix});
 }
 
-static const char* getTestIcdFilename() {
-#if defined(__APPLE__)
-    return "libvk_swiftshader.dylib";
-#elif defined(__linux__)
-    return "libvk_swiftshader.so";
-#elif defined(_WIN32) || defined(_MSC_VER)
-    return "vk_swiftshader.dll";
-#else
-#error Host operating system not supported
-#endif
-}
-
 static void initIcdPaths(bool forTesting) {
     auto androidIcd = android::base::getEnvironmentVariable("ANDROID_EMU_VK_ICD");
     android::base::setEnvironmentVariable("ANDROID_EMU_SANDBOX", "1");
@@ -64,16 +51,16 @@ static void initIcdPaths(bool forTesting) {
         if (forTesting || androidIcd == "swiftshader") {
             auto res = pj({android::base::getProgramDirectory(), "lib64", "vulkan"});
             // LOG(VERBOSE) << "In test environment or ICD set to swiftshader, using "
-            // "Swiftshader ICD";
+            "Swiftshader ICD";
             auto libPath = pj(
-                {android::base::getProgramDirectory(), "lib64", "vulkan", getTestIcdFilename()});
+                {android::base::getProgramDirectory(), "lib64", "vulkan", "libvk_swiftshader.so"});
             ;
             if (android::base::pathExists(libPath.c_str())) {
                 // LOG(VERBOSE) << "Swiftshader library exists";
             } else {
                 // LOG(VERBOSE) << "Swiftshader library doesn't exist, trying launcher path";
                 libPath = pj({android::base::getLauncherDirectory(), "lib64", "vulkan",
-                              getTestIcdFilename()});
+                              "libvk_swiftshader.so"});
                 ;
                 if (android::base::pathExists(libPath.c_str())) {
                     // LOG(VERBOSE) << "Swiftshader library found in launcher path";
@@ -145,7 +132,7 @@ static std::string getLoaderPath(const std::string& directory, bool forTesting) 
     }
 }
 
-#ifdef __APPLE__
+#ifdef __APPLE_
 static std::string getMoltenVkPath(const std::string& directory, bool forTesting) {
     auto path = android::base::getEnvironmentVariable("ANDROID_EMU_VK_LOADER_PATH");
     if (!path.empty()) {
@@ -157,7 +144,7 @@ static std::string getMoltenVkPath(const std::string& directory, bool forTesting
     // VK_MVK_moltenvk, which is required for external memory support.
     if (!forTesting && androidIcd == "moltenvk") {
         auto path = pj({directory, "lib64", "vulkan", "libMoltenVK.dylib"});
-        // LOG(VERBOSE) << "Skipping loader and using ICD directly: " << path;
+        LOG(VERBOSE) << "Skipping loader and using ICD directly: " << path;
         return path;
     }
     return "";

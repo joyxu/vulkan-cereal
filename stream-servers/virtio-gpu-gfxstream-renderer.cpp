@@ -14,24 +14,20 @@
 #include <vulkan/vulkan.h>
 
 #include <deque>
-#include <type_traits>
 #include <unordered_map>
 
 #include "VirtioGpuTimelines.h"
 #include "base/AlignedBuf.h"
 #include "base/Lock.h"
-#include "base/SharedMemory.h"
 #include "base/Tracing.h"
 #include "host-common/AddressSpaceService.h"
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/HostmemIdMapping.h"
 #include "host-common/address_space_device.h"
 #include "host-common/android_pipe_common.h"
-#include "host-common/feature_control.h"
 #include "host-common/linux_types.h"
 #include "host-common/opengles.h"
 #include "host-common/vm_operations.h"
-#include "virtgpu_gfxstream_protocol.h"
 
 extern "C" {
 #include "virtio-gpu-gfxstream-renderer.h"
@@ -149,8 +145,6 @@ extern "C" {
 
 using android::base::AutoLock;
 using android::base::Lock;
-using android::base::SharedMemory;
-
 using android::emulation::HostmemIdMapping;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
@@ -191,14 +185,12 @@ struct PipeResEntry {
     size_t linearSize;
     GoldfishHostPipe* hostPipe;
     VirtioGpuCtxId ctxId;
-    void* hva;
+    uint64_t hva;
     uint64_t hvaSize;
     uint64_t blobId;
-    uint64_t blobMem;
+    uint32_t hvSlot;
     uint32_t caching;
     ResType type;
-    std::shared_ptr<SharedMemory> ringBlob = nullptr;
-    bool externalAddr = false;
 };
 
 static inline uint32_t align_up(uint32_t n, uint32_t a) {
@@ -513,6 +505,30 @@ static uint64_t convert32to64(uint32_t lo, uint32_t hi) {
     return ((uint64_t)lo) | (((uint64_t)hi) << 32);
 }
 
+// Commands for address space device
+// kVirtioGpuAddressSpaceContextCreateWithSubdevice | subdeviceType
+const uint32_t kVirtioGpuAddressSpaceContextCreateWithSubdevice = 0x1001;
+
+// kVirtioGpuAddressSpacePing | offset_lo | offset_hi | metadata_lo | metadata_hi | version | wait_fd | wait_flags | direction
+// no output
+const uint32_t kVirtioGpuAddressSpacePing = 0x1002;
+
+// kVirtioGpuAddressSpacePingWithResponse | resp_resid | offset_lo | offset_hi | metadata_lo | metadata_hi | version | wait_fd | wait_flags | direction
+// out: same as input then | out: error
+const uint32_t kVirtioGpuAddressSpacePingWithResponse = 0x1003;
+
+// Commands for native sync fd
+const uint32_t kVirtioGpuNativeSyncCreateExportFd = 0x9000;
+const uint32_t kVirtioGpuNativeSyncCreateImportFd = 0x9001;
+
+const uint32_t kVirtioGpuNativeSyncVulkanCreateExportFd = 0xa000;
+const uint32_t kVirtioGpuNativeSyncVulkanCreateImportFd = 0xa001;
+
+const uint32_t kVirtioGpuNativeSyncVulkanQsriExport = 0xa002;
+// Reserved for internal use. Do not reuse the same opcode for other execbuf
+// commands.
+const uint32_t kVirtioGpuReserved = 0xa003;
+
 class PipeVirglRenderer {
 public:
     PipeVirglRenderer() = default;
@@ -678,21 +694,17 @@ public:
         memcpy(iovWords, dwords, sizeof(uint32_t) * dwordCount);
     }
 
-#define DECODE(variable, type, input) \
-    struct type variable = {};        \
-    memcpy(&variable, input, sizeof(type));
-
     void addressSpaceProcessCmd(VirtioGpuCtxId ctxId, uint32_t* dwords, int dwordCount) {
-        DECODE(header, gfxstreamHeader, dwords)
+        uint32_t opcode = dwords[0];
 
-        switch (header.opCode) {
-            case GFXSTREAM_CONTEXT_CREATE: {
-                DECODE(contextCreate, gfxstreamContextCreate, dwords)
+        switch (opcode) {
+            case kVirtioGpuAddressSpaceContextCreateWithSubdevice: {
+                uint32_t subdevice_type = dwords[1];
 
                 uint32_t handle = mAddressSpaceDeviceControlOps->gen_handle();
 
                 struct android::emulation::AddressSpaceDevicePingInfo pingInfo = {
-                    .metadata = (uint64_t)contextCreate.deviceType,
+                    .metadata = (uint64_t)subdevice_type,
                 };
 
                 mAddressSpaceDeviceControlOps->ping_at_hva(handle, &pingInfo);
@@ -701,16 +713,29 @@ public:
                 setContextAddressSpaceHandleLocked(ctxId, handle);
                 break;
             }
-            case GFXSTREAM_CONTEXT_PING: {
-                DECODE(contextPing, gfxstreamContextPing, dwords)
+            case kVirtioGpuAddressSpacePing: {
+                uint32_t phys_addr_lo = dwords[1];
+                uint32_t phys_addr_hi = dwords[2];
+
+                uint32_t size_lo = dwords[3];
+                uint32_t size_hi = dwords[4];
+
+                uint32_t metadata_lo = dwords[5];
+                uint32_t metadata_hi = dwords[6];
+
+                uint32_t wait_phys_addr_lo = dwords[7];
+                uint32_t wait_phys_addr_hi = dwords[8];
+
+                uint32_t wait_flags = dwords[9];
+                uint32_t direction = dwords[10];
 
                 struct android::emulation::AddressSpaceDevicePingInfo pingInfo = {
-                    .phys_addr = convert32to64(contextPing.phys_addr_lo, contextPing.phys_addr_hi),
-                    .size = convert32to64(contextPing.size_lo, contextPing.size_hi),
-                    .metadata = convert32to64(contextPing.metadata_lo, contextPing.metadata_hi),
-                    .wait_phys_addr = convert32to64(contextPing.wait_phys_addr_lo, contextPing.wait_phys_addr_hi),
-                    .wait_flags = contextPing.wait_flags,
-                    .direction = contextPing.direction,
+                    .phys_addr = convert32to64(phys_addr_lo, phys_addr_hi),
+                    .size = convert32to64(size_lo, size_hi),
+                    .metadata = convert32to64(metadata_lo, metadata_hi),
+                    .wait_phys_addr = convert32to64(wait_phys_addr_lo, wait_phys_addr_hi),
+                    .wait_flags = wait_flags,
+                    .direction = direction,
                 };
 
                 AutoLock lock(mLock);
@@ -719,18 +744,30 @@ public:
                     &pingInfo);
                 break;
             }
-            case GFXSTREAM_CONTEXT_PING_WITH_RESPONSE: {
-                DECODE(contextPing, gfxstreamContextPingWithResponse, dwords)
+            case kVirtioGpuAddressSpacePingWithResponse: {
+                uint32_t resp_resid = dwords[1];
+                uint32_t phys_addr_lo = dwords[2];
+                uint32_t phys_addr_hi = dwords[3];
 
-                uint32_t resp_resid = contextPing.resp_resid;
+                uint32_t size_lo = dwords[4];
+                uint32_t size_hi = dwords[5];
+
+                uint32_t metadata_lo = dwords[6];
+                uint32_t metadata_hi = dwords[7];
+
+                uint32_t wait_phys_addr_lo = dwords[8];
+                uint32_t wait_phys_addr_hi = dwords[9];
+
+                uint32_t wait_flags = dwords[10];
+                uint32_t direction = dwords[11];
 
                 struct android::emulation::AddressSpaceDevicePingInfo pingInfo = {
-                    .phys_addr = convert32to64(contextPing.phys_addr_lo, contextPing.phys_addr_hi),
-                    .size = convert32to64(contextPing.size_lo, contextPing.size_hi),
-                    .metadata = convert32to64(contextPing.metadata_lo, contextPing.metadata_hi),
-                    .wait_phys_addr = convert32to64(contextPing.wait_phys_addr_lo, contextPing.wait_phys_addr_hi),
-                    .wait_flags = contextPing.wait_flags,
-                    .direction = contextPing.direction,
+                    .phys_addr = convert32to64(phys_addr_lo, phys_addr_hi),
+                    .size = convert32to64(size_lo, size_hi),
+                    .metadata = convert32to64(metadata_lo, metadata_hi),
+                    .wait_phys_addr = convert32to64(wait_phys_addr_lo, wait_phys_addr_hi),
+                    .wait_flags = wait_flags,
+                    .direction = direction,
                 };
 
                 AutoLock lock(mLock);
@@ -738,16 +775,16 @@ public:
                     getAddressSpaceHandleLocked(ctxId),
                     &pingInfo);
 
-                uint32_t phys_addr_lo = (uint32_t)pingInfo.phys_addr;
-                uint32_t phys_addr_hi = (uint32_t)(pingInfo.phys_addr >> 32);
-                uint32_t size_lo = (uint32_t)(pingInfo.size >> 0);
-                uint32_t size_hi = (uint32_t)(pingInfo.size >> 32);
-                uint32_t metadata_lo = (uint32_t)(pingInfo.metadata >> 0);
-                uint32_t metadata_hi = (uint32_t)(pingInfo.metadata >> 32);
-                uint32_t wait_phys_addr_lo = (uint32_t)(pingInfo.wait_phys_addr >> 0);
-                uint32_t wait_phys_addr_hi = (uint32_t)(pingInfo.wait_phys_addr >> 32);
-                uint32_t wait_flags = (uint32_t)(pingInfo.wait_flags >> 0);
-                uint32_t direction = (uint32_t)(pingInfo.direction >> 0);
+                phys_addr_lo = (uint32_t)pingInfo.phys_addr;
+                phys_addr_hi = (uint32_t)(pingInfo.phys_addr >> 32);
+                size_lo = (uint32_t)(pingInfo.size >> 0);
+                size_hi = (uint32_t)(pingInfo.size >> 32);
+                metadata_lo = (uint32_t)(pingInfo.metadata >> 0);
+                metadata_hi = (uint32_t)(pingInfo.metadata >> 32);
+                wait_phys_addr_lo = (uint32_t)(pingInfo.wait_phys_addr >> 0);
+                wait_phys_addr_hi = (uint32_t)(pingInfo.wait_phys_addr >> 32);
+                wait_flags = (uint32_t)(pingInfo.wait_flags >> 0);
+                direction = (uint32_t)(pingInfo.direction >> 0);
 
                 uint32_t response[] = {
                     phys_addr_lo, phys_addr_hi,
@@ -780,23 +817,27 @@ public:
             return -1;
         }
 
+        // Parse command from buffer
+        uint32_t* dwords = (uint32_t*)buffer;
+
         if (dwordCount < 1) {
             fprintf(stderr, "%s: error: not enough dwords (got %d)\n", __func__, dwordCount);
             return -1;
         }
 
-        DECODE(header, gfxstreamHeader, buffer);
-        switch (header.opCode) {
-            case GFXSTREAM_CONTEXT_CREATE:
-            case GFXSTREAM_CONTEXT_PING:
-            case GFXSTREAM_CONTEXT_PING_WITH_RESPONSE:
-                addressSpaceProcessCmd(ctxId, (uint32_t*)buffer, dwordCount);
-                break;
-            case GFXSTREAM_CREATE_EXPORT_SYNC: {
-                DECODE(exportSync, gfxstreamCreateExportSync, buffer)
+        uint32_t opcode = dwords[0];
 
-                uint64_t sync_handle = convert32to64(exportSync.syncHandleLo,
-                                                     exportSync.syncHandleHi);
+        switch (opcode) {
+            case kVirtioGpuAddressSpaceContextCreateWithSubdevice:
+            case kVirtioGpuAddressSpacePing:
+            case kVirtioGpuAddressSpacePingWithResponse:
+                addressSpaceProcessCmd(ctxId, dwords, dwordCount);
+                break;
+            case kVirtioGpuNativeSyncCreateExportFd:
+            case kVirtioGpuNativeSyncCreateImportFd: {
+                uint32_t sync_handle_lo = dwords[1];
+                uint32_t sync_handle_hi = dwords[2];
+                uint64_t sync_handle = convert32to64(sync_handle_lo, sync_handle_hi);
 
                 VGPLOG("wait for gpu ring %s", to_string(ring));
                 auto taskId = mVirtioGpuTimelines->enqueueTask(ring);
@@ -805,15 +846,15 @@ public:
                 });
                 break;
             }
-            case GFXSTREAM_CREATE_EXPORT_SYNC_VK:
-            case GFXSTREAM_CREATE_IMPORT_SYNC_VK: {
-                DECODE(exportSyncVK, gfxstreamCreateExportSyncVK, buffer)
+            case kVirtioGpuNativeSyncVulkanCreateExportFd:
+            case kVirtioGpuNativeSyncVulkanCreateImportFd: {
+                uint32_t device_handle_lo = dwords[1];
+                uint32_t device_handle_hi = dwords[2];
+                uint64_t device_handle = convert32to64(device_handle_lo, device_handle_hi);
 
-                uint64_t device_handle = convert32to64(exportSyncVK.deviceHandleLo,
-                                                       exportSyncVK.deviceHandleHi);
-
-                uint64_t fence_handle = convert32to64(exportSyncVK.fenceHandleLo,
-                                                      exportSyncVK.fenceHandleHi);
+                uint32_t fence_handle_lo = dwords[3];
+                uint32_t fence_handle_hi = dwords[4];
+                uint64_t fence_handle = convert32to64(fence_handle_lo, fence_handle_hi);
 
                 VGPLOG("wait for gpu ring %s", to_string(ring));
                 auto taskId = mVirtioGpuTimelines->enqueueTask(ring);
@@ -822,7 +863,7 @@ public:
                     [this, taskId] { mVirtioGpuTimelines->notifyTaskCompletion(taskId); });
                 break;
             }
-            case GFXSTREAM_CREATE_QSRI_EXPORT_VK: {
+            case kVirtioGpuNativeSyncVulkanQsriExport: {
                 // The guest QSRI export assumes fence context support and always uses
                 // VIRTGPU_EXECBUF_RING_IDX. With this, the task created here must use
                 // the same ring as the fence created for the virtio gpu command or the
@@ -832,11 +873,9 @@ public:
                     .mRingIdx = 0,
                 };
 
-                DECODE(exportQSRI, gfxstreamCreateQSRIExportVK, buffer)
-
-                uint64_t image_handle = convert32to64(exportQSRI.imageHandleLo,
-                                                      exportQSRI.imageHandleHi);
-
+                uint64_t image_handle_lo = dwords[1];
+                uint64_t image_handle_hi = dwords[2];
+                uint64_t image_handle = convert32to64(image_handle_lo, image_handle_hi);
                 VGPLOG("wait for gpu vk qsri ring %u image 0x%llx", to_string(ring).c_str(),
                        (unsigned long long)image_handle);
                 auto taskId = mVirtioGpuTimelines->enqueueTask(ring);
@@ -995,10 +1034,10 @@ public:
         e.args = *args;
         e.linear = 0;
         e.hostPipe = 0;
-        e.hva = nullptr;
+        e.hva = 0;
         e.hvaSize = 0;
         e.blobId = 0;
-        e.blobMem = 0;
+        e.hvSlot = 0;
         e.type = resType;
         allocResource(e, iov, num_iovs);
 
@@ -1046,13 +1085,10 @@ public:
             entry.numIovs = 0;
         }
 
-        if (entry.externalAddr && !entry.ringBlob) {
-            android::aligned_buf_free(entry.hva);
-        }
-
-        entry.hva = nullptr;
+        entry.hva = 0;
         entry.hvaSize = 0;
         entry.blobId = 0;
+        entry.hvSlot = 0;
 
         mResources.erase(it);
     }
@@ -1452,63 +1488,23 @@ public:
         }
     }
 
-    int createRingBlob(PipeResEntry& entry, uint32_t res_handle,
-                       const struct stream_renderer_create_blob* create_blob,
-                       const struct stream_renderer_handle* handle) {
-
-        if (feature_is_enabled(kFeature_ExternalBlob)) {
-            std::string name = "shared-memory-" + std::to_string(res_handle);
-            auto ringBlob = std::make_shared<SharedMemory>(name, create_blob->size);
-            int ret = ringBlob->create(0600);
-            if (ret) {
-                VGPLOG("Failed to create shared memory blob");
-                return ret;
-            }
-
-            entry.ringBlob = ringBlob;
-            entry.hva = ringBlob->get();
-        } else {
-            void *addr = android::aligned_buf_alloc(ADDRESS_SPACE_GRAPHICS_PAGE_SIZE,
-                                                    create_blob->size);
-            if (addr == nullptr) {
-                VGPLOG("Failed to allocate ring blob");
-                return -ENOMEM;
-            }
-
-            entry.hva = addr;
-        }
-
-        entry.hvaSize = create_blob->size;
-        entry.externalAddr = true;
-        entry.caching = STREAM_RENDERER_MAP_CACHE_CACHED;
-
-        return 0;
-    }
-
-    int createBlob(uint32_t ctx_id, uint32_t res_handle,
-                   const struct stream_renderer_create_blob* create_blob,
-                   const struct stream_renderer_handle* handle) {
+    void createBlob(uint32_t ctx_id, uint32_t res_handle,
+                    const struct stream_renderer_create_blob* create_blob,
+                    const struct stream_renderer_handle* handle) {
 
         PipeResEntry e;
         struct virgl_renderer_resource_create_args args = { 0 };
         e.args = args;
         e.hostPipe = 0;
 
-        if (create_blob->blob_id == 0) {
-            int ret = createRingBlob(e, res_handle, create_blob, handle);
-            if (ret) {
-                return ret;
-            }
-        } else {
-            auto entry = HostmemIdMapping::get()->get(create_blob->blob_id);
-            e.hva = entry.hva;
-            e.hvaSize = entry.size;
-            e.args.width = entry.size;
-            e.caching = entry.caching;
-        }
+        auto entry = HostmemIdMapping::get()->get(create_blob->blob_id);
 
+        e.hva = entry.hva;
+        e.hvaSize = entry.size;
+        e.args.width = entry.size;
+        e.caching = entry.caching;
         e.blobId = create_blob->blob_id;
-        e.blobMem = create_blob->blob_mem;
+        e.hvSlot = 0;
         e.iov = nullptr;
         e.numIovs = 0;
         e.linear = 0;
@@ -1516,7 +1512,6 @@ public:
 
         AutoLock lock(mLock);
         mResources[res_handle] = e;
-        return 0;
     }
 
     int resourceMap(uint32_t res_handle, void** hvaOut, uint64_t* sizeOut) {
@@ -1530,8 +1525,18 @@ public:
 
         const auto& entry = it->second;
 
-        if (hvaOut) *hvaOut = entry.hva;
-        if (sizeOut) *sizeOut = entry.hvaSize;
+        static const uint64_t kPageSizeforBlob = 4096;
+        static const uint64_t kPageMaskForBlob = ~(0xfff);
+
+        uint64_t alignedHva =
+            entry.hva & kPageMaskForBlob;
+
+        uint64_t alignedSize =
+            kPageSizeforBlob *
+            ((entry.hvaSize + kPageSizeforBlob - 1) / kPageSizeforBlob);
+
+        if (hvaOut) *hvaOut = (void*)(uintptr_t)alignedHva;
+        if (sizeOut) *sizeOut = alignedSize;
         return 0;
     }
 
@@ -1582,30 +1587,6 @@ public:
         const auto& entry = it->second;
         *map_info = entry.caching;
         return 0;
-    }
-
-    int exportBlob(uint32_t res_handle, struct stream_renderer_handle* handle) {
-        AutoLock lock(mLock);
-
-        auto it = mResources.find(res_handle);
-        if (it == mResources.end()) {
-            return -EINVAL;
-        }
-
-        const auto& entry = it->second;
-        if (entry.ringBlob) {
-            // Handle ownership transferred to VMM, gfxstream keeps the mapping.
-#ifdef _WIN32
-            handle->os_handle =
-                static_cast<int64_t>(reinterpret_cast<intptr_t>(entry.ringBlob->releaseHandle()));
-#else
-            handle->os_handle = static_cast<int64_t>(entry.ringBlob->releaseHandle());
-#endif
-            handle->handle_type = STREAM_MEM_HANDLE_TYPE_SHM;
-            return 0;
-        }
-
-        return -EINVAL;
     }
 
 private:
@@ -1822,7 +1803,8 @@ VG_EXPORT int stream_renderer_create_blob(uint32_t ctx_id, uint32_t res_handle,
 
 VG_EXPORT int stream_renderer_export_blob(uint32_t res_handle,
                                           struct stream_renderer_handle* handle) {
-    return sRenderer()->exportBlob(res_handle, handle);
+    // Unimplemented for now.
+    return -EINVAL;
 }
 
 VG_EXPORT int stream_renderer_resource_map(uint32_t res_handle, void** hvaOut, uint64_t* sizeOut) {

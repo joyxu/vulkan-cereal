@@ -32,9 +32,4 @@ if (LINUX)
         PRIVATE
         X11
         )
-elseif (APPLE)
-    target_link_libraries(
-        OSWindow
-        PRIVATE
-        "-framework AppKit -framework QuartzCore")
 endif()
