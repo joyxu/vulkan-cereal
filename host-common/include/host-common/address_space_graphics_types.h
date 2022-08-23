@@ -16,6 +16,7 @@
 #include "base/ring_buffer.h"
 
 #include <functional>
+#include <optional>
 
 // This file defines common types for address space graphics and provides
 // documentation.
@@ -300,7 +301,9 @@ struct ConsumerCallbacks {
 };
 
 using ConsumerCreateCallback =
-    std::function<void* (struct asg_context, base::Stream*, ConsumerCallbacks)>;
+    std::function<void* (struct asg_context, base::Stream*, ConsumerCallbacks,
+                         uint32_t contextId, uint32_t capsetId,
+                         std::optional<std::string> nameOpt)>;
 using ConsumerDestroyCallback =
     std::function<void(void*)>;
 using ConsumerPreSaveCallback =

@@ -50,7 +50,9 @@ public:
     void* addressSpaceGraphicsConsumerCreate(
         struct asg_context,
         android::base::Stream* stream,
-        android::emulation::asg::ConsumerCallbacks) override final;
+        android::emulation::asg::ConsumerCallbacks,
+        uint32_t contextId, uint32_t capsetId,
+        std::optional<std::string> name) override final;
     void addressSpaceGraphicsConsumerDestroy(void*) override final;
     void addressSpaceGraphicsConsumerPreSave(void* consumer) override final;
     void addressSpaceGraphicsConsumerSave(void* consumer, android::base::Stream* stream) override final;

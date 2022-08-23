@@ -23,6 +23,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace android_studio {
@@ -59,7 +60,9 @@ public:
     virtual void* addressSpaceGraphicsConsumerCreate(
         struct asg_context,
         android::base::Stream* loadStream,
-        android::emulation::asg::ConsumerCallbacks) = 0;
+        android::emulation::asg::ConsumerCallbacks,
+        uint32_t contextId, uint32_t capsetId,
+        std::optional<std::string> nameOpt) = 0;
     virtual void addressSpaceGraphicsConsumerDestroy(void*) = 0;
     virtual void addressSpaceGraphicsConsumerPreSave(void* consumer) = 0;
     virtual void addressSpaceGraphicsConsumerSave(void* consumer, android::base::Stream* stream) = 0;

@@ -244,8 +244,11 @@ void RendererImpl::removeListener(FrameBufferChangeEventListener* listener) {
 void* RendererImpl::addressSpaceGraphicsConsumerCreate(
     struct asg_context context,
     android::base::Stream* loadStream,
-    android::emulation::asg::ConsumerCallbacks callbacks) {
-    auto thread = new RenderThread(context, loadStream, callbacks);
+    android::emulation::asg::ConsumerCallbacks callbacks,
+    uint32_t contextId, uint32_t capsetId,
+    std::optional<std::string> nameOpt) {
+    auto thread = new RenderThread(context, loadStream, callbacks, contextId,
+                                   capsetId, std::move(nameOpt));
     thread->start();
     return (void*)thread;
 }

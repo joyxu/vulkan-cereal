@@ -98,10 +98,14 @@ RenderThread::RenderThread(RenderChannelImpl* channel,
 RenderThread::RenderThread(
         struct asg_context context,
         android::base::Stream* loadStream,
-        android::emulation::asg::ConsumerCallbacks callbacks)
-    : android::base::Thread(android::base::ThreadFlags::MaskSignals, 2 * 1024 * 1024),
+        android::emulation::asg::ConsumerCallbacks callbacks,
+        uint32_t contextId, uint32_t capsetId,
+        std::optional<std::string> nameOpt)
+    : android::base::Thread(android::base::ThreadFlags::MaskSignals, 2 * 1024 * 1024,
+                            std::move(nameOpt)),
       mRingStream(
-          new RingStream(context, callbacks, kStreamBufferSize)) {
+          new RingStream(context, callbacks, kStreamBufferSize)),
+      mContextId(contextId), mCapsetId(capsetId) {
     if (loadStream) {
         const bool success = loadStream->getByte();
         if (success) {
