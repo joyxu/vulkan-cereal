@@ -8672,9 +8672,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                     fprintf(stderr, "stream %p: call vkCreateSamplerYcbcrConversion 0x%llx 0x%llx 0x%llx 0x%llx \n", ioStream, (unsigned long long)device, (unsigned long long)pCreateInfo, (unsigned long long)pAllocator, (unsigned long long)pYcbcrConversion);
                 }
                 VkResult vkCreateSamplerYcbcrConversion_VkResult_return = (VkResult)0;
-                vkCreateSamplerYcbcrConversion_VkResult_return =
-                    m_state->on_vkCreateSamplerYcbcrConversion(&m_pool, device, pCreateInfo,
-                                                               pAllocator, pYcbcrConversion);
+                vkCreateSamplerYcbcrConversion_VkResult_return = m_state->on_vkCreateSamplerYcbcrConversion(&m_pool, device, pCreateInfo, pAllocator, pYcbcrConversion);
                 if ((vkCreateSamplerYcbcrConversion_VkResult_return) == VK_ERROR_DEVICE_LOST) m_state->on_DeviceLost();
                 vkStream->unsetHandleMapping();
                 // Begin manual non dispatchable handle create for pYcbcrConversion;
@@ -8734,8 +8732,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     fprintf(stderr, "stream %p: call vkDestroySamplerYcbcrConversion 0x%llx 0x%llx 0x%llx \n", ioStream, (unsigned long long)device, (unsigned long long)ycbcrConversion, (unsigned long long)pAllocator);
                 }
-                m_state->on_vkDestroySamplerYcbcrConversion(&m_pool, device, ycbcrConversion,
-                                                            pAllocator);
+                m_state->on_vkDestroySamplerYcbcrConversion(&m_pool, device, ycbcrConversion, pAllocator);
                 vkStream->unsetHandleMapping();
                 vkReadStream->setReadPos((uintptr_t)(*readStreamPtrPtr) - (uintptr_t)snapshotTraceBegin);
                 size_t snapshotTraceBytes = vkReadStream->endTrace();
@@ -15502,9 +15499,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                     fprintf(stderr, "stream %p: call vkCreateSamplerYcbcrConversionKHR 0x%llx 0x%llx 0x%llx 0x%llx \n", ioStream, (unsigned long long)device, (unsigned long long)pCreateInfo, (unsigned long long)pAllocator, (unsigned long long)pYcbcrConversion);
                 }
                 VkResult vkCreateSamplerYcbcrConversionKHR_VkResult_return = (VkResult)0;
-                vkCreateSamplerYcbcrConversionKHR_VkResult_return =
-                    m_state->on_vkCreateSamplerYcbcrConversionKHR(&m_pool, device, pCreateInfo,
-                                                                  pAllocator, pYcbcrConversion);
+                vkCreateSamplerYcbcrConversionKHR_VkResult_return = m_state->on_vkCreateSamplerYcbcrConversionKHR(&m_pool, device, pCreateInfo, pAllocator, pYcbcrConversion);
                 if ((vkCreateSamplerYcbcrConversionKHR_VkResult_return) == VK_ERROR_DEVICE_LOST) m_state->on_DeviceLost();
                 vkStream->unsetHandleMapping();
                 // Begin manual non dispatchable handle create for pYcbcrConversion;
@@ -15564,8 +15559,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 {
                     fprintf(stderr, "stream %p: call vkDestroySamplerYcbcrConversionKHR 0x%llx 0x%llx 0x%llx \n", ioStream, (unsigned long long)device, (unsigned long long)ycbcrConversion, (unsigned long long)pAllocator);
                 }
-                m_state->on_vkDestroySamplerYcbcrConversionKHR(&m_pool, device, ycbcrConversion,
-                                                               pAllocator);
+                m_state->on_vkDestroySamplerYcbcrConversionKHR(&m_pool, device, ycbcrConversion, pAllocator);
                 vkStream->unsetHandleMapping();
                 vkReadStream->setReadPos((uintptr_t)(*readStreamPtrPtr) - (uintptr_t)snapshotTraceBegin);
                 size_t snapshotTraceBytes = vkReadStream->endTrace();
