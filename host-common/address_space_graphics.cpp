@@ -624,7 +624,8 @@ AddressSpaceGraphicsContext::AddressSpaceGraphicsContext(
 
     if (create.createRenderThread) {
         mCurrentConsumer = mConsumerInterface.create(
-            mHostContext, nullptr, mConsumerCallbacks, 0, 0, std::move(nameOpt));
+            mHostContext, nullptr, mConsumerCallbacks, create.contextId, create.capsetId,
+            std::move(nameOpt));
     }
 }
 
