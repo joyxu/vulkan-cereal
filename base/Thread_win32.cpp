@@ -12,9 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "base/Thread.h"
-
 #include <assert.h>
+#include <comdef.h>
+
+#include <sstream>
+
+#include "base/Thread.h"
+#include "base/Win32UnicodeString.h"
+#include "host-common/logging.h"
 
 namespace android {
 namespace base {
@@ -44,6 +49,33 @@ bool Thread::start() {
         // ability to retry the failed starts here.
         ret = false;
         mFinished = true;
+    }
+
+    if (mNameOpt.has_value()) {
+        Win32UnicodeString name(mNameOpt->c_str());
+        if (!mNameOpt->empty() && name.size() == 0) {
+            ERR("Invalid thread name.");
+            return ret;
+        }
+        HRESULT res = SetThreadDescription(mThread, name.c_str());
+        if (FAILED(res)) {
+            std::stringstream ss;
+            ss << "Failed to set the thread name " << name.toString();
+            DWORD threadId = GetThreadId(mThread);
+            if (threadId != 0) {
+                ss << " for thread " << threadId;
+            }
+            ss << ": ";
+            _com_error e(res);
+            Win32UnicodeString errorMessage(e.ErrorMessage());
+            if (errorMessage.size() != 0) {
+                ss << errorMessage.toString().c_str() << "(" << res << ")";
+            } else {
+                ss << res;
+            }
+            ss << ".";
+            ERR("%s", ss.str().c_str());
+        }
     }
     return ret;
 }
