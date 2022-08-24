@@ -321,6 +321,7 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
             }
             m_freePostResources.emplace_back(postResourceFutureOpt.value().get());
             postResourceFutureOpt = std::nullopt;
+            break;
         }
     }
     std::shared_ptr<PostResource> postResource = m_freePostResources.front();
