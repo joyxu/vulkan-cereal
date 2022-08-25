@@ -316,10 +316,8 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     android::base::setEnvironmentVariable("ANDROID_EMU_HEADLESS", "1");
     android::base::setEnvironmentVariable("ANDROID_EMU_SANDBOX", "1");
     android::base::setEnvironmentVariable("ANDROID_EMUGL_FIXED_BACKEND_LIST", "1");
-    bool vkDisabledByEnv = android::base::getEnvironmentVariable("ANDROID_EMU_DISABLE_VULKAN") == "1";
-    bool vkDisabledByFlag =
-        (renderer_flags & GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT);
-    bool enableVk = !vkDisabledByEnv && !vkDisabledByFlag;
+    bool enableVk =
+        !(renderer_flags & GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT);
 
     bool egl2eglByEnv = android::base::getEnvironmentVariable("ANDROID_EGL_ON_EGL") == "1";
     bool egl2eglByFlag = renderer_flags & GFXSTREAM_RENDERER_FLAGS_USE_EGL_BIT;
