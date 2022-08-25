@@ -315,7 +315,6 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
 
     android::base::setEnvironmentVariable("ANDROID_EMU_HEADLESS", "1");
     android::base::setEnvironmentVariable("ANDROID_EMU_SANDBOX", "1");
-    android::base::setEnvironmentVariable("ANDROID_EMUGL_FIXED_BACKEND_LIST", "1");
     bool enableVk =
         !(renderer_flags & GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT);
 
