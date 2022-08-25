@@ -211,6 +211,11 @@ WHITELIST(GL_NV_fence)
 WHITELIST(GL_NV_framebuffer_blit)
 WHITELIST(GL_NV_read_depth)
 
+#if defined(__linux__)
+WHITELIST(GL_EXT_texture_compression_bptc)
+WHITELIST(GL_EXT_texture_compression_s3tc)
+#endif
+
 #undef WHITELIST
 
     return false;
