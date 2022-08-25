@@ -534,6 +534,8 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
             .useVulkanNativeSwapchain = feature_is_enabled(kFeature_VulkanNativeSwapchain),
             .guestRenderDoc = std::move(renderDocMultipleVkInstances),
             .enableAstcLdrEmulation = feature_is_enabled(kFeature_VulkanAstcLdrEmulation),
+            .enableEtc2Emulation = feature_is_enabled(kFeature_VulkanEtc2Emulation),
+            .enableYcbcrEmulation = feature_is_enabled(kFeature_VulkanYcbcrEmulation),
         });
 
     //
@@ -2893,7 +2895,7 @@ bool FrameBuffer::postImplSync(HandleType p_colorbuffer,
     std::promise<void> promise;
     std::future<void> completeFuture = promise.get_future();
     auto posted = postImpl(
-        m_lastPostedColorBuffer,
+        p_colorbuffer,
         [&](std::shared_future<void> waitForGpu) {
             waitForGpu.wait();
             promise.set_value();

@@ -31,13 +31,15 @@ target_link_libraries(gfxstream-vulkan-server PUBLIC
         gfxstream-compressedTextures
         apigen-codec-common
         gfxstream-base.headers
-        )
+        gfxstream_vulkan_headers)
 if(ASTC_CPU_DECODING)
     target_link_libraries(gfxstream-vulkan-server PRIVATE astcdec-avx2-static)
 endif()
 
 if (WIN32)
 target_compile_definitions(gfxstream-vulkan-server PRIVATE -DVK_USE_PLATFORM_WIN32_KHR)
+elseif (APPLE)
+target_compile_definitions(gfxstream-vulkan-server PRIVATE -DVK_USE_PLATFORM_METAL_EXT)
 endif()
 
 if (NOT MSVC)

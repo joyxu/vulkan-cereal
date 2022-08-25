@@ -321,6 +321,7 @@ private:
     bool mHeadless = false;
     std::string mClientExts;
     std::string mVendor;
+    GlesVersion mGlesVersion;
 
 #ifdef __linux__
     ::Display* mGlxDisplay = nullptr;
@@ -397,6 +398,51 @@ EglOsEglDisplay::EglOsEglDisplay(bool nullEgl) {
     if (clientExts != nullptr && emugl::hasExtension(clientExts, "EGL_ANDROID_blob_cache")) {
         mDispatcher.eglSetBlobCacheFuncsANDROID(mDisplay, SetBlob, GetBlob);
     }
+
+    mGlesVersion = GlesVersion::ES2;
+
+    static const EGLint gles3ConfigAttribs[] =
+        { EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
+          EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT | EGL_OPENGL_ES3_BIT, EGL_NONE };
+
+    static const EGLint pbufAttribs[] =
+        { EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE };
+
+    static const EGLint gles31Attribs[] =
+       { EGL_CONTEXT_MAJOR_VERSION_KHR, 3,
+         EGL_CONTEXT_MINOR_VERSION_KHR, 1, EGL_NONE };
+
+    static const EGLint gles30Attribs[] =
+       { EGL_CONTEXT_MAJOR_VERSION_KHR, 3,
+         EGL_CONTEXT_MINOR_VERSION_KHR, 0, EGL_NONE };
+
+    EGLConfig config;
+
+    int numConfigs;
+    if (mDispatcher.eglChooseConfig(
+            mDisplay, gles3ConfigAttribs, &config, 1, &numConfigs) &&
+        numConfigs != 0) {
+        EGLSurface surface = mDispatcher.eglCreatePbufferSurface(mDisplay,
+                config, pbufAttribs);
+        if (surface != EGL_NO_SURFACE) {
+            EGLContext ctx = mDispatcher.eglCreateContext(mDisplay,
+                    config, EGL_NO_CONTEXT, gles31Attribs);
+
+            if (ctx != EGL_NO_CONTEXT) {
+                mGlesVersion = GlesVersion::ES31;
+            } else {
+                ctx = mDispatcher.eglCreateContext(mDisplay, config,
+                        EGL_NO_CONTEXT, gles30Attribs);
+                if (ctx != EGL_NO_CONTEXT) {
+                    mGlesVersion = GlesVersion::ES30;
+                }
+            }
+            mDispatcher.eglDestroySurface(mDisplay, surface);
+            if (ctx != EGL_NO_CONTEXT) {
+                mDispatcher.eglDestroyContext(mDisplay, ctx);
+            }
+        }
+    }
 };
 
 EglOsEglDisplay::~EglOsEglDisplay() {
@@ -407,9 +453,9 @@ EglOsEglDisplay::~EglOsEglDisplay() {
 }
 
 EglOS::GlesVersion EglOsEglDisplay::getMaxGlesVersion() {
-    // TODO: Detect and return the highest version like in GLESVersionDetector.cpp
+    // Maximum GLES3.1
     // GLES3.2 will also need some more autogen + enums if anyone is interested.
-    return EglOS::GlesVersion::ES31;
+    return mGlesVersion;
 }
 
 const char* EglOsEglDisplay::getExtensionString() {

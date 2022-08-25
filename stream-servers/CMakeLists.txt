@@ -106,6 +106,12 @@ target_link_libraries(
     PUBLIC
     gfxstream_backend_static)
 
+if (APPLE)
+    set_target_properties(gfxstream_backend
+        PROPERTIES
+        LINK_FLAGS  "-undefined dynamic_lookup -flat_namespace")
+endif()
+
 android_install_shared(gfxstream_backend)
 
 # Testing libraries
@@ -245,6 +251,10 @@ if (ENABLE_VKCEREAL_TESTS)
         gtest
         gtest_main
         gmock)
+    if (APPLE)
+        target_compile_definitions(Vulkan_unittests PRIVATE -DVK_USE_PLATFORM_METAL_EXT)
+        target_link_libraries(Vulkan_unittests PUBLIC "-framework AppKit")
+    endif()
     gtest_discover_tests(
         Vulkan_unittests
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR})

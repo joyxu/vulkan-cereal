@@ -41,6 +41,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <optional>
+
 #define D(...)
 #define DD(...)
 #define E(...)
@@ -270,10 +272,11 @@ android_startOpenglesRenderer(int width, int height, bool guestPhoneApi, int gue
     ConsumerInterface iface = {
         // create
         [](struct asg_context context,
-           android::base::Stream* loadStream,
-           ConsumerCallbacks callbacks) {
+           android::base::Stream* loadStream, ConsumerCallbacks callbacks,
+           uint32_t contextId, uint32_t capsetId,
+           std::optional<std::string> nameOpt) {
            return sRenderer->addressSpaceGraphicsConsumerCreate(
-               context, loadStream, callbacks);
+               context, loadStream, callbacks, contextId, capsetId, std::move(nameOpt));
         },
         // destroy
         [](void* consumer) {

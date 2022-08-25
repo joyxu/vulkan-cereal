@@ -18,8 +18,11 @@
 
 #include <memory>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <variant>
+
+#include "base/Thread.h"
 
 // Library to log metrics.
 namespace android {
@@ -31,6 +34,7 @@ struct EventHangMetadata {
     const char* function;
     const char* msg;
     const int line;
+    const unsigned long threadId;
     // Field for adding custom key value annotations
     std::unique_ptr<std::unordered_map<std::string, std::string>> data;
 
@@ -40,14 +44,6 @@ struct EventHangMetadata {
     enum class HangType { kRenderThread, kSyncThread };
     HangType hangType;
 
-    EventHangMetadata()
-        : file(nullptr),
-          function(nullptr),
-          msg(nullptr),
-          line(0),
-          data(nullptr),
-          hangType(HangType::kRenderThread) {}
-
     EventHangMetadata(const char* file, const char* function, const char* msg, int line,
                       HangType hangType,
                       std::unique_ptr<std::unordered_map<std::string, std::string>> data)
@@ -56,7 +52,11 @@ struct EventHangMetadata {
           msg(msg),
           line(line),
           data(std::move(data)),
-          hangType(hangType) {}
+          hangType(hangType),
+          threadId(getCurrentThreadId()) {}
+
+    EventHangMetadata()
+        : EventHangMetadata(nullptr, nullptr, nullptr, 0, HangType::kRenderThread, nullptr) {}
 };
 
 // Events that can be logged.
@@ -82,7 +82,7 @@ using MetricEventType = std::variant<std::monostate, MetricEventFreeze, MetricEv
                                      MetricEventHang, MetricEventUnHang, GfxstreamVkAbort>;
 
 class MetricsLogger {
-public:
+   public:
     // Log a MetricEventType.
     virtual void logMetricEvent(MetricEventType eventType) = 0;
     // Virtual destructor.
@@ -90,12 +90,11 @@ public:
 
     // Callbacks to log events
     static void (*add_instant_event_callback)(int64_t event_code);
-    static void (*add_instant_event_with_descriptor_callback)(
-        int64_t event_code, int64_t descriptor);
-    static void (*add_instant_event_with_metric_callback)(
-        int64_t event_code, int64_t metric_value);
+    static void (*add_instant_event_with_descriptor_callback)(int64_t event_code,
+                                                              int64_t descriptor);
+    static void (*add_instant_event_with_metric_callback)(int64_t event_code, int64_t metric_value);
     // Crashpad will copy the strings, so these need only persist for the function call
-    static void(*set_crash_annotation_callback)(const char* key, const char* value);
+    static void (*set_crash_annotation_callback)(const char* key, const char* value);
 };
 
 std::unique_ptr<MetricsLogger> CreateMetricsLogger();

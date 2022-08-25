@@ -57,9 +57,9 @@ if (BUILD_STANDALONE)
         ${gfxstream-platform-sources})
 
     if (WIN32)
-        set(gfxstream-base-platform-deps "")
+        set(gfxstream-base-platform-deps Shlwapi)
     else()
-        set(gfxstream-base-platform-deps dl)
+        set(gfxstream-base-platform-deps dl rt)
     endif()
 
     target_link_libraries(
@@ -71,6 +71,7 @@ if (BUILD_STANDALONE)
         PRIVATE
         lz4
         perfetto-tracing-only
+        logging-base
         ${gfxstream-base-platform-deps})
 
     target_include_directories(

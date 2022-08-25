@@ -45,13 +45,13 @@ class RecursiveScopedContextBind {
     RecursiveScopedContextBind(ContextHelper* helper) : mHelper(helper) {
         if (helper->isBound()) return;
         if (!helper->setupContext()) {
-            mHelper = NULL;
+            mHelper = nullptr;
             return;
         }
         mNeedUnbind = true;
     }
 
-    bool isOk() const { return mHelper != NULL; }
+    bool isOk() const { return mHelper != nullptr; }
 
     ~RecursiveScopedContextBind() { release(); }
 
@@ -60,7 +60,7 @@ class RecursiveScopedContextBind {
             mHelper->teardownContext();
             mNeedUnbind = false;
         }
-        mHelper = NULL;
+        mHelper = nullptr;
     }
 
   private:

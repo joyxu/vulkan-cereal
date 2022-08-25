@@ -46,8 +46,8 @@ class Buffer : public android::snapshot::LazySnapshotObj<Buffer> {
     GLuint m_buffer = 0;
     */
     HandleType m_handle;
-    ContextHelper* m_helper = nullptr;
     size_t m_sizeBytes;
+    ContextHelper* m_helper = nullptr;
 };
 
 typedef std::shared_ptr<Buffer> BufferPtr;

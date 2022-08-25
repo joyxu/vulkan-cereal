@@ -76,7 +76,7 @@ using emugl::FatalError;
 using emugl::GfxApiLogger;
 
 // TODO: Asserts build
-#define DCHECK(condition)
+#define DCHECK(condition) (void)(condition);
 
 #define VKDGS_DEBUG 0
 
@@ -109,6 +109,9 @@ static constexpr const char* const kEmulatedExtensions[] = {
 
 static constexpr uint32_t kMaxSafeVersion = VK_MAKE_VERSION(1, 1, 0);
 static constexpr uint32_t kMinVersion = VK_MAKE_VERSION(1, 0, 0);
+
+static constexpr uint64_t kPageSizeforBlob = 4096;
+static constexpr uint64_t kPageMaskForBlob = ~(0xfff);
 
 #define DEFINE_BOXED_HANDLE_TYPE_TAG(type) Tag_##type,
 
@@ -482,7 +485,9 @@ class VkDecoderGlobalState::Impl {
         //   Theoretically the pApplicationName field would be exactly what we want, unfortunately
         //   it looks like Unity apps always set this to "Unity" instead of the actual application.
         //   Eventually we will want to use https://r.android.com/2163499 for this purpose.
-        if (strcmp(applicationInfo.pApplicationName, "Unity") == 0 &&
+        if (applicationInfo.pApplicationName != nullptr &&
+            applicationInfo.pEngineName != nullptr &&
+            strcmp(applicationInfo.pApplicationName, "Unity") == 0 &&
             strcmp(applicationInfo.pEngineName, "Unity") == 0) {
             info.useAstcCpuDecompression = true;
         }
@@ -683,7 +688,7 @@ class VkDecoderGlobalState::Impl {
         auto vk = dispatch_VkPhysicalDevice(boxed_physicalDevice);
 
         vk->vkGetPhysicalDeviceFeatures(physicalDevice, pFeatures);
-        pFeatures->textureCompressionETC2 = true;
+        pFeatures->textureCompressionETC2 |= m_emu->enableEtc2Emulation;
         pFeatures->textureCompressionASTC_LDR |= m_emu->enableAstcLdrEmulation;
     }
 
@@ -724,8 +729,13 @@ class VkDecoderGlobalState::Impl {
             vk->vkGetPhysicalDeviceFeatures(physicalDevice, &pFeatures->features);
         }
 
-        pFeatures->features.textureCompressionETC2 = true;
+        pFeatures->features.textureCompressionETC2 |= m_emu->enableEtc2Emulation;
         pFeatures->features.textureCompressionASTC_LDR |= m_emu->enableAstcLdrEmulation;
+        VkPhysicalDeviceSamplerYcbcrConversionFeatures* ycbcrFeatures =
+            vk_find_struct<VkPhysicalDeviceSamplerYcbcrConversionFeatures>(pFeatures);
+        if (ycbcrFeatures != nullptr) {
+            ycbcrFeatures->samplerYcbcrConversion |= m_emu->enableYcbcrEmulation;
+        }
     }
 
     VkResult on_vkGetPhysicalDeviceImageFormatProperties(
@@ -1078,7 +1088,7 @@ class VkDecoderGlobalState::Impl {
         auto physicalDevice = unbox_VkPhysicalDevice(boxed_physicalDevice);
         auto vk = dispatch_VkPhysicalDevice(boxed_physicalDevice);
 
-        if (!m_emu->instanceSupportsMoltenVK) {
+        if (!m_emu->instanceSupportsMoltenVK && !m_emu->enableYcbcrEmulation) {
             return vk->vkEnumerateDeviceExtensionProperties(physicalDevice, pLayerName,
                                                             pPropertyCount, pProperties);
         }
@@ -1092,7 +1102,8 @@ class VkDecoderGlobalState::Impl {
             return result;
         }
 
-        if (!hasDeviceExtension(properties, VK_MVK_MOLTENVK_EXTENSION_NAME)) {
+        if (m_emu->instanceSupportsMoltenVK && !hasDeviceExtension(properties,
+                                                                VK_MVK_MOLTENVK_EXTENSION_NAME)) {
             VkExtensionProperties mvk_props;
             strncpy(mvk_props.extensionName, VK_MVK_MOLTENVK_EXTENSION_NAME,
                     sizeof(mvk_props.extensionName));
@@ -1100,13 +1111,22 @@ class VkDecoderGlobalState::Impl {
             properties.push_back(mvk_props);
         }
 
-        if (*pPropertyCount == 0) {
+        if (m_emu->enableYcbcrEmulation &&
+            !hasDeviceExtension(properties, VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME)) {
+            VkExtensionProperties ycbcr_props;
+            strncpy(ycbcr_props.extensionName, VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME,
+                    sizeof(ycbcr_props.extensionName));
+            ycbcr_props.specVersion = VK_KHR_SAMPLER_YCBCR_CONVERSION_SPEC_VERSION;
+            properties.push_back(ycbcr_props);
+        }
+        if (pProperties == nullptr) {
             *pPropertyCount = properties.size();
         } else {
+            // return number of structures actually written to pProperties.
+            *pPropertyCount = std::min((uint32_t)properties.size(), *pPropertyCount);
             memcpy(pProperties, properties.data(), *pPropertyCount * sizeof(VkExtensionProperties));
         }
-
-        return VK_SUCCESS;
+        return *pPropertyCount < properties.size() ? VK_INCOMPLETE : VK_SUCCESS;
     }
 
     VkResult on_vkCreateDevice(android::base::BumpPool* pool, VkPhysicalDevice boxed_physicalDevice,
@@ -1132,41 +1152,41 @@ class VkDecoderGlobalState::Impl {
 
         // Run the underlying API call, filtering extensions.
         VkDeviceCreateInfo createInfoFiltered = *pCreateInfo;
-        bool emulateTextureEtc2 = false;
-        bool emulateTextureAstc = false;
+        // According to the spec, it seems that the application can use compressed texture formats
+        // without enabling the feature when creating the VkDevice, as long as
+        // vkGetPhysicalDeviceFormatProperties and vkGetPhysicalDeviceImageFormatProperties reports
+        // support: to query for additional properties, or if the feature is not enabled,
+        // vkGetPhysicalDeviceFormatProperties and vkGetPhysicalDeviceImageFormatProperties can be
+        // used to check for supported properties of individual formats as normal.
+        bool emulateTextureEtc2 = needEmulatedEtc2(physicalDevice, vk);
+        bool emulateTextureAstc = needEmulatedAstc(physicalDevice, vk);
         VkPhysicalDeviceFeatures featuresFiltered;
+        std::vector<VkPhysicalDeviceFeatures*> featuresToFilter;
 
         if (pCreateInfo->pEnabledFeatures) {
             featuresFiltered = *pCreateInfo->pEnabledFeatures;
-            if (featuresFiltered.textureCompressionETC2) {
-                if (needEmulatedEtc2(physicalDevice, vk)) {
-                    emulateTextureEtc2 = true;
-                    featuresFiltered.textureCompressionETC2 = false;
-                }
-            }
-            if (needEmulatedAstc(physicalDevice, vk)) {
-                emulateTextureAstc = true;
-                featuresFiltered.textureCompressionASTC_LDR = false;
-            }
             createInfoFiltered.pEnabledFeatures = &featuresFiltered;
+            featuresToFilter.emplace_back(&featuresFiltered);
         }
 
-        vk_foreach_struct(ext, pCreateInfo->pNext) {
-            switch (ext->sType) {
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2:
-                    if (needEmulatedEtc2(physicalDevice, vk)) {
-                        emulateTextureEtc2 = true;
-                        VkPhysicalDeviceFeatures2* features2 = (VkPhysicalDeviceFeatures2*)ext;
-                        features2->features.textureCompressionETC2 = false;
-                    }
-                    if (needEmulatedAstc(physicalDevice, vk)) {
-                        emulateTextureAstc = true;
-                        VkPhysicalDeviceFeatures2* features2 = (VkPhysicalDeviceFeatures2*)ext;
-                        features2->features.textureCompressionASTC_LDR = false;
-                    }
-                    break;
-                default:
-                    break;
+        if (VkPhysicalDeviceFeatures2* features2 =
+                vk_find_struct<VkPhysicalDeviceFeatures2>(&createInfoFiltered)) {
+            featuresToFilter.emplace_back(&features2->features);
+        }
+
+        for (VkPhysicalDeviceFeatures* feature : featuresToFilter) {
+            if (emulateTextureEtc2) {
+                feature->textureCompressionETC2 = VK_FALSE;
+            }
+            if (emulateTextureAstc) {
+                feature->textureCompressionASTC_LDR = VK_FALSE;
+            }
+        }
+
+        if (auto* ycbcrFeatures = vk_find_struct<VkPhysicalDeviceSamplerYcbcrConversionFeatures>(
+                &createInfoFiltered)) {
+            if (m_emu->enableYcbcrEmulation && !m_emu->deviceInfo.supportsSamplerYcbcrConversion) {
+                ycbcrFeatures->samplerYcbcrConversion = VK_FALSE;
             }
         }
 
@@ -1516,8 +1536,9 @@ class VkDecoderGlobalState::Impl {
         if (nativeBufferANDROID) {
             auto memProps = memPropsOfDeviceLocked(device);
 
-            createRes = prepareAndroidNativeBufferImage(
-                vk, device, pCreateInfo, nativeBufferANDROID, pAllocator, memProps, anbInfo.get());
+            createRes =
+                prepareAndroidNativeBufferImage(vk, device, *pool, pCreateInfo, nativeBufferANDROID,
+                                                pAllocator, memProps, anbInfo.get());
             if (createRes == VK_SUCCESS) {
                 *pImage = anbInfo->image;
             }
@@ -3622,28 +3643,25 @@ class VkDecoderGlobalState::Impl {
         uint64_t hva = (uint64_t)(uintptr_t)(info->ptr);
         uint64_t size = (uint64_t)(uintptr_t)(info->size);
 
-        constexpr size_t kPageBits = 12;
-        constexpr size_t kPageSize = 1u << kPageBits;
-        constexpr size_t kPageOffsetMask = kPageSize - 1;
+        uint64_t alignedHva = hva & kPageMaskForBlob;
+        uint64_t alignedSize = kPageSizeforBlob *
+                               ((size + kPageSizeforBlob - 1) / kPageSizeforBlob);
 
-        uint64_t pageOffset = hva & kPageOffsetMask;
-        uint64_t sizeToPage = ((size + pageOffset + kPageSize - 1) >> kPageBits) << kPageBits;
-
-        entry.hva = (uint64_t)(uintptr_t)(info->ptr);
-        entry.size = (uint64_t)(uintptr_t)(info->size);
+        entry.hva = (void*)(uintptr_t)alignedHva;
+        entry.size = alignedSize;
         entry.caching = info->caching;
 
         auto id = get_emugl_vm_operations().hostmemRegister(&entry);
 
         *pAddress = hva & (0xfff);  // Don't expose exact hva to guest
-        *pSize = sizeToPage;
+        *pSize = alignedSize;
         *pHostmemId = id;
 
         info->virtioGpuMapped = true;
         info->hostmemId = id;
 
         fprintf(stderr, "%s: hva, size, sizeToPage: %p 0x%llx 0x%llx id 0x%llx\n", __func__,
-                info->ptr, (unsigned long long)(info->size), (unsigned long long)(sizeToPage),
+                info->ptr, (unsigned long long)(info->size), (unsigned long long)(alignedSize),
                 (unsigned long long)(*pHostmemId));
         return VK_SUCCESS;
     }
@@ -4375,6 +4393,7 @@ class VkDecoderGlobalState::Impl {
         // TODO: Detect if we are running on a driver that supports timeline
         // semaphore signal/wait operations in vkQueueBindSparse
         const bool needTimelineSubmitInfoWorkaround = true;
+        (void)needTimelineSubmitInfoWorkaround;
 
         bool hasTimelineSemaphoreSubmitInfo = false;
 
@@ -4711,6 +4730,11 @@ class VkDecoderGlobalState::Impl {
         android::base::BumpPool*, VkDevice boxed_device,
         const VkSamplerYcbcrConversionCreateInfo* pCreateInfo,
         const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion) {
+        if (m_emu->enableYcbcrEmulation && !m_emu->deviceInfo.supportsSamplerYcbcrConversion) {
+            *pYcbcrConversion = new_boxed_non_dispatchable_VkSamplerYcbcrConversion(
+                (VkSamplerYcbcrConversion)((uintptr_t)0xffff0000ull));
+            return VK_SUCCESS;
+        }
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
         VkResult res =
@@ -4725,6 +4749,9 @@ class VkDecoderGlobalState::Impl {
     void on_vkDestroySamplerYcbcrConversion(android::base::BumpPool* pool, VkDevice boxed_device,
                                             VkSamplerYcbcrConversion boxed_ycbcrConversion,
                                             const VkAllocationCallbacks* pAllocator) {
+        if (m_emu->enableYcbcrEmulation && !m_emu->deviceInfo.supportsSamplerYcbcrConversion) {
+            return;
+        }
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
         VkSamplerYcbcrConversion ycbcrConversion =
@@ -4888,61 +4915,133 @@ class VkDecoderGlobalState::Impl {
                 const_cast<VkImageCreateInfo&>(pImageCreateInfos[i]);
             const VkExternalMemoryImageCreateInfo* pExternalMemoryImageCi =
                 vk_find_struct<VkExternalMemoryImageCreateInfo>(&imageCreateInfo);
-
-            if (pExternalMemoryImageCi &&
+            bool importAndroidHardwareBuffer =
+                pExternalMemoryImageCi &&
                 (pExternalMemoryImageCi->handleTypes &
-                 VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID)) {
-                std::unique_ptr<VkImageCreateInfo> colorBufferVkImageCi =
-                    goldfish_vk::generateColorBufferVkImageCreateInfo(
-                        imageCreateInfo.format, imageCreateInfo.extent.width,
-                        imageCreateInfo.extent.height, imageCreateInfo.tiling);
-                if (imageCreateInfo.flags & (~colorBufferVkImageCi->flags)) {
-                    ERR("The VkImageCreateInfo to import AHardwareBuffer contains unsupported "
-                        "VkImageCreateFlags. All supported VkImageCreateFlags are %s, the input "
-                        "VkImageCreateInfo requires support for %s.",
-                        string_VkImageCreateFlags(colorBufferVkImageCi->flags).c_str(),
-                        string_VkImageCreateFlags(imageCreateInfo.flags).c_str());
+                 VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID);
+            const VkNativeBufferANDROID* pNativeBufferANDROID =
+                vk_find_struct<VkNativeBufferANDROID>(&imageCreateInfo);
+
+            // If the VkImage is going to bind to a ColorBuffer, we have to make sure the VkImage
+            // that backs the ColorBuffer is created with identical parameters. From the spec: If
+            // two aliases are both images that were created with identical creation parameters,
+            // both were created with the VK_IMAGE_CREATE_ALIAS_BIT flag set, and both are bound
+            // identically to memory except for VkBindImageMemoryDeviceGroupInfo::pDeviceIndices and
+            // VkBindImageMemoryDeviceGroupInfo::pSplitInstanceBindRegions, then they interpret the
+            // contents of the memory in consistent ways, and data written to one alias can be read
+            // by the other alias. ... Aliases created by binding the same memory to resources in
+            // multiple Vulkan instances or external APIs using external memory handle export and
+            // import mechanisms interpret the contents of the memory in consistent ways, and data
+            // written to one alias can be read by the other alias. Otherwise, the aliases interpret
+            // the contents of the memory differently, ...
+            std::unique_ptr<VkImageCreateInfo> colorBufferVkImageCi = nullptr;
+            std::string importSource;
+            if (importAndroidHardwareBuffer) {
+                // For AHardwareBufferImage binding, we can't know which ColorBuffer this
+                // to-be-created VkImage will bind to, so we try our best to infer the creation
+                // parameters.
+                colorBufferVkImageCi = goldfish_vk::generateColorBufferVkImageCreateInfo(
+                    imageCreateInfo.format, imageCreateInfo.extent.width,
+                    imageCreateInfo.extent.height, imageCreateInfo.tiling);
+                importSource = "AHardwareBuffer";
+            } else if (pNativeBufferANDROID) {
+                // For native buffer binding, we can query the creation parameters from handle.
+                auto colorBufferInfo =
+                    goldfish_vk::getColorBufferInfo(*pNativeBufferANDROID->handle);
+                if (colorBufferInfo.handle == *pNativeBufferANDROID->handle) {
+                    colorBufferVkImageCi =
+                        std::make_unique<VkImageCreateInfo>(colorBufferInfo.imageCreateInfoShallow);
+                } else {
+                    ERR("Unknown ColorBuffer handle: %" PRIu32 ".", *pNativeBufferANDROID->handle);
                 }
-                imageCreateInfo.flags |= colorBufferVkImageCi->flags;
-                if (imageCreateInfo.imageType != colorBufferVkImageCi->imageType) {
-                    ERR("The VkImageCreateInfo to import AHardwareBuffer has an unexpected "
-                        "VkImageType: %s, %s expected.",
-                        string_VkImageType(imageCreateInfo.imageType),
-                        string_VkImageType(colorBufferVkImageCi->imageType));
-                }
-                // VkImageCreateInfo::extent::{width, height} are guaranteed to match.
-                if (imageCreateInfo.extent.depth != colorBufferVkImageCi->extent.depth) {
-                    ERR("The VkImageCreateInfo to import AHardwareBuffer has an unexpected "
-                        "VkExtent::depth: %" PRIu32 ", %" PRIu32 " expected.",
-                        imageCreateInfo.extent.depth, colorBufferVkImageCi->extent.depth);
-                }
-                if (imageCreateInfo.mipLevels != colorBufferVkImageCi->mipLevels) {
-                    ERR("The VkImageCreateInfo to import AHardwareBuffer has an unexpected "
-                        "mipLevels: %" PRIu32 ", %" PRIu32 " expected.",
-                        imageCreateInfo.mipLevels, colorBufferVkImageCi->mipLevels);
-                }
-                if (imageCreateInfo.arrayLayers != colorBufferVkImageCi->arrayLayers) {
-                    ERR("The VkImageCreateInfo to import AHardwareBuffer has an unexpected "
-                        "arrayLayers: %" PRIu32 ", %" PRIu32 " expected.",
-                        imageCreateInfo.arrayLayers, colorBufferVkImageCi->arrayLayers);
-                }
-                if (imageCreateInfo.samples != colorBufferVkImageCi->samples) {
-                    ERR("The VkImageCreateInfo to import AHardwareBuffer has an unexpected "
-                        "VkSampleCountFlagBits: %s, %s expected.",
-                        string_VkSampleCountFlagBits(imageCreateInfo.samples),
-                        string_VkSampleCountFlagBits(colorBufferVkImageCi->samples));
-                }
-                // VkImageCreateInfo::tiling is guaranteed to match.
-                if (imageCreateInfo.usage & (~colorBufferVkImageCi->usage)) {
-                    ERR("The VkImageCreateInfo to import AHardwareBuffer contains unsupported "
-                        "VkImageUsageFlags. All supported VkImageUsageFlags are %s, the input "
-                        "VkImageCreateInfo requires support for %s.",
-                        string_VkImageUsageFlags(colorBufferVkImageCi->usage).c_str(),
-                        string_VkImageUsageFlags(imageCreateInfo.usage).c_str());
-                }
-                imageCreateInfo.usage |= colorBufferVkImageCi->usage;
-                // VkImageCreateInfo::{sharingMode, queueFamilyIndexCount, pQueueFamilyIndices,
-                // initialLayout} aren't filled in generateColorBufferVkImageCreateInfo.
+                importSource = "NativeBufferANDROID";
+            }
+            if (!colorBufferVkImageCi) {
+                continue;
+            }
+            if (imageCreateInfo.flags & (~colorBufferVkImageCi->flags)) {
+                ERR("The VkImageCreateInfo to import %s contains unsupported VkImageCreateFlags. "
+                    "All supported VkImageCreateFlags are %s, the input VkImageCreateInfo requires "
+                    "support for %s.",
+                    importSource.c_str(),
+                    string_VkImageCreateFlags(colorBufferVkImageCi->flags).c_str(),
+                    string_VkImageCreateFlags(imageCreateInfo.flags).c_str());
+            }
+            imageCreateInfo.flags |= colorBufferVkImageCi->flags;
+            if (imageCreateInfo.imageType != colorBufferVkImageCi->imageType) {
+                ERR("The VkImageCreateInfo to import %s has an unexpected VkImageType: %s, %s "
+                    "expected.",
+                    importSource.c_str(), string_VkImageType(imageCreateInfo.imageType),
+                    string_VkImageType(colorBufferVkImageCi->imageType));
+            }
+            if (imageCreateInfo.extent.depth != colorBufferVkImageCi->extent.depth) {
+                ERR("The VkImageCreateInfo to import %s has an unexpected VkExtent::depth: %" PRIu32
+                    ", %" PRIu32 " expected.",
+                    importSource.c_str(), imageCreateInfo.extent.depth,
+                    colorBufferVkImageCi->extent.depth);
+            }
+            if (imageCreateInfo.mipLevels != colorBufferVkImageCi->mipLevels) {
+                ERR("The VkImageCreateInfo to import %s has an unexpected mipLevels: %" PRIu32
+                    ", %" PRIu32 " expected.",
+                    importSource.c_str(), imageCreateInfo.mipLevels,
+                    colorBufferVkImageCi->mipLevels);
+            }
+            if (imageCreateInfo.arrayLayers != colorBufferVkImageCi->arrayLayers) {
+                ERR("The VkImageCreateInfo to import %s has an unexpected arrayLayers: %" PRIu32
+                    ", %" PRIu32 " expected.",
+                    importSource.c_str(), imageCreateInfo.arrayLayers,
+                    colorBufferVkImageCi->arrayLayers);
+            }
+            if (imageCreateInfo.samples != colorBufferVkImageCi->samples) {
+                ERR("The VkImageCreateInfo to import %s has an unexpected VkSampleCountFlagBits: "
+                    "%s, %s expected.",
+                    importSource.c_str(), string_VkSampleCountFlagBits(imageCreateInfo.samples),
+                    string_VkSampleCountFlagBits(colorBufferVkImageCi->samples));
+            }
+            if (imageCreateInfo.usage & (~colorBufferVkImageCi->usage)) {
+                ERR("The VkImageCreateInfo to import %s contains unsupported VkImageUsageFlags. "
+                    "All supported VkImageUsageFlags are %s, the input VkImageCreateInfo requires "
+                    "support for %s.",
+                    importSource.c_str(),
+                    string_VkImageUsageFlags(colorBufferVkImageCi->usage).c_str(),
+                    string_VkImageUsageFlags(imageCreateInfo.usage).c_str());
+            }
+            imageCreateInfo.usage |= colorBufferVkImageCi->usage;
+            // For the AndroidHardwareBuffer binding case VkImageCreateInfo::sharingMode isn't
+            // filled in generateColorBufferVkImageCreateInfo, and
+            // VkImageCreateInfo::{format,extent::{width, height}, tiling} are guaranteed to match.
+            if (importAndroidHardwareBuffer) {
+                continue;
+            }
+            if (imageCreateInfo.format != colorBufferVkImageCi->format) {
+                ERR("The VkImageCreateInfo to import %s contains unexpected VkFormat: %s. %s "
+                    "expected.",
+                    importSource.c_str(), string_VkFormat(imageCreateInfo.format),
+                    string_VkFormat(colorBufferVkImageCi->format));
+            }
+            if (imageCreateInfo.extent.width != colorBufferVkImageCi->extent.width) {
+                ERR("The VkImageCreateInfo to import %s contains unexpected VkExtent::width: "
+                    "%" PRIu32 ". %" PRIu32 " expected.",
+                    importSource.c_str(), imageCreateInfo.extent.width,
+                    colorBufferVkImageCi->extent.width);
+            }
+            if (imageCreateInfo.extent.height != colorBufferVkImageCi->extent.height) {
+                ERR("The VkImageCreateInfo to import %s contains unexpected VkExtent::height: "
+                    "%" PRIu32 ". %" PRIu32 " expected.",
+                    importSource.c_str(), imageCreateInfo.extent.height,
+                    colorBufferVkImageCi->extent.height);
+            }
+            if (imageCreateInfo.tiling != colorBufferVkImageCi->tiling) {
+                ERR("The VkImageCreateInfo to import %s contains unexpected VkImageTiling: %s. %s "
+                    "expected.",
+                    importSource.c_str(), string_VkImageTiling(imageCreateInfo.tiling),
+                    string_VkImageTiling(colorBufferVkImageCi->tiling));
+            }
+            if (imageCreateInfo.sharingMode != colorBufferVkImageCi->sharingMode) {
+                ERR("The VkImageCreateInfo to import %s contains unexpected VkSharingMode: %s. %s "
+                    "expected.",
+                    importSource.c_str(), string_VkSharingMode(imageCreateInfo.sharingMode),
+                    string_VkSharingMode(colorBufferVkImageCi->sharingMode));
             }
         }
     }
@@ -5107,6 +5206,10 @@ class VkDecoderGlobalState::Impl {
         for (auto emulatedExt : kEmulatedExtensions) {
             if (!strcmp(emulatedExt, name)) return true;
         }
+        if (!strcmp(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME, name)) {
+            return !m_emu->deviceInfo.hasSamplerYcbcrConversionExtension &&
+                   m_emu->enableYcbcrEmulation;
+        }
         return false;
     }
 
@@ -5123,6 +5226,7 @@ class VkDecoderGlobalState::Impl {
             auto extName = extNames[i];
             if (!isEmulatedExtension(extName)) {
                 res.push_back(extName);
+                continue;
             }
             if (m_emu->instanceSupportsMoltenVK) {
                 continue;
@@ -5745,7 +5849,10 @@ class VkDecoderGlobalState::Impl {
         pMemoryRequirements->size += cmpInfo.memoryOffsets[cmpInfo.mipLevels];
     }
 
-    static bool needEmulatedEtc2(VkPhysicalDevice physicalDevice, goldfish_vk::VulkanDispatch* vk) {
+    bool needEmulatedEtc2(VkPhysicalDevice physicalDevice, goldfish_vk::VulkanDispatch* vk) {
+        if (!m_emu->enableEtc2Emulation) {
+            return false;
+        }
         VkPhysicalDeviceFeatures feature;
         vk->vkGetPhysicalDeviceFeatures(physicalDevice, &feature);
         return !feature.textureCompressionETC2;

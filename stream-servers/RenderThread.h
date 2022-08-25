@@ -46,7 +46,9 @@ public:
     RenderThread(
         struct asg_context context,
         android::base::Stream* loadStream,
-        android::emulation::asg::ConsumerCallbacks callbacks);
+        android::emulation::asg::ConsumerCallbacks callbacks,
+        uint32_t contextId, uint32_t capsetId,
+        std::optional<std::string> nameOpt);
     virtual ~RenderThread();
 
     // Returns true iff the thread has finished.
@@ -98,6 +100,8 @@ private:
     android::base::Optional<android::base::MemStream> mStream;
 
     bool mRunInLimitedMode = false;
+    uint32_t mCapsetId = 0;
+    uint32_t mContextId = 0;
 };
 
 }  // namespace emugl

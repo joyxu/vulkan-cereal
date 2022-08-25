@@ -10,23 +10,12 @@ else()
         opengl/NativeGpuInfo_linux.cpp)
 endif()
 
-if (RECORDER_DELEGATE_LIB)
-    set(gfxstream-base-metrics-sources
-        ../base/MetricsRecorderDelegate.cpp)
-    set(gfxstream-base-metrics-link-libraries
-        recorder_delegate_lib)
-else()
-    set(gfxstream-base-metrics-sources
-        ../base/MetricsNoOp.cpp)
-    set(gfxstream-base-metrics-link-libraries)
-endif()
-
 # TODO(gregschlom) move this to base
 add_library(logging-base
     STATIC
     logging.cpp
     GfxstreamFatalError.cpp
-    ${gfxstream-base-metrics-sources})
+    ../base/Metrics.cpp)
 target_include_directories(
     logging-base
     PRIVATE
@@ -35,10 +24,11 @@ target_include_directories(
     ${GFXSTREAM_REPO_ROOT}/include)
 target_link_libraries(
     logging-base
+    PUBLIC
+    gfxstream_vulkan_headers
     PRIVATE
     gfxstream-base.headers
-    gfxstream-host-common.headers
-    ${gfxstream-base-metrics-link-libraries})
+    gfxstream-host-common.headers)
 
 add_library(gfxstream-host-common.headers INTERFACE)
 target_link_libraries(gfxstream-host-common.headers INTERFACE renderdoc)
@@ -146,6 +136,8 @@ target_include_directories(
     ${GFXSTREAM_REPO_ROOT})
 target_link_libraries(
     gfxstream-host-common-testing-support
+    PUBLIC
+    gfxstream_vulkan_headers
     PRIVATE
     gfxstream-base.headers
     gfxstream-host-common.headers
