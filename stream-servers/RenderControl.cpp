@@ -181,8 +181,6 @@ static const char* kGLESDynamicVersion_3_1 = "ANDROID_EMU_gles_max_version_3_1";
 static const char* kHostCompositionV1 = "ANDROID_EMU_host_composition_v1";
 static const char* kHostCompositionV2 = "ANDROID_EMU_host_composition_v2";
 
-static const char* kGLESNoHostError = "ANDROID_EMU_gles_no_host_error";
-
 // Vulkan
 static const char* kVulkanFeatureStr = "ANDROID_EMU_vulkan";
 static const char* kDeferredVulkanCommands = "ANDROID_EMU_deferred_vulkan_commands";
@@ -668,11 +666,6 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         if (feature_is_enabled(kFeature_AsyncComposeSupport)) {
             // Async makecurrent support.
             glStr += kAsyncFrameCommands;
-            glStr += " ";
-        }
-
-        if (feature_is_enabled(kFeature_IgnoreHostOpenGLErrors)) {
-            glStr += kGLESNoHostError;
             glStr += " ";
         }
 
