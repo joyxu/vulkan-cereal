@@ -583,7 +583,7 @@ public:
 
         std::string contextName(name, nlen);
 
-        VGPLOG("ctxid: %u len: %u name: %s", ctx_id, nlen, name);
+        VGPLOG("ctxid: %u len: %u name: %s", ctx_id, nlen, contextName.c_str());
         auto ops = ensureAndGetServiceOps();
         auto hostPipe = ops->guest_open_with_flags(
             reinterpret_cast<GoldfishHwPipe*>(ctx_id),
@@ -596,7 +596,7 @@ public:
         std::unordered_map<uint32_t, uint32_t> map;
 
         PipeCtxEntry res = {
-            contextName,  // contextName
+            std::move(contextName), // contextName
             context_init, // capsetId
             ctx_id, // ctxId
             hostPipe, // hostPipe
