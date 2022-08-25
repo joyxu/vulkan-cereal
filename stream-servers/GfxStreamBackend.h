@@ -4,11 +4,6 @@ extern "C" {
 #include "virgl_hw.h"
 }  // extern "C"
 
-enum BackendFlags {
-    GFXSTREAM_BACKEND_FLAGS_NO_VK_BIT = 1 << 0,
-    GFXSTREAM_BACKEND_FLAGS_EGL2EGL_BIT = 1 << 1,
-};
-
 struct gfxstream_callbacks {
    /* Metrics callbacks */
    void (*add_instant_event)(int64_t event_code);
