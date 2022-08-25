@@ -1996,10 +1996,8 @@ void GLEScontext::initCapsLocked(const GLubyte * extensionString, GLSupport& glS
         }
     }
 
-    if (feature_is_enabled(kFeature_RgtcTextureSupport)) {
-        if (strstr(cstring, "GL_EXT_texture_compression_rgtc") != NULL) {
-            glSupport.hasRgtcSupport = true;
-        }
+    if (strstr(cstring, "GL_EXT_texture_compression_rgtc") != NULL) {
+        glSupport.hasRgtcSupport = true;
     }
 }
 
