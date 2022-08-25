@@ -329,7 +329,6 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
         android::base::setEnvironmentVariable("ANDROID_EGL_ON_EGL", "1");
     }
 
-    bool nativeTextureDecompression = renderer_flags & GFXSTREAM_RENDERER_FLAGS_NATIVE_TEXTURE_DECOMPRESSION_BIT;
     bool bptcTextureSupport = renderer_flags & GFXSTREAM_RENDERER_FLAGS_ENABLE_BPTC_TEXTURES_BIT;
     bool s3tcTextureSupport = renderer_flags & GFXSTREAM_RENDERER_FLAGS_ENABLE_S3TC_TEXTURES_BIT;
     bool syncFdDisabledByFlag = renderer_flags & GFXSTREAM_RENDERER_FLAGS_NO_SYNCFD_BIT;
@@ -343,7 +342,6 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     GFXS_LOG("Vulkan enabled? %d", enableVk);
     GFXS_LOG("egl2egl enabled? %d", enable_egl2egl);
     GFXS_LOG("syncfd enabled? %d", !syncFdDisabledByFlag);
-    GFXS_LOG("use native texture decompression if available? %d", nativeTextureDecompression);
     GFXS_LOG("enable BPTC support if available? %d", bptcTextureSupport);
     GFXS_LOG("enable S3TC support if available? %d", s3tcTextureSupport);
     GFXS_LOG("surfaceless? %d", surfaceless);
@@ -378,7 +376,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     feature_set_enabled_override(
             kFeature_NoDelayCloseColorBuffer, true);
     feature_set_enabled_override(
-            kFeature_NativeTextureDecompression, nativeTextureDecompression);
+            kFeature_NativeTextureDecompression, false);
     feature_set_enabled_override(
             kFeature_BptcTextureSupport, bptcTextureSupport);
     feature_set_enabled_override(
