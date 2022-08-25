@@ -329,7 +329,6 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
         android::base::setEnvironmentVariable("ANDROID_EGL_ON_EGL", "1");
     }
 
-    bool syncFdDisabledByFlag = renderer_flags & GFXSTREAM_RENDERER_FLAGS_NO_SYNCFD_BIT;
     bool surfaceless =
             renderer_flags & GFXSTREAM_RENDERER_FLAGS_USE_SURFACELESS_BIT;
     bool enableGlEs31Flag = renderer_flags & GFXSTREAM_RENDERER_FLAGS_ENABLE_GLES31_BIT;
@@ -339,7 +338,6 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
 
     GFXS_LOG("Vulkan enabled? %d", enableVk);
     GFXS_LOG("egl2egl enabled? %d", enable_egl2egl);
-    GFXS_LOG("syncfd enabled? %d", !syncFdDisabledByFlag);
     GFXS_LOG("surfaceless? %d", surfaceless);
     GFXS_LOG("OpenGL ES 3.1 enabled? %d", enableGlEs31Flag);
     GFXS_LOG("guest using ANGLE? %d", guestUsesAngle);
@@ -390,7 +388,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     feature_set_enabled_override(
             kFeature_VirtioGpuNext, true);
     feature_set_enabled_override(
-            kFeature_VirtioGpuNativeSync, !syncFdDisabledByFlag);
+            kFeature_VirtioGpuNativeSync, true);
     feature_set_enabled_override(
             kFeature_GuestUsesAngle, guestUsesAngle);
     feature_set_enabled_override(
@@ -403,7 +401,6 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     // fence contexts require us to be running a new-enough guest kernel.
     feature_set_enabled_override(
            kFeature_VirtioGpuFenceContexts,
-           !syncFdDisabledByFlag &&
            (renderer_flags & GFXSTREAM_RENDERER_FLAGS_ASYNC_FENCE_CB));
     feature_set_enabled_override(kFeature_VulkanAstcLdrEmulation, true);
     feature_set_enabled_override(kFeature_VulkanEtc2Emulation, true);
