@@ -16,29 +16,30 @@
 
 #include "RenderControl.h"
 
+#include <inttypes.h>
+#include <string.h>
+
+#include <atomic>
+#include <memory>
+
+#include "ChecksumCalculatorThreadInfo.h"
 #include "DispatchTables.h"
 #include "FbConfig.h"
 #include "FenceSync.h"
 #include "FrameBuffer.h"
 #include "GLESVersionDetector.h"
+#include "OpenGLESDispatch/EGLDispatch.h"
 #include "RenderContext.h"
 #include "RenderThreadInfo.h"
 #include "SyncThread.h"
-#include "ChecksumCalculatorThreadInfo.h"
-#include "OpenGLESDispatch/EGLDispatch.h"
+#include "base/Tracing.h"
+#include "host-common/dma_device.h"
+#include "host-common/feature_control.h"
+#include "host-common/misc.h"
+#include "host-common/sync_device.h"
+#include "math.h"
 #include "vulkan/VkCommonOperations.h"
 #include "vulkan/VkDecoderGlobalState.h"
-
-#include "base/Tracing.h"
-#include "host-common/feature_control.h"
-#include "host-common/sync_device.h"
-#include "host-common/dma_device.h"
-#include "host-common/misc.h"
-#include "math.h"
-
-#include <atomic>
-#include <inttypes.h>
-#include <string.h>
 
 using android::base::AutoLock;
 using android::base::Lock;
@@ -1557,6 +1558,14 @@ static int rcReadColorBufferDMA(uint32_t colorBuffer,
     return 0;
 }
 
+static void rcSetProcessMetadata(char* key, RenderControlByte* valuePtr, uint32_t valueSize) {
+    RenderThreadInfo* tInfo = RenderThreadInfo::get();
+    if (strcmp(key, "process_name") == 0) {
+        // We know this is a c formatted string
+        tInfo->m_processName = std::string((char*) valuePtr);
+    }
+}
+
 void initRenderControlContext(renderControl_decoder_context_t *dec)
 {
     dec->rcGetRendererVersion = rcGetRendererVersion;
@@ -1624,4 +1633,5 @@ void initRenderControlContext(renderControl_decoder_context_t *dec)
     dec->rcCreateDisplayById = rcCreateDisplayById;
     dec->rcSetDisplayPoseDpi = rcSetDisplayPoseDpi;
     dec->rcReadColorBufferDMA = rcReadColorBufferDMA;
+    dec->rcSetProcessMetadata = rcSetProcessMetadata;
 }

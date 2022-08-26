@@ -48,6 +48,8 @@
 #include <assert.h>
 #include <string.h>
 
+#include <unordered_map>
+
 using android::base::AutoLock;
 using android::base::EventHangMetadata;
 using android::base::MessageChannel;
@@ -425,10 +427,16 @@ intptr_t RenderThread::main() {
         bool progress;
 
         do {
-            HealthWatchdog watchdog(
-                FrameBuffer::getFB()->getHealthMonitor(),
-                WATCHDOG_DATA("RenderThread decode operation",
-                              EventHangMetadata::HangType::kRenderThread, nullptr));
+            std::unique_ptr<std::unordered_map<std::string, std::string>> renderThreadData =
+                std::make_unique<std::unordered_map<std::string, std::string>>();
+            if (tInfo.m_processName) {
+                renderThreadData->insert(
+                    {{"renderthread_guest_process", tInfo.m_processName.value()}});
+            }
+            HealthWatchdog watchdog(FrameBuffer::getFB()->getHealthMonitor(),
+                                    WATCHDOG_DATA("RenderThread decode operation",
+                                                  EventHangMetadata::HangType::kRenderThread,
+                                                  std::move(renderThreadData)));
 
             if (!seqnoPtr && tInfo.m_puid) {
                 seqnoPtr = FrameBuffer::getFB()->getProcessSequenceNumberPtr(tInfo.m_puid);
