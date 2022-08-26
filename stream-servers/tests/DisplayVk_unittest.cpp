@@ -232,9 +232,9 @@ TEST_F(DisplayVkTest, SimplePost) {
         }
     }
     ASSERT_TRUE(texture->write(pixels));
-    const auto imageInfo = createBorrowedImageInfo(texture);
     std::vector<std::shared_future<void>> waitForGpuFutures;
     for (uint32_t i = 0; i < 10; i++) {
+        const auto imageInfo = createBorrowedImageInfo(texture);
         auto [success, waitForGpuFuture] = m_displayVk->post(imageInfo.get());
         ASSERT_TRUE(success);
         waitForGpuFutures.emplace_back(std::move(waitForGpuFuture));
@@ -259,10 +259,10 @@ TEST_F(DisplayVkTest, PostTwoColorBuffers) {
     std::vector<uint32_t> greenPixels(textureWidth * textureHeight, green);
     ASSERT_TRUE(redTexture->write(redPixels));
     ASSERT_TRUE(greenTexture->write(greenPixels));
-    const auto redImageInfo = createBorrowedImageInfo(redTexture);
-    const auto greenImageInfo = createBorrowedImageInfo(greenTexture);
     std::vector<std::shared_future<void>> waitForGpuFutures;
     for (uint32_t i = 0; i < 10; i++) {
+        const auto redImageInfo = createBorrowedImageInfo(redTexture);
+        const auto greenImageInfo = createBorrowedImageInfo(greenTexture);
         auto [success, waitForGpuFuture] = m_displayVk->post(redImageInfo.get());
         ASSERT_TRUE(success);
         waitForGpuFutures.emplace_back(std::move(waitForGpuFuture));

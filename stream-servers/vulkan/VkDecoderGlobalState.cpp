@@ -1710,7 +1710,6 @@ class VkDecoderGlobalState::Impl {
         }
         if (imageInfoIt->second.anbInfo && imageInfoIt->second.anbInfo->externallyBacked) {
             createInfo = *pCreateInfo;
-            createInfo.format = imageInfoIt->second.anbInfo->vkFormat;
             pCreateInfo = &createInfo;
         }
 
@@ -4936,13 +4935,31 @@ class VkDecoderGlobalState::Impl {
             // the contents of the memory differently, ...
             std::unique_ptr<VkImageCreateInfo> colorBufferVkImageCi = nullptr;
             std::string importSource;
+            VkFormat resolvedFormat = VK_FORMAT_UNDEFINED;
+            // Use UNORM formats for SRGB format requests.
+            switch (imageCreateInfo.format) {
+                case VK_FORMAT_R8G8B8A8_SRGB:
+                    resolvedFormat = VK_FORMAT_R8G8B8A8_UNORM;
+                    break;
+                case VK_FORMAT_R8G8B8_SRGB:
+                    resolvedFormat = VK_FORMAT_R8G8B8_UNORM;
+                    break;
+                case VK_FORMAT_B8G8R8A8_SRGB:
+                    resolvedFormat = VK_FORMAT_B8G8R8A8_UNORM;
+                    break;
+                case VK_FORMAT_R8_SRGB:
+                    resolvedFormat = VK_FORMAT_R8_UNORM;
+                    break;
+                default:
+                    resolvedFormat = imageCreateInfo.format;
+            }
             if (importAndroidHardwareBuffer) {
                 // For AHardwareBufferImage binding, we can't know which ColorBuffer this
                 // to-be-created VkImage will bind to, so we try our best to infer the creation
                 // parameters.
                 colorBufferVkImageCi = goldfish_vk::generateColorBufferVkImageCreateInfo(
-                    imageCreateInfo.format, imageCreateInfo.extent.width,
-                    imageCreateInfo.extent.height, imageCreateInfo.tiling);
+                    resolvedFormat, imageCreateInfo.extent.width, imageCreateInfo.extent.height,
+                    imageCreateInfo.tiling);
                 importSource = "AHardwareBuffer";
             } else if (pNativeBufferANDROID) {
                 // For native buffer binding, we can query the creation parameters from handle.
@@ -4959,6 +4976,7 @@ class VkDecoderGlobalState::Impl {
             if (!colorBufferVkImageCi) {
                 continue;
             }
+            imageCreateInfo.format = resolvedFormat;
             if (imageCreateInfo.flags & (~colorBufferVkImageCi->flags)) {
                 ERR("The VkImageCreateInfo to import %s contains unsupported VkImageCreateFlags. "
                     "All supported VkImageCreateFlags are %s, the input VkImageCreateInfo requires "
@@ -5013,7 +5031,7 @@ class VkDecoderGlobalState::Impl {
             if (importAndroidHardwareBuffer) {
                 continue;
             }
-            if (imageCreateInfo.format != colorBufferVkImageCi->format) {
+            if (resolvedFormat != colorBufferVkImageCi->format) {
                 ERR("The VkImageCreateInfo to import %s contains unexpected VkFormat: %s. %s "
                     "expected.",
                     importSource.c_str(), string_VkFormat(imageCreateInfo.format),

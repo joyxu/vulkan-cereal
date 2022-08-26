@@ -107,6 +107,7 @@ std::shared_future<void> PostWorker::postImpl(ColorBuffer* cb) {
         if (!success) {
             // Create swapChain and retry
             if (mBindSubwin()) {
+                const auto imageInfo = mFb->borrowColorBufferForDisplay(cb->getHndl());
                 std::tie(success, waitForGpu) = m_displayVk->post(imageInfo.get());
             }
             if (!success) {

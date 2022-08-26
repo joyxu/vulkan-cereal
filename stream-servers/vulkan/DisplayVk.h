@@ -79,6 +79,24 @@ class DisplayVk {
         m_postResourceFutures;
     int m_inFlightFrameIndex;
 
+    class ImageBorrowResource {
+       public:
+        const VkFence m_completeFence;
+        const VkCommandBuffer m_vkCommandBuffer;
+        static std::unique_ptr<ImageBorrowResource> create(const goldfish_vk::VulkanDispatch&,
+                                                           VkDevice, VkCommandPool);
+        ~ImageBorrowResource();
+        DISALLOW_COPY_ASSIGN_AND_MOVE(ImageBorrowResource);
+
+       private:
+        ImageBorrowResource(const goldfish_vk::VulkanDispatch&, VkDevice, VkCommandPool, VkFence,
+                            VkCommandBuffer);
+        const goldfish_vk::VulkanDispatch& m_vk;
+        const VkDevice m_vkDevice;
+        const VkCommandPool m_vkCommandPool;
+    };
+    std::vector<std::unique_ptr<ImageBorrowResource>> m_imageBorrowResources;
+
     std::unique_ptr<SwapChainStateVk> m_swapChainStateVk;
 
     struct SurfaceState {

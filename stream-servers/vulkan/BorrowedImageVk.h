@@ -49,10 +49,12 @@ struct BorrowedImageInfoVk : public BorrowedImageInfo {
     uint32_t postBorrowQueueFamilyIndex = 0;
 };
 
+// The caller should always record the queue transfer barriers with stages that supoort
+// VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT.
 void addNeededBarriersToUseBorrowedImage(
     const BorrowedImageInfoVk& borrowedImageInfo, uint32_t usedQueueFamilyIndex,
     VkImageLayout usedInitialImageLayout, VkImageLayout usedFinalImageLayout,
-    std::vector<VkImageMemoryBarrier>* preUseQueueTransferBarriers,
+    VkAccessFlags usedAccessMask, std::vector<VkImageMemoryBarrier>* preUseQueueTransferBarriers,
     std::vector<VkImageMemoryBarrier>* preUseLayoutTransitionBarriers,
     std::vector<VkImageMemoryBarrier>* postUseLayoutTransitionBarriers,
     std::vector<VkImageMemoryBarrier>* postUseQueueTransferBarriers);
