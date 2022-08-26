@@ -15,14 +15,14 @@
 
 #include <memory>
 
-#include "Renderer.h"
-#include "render_api_types.h"
 #include "base/Stream.h"
 #include "host-common/RefcountPipe.h"
 #include "host-common/vm_operations.h"
 #include "host-common/window_agent.h"
 #include "host-common/multi_display_agent.h"
 #include "host-common/opengl/emugl_config.h"
+#include "render-utils/Renderer.h"
+#include "render-utils/render_api_types.h"
 
 extern "C" {
 

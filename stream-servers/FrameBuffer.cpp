@@ -24,10 +24,10 @@
 
 #include "CompositorGl.h"
 #include "ContextHelper.h"
-#include "DispatchTables.h"
 #include "GLESVersionDetector.h"
 #include "Hwc2.h"
 #include "NativeSubWindow.h"
+#include "OpenGLESDispatch/DispatchTables.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "RenderControl.h"
 #include "RenderThreadInfo.h"

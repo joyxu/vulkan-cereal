@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "render_api_types.h"
+#include "render-utils/render_api_types.h"
 
 #ifdef _MSC_VER
 #  define EMUGL_COMMON_API __declspec(dllexport)

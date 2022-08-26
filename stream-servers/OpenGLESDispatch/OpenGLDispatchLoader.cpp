@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "OpenGLDispatchLoader.h"
+#include "OpenGLESDispatch/OpenGLDispatchLoader.h"
 
 #include "OpenGLESDispatch/DispatchTables.h"
 

@@ -13,7 +13,7 @@
 // limitations under the License.
 #pragma once
 
-#include "RenderLib.h"
+#include "render-utils/RenderLib.h"
 
 #include "base/Compiler.h"
 #include "host-common/vm_operations.h"

@@ -23,11 +23,11 @@
 #include <memory>
 
 #include "ChecksumCalculatorThreadInfo.h"
-#include "DispatchTables.h"
 #include "FbConfig.h"
 #include "FenceSync.h"
 #include "FrameBuffer.h"
 #include "GLESVersionDetector.h"
+#include "OpenGLESDispatch/DispatchTables.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "RenderContext.h"
 #include "RenderThreadInfo.h"

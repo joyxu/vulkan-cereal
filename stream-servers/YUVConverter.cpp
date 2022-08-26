@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <string>
 
-#include "DispatchTables.h"
+#include "OpenGLESDispatch/DispatchTables.h"
 #include "host-common/feature_control.h"
 #include "host-common/misc.h"
 

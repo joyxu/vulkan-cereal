@@ -16,7 +16,7 @@
 
 #include "GLESVersionDetector.h"
 
-#include "EGLDispatch.h"
+#include "OpenGLESDispatch/EGLDispatch.h"
 
 #include "base/System.h"
 #include "base/StringUtils.h"

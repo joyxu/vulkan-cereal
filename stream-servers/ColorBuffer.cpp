@@ -21,7 +21,6 @@
 
 #include "BorrowedImageGl.h"
 #include "Debug.h"
-#include "DispatchTables.h"
 #include "OpenGLESDispatch/DispatchTables.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "RenderThreadInfo.h"
