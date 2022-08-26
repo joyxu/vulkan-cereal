@@ -154,6 +154,16 @@ VG_EXPORT int stream_renderer_platform_destroy_shared_egl_context(void*);
 #define STREAM_RENDERER_MAP_CACHE_WC        0x03
 VG_EXPORT int stream_renderer_resource_map_info(uint32_t res_handle, uint32_t *map_info);
 
+struct stream_renderer_vulkan_info {
+    // This may be removed eventually [TODO(idanr): investigate)]
+    uint32_t memory_index;
+    // This may be changed to device UUID instead [TODO(idanr): investigate)]
+    uint32_t physical_device_index;
+};
+
+VG_EXPORT int stream_renderer_vulkan_info(uint32_t res_handle,
+                                          struct stream_renderer_vulkan_info *vulkan_info);
+
 #else
 
 #define VG_EXPORT

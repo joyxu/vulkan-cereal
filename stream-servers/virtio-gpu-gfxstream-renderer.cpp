@@ -21,6 +21,7 @@
 #include "base/AlignedBuf.h"
 #include "base/Lock.h"
 #include "base/SharedMemory.h"
+#include "base/ManagedDescriptor.hpp"
 #include "base/Tracing.h"
 #include "host-common/AddressSpaceService.h"
 #include "host-common/GfxstreamFatalError.h"
@@ -148,10 +149,13 @@ extern "C" {
 // based on the box parameter's x and width values.
 
 using android::base::AutoLock;
+using android::base::DescriptorType;
 using android::base::Lock;
+using android::base::ManagedDescriptor;
 using android::base::SharedMemory;
 
 using android::emulation::HostmemIdMapping;
+using android::emulation::ManagedDescriptorInfo;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
 
@@ -197,11 +201,13 @@ struct PipeResEntry {
     void* hva;
     uint64_t hvaSize;
     uint64_t blobId;
-    uint64_t blobMem;
+    uint32_t blobMem;
+    uint32_t blobFlags;
     uint32_t caching;
     ResType type;
     std::shared_ptr<SharedMemory> ringBlob = nullptr;
     bool externalAddr = false;
+    std::shared_ptr<ManagedDescriptorInfo> descriptorInfo = nullptr;
 };
 
 static inline uint32_t align_up(uint32_t n, uint32_t a) {
@@ -1467,6 +1473,15 @@ public:
             if (ret) {
                 return ret;
             }
+        } else if (feature_is_enabled(kFeature_ExternalBlob)) {
+            auto descriptorInfoOpt = HostmemIdMapping::get()->removeDescriptorInfo(create_blob->blob_id);
+            if (descriptorInfoOpt) {
+                e.descriptorInfo = std::make_shared<ManagedDescriptorInfo>(std::move(*descriptorInfoOpt));
+            } else {
+                return -EINVAL;
+            }
+
+            e.caching = e.descriptorInfo->caching;
         } else {
             auto entry = HostmemIdMapping::get()->get(create_blob->blob_id);
             e.hva = entry.hva;
@@ -1477,6 +1492,7 @@ public:
 
         e.blobId = create_blob->blob_id;
         e.blobMem = create_blob->blob_mem;
+        e.blobFlags = create_blob->blob_flags;
         e.iov = nullptr;
         e.numIovs = 0;
         e.linear = 0;
@@ -1489,6 +1505,10 @@ public:
 
     int resourceMap(uint32_t res_handle, void** hvaOut, uint64_t* sizeOut) {
         AutoLock lock(mLock);
+
+        if (feature_is_enabled(kFeature_ExternalBlob))
+            return -EINVAL;
+
         auto it = mResources.find(res_handle);
         if (it == mResources.end()) {
             if (hvaOut) *hvaOut = nullptr;
@@ -1560,7 +1580,7 @@ public:
             return -EINVAL;
         }
 
-        const auto& entry = it->second;
+        auto& entry = it->second;
         if (entry.ringBlob) {
             // Handle ownership transferred to VMM, gfxstream keeps the mapping.
 #ifdef _WIN32
@@ -1570,6 +1590,52 @@ public:
             handle->os_handle = static_cast<int64_t>(entry.ringBlob->releaseHandle());
 #endif
             handle->handle_type = STREAM_MEM_HANDLE_TYPE_SHM;
+            return 0;
+        }
+
+        if (entry.descriptorInfo) {
+            bool shareable = entry.blobFlags &
+                            (STREAM_BLOB_FLAG_USE_SHAREABLE | STREAM_BLOB_FLAG_USE_CROSS_DEVICE);
+
+            DescriptorType rawDescriptor;
+            if (shareable) {
+                // TODO: Add ManagedDescriptor::{clone, dup} method and use it;
+                // This should have no affect since gfxstream allocates mappable-only buffers currently
+                return -EINVAL;
+            } else {
+                auto rawDescriptorOpt = entry.descriptorInfo->descriptor.release();
+                if (rawDescriptorOpt)
+                    rawDescriptor = *rawDescriptorOpt;
+                else
+                    return -EINVAL;
+            }
+
+            handle->handle_type = entry.descriptorInfo->handleType;
+
+#ifdef _WIN32
+            handle->os_handle =
+                static_cast<int64_t>(reinterpret_cast<intptr_t>(rawDescriptor);
+#else
+            handle->os_handle = static_cast<int64_t>(rawDescriptor);
+#endif
+
+            return 0;
+        }
+
+        return -EINVAL;
+    }
+
+    int vulkanInfo(uint32_t res_handle, struct stream_renderer_vulkan_info *vulkan_info) {
+        AutoLock lock(mLock);
+        auto it = mResources.find(res_handle);
+        if (it == mResources.end()) return -EINVAL;
+
+        const auto& entry = it->second;
+        if (entry.descriptorInfo && entry.descriptorInfo->vulkanInfoOpt) {
+            vulkan_info->memory_index = (*entry.descriptorInfo->vulkanInfoOpt).memoryIndex;
+            vulkan_info->physical_device_index =
+                (*entry.descriptorInfo->vulkanInfoOpt).physicalDeviceIndex;
+
             return 0;
         }
 
@@ -1843,6 +1909,11 @@ VG_EXPORT int stream_renderer_platform_destroy_shared_egl_context(void* context)
 
 VG_EXPORT int stream_renderer_resource_map_info(uint32_t res_handle, uint32_t *map_info) {
     return sRenderer()->resourceMapInfo(res_handle, map_info);
+}
+
+VG_EXPORT int stream_renderer_vulkan_info(uint32_t res_handle,
+                                          struct stream_renderer_vulkan_info *vulkan_info) {
+    return sRenderer()->vulkanInfo(res_handle, vulkan_info);
 }
 
 #define VIRGLRENDERER_API_PIPE_STRUCT_DEF(api) pipe_##api,

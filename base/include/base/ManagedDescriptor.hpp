@@ -37,6 +37,10 @@ struct PlatformTraitUnixLike {
 #endif
 }  // namespace internal
 
+
+template <class PlatformTrait>
+using DescriptorTypeBase = typename PlatformTrait::DescriptorType;
+
 // An RAII wrapper for fd on *nix or HANDLE on Windows. The interfaces are similar to std::unique.
 template <class PlatformTrait>
 class ManagedDescriptorBase {
@@ -94,8 +98,10 @@ class ManagedDescriptorBase {
 };
 
 #ifdef _WIN32
+using DescriptorType = DescriptorTypeBase<internal::PlatformTraitWin32>;
 using ManagedDescriptor = ManagedDescriptorBase<internal::PlatformTraitWin32>;
 #elif defined(__APPLE__) || defined(__linux__)
+using DescriptorType = DescriptorTypeBase<internal::PlatformTraitUnixLike>;
 using ManagedDescriptor = ManagedDescriptorBase<internal::PlatformTraitUnixLike>;
 #endif
 
