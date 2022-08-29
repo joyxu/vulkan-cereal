@@ -43,7 +43,7 @@
 #include "base/StreamSerializing.h"
 #include "base/System.h"
 #include "base/Tracing.h"
-#include "gles2_dec/gles2_dec.h"
+#include "gl/gles2_dec/gles2_dec.h"
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/crash_reporter.h"
 #include "host-common/feature_control.h"

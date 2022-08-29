@@ -12,10 +12,6 @@ add_subdirectory(vulkan)
 add_subdirectory(glestranslator)
 add_subdirectory(libGLSnapshot)
 
-# GLES decoder
-add_subdirectory(gles1_dec)
-add_subdirectory(gles2_dec)
-
 # GLES dispatch based on Translator
 add_subdirectory(OpenGLESDispatch)
 
@@ -75,8 +71,6 @@ target_link_libraries(
         GLES_CM_translator_static
         ${GFXSTREAM_BASE_LIB}
         OpenGLESDispatch
-        gles1_dec
-        gles2_dec
         renderControl_dec
         gfxstream-gl-server
         gfxstream-vulkan-server

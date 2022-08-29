@@ -14,4 +14,8 @@ cc_library_static {
     srcs: [
         "EmulatedEglConfig.cpp",
     ],
+    static_libs: [
+        "gfxstream_gles1_dec",
+        "gfxstream_gles2_dec",
+    ],
 }

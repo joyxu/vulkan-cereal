@@ -1,10 +1,16 @@
+# GLES decoder
+add_subdirectory(gles1_dec)
+add_subdirectory(gles2_dec)
+
 add_library(gfxstream-gl-server
             EmulatedEglConfig.cpp)
 
 target_link_libraries(
         gfxstream-gl-server
         PUBLIC
-        gfxstream-base.headers)
+        gfxstream-base.headers
+        gles1_dec
+        gles2_dec)
 
 target_include_directories(gfxstream-gl-server
                            PRIVATE
