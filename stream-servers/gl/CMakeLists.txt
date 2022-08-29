@@ -9,7 +9,8 @@ add_subdirectory(OpenGLESDispatch)
 add_subdirectory(glestranslator)
 
 add_library(gfxstream-gl-server
-            EmulatedEglConfig.cpp)
+            EmulatedEglConfig.cpp
+            TextureResize.cpp)
 
 target_link_libraries(
         gfxstream-gl-server

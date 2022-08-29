@@ -13,6 +13,7 @@ cc_library_static {
     defaults: [ "gfxstream_defaults" ],
     srcs: [
         "EmulatedEglConfig.cpp",
+        "TextureResize.cpp",
     ],
     static_libs: [
         "gfxstream_gles1_dec",
