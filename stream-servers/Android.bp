@@ -72,7 +72,6 @@ cc_library_shared {
         "RenderThreadInfoGl.cpp",
         "RingStream.cpp",
         "SyncThread.cpp",
-        "TextureDraw.cpp",
         "WindowSurface.cpp",
         "YUVConverter.cpp",
         "RenderContext.cpp",

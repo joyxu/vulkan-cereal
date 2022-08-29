@@ -10,6 +10,7 @@ add_subdirectory(glestranslator)
 
 add_library(gfxstream-gl-server
             EmulatedEglConfig.cpp
+            TextureDraw.cpp
             TextureResize.cpp)
 
 target_link_libraries(
