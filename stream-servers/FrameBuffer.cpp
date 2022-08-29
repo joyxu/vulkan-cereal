@@ -22,7 +22,6 @@
 
 #include <iomanip>
 
-#include "CompositorGl.h"
 #include "ContextHelper.h"
 #include "GLESVersionDetector.h"
 #include "Hwc2.h"
@@ -894,7 +893,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         fb->m_compositor = vkEmu->compositorVk.get();
     } else {
         GL_LOG("Performing composition using CompositorGl.");
-        fb->m_compositorGl = std::make_unique<CompositorGl>();
+        fb->m_compositorGl = std::make_unique<CompositorGl>(fb->m_textureDraw);
         fb->m_compositor = fb->m_compositorGl.get();
     }
 

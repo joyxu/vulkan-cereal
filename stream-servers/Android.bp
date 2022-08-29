@@ -57,7 +57,6 @@ cc_library_shared {
         "Buffer.cpp",
         "ChannelStream.cpp",
         "ColorBuffer.cpp",
-        "CompositorGl.cpp",
         "Debug.cpp",
         "FenceSync.cpp",
         "GLESVersionDetector.cpp",

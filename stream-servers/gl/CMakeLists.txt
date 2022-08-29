@@ -9,6 +9,7 @@ add_subdirectory(OpenGLESDispatch)
 add_subdirectory(glestranslator)
 
 add_library(gfxstream-gl-server
+            CompositorGl.cpp
             EmulatedEglConfig.cpp
             TextureDraw.cpp
             TextureResize.cpp)
@@ -17,6 +18,7 @@ target_link_libraries(
         gfxstream-gl-server
         PUBLIC
         gfxstream-base.headers
+        gfxstream_vulkan_headers
         gles1_dec
         gles2_dec
         OpenGLESDispatch)
