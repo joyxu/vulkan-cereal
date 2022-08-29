@@ -8,8 +8,6 @@ add_subdirectory(gl)
 # Vulkan
 add_subdirectory(vulkan)
 
-# GLES translator
-add_subdirectory(glestranslator)
 add_subdirectory(libGLSnapshot)
 
 # RenderControl decoder
@@ -157,8 +155,8 @@ target_include_directories(
     ${GFXSTREAM_REPO_ROOT}/base/testing
     ${GFXSTREAM_REPO_ROOT}/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers
-    ${GFXSTREAM_REPO_ROOT}/stream-servers/glestranslator/GLES_CM
-    ${GFXSTREAM_REPO_ROOT}/stream-servers/glestranslator/include
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/gl/glestranslator/GLES_CM
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/gl/glestranslator/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
     ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan)
 target_link_libraries(

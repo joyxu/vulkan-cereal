@@ -5,6 +5,9 @@ add_subdirectory(gles2_dec)
 # GLES dispatch based on Translator
 add_subdirectory(OpenGLESDispatch)
 
+# GLES translator
+add_subdirectory(glestranslator)
+
 add_library(gfxstream-gl-server
             EmulatedEglConfig.cpp)
 

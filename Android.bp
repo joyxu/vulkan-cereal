@@ -52,7 +52,7 @@ cc_library_headers {
         "snapshot/include",
         "stream-servers",
         "stream-servers/gl",
-        "stream-servers/glestranslator/include",
+        "stream-servers/gl/glestranslator/include",
         "stream-servers/vulkan",
     ],
     header_libs: ["gfxstream_vulkan_headers"],
