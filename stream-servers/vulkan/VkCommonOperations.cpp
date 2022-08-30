@@ -1477,6 +1477,10 @@ static VkFormat glFormat2VkFormat(GLint internalformat) {
         case GL_BGRA_EXT:
         case GL_BGRA8_EXT:
             return VK_FORMAT_B8G8R8A8_UNORM;
+        case GL_R16_EXT:
+            return VK_FORMAT_R16_UNORM;
+        case GL_RG8_EXT:
+            return VK_FORMAT_R8G8_UNORM;
         default:
             VK_COMMON_ERROR("Unhandled format %d, falling back to VK_FORMAT_R8G8B8A8_UNORM",
                             internalformat);
