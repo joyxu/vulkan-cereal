@@ -1,6 +1,3 @@
-#ifndef VULKAN_GFXSTREAM_H_
-#define VULKAN_GFXSTREAM_H_ 1
-
 // Copyright (C) 2022 The Android Open Source Project
 // Copyright (C) 2022 Google Inc.
 //
@@ -21,6 +18,7 @@
 // re-run gfxstream-protocols/scripts/generate-vulkan-sources.sh,
 // or directly from Python by calling the genvk.py script with correct parameters.
 
+#pragma once
 #ifdef VK_GFXSTREAM_STRUCTURE_TYPE_EXT
 #include "vulkan_gfxstream_structure_type.h"
 #endif
@@ -212,6 +210,4 @@ VKAPI_ATTR void VKAPI_CALL vkQueueSignalReleaseImageANDROIDAsyncGOOGLE(
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif
