@@ -40,7 +40,6 @@
 #include "PostWorker.h"
 #include "ReadbackWorker.h"
 #include "RenderContext.h"
-#include "Renderer.h"
 #include "TextureDraw.h"
 #include "WindowSurface.h"
 #include "base/AsyncResult.h"
@@ -54,8 +53,9 @@
 #include "base/WorkerThread.h"
 #include "host-common/RenderDoc.h"
 #include "render_api.h"
+#include "render-utils/Renderer.h"
+#include "render-utils/virtio_gpu_ops.h"
 #include "snapshot/common.h"
-#include "virtio_gpu_ops.h"
 #include "vulkan/vk_util.h"
 
 using android::base::CreateMetricsLogger;

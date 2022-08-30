@@ -25,7 +25,7 @@
 
 #include "base/Lock.h"
 #include "virtio-gpu-gfxstream-renderer.h"
-#include "virtio_gpu_ops.h"
+#include "render-utils/virtio_gpu_ops.h"
 
 struct VirtioGpuRingGlobal {};
 struct VirtioGpuRingContextSpecific {

@@ -13,12 +13,12 @@
 // limitations under the License.
 #pragma once
 
-#include "RenderChannel.h"
-#include "render_api_platform_types.h"
 #include "base/Stream.h"
 #include "base/ring_buffer.h"
 #include "host-common/address_space_graphics_types.h"
-#include "virtio_gpu_ops.h"
+#include "render-utils/RenderChannel.h"
+#include "render-utils/render_api_platform_types.h"
+#include "render-utils/virtio_gpu_ops.h"
 #include "snapshot/common.h"
 
 #include <functional>

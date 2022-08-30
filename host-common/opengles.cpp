@@ -33,9 +33,9 @@
 #include "host-common/opengl/logger.h"
 #include "host-common/opengl/gpuinfo.h"
 
-#include "../stream-servers/render_api_functions.h"
-#include "../stream-servers/OpenGLESDispatch/EGLDispatch.h"
-#include "../stream-servers/OpenGLESDispatch/GLESv2Dispatch.h"
+#include "render-utils/render_api_functions.h"
+#include "OpenGLESDispatch/EGLDispatch.h"
+#include "OpenGLESDispatch/GLESv2Dispatch.h"
 
 #include <assert.h>
 #include <stdio.h>

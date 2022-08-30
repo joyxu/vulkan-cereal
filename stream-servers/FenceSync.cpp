@@ -16,7 +16,7 @@
 
 #include "FenceSync.h"
 
-#include "DispatchTables.h"
+#include "OpenGLESDispatch/DispatchTables.h"
 #include "FrameBuffer.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "RenderThreadInfo.h"

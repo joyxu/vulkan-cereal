@@ -15,7 +15,7 @@
 */
 
 #include "GLESv2Decoder.h"
-#include "GLESv2Dispatch.h"
+#include "OpenGLESDispatch/GLESv2Dispatch.h"
 
 #include "base/Lock.h"
 

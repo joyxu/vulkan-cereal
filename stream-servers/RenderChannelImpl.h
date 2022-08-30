@@ -14,7 +14,7 @@
 #pragma once
 
 #include "base/BufferQueue.h"
-#include "RenderChannel.h"
+#include "render-utils/RenderChannel.h"
 #include "RendererImpl.h"
 
 namespace emugl {
