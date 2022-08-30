@@ -60,7 +60,6 @@ cc_library_shared {
         "ColorBuffer.cpp",
         "Debug.cpp",
         "FenceSync.cpp",
-        "GLESVersionDetector.cpp",
         "Hwc2.cpp",
         "PostWorker.cpp",
         "ReadbackWorker.cpp",

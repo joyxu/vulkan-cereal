@@ -22,7 +22,6 @@ set(stream-server-core-sources
     ColorBuffer.cpp
     Debug.cpp
     FenceSync.cpp
-    GLESVersionDetector.cpp
     Hwc2.cpp
     PostWorker.cpp
     ReadbackWorker.cpp

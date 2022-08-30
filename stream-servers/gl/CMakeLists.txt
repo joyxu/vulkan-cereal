@@ -11,6 +11,7 @@ add_subdirectory(glestranslator)
 add_library(gfxstream-gl-server
             CompositorGl.cpp
             EmulatedEglConfig.cpp
+            GLESVersionDetector.cpp
             TextureDraw.cpp
             TextureResize.cpp)
 

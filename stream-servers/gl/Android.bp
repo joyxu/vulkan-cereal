@@ -14,6 +14,7 @@ cc_library_static {
     srcs: [
         "CompositorGl.cpp",
         "EmulatedEglConfig.cpp",
+        "GLESVersionDetector.cpp",
         "TextureDraw.cpp",
         "TextureResize.cpp",
     ],
