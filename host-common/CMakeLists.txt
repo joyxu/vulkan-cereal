@@ -36,7 +36,7 @@ target_include_directories(
     gfxstream-host-common.headers
     INTERFACE
     include
-    ${GFXSTREAM_REPO_ROOT}/render-utils/include)
+    ${GFXSTREAM_REPO_ROOT}/include)
 
 if (BUILD_STANDALONE)
     add_library(
@@ -100,7 +100,6 @@ if (BUILD_STANDALONE)
         include/host-common/opengl
         ${GFXSTREAM_REPO_ROOT}
         ${GFXSTREAM_REPO_ROOT}/include
-        ${GFXSTREAM_REPO_ROOT}/gldispatch/include
         ${GFXSTREAM_REPO_ROOT}/stream-servers)
     target_link_libraries(
         gfxstream-host-common
