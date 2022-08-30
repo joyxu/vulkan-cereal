@@ -103,6 +103,7 @@ struct VkEmulation {
     VulkanDispatch* dvk = nullptr;
 
     bool instanceSupportsExternalMemoryCapabilities = false;
+    bool instanceSupportsExternalSemaphoreCapabilities = false;
     PFN_vkGetPhysicalDeviceImageFormatProperties2KHR getImageFormatProperties2Func = nullptr;
     PFN_vkGetPhysicalDeviceProperties2KHR getPhysicalDeviceProperties2Func = nullptr;
     PFN_vkGetPhysicalDeviceFeatures2 getPhysicalDeviceFeatures2Func = nullptr;

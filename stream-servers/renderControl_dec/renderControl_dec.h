@@ -12,7 +12,7 @@
 
 struct renderControl_decoder_context_t : public renderControl_server_context_t {
 
-	size_t decode(void* buf, size_t bufsize, IOStream* stream, ChecksumCalculator* checksumCalc);
+	size_t decode(void *buf, size_t bufsize, IOStream *stream, ChecksumCalculator* checksumCalc);
 
 };
 

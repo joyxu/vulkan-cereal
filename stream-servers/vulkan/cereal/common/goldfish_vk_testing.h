@@ -22,20 +22,16 @@
 // VULKAN_REGISTRY_SCRIPTS_DIR : Directory containing genvk.py
 // CEREAL_OUTPUT_DIR: Where to put the generated sources.
 // python3 $VULKAN_REGISTRY_SCRIPTS_DIR/genvk.py -registry $VULKAN_REGISTRY_XML_DIR/vk.xml cereal -o $CEREAL_OUTPUT_DIR
-
 #pragma once
-
 #include <vulkan/vulkan.h>
-
+#include "vulkan_gfxstream.h"
 
 #include "goldfish_vk_private_defs.h"
 #include <string.h>
 #include <functional>
 using OnFailCompareFunc = std::function<void(const char*)>;
 
-
 namespace goldfish_vk {
-
 #ifdef VK_VERSION_1_0
 void checkEqual_VkExtent2D(
     const VkExtent2D* a,

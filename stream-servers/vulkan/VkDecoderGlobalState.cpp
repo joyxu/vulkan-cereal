@@ -88,9 +88,9 @@ using emugl::GfxApiLogger;
 
 namespace goldfish_vk {
 
-// A list of extensions that should not be passed to the host driver.
+// A list of device extensions that should not be passed to the host driver.
 // These will mainly include Vulkan features that we emulate ourselves.
-static constexpr const char* const kEmulatedExtensions[] = {
+static constexpr const char* const kEmulatedDeviceExtensions[] = {
     "VK_ANDROID_external_memory_android_hardware_buffer",
     "VK_ANDROID_native_buffer",
     "VK_FUCHSIA_buffer_collection",
@@ -98,13 +98,19 @@ static constexpr const char* const kEmulatedExtensions[] = {
     "VK_FUCHSIA_external_semaphore",
     VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME,
     VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
-    VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME,
     VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
-    VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME,
     VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME,
-    VK_KHR_EXTERNAL_FENCE_CAPABILITIES_EXTENSION_NAME,
     VK_KHR_EXTERNAL_FENCE_EXTENSION_NAME,
     VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME,
+    VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME,
+};
+
+// A list of instance extensions that should not be passed to the host driver.
+// On older pre-1.1 Vulkan platforms, gfxstream emulates these features.
+static constexpr const char* const kEmulatedInstanceExtensions[] = {
+    VK_KHR_EXTERNAL_FENCE_CAPABILITIES_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME,
 };
 
 static constexpr uint32_t kMaxSafeVersion = VK_MAKE_VERSION(1, 1, 0);
@@ -387,7 +393,7 @@ class VkDecoderGlobalState::Impl {
     VkResult on_vkCreateInstance(android::base::BumpPool* pool,
                                  const VkInstanceCreateInfo* pCreateInfo,
                                  const VkAllocationCallbacks* pAllocator, VkInstance* pInstance) {
-        std::vector<const char*> finalExts = filteredExtensionNames(
+        std::vector<const char*> finalExts = filteredInstanceExtensionNames(
             pCreateInfo->enabledExtensionCount, pCreateInfo->ppEnabledExtensionNames);
 
         INFO("Creating Vulkan instance for app: %s engine: %s",
@@ -1139,16 +1145,8 @@ class VkDecoderGlobalState::Impl {
         auto physicalDevice = unbox_VkPhysicalDevice(boxed_physicalDevice);
         auto vk = dispatch_VkPhysicalDevice(boxed_physicalDevice);
 
-        std::vector<const char*> finalExts = filteredExtensionNames(
+        std::vector<const char*> finalExts = filteredDeviceExtensionNames(vk, physicalDevice,
             pCreateInfo->enabledExtensionCount, pCreateInfo->ppEnabledExtensionNames);
-
-#ifdef _WIN32
-        // Always request VK_KHR_external_semaphore_win32 if it's supported. This fixes a crash
-        // when RenderDoc is used on Vulkan-on-Vulkan apps.
-        if (isExternalSemaphoreWin32Supported(vk, physicalDevice)) {
-            finalExts.push_back(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
-        }
-#endif
 
         // Run the underlying API call, filtering extensions.
         VkDeviceCreateInfo createInfoFiltered = *pCreateInfo;
@@ -3500,17 +3498,6 @@ class VkDecoderGlobalState::Impl {
                                                         properties.data());
     }
 
-#ifdef _WIN32
-    bool isExternalSemaphoreWin32Supported(VulkanDispatch* vk, VkPhysicalDevice physicalDevice) {
-        std::vector<VkExtensionProperties> properties;
-        VkResult result =
-            enumerateDeviceExtensionProperties(vk, physicalDevice, nullptr, properties);
-        if (result != VK_SUCCESS) return false;
-
-        return hasDeviceExtension(properties, VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
-    }
-#endif
-
     // VK_ANDROID_native_buffer
     VkResult on_vkGetSwapchainGrallocUsageANDROID(android::base::BumpPool* pool, VkDevice,
                                                   VkFormat format, VkImageUsageFlags imageUsage,
@@ -5220,13 +5207,16 @@ class VkDecoderGlobalState::Impl {
     VkDecoderSnapshot* snapshot() { return &mSnapshot; }
 
    private:
-    bool isEmulatedExtension(const char* name) const {
-        for (auto emulatedExt : kEmulatedExtensions) {
+    bool isEmulatedInstanceExtension(const char *name) const {
+        for (auto emulatedExt : kEmulatedInstanceExtensions) {
             if (!strcmp(emulatedExt, name)) return true;
         }
-        if (!strcmp(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME, name)) {
-            return !m_emu->deviceInfo.hasSamplerYcbcrConversionExtension &&
-                   m_emu->enableYcbcrEmulation;
+        return false;
+    }
+
+    bool isEmulatedDeviceExtension(const char* name) const {
+        for (auto emulatedExt : kEmulatedDeviceExtensions) {
+            if (!strcmp(emulatedExt, name)) return true;
         }
         return false;
     }
@@ -5238,44 +5228,80 @@ class VkDecoderGlobalState::Impl {
         return !(usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) && !(type == VK_IMAGE_TYPE_1D);
     }
 
-    std::vector<const char*> filteredExtensionNames(uint32_t count, const char* const* extNames) {
+    std::vector<const char*> filteredDeviceExtensionNames(VulkanDispatch* vk, VkPhysicalDevice physicalDevice,
+                                                          uint32_t count, const char* const* extNames) {
         std::vector<const char*> res;
+        std::vector<VkExtensionProperties> properties;
+        VkResult result;
+
         for (uint32_t i = 0; i < count; ++i) {
             auto extName = extNames[i];
-            if (!isEmulatedExtension(extName)) {
+            if (!isEmulatedDeviceExtension(extName)) {
                 res.push_back(extName);
                 continue;
             }
-            if (m_emu->instanceSupportsMoltenVK) {
-                continue;
-            }
-            if (!strcmp(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME, extName)) {
-                res.push_back(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
-            }
-            if (!strcmp(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME, extName)) {
-                res.push_back(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
-            }
-            if (!strcmp(VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME, extName)) {
-                res.push_back(VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME);
-            }
-            if (!strcmp(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME, extName)) {
-                res.push_back(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
-            }
-            if (!strcmp("VK_ANDROID_external_memory_android_hardware_buffer", extName) ||
-                !strcmp("VK_FUCHSIA_external_memory", extName)) {
+        }
+
+        result = enumerateDeviceExtensionProperties(vk, physicalDevice, nullptr, properties);
+        if (result != VK_SUCCESS) {
+            VKDGS_LOG("failed to enumerate device extensions");
+            return res;
+        }
+
+        if (hasDeviceExtension(properties, VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME)) {
+            res.push_back(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
+        }
+
+        if (hasDeviceExtension(properties, VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME)) {
+            res.push_back(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
+        }
+
+        if (hasDeviceExtension(properties, VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME)) {
+            res.push_back(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME);
+
+        }
+
 #ifdef _WIN32
-                res.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
-#else
-                res.push_back(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME);
+        if (hasDeviceExtension(properties, VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME)) {
+            res.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
+        }
+
+        if (hasDeviceExtension(properties, VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME)) {
+            res.push_back(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
+        }
+#elif __unix__
+        if (hasDeviceExtension(properties, VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME)) {
+            res.push_back(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME);
+        }
+
+        if (hasDeviceExtension(properties, VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME)) {
+            res.push_back(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME);
+        }
 #endif
-            }
-            // External semaphore - non-Windows case is handled here
-            // Windows case is handled in on_vkCreateDevice
-            if (!strcmp(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME, extName)) {
-#ifndef _WIN32
-                res.push_back(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME);
+
+#ifdef __linux__
+        if (hasDeviceExtension(properties, VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME)) {
+            res.push_back(VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME);
+        }
 #endif
+        return res;
+    }
+
+    std::vector<const char*> filteredInstanceExtensionNames(uint32_t count, const char* const* extNames) {
+        std::vector<const char*> res;
+        for (uint32_t i = 0; i < count; ++i) {
+            auto extName = extNames[i];
+            if (!isEmulatedInstanceExtension(extName)) {
+                res.push_back(extName);
             }
+        }
+
+        if (m_emu->instanceSupportsExternalMemoryCapabilities) {
+            res.push_back(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
+        }
+
+        if (m_emu->instanceSupportsExternalSemaphoreCapabilities) {
+            res.push_back(VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME);
         }
 
         return res;
