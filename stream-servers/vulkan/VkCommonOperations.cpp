@@ -1826,6 +1826,9 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle, bool vulkanOnly, uint32_t me
             colorBufferHandle, res.image, *imageCi);
     }
     res.glExported = glExported;
+    if (vulkanOnly) {
+        res.vulkanMode = VkEmulation::VulkanMode::VulkanOnly;
+    }
 
     if (exported) *exported = res.glExported;
     if (allocSize) *allocSize = res.memory.size;
