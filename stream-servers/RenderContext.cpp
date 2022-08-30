@@ -15,18 +15,15 @@
 */
 #include "RenderContext.h"
 
-#include "GLESVersionDetector.h"
+#include <assert.h>
 
+#include "GLESVersionDetector.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "OpenGLESDispatch/GLESv1Dispatch.h"
-
 #include "base/SmallVector.h"
-
 #include "host-common/feature_control.h"
 #include "host-common/logging.h"
 #include "host-common/misc.h"
-
-#include <assert.h>
 
 RenderContext* RenderContext::create(EGLDisplay display,
                                      EGLConfig config,

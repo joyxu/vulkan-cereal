@@ -14,11 +14,11 @@
 
 #include "EmulatedEglConfig.h"
 
+#include "OpenGLESDispatch/EGLDispatch.h"
 #include "host-common/opengl/emugl_config.h"
 #include "host-common/feature_control.h"
 #include "host-common/logging.h"
 #include "host-common/misc.h"
-#include "OpenGLESDispatch/EGLDispatch.h"
 
 #include <stdio.h>
 #include <string.h>

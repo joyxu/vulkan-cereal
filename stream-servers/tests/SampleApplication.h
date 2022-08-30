@@ -14,15 +14,15 @@
 
 #pragma once
 
-#include "OpenGLESDispatch/GLESv2Dispatch.h"
-#include "RenderContext.h"
-#include "base/Compiler.h"
-#include "FenceSync.h"
-#include "Hwc2.h"
-
 #include <cinttypes>
 #include <functional>
 #include <memory>
+
+#include "FenceSync.h"
+#include "Hwc2.h"
+#include "OpenGLESDispatch/GLESv2Dispatch.h"
+#include "RenderContext.h"
+#include "base/Compiler.h"
 
 class FrameBuffer;
 class OSWindow;

@@ -16,8 +16,10 @@
 
 #include "FenceSync.h"
 
-#include "OpenGLESDispatch/DispatchTables.h"
+#include <unordered_set>
+
 #include "FrameBuffer.h"
+#include "OpenGLESDispatch/DispatchTables.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "RenderThreadInfo.h"
 #include "StalePtrRegistry.h"
@@ -26,8 +28,6 @@
 #include "base/StaticMap.h"
 #include "base/StreamSerializing.h"
 #include "base/Lock.h"
-
-#include <unordered_set>
 
 using android::base::AutoLock;
 using android::base::Lock;
