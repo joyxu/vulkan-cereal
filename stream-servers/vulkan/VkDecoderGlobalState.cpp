@@ -50,6 +50,7 @@
 #include "host-common/RenderDoc.h"
 #include "host-common/address_space_device_control_ops.h"
 #include "host-common/feature_control.h"
+#include "host-common/HostmemIdMapping.h"
 #include "host-common/vm_operations.h"
 #include "vk_util.h"
 #include "vulkan/vk_enum_string_helper.h"
@@ -69,8 +70,12 @@ using android::base::AutoLock;
 using android::base::ConditionVariable;
 using android::base::Lock;
 using android::base::ManagedDescriptor;
+using android::base::DescriptorType;
 using android::base::Optional;
 using android::base::StaticLock;
+using android::emulation::HostmemIdMapping;
+using android::emulation::ManagedDescriptorInfo;
+using android::emulation::VulkanInfo;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
 using emugl::GfxApiLogger;
@@ -3243,6 +3248,26 @@ class VkDecoderGlobalState::Impl {
             }
         }
 
+        VkExportMemoryAllocateInfo exportAllocate = {
+            .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
+            .pNext = NULL,
+        };
+
+#ifdef __unix__
+        exportAllocate.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
+#endif
+
+#ifdef __linux__
+        if (hasDeviceExtension(device, VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME)) {
+            exportAllocate.handleTypes |= VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+        }
+#endif
+
+        bool hostVisible = memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+        if (hostVisible && feature_is_enabled(kFeature_ExternalBlob)) {
+            localAllocInfo.pNext = &exportAllocate;
+        }
+
         VkResult result = vk->vkAllocateMemory(device, &localAllocInfo, pAllocator, pMemory);
 
         if (result != VK_SUCCESS) {
@@ -3272,11 +3297,10 @@ class VkDecoderGlobalState::Impl {
         auto& mapInfo = mMapInfo[*pMemory];
         mapInfo.size = localAllocInfo.allocationSize;
         mapInfo.device = device;
+        mapInfo.memoryIndex = localAllocInfo.memoryTypeIndex;
         if (importCbInfoPtr && m_emu->instanceSupportsMoltenVK) {
             mapInfo.mtlTexture = getColorBufferMTLTexture(importCbInfoPtr->colorBuffer);
         }
-
-        bool hostVisible = memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 
         if (!hostVisible) {
             *pMemory = new_boxed_non_dispatchable_VkDeviceMemory(*pMemory);
@@ -3294,6 +3318,9 @@ class VkDecoderGlobalState::Impl {
         if (mappedPtr) {
             mapInfo.needUnmap = false;
             mapInfo.ptr = mappedPtr;
+        } else if (feature_is_enabled(kFeature_ExternalBlob)) {
+            mapInfo.needUnmap = false;
+            mapInfo.ptr = nullptr;
         } else {
             mapInfo.needUnmap = true;
             VkResult mapResult =
@@ -3626,29 +3653,73 @@ class VkDecoderGlobalState::Impl {
 
         if (!info) return VK_ERROR_OUT_OF_HOST_MEMORY;
 
-        uint64_t hva = (uint64_t)(uintptr_t)(info->ptr);
-        uint64_t size = (uint64_t)(uintptr_t)(info->size);
+        if (feature_is_enabled(kFeature_ExternalBlob)) {
+            VkResult result;
+            auto device = unbox_VkDevice(boxed_device);
+            auto deviceDispatch = dispatch_VkDevice(boxed_device);
+            DescriptorType handle;
+            uint32_t handleType;
+            struct VulkanInfo vulkanInfo = {
+                    .memoryIndex = info->memoryIndex,
+                    .physicalDeviceIndex = m_emu->physicalDeviceIndex,
+            };
 
-        uint64_t alignedHva = hva & kPageMaskForBlob;
-        uint64_t alignedSize = kPageSizeforBlob *
-                               ((size + kPageSizeforBlob - 1) / kPageSizeforBlob);
+#ifdef __unix__
+            VkMemoryGetFdInfoKHR getFd = {
+                .sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
+                .pNext = nullptr,
+                .memory = memory,
+                .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
+            };
 
-        entry.hva = (void*)(uintptr_t)alignedHva;
-        entry.size = alignedSize;
-        entry.caching = info->caching;
+            handleType = STREAM_MEM_HANDLE_TYPE_OPAQUE_FD;
+#endif
 
-        auto id = get_emugl_vm_operations().hostmemRegister(&entry);
+#ifdef __linux__
+            if (hasDeviceExtension(device, VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME)) {
+                getFd.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+                handleType = STREAM_MEM_HANDLE_TYPE_DMABUF;
+            }
+#endif
 
-        *pAddress = hva & (0xfff);  // Don't expose exact hva to guest
-        *pSize = alignedSize;
-        *pHostmemId = id;
+#ifdef __unix__
+            result = m_emu->deviceInfo.getMemoryHandleFunc(device, &getFd, &handle);
+            if (result != VK_SUCCESS) {
+                return result;
+            }
+#endif
+            ManagedDescriptor managedHandle(handle);
+            *pHostmemId = HostmemIdMapping::get()->addDescriptorInfo(std::move(managedHandle),
+                                                                     handleType, info->caching,
+                                                                     std::optional<VulkanInfo>(vulkanInfo));
+            *pSize = info->size;
+            *pAddress = 0;
+        } else {
+            uint64_t hva = (uint64_t)(uintptr_t)(info->ptr);
+            uint64_t size = (uint64_t)(uintptr_t)(info->size);
 
-        info->virtioGpuMapped = true;
-        info->hostmemId = id;
+            uint64_t alignedHva = hva & kPageMaskForBlob;
+            uint64_t alignedSize = kPageSizeforBlob *
+                                   ((size + kPageSizeforBlob - 1) / kPageSizeforBlob);
 
-        fprintf(stderr, "%s: hva, size, sizeToPage: %p 0x%llx 0x%llx id 0x%llx\n", __func__,
-                info->ptr, (unsigned long long)(info->size), (unsigned long long)(alignedSize),
-                (unsigned long long)(*pHostmemId));
+            entry.hva = (void*)(uintptr_t)alignedHva;
+            entry.size = alignedSize;
+            entry.caching = info->caching;
+
+            auto id = get_emugl_vm_operations().hostmemRegister(&entry);
+
+            *pAddress = hva & (0xfff);  // Don't expose exact hva to guest
+            *pSize = alignedSize;
+            *pHostmemId = id;
+
+            info->virtioGpuMapped = true;
+            info->hostmemId = id;
+
+            fprintf(stderr, "%s: hva, size, sizeToPage: %p 0x%llx 0x%llx id 0x%llx\n", __func__,
+                    info->ptr, (unsigned long long)(info->size), (unsigned long long)(alignedSize),
+                    (unsigned long long)(*pHostmemId));
+        }
+
         return VK_SUCCESS;
     }
 
@@ -6635,6 +6706,7 @@ class VkDecoderGlobalState::Impl {
         uint64_t hostmemId = 0;
         VkDevice device = VK_NULL_HANDLE;
         MTLTextureRef mtlTexture = nullptr;
+        uint32_t memoryIndex = 0;
     };
 
     struct InstanceInfo {
