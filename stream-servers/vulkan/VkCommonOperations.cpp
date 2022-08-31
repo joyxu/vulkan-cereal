@@ -1162,6 +1162,7 @@ void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures> features) {
     INFO("    enable ASTC LDR emulation: %s", features->enableAstcLdrEmulation ? "true" : "false");
     INFO("    enable ETC2 emulation: %s", features->enableEtc2Emulation ? "true" : "false");
     INFO("    enable Ycbcr emulation: %s", features->enableYcbcrEmulation ? "true" : "false");
+    INFO("    guestUsesAngle: %s", features->guestUsesAngle ? "true" : "false");
     sVkEmulation->deviceInfo.glInteropSupported = features->glInteropSupported;
     sVkEmulation->useDeferredCommands = features->deferredCommands;
     sVkEmulation->useCreateResourcesWithRequirements = features->createResourceWithRequirements;
@@ -1169,6 +1170,7 @@ void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures> features) {
     sVkEmulation->enableAstcLdrEmulation = features->enableAstcLdrEmulation;
     sVkEmulation->enableEtc2Emulation = features->enableEtc2Emulation;
     sVkEmulation->enableYcbcrEmulation = features->enableYcbcrEmulation;
+    sVkEmulation->guestUsesAngle = features->guestUsesAngle;
 
     if (features->useVulkanComposition) {
         if (sVkEmulation->compositorVk) {
@@ -1477,6 +1479,10 @@ static VkFormat glFormat2VkFormat(GLint internalformat) {
         case GL_BGRA_EXT:
         case GL_BGRA8_EXT:
             return VK_FORMAT_B8G8R8A8_UNORM;
+        case GL_R16_EXT:
+            return VK_FORMAT_R16_UNORM;
+        case GL_RG8_EXT:
+            return VK_FORMAT_R8G8_UNORM;
         default:
             VK_COMMON_ERROR("Unhandled format %d, falling back to VK_FORMAT_R8G8B8A8_UNORM",
                             internalformat);
@@ -1816,7 +1822,7 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle, bool vulkanOnly, uint32_t me
     }
 
     bool glExported = sVkEmulation->deviceInfo.supportsExternalMemory &&
-                      sVkEmulation->deviceInfo.glInteropSupported && glCompatible;
+                      sVkEmulation->deviceInfo.glInteropSupported && glCompatible && !vulkanOnly;
     if (glExported) {
         ManagedDescriptor exportedHandle(dupExternalMemory(res.memory.exportedHandle));
         glExported = FrameBuffer::getFB()->importMemoryToColorBuffer(
@@ -1824,6 +1830,9 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle, bool vulkanOnly, uint32_t me
             colorBufferHandle, res.image, *imageCi);
     }
     res.glExported = glExported;
+    if (vulkanOnly) {
+        res.vulkanMode = VkEmulation::VulkanMode::VulkanOnly;
+    }
 
     if (exported) *exported = res.glExported;
     if (allocSize) *allocSize = res.memory.size;

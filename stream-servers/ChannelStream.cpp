@@ -13,7 +13,7 @@
 // limitations under the License.
 #include "ChannelStream.h"
 
-#include "RenderChannel.h"
+#include "render-utils/RenderChannel.h"
 
 #define EMUGL_DEBUG_LEVEL  0
 #include "host-common/debug.h"

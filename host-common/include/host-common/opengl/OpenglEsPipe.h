@@ -13,11 +13,6 @@
 // limitations under the License.
 #pragma once
 
-#include "base/Compiler.h"
-#include "..//AndroidPipe.h"
-
-#include "../../stream-servers/RenderChannel.h"
-
 namespace android {
 namespace opengl {
 

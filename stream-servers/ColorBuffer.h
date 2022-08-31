@@ -71,7 +71,7 @@ class YUVConverter;
 
 class ColorBuffer :
         public android::snapshot::LazySnapshotObj<ColorBuffer> {
-public:
+   public:
     // Create a new ColorBuffer instance.
     // |p_display| is the host EGLDisplay handle.
     // |p_width| and |p_height| are the buffer's dimensions in pixels.
@@ -87,6 +87,8 @@ public:
     // Returns NULL on failure.
     // |fastBlitSupported|: whether or not this ColorBuffer can be
     // blitted and posted to swapchain without context switches.
+    // |vulkanOnly|: whether or not the guest interacts entirely with Vulkan
+    // and does not use the GL based API.
     static ColorBuffer* create(EGLDisplay p_display,
                                int p_width,
                                int p_height,
@@ -94,7 +96,8 @@ public:
                                FrameworkFormat p_frameworkFormat,
                                HandleType hndl,
                                ContextHelper* helper,
-                               bool fastBlitSupported);
+                               bool fastBlitSupported,
+                               bool vulkanOnly = false);
 
     // Sometimes things happen and we need to reformat the GL texture
     // used. This function replaces the format of the underlying texture
@@ -229,7 +232,8 @@ public:
     void setDisplay(uint32_t displayId) { m_displayId = displayId; }
     uint32_t getDisplay() { return m_displayId; }
     FrameworkFormat getFrameworkFormat() { return m_frameworkFormat; }
-public:
+
+ public:
     void restore();
 
 private:
@@ -281,6 +285,7 @@ private:
 
     GLsync m_sync = nullptr;
     bool m_fastBlitSupported = false;
+    bool m_vulkanOnly = false;
 
     GLenum m_asyncReadbackType = GL_UNSIGNED_BYTE;
     size_t m_numBytes = 0;

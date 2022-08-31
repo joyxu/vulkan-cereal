@@ -21,8 +21,8 @@
 #include "host-common/multi_display_agent.h"
 #include "host-common/vm_operations.h"
 #include "host-common/window_agent.h"
-#include "../stream-servers/virtio_gpu_ops.h"
-#include "../stream-servers/RenderLib.h"
+#include "render-utils/virtio_gpu_ops.h"
+#include "render-utils/RenderLib.h"
 
 #ifndef USING_ANDROID_BP
 ANDROID_BEGIN_HEADER

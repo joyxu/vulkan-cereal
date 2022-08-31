@@ -33,7 +33,7 @@
 #include "base/Optional.h"
 #include "base/Thread.h"
 #include "base/ThreadPool.h"
-#include "virtio_gpu_ops.h"
+#include "render-utils/virtio_gpu_ops.h"
 #include "vulkan/VkDecoderGlobalState.h"
 
 using emugl::HealthMonitor;
