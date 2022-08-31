@@ -85,6 +85,7 @@ cc_library_shared {
         "GfxStreamAgents.cpp",
         "virtio-gpu-gfxstream-renderer.cpp",
         "GfxStreamBackend.cpp",
+        "GfxStreamBackendInitOverride.cpp",
         "VirtioGpuTimelines.cpp",
     ],
     host_ldlibs: [
