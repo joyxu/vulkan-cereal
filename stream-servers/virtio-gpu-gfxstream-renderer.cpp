@@ -1614,7 +1614,7 @@ public:
 
 #ifdef _WIN32
             handle->os_handle =
-                static_cast<int64_t>(reinterpret_cast<intptr_t>(rawDescriptor);
+                static_cast<int64_t>(reinterpret_cast<intptr_t>(rawDescriptor));
 #else
             handle->os_handle = static_cast<int64_t>(rawDescriptor);
 #endif
