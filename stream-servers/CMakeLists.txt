@@ -272,6 +272,4 @@ if (ENABLE_VKCEREAL_TESTS)
                        COMMAND ${CMAKE_COMMAND} -E copy_if_different
                             ${Vulkan_unittests_datafiles}
                             ${CMAKE_BINARY_DIR}/tests/testdata)
-
-    set_test_include_files()
 endif()

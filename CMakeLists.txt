@@ -81,12 +81,6 @@ if(MSVC OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
     add_link_options("/DEBUG")
 endif()
 
-# Macro to easily set the TEST_INCLUDE_FILES properties to point to `test_properties.cmake`
-# This macro should be called at the end of any CMakeLists.txt file that defines test targets.
-macro("set_test_include_files")
-set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES ${CMAKE_SOURCE_DIR}/test_properties.cmake)
-endmacro()
-
 # Uncomment for ASAN support
 # set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
 # set (CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
@@ -113,6 +107,8 @@ set(GFXSTREAM_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
 include(android.cmake)
 
+set(EXTRA_SUBDIR_TEST_INCLUDE_FILES)
+
 # Third party dependencies
 add_subdirectory(third-party)
 
@@ -135,3 +131,9 @@ add_subdirectory(protocols)
 if (NOT WIN32)
     add_subdirectory(fake-android-guest)
 endif()
+
+if (ENABLE_VKCEREAL_TESTS)
+    list(APPEND EXTRA_SUBDIR_TEST_INCLUDE_FILES ${CMAKE_SOURCE_DIR}/cmake/test_properties.cmake)
+endif()
+
+include(cmake/SetSubdirectorProperties.cmake)
