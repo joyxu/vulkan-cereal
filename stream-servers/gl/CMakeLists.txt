@@ -13,7 +13,8 @@ add_library(gfxstream-gl-server
             EmulatedEglConfig.cpp
             GLESVersionDetector.cpp
             TextureDraw.cpp
-            TextureResize.cpp)
+            TextureResize.cpp
+            YUVConverter.cpp)
 
 target_link_libraries(
         gfxstream-gl-server

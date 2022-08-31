@@ -26,7 +26,7 @@
 #include "RenderThreadInfoGl.h"
 #include "TextureDraw.h"
 #include "TextureResize.h"
-#include "YUVConverter.h"
+#include "gl/YUVConverter.h"
 #include "glestranslator/include/GLcommon/GLutils.h"
 #include "host-common/misc.h"
 #include "vulkan/VkCommonOperations.h"

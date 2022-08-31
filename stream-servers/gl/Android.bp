@@ -17,6 +17,7 @@ cc_library_static {
         "GLESVersionDetector.cpp",
         "TextureDraw.cpp",
         "TextureResize.cpp",
+        "YUVConverter.cpp",
     ],
     static_libs: [
         "gfxstream_gles1_dec",

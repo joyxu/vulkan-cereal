@@ -33,7 +33,6 @@ set(stream-server-core-sources
     RingStream.cpp
     SyncThread.cpp
     WindowSurface.cpp
-    YUVConverter.cpp
     RenderThread.cpp
     RenderContext.cpp
     RenderControl.cpp
