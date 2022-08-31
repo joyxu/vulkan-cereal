@@ -99,8 +99,7 @@ if (BUILD_STANDALONE)
         include/host-common
         include/host-common/opengl
         ${GFXSTREAM_REPO_ROOT}
-        ${GFXSTREAM_REPO_ROOT}/include
-        ${GFXSTREAM_REPO_ROOT}/stream-servers)
+        ${GFXSTREAM_REPO_ROOT}/include)
     target_link_libraries(
         gfxstream-host-common
         PUBLIC
