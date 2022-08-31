@@ -11,39 +11,42 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "base/MemStream.h"
-#include "base/Metrics.h"
-#include "base/PathUtils.h"
-#include "base/System.h"
-#include "host-common/address_space_device.h"
-#include "host-common/address_space_device.hpp"
-#include "host-common/address_space_graphics.h"
-#include "host-common/address_space_graphics_types.h"
-#include "host-common/AndroidPipe.h"
-#include "host-common/android_pipe_device.h"
-#include "host-common/vm_operations.h"
-#include "host-common/window_agent.h"
-#include "host-common/GfxstreamFatalError.h"
-#include "host-common/HostmemIdMapping.h"
-#include "host-common/FeatureControl.h"
-#include "host-common/feature_control.h"
-#include "host-common/opengl/emugl_config.h"
-#include "host-common/opengles-pipe.h"
-#include "host-common/opengles.h"
-#include "host-common/refcount-pipe.h"
-#include "host-common/globals.h"
-#include "snapshot/interface.h"
-
-#include <fstream>
-#include <string>
+#include "GfxStreamBackend.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#include "VulkanDispatch.h"
-#include "GfxStreamAgents.h"
-#include "render_api.h"
+#include <fstream>
+#include <string>
+
 #include "FrameBuffer.h"
+#include "GfxStreamAgents.h"
+#include "VkCommonOperations.h"
+#include "VulkanDispatch.h"
+#include "base/MemStream.h"
+#include "base/Metrics.h"
+#include "base/PathUtils.h"
+#include "base/System.h"
+#include "host-common/AndroidPipe.h"
+#include "host-common/FeatureControl.h"
+#include "host-common/GfxstreamFatalError.h"
+#include "host-common/HostmemIdMapping.h"
+#include "host-common/address_space_device.h"
+#include "host-common/address_space_device.hpp"
+#include "host-common/address_space_graphics.h"
+#include "host-common/address_space_graphics_types.h"
+#include "host-common/android_pipe_device.h"
+#include "host-common/feature_control.h"
+#include "host-common/globals.h"
+#include "host-common/opengl/emugl_config.h"
+#include "host-common/opengles-pipe.h"
+#include "host-common/opengles.h"
+#include "host-common/refcount-pipe.h"
+#include "host-common/vm_operations.h"
+#include "host-common/window_agent.h"
+#include "render_api.h"
+#include "snapshot/interface.h"
+#include "vk_util.h"
 
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
@@ -84,37 +87,6 @@ struct renderer_display_info;
 typedef void (*get_pixels_t)(void*, uint32_t, uint32_t);
 static get_pixels_t sGetPixelsFunc = 0;
 typedef void (*post_callback_t)(void*, uint32_t, int, int, int, int, int, unsigned char*);
-
-struct gfxstream_callbacks {
-   /* Metrics callbacks */
-   void (*add_instant_event)(int64_t event_code);
-   void (*add_instant_event_with_descriptor)(
-       int64_t event_code, int64_t descriptor);
-   void (*add_instant_event_with_metric)(
-       int64_t event_code, int64_t metric_value);
-   void (*set_annotation)(
-       const char* key, const char* value);
-   void (*abort)();
-};
-
-
-extern "C" VG_EXPORT void gfxstream_backend_init(
-    uint32_t display_width,
-    uint32_t display_height,
-    uint32_t display_type,
-    void* renderer_cookie,
-    int renderer_flags,
-    struct virgl_renderer_callbacks* virglrenderer_callbacks,
-    struct gfxstream_callbacks* gfxstreamcallbacks);
-
-extern "C" VG_EXPORT void gfxstream_backend_setup_window(
-        void* native_window_handle,
-        int32_t window_x,
-        int32_t window_y,
-        int32_t window_width,
-        int32_t window_height,
-        int32_t fb_width,
-        int32_t fb_height);
 
 // For reading back rendered contents to display
 extern "C" VG_EXPORT void get_pixels(void* pixels, uint32_t bytes);
