@@ -216,7 +216,8 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
                                  FrameworkFormat p_frameworkFormat,
                                  HandleType hndl,
                                  ContextHelper* helper,
-                                 bool fastBlitSupported) {
+                                 bool fastBlitSupported,
+                                 bool vulkanOnly) {
     GLenum texFormat = 0;
     GLenum pixelType = GL_UNSIGNED_BYTE;
     int bytesPerPixel = 4;
@@ -230,9 +231,24 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
                 p_internalFormat);
         return NULL;
     }
-
     const unsigned long bufsize = ((unsigned long)bytesPerPixel) * p_width
             * p_height;
+
+    ColorBuffer* cb = new ColorBuffer(p_display, hndl, helper);
+    cb->m_width = p_width;
+    cb->m_height = p_height;
+    cb->m_internalFormat = p_internalFormat;
+    cb->m_sizedInternalFormat = p_sizedInternalFormat;
+    cb->m_format = texFormat;
+    cb->m_type = pixelType;
+    cb->m_frameworkFormat = p_frameworkFormat;
+    cb->m_fastBlitSupported = fastBlitSupported;
+    cb->m_numBytes = (size_t)bufsize;
+    cb->m_vulkanOnly = vulkanOnly;
+
+    if (vulkanOnly) {
+        return cb;
+    }
 
     RecursiveScopedContextBind context(helper);
     if (!context.isOk()) {
@@ -240,8 +256,6 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
     }
 
     GL_SCOPED_DEBUG_GROUP("ColorBuffer::create(handle:%d)", hndl);
-
-    ColorBuffer* cb = new ColorBuffer(p_display, hndl, helper);
 
     GLint prevUnpackAlignment;
     s_gles2.glGetIntegerv(GL_UNPACK_ALIGNMENT, &prevUnpackAlignment);
@@ -283,13 +297,6 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
         cb->m_BRSwizzle = true;
     }
 
-    cb->m_width = p_width;
-    cb->m_height = p_height;
-    cb->m_internalFormat = p_internalFormat;
-    cb->m_sizedInternalFormat = p_sizedInternalFormat;
-    cb->m_format = texFormat;
-    cb->m_type = pixelType;
-
     cb->m_eglImage = s_egl.eglCreateImageKHR(
             p_display, s_egl.eglGetCurrentContext(), EGL_GL_TEXTURE_2D_KHR,
             (EGLClientBuffer)SafePointerFromUInt(cb->m_tex), NULL);
@@ -300,7 +307,6 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
 
     cb->m_resizer = new TextureResize(p_width, p_height);
 
-    cb->m_frameworkFormat = p_frameworkFormat;
     switch (cb->m_frameworkFormat) {
         case FRAMEWORK_FORMAT_GL_COMPATIBLE:
             break;
@@ -310,16 +316,12 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
             break;
     }
 
-    cb->m_fastBlitSupported = fastBlitSupported;
-
     // desktop GL only: use GL_UNSIGNED_INT_8_8_8_8_REV for faster readback.
     if (emugl::getRenderer() == SELECTED_RENDERER_HOST) {
 #define GL_UNSIGNED_INT_8_8_8_8           0x8035
 #define GL_UNSIGNED_INT_8_8_8_8_REV       0x8367
         cb->m_asyncReadbackType = GL_UNSIGNED_INT_8_8_8_8_REV;
     }
-
-    cb->m_numBytes = (size_t)bufsize;
 
     s_gles2.glPixelStorei(GL_UNPACK_ALIGNMENT, prevUnpackAlignment);
 
@@ -331,6 +333,10 @@ ColorBuffer::ColorBuffer(EGLDisplay display, HandleType hndl, ContextHelper* hel
     : m_display(display), m_helper(helper), mHndl(hndl) {}
 
 ColorBuffer::~ColorBuffer() {
+    if (m_vulkanOnly) {
+        return;
+    }
+
     RecursiveScopedContextBind context(m_helper);
 
     if (m_blitEGLImage) {
@@ -439,7 +445,12 @@ void ColorBuffer::readPixelsYUVCached(int x,
     assert(m_yuv_converter.get());
 #endif
 
-    m_yuv_converter->readPixels((uint8_t*)pixels, pixels_size);
+    if (!m_vulkanOnly) {
+        m_yuv_converter->readPixels((uint8_t*)pixels, pixels_size);
+    } else {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                        "Unexpected function call when m_vulkanOnly";
+    }
 
     return;
 }
@@ -508,7 +519,12 @@ void ColorBuffer::reformat(GLint internalformat, GLenum type) {
 
 void ColorBuffer::swapYUVTextures(uint32_t type, uint32_t* textures) {
     if (type == FRAMEWORK_FORMAT_NV12) {
-        m_yuv_converter->swapTextures(type, textures);
+        if (!m_vulkanOnly) {
+            m_yuv_converter->swapTextures(type, textures);
+        } else {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Unexpected function call when m_vulkanOnly";
+        }
     } else {
         fprintf(stderr,
                 "%s: ERROR: format other than NV12 is not supported: 0x%x\n",
@@ -523,6 +539,10 @@ void ColorBuffer::subUpdate(int x,
                             GLenum p_format,
                             GLenum p_type,
                             void* pixels) {
+    if (m_vulkanOnly) {
+        return;
+    }
+
     const GLenum p_unsizedFormat = sGetUnsizedColorBufferFormat(p_format);
     RecursiveScopedContextBind context(m_helper);
     if (!context.isOk()) {
@@ -567,6 +587,9 @@ void ColorBuffer::subUpdate(int x,
 }
 
 bool ColorBuffer::replaceContents(const void* newContents, size_t numBytes) {
+    if (m_vulkanOnly) {
+        return false;
+    }
     RecursiveScopedContextBind context(m_helper);
     if (!context.isOk()) {
         fprintf(stderr, "%s: Failed: Could not get current context\n", __func__);
@@ -603,16 +626,17 @@ bool ColorBuffer::replaceContents(const void* newContents, size_t numBytes) {
 
 bool ColorBuffer::readContents(size_t* numBytes, void* pixels) {
     if (m_yuv_converter) {
+        // common code path for vk & gles
         *numBytes = m_yuv_converter->getDataSize();
         if (pixels) {
             readPixelsYUVCached(0, 0, 0, 0, pixels, *numBytes);
         }
         return true;
     } else {
-        RecursiveScopedContextBind context(m_helper);
         *numBytes = m_numBytes;
 
         if (!pixels) return true;
+        RecursiveScopedContextBind context(m_helper);
 
         readPixels(0, 0, m_width, m_height, m_format, m_type, pixels);
 
@@ -976,6 +1000,9 @@ void ColorBuffer::postLayer(const ComposeLayer& l, int frameWidth, int frameHeig
 
 bool ColorBuffer::importMemory(ManagedDescriptor externalDescriptor, uint64_t size, bool dedicated,
                                bool linearTiling, bool vulkanOnly) {
+    if (m_vulkanOnly) {
+        return true;
+    }
     RecursiveScopedContextBind context(m_helper);
     s_gles2.glCreateMemoryObjectsEXT(1, &m_memoryObject);
     if (dedicated) {

@@ -143,12 +143,15 @@ VkResult prepareAndroidNativeBufferImage(VulkanDispatch* vk, VkDevice device,
         externalMemoryCompatible = emu->deviceInfo.supportsExternalMemory;
     }
 
+    bool colorBufferExportedToGl = false;
     if (colorBufferVulkanCompatible && externalMemoryCompatible &&
-        setupVkColorBuffer(out->colorBufferHandle, false /* not Vulkan only */,
-                           0u /* memoryProperty */, &out->useVulkanNativeImage)) {
+        setupVkColorBuffer(out->colorBufferHandle, emu->guestUsesAngle,
+                           0u /* memoryProperty */, &colorBufferExportedToGl)) {
         releaseColorBufferForGuestUse(out->colorBufferHandle);
         out->externallyBacked = true;
     }
+    out->useVulkanNativeImage =
+        (emu && emu->live && emu->guestUsesAngle) || colorBufferExportedToGl;
 
     VkDeviceSize bindOffset = 0;
     if (out->externallyBacked) {

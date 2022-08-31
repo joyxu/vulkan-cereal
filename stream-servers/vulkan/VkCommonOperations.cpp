@@ -1162,6 +1162,7 @@ void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures> features) {
     INFO("    enable ASTC LDR emulation: %s", features->enableAstcLdrEmulation ? "true" : "false");
     INFO("    enable ETC2 emulation: %s", features->enableEtc2Emulation ? "true" : "false");
     INFO("    enable Ycbcr emulation: %s", features->enableYcbcrEmulation ? "true" : "false");
+    INFO("    guestUsesAngle: %s", features->guestUsesAngle ? "true" : "false");
     sVkEmulation->deviceInfo.glInteropSupported = features->glInteropSupported;
     sVkEmulation->useDeferredCommands = features->deferredCommands;
     sVkEmulation->useCreateResourcesWithRequirements = features->createResourceWithRequirements;
@@ -1169,6 +1170,7 @@ void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures> features) {
     sVkEmulation->enableAstcLdrEmulation = features->enableAstcLdrEmulation;
     sVkEmulation->enableEtc2Emulation = features->enableEtc2Emulation;
     sVkEmulation->enableYcbcrEmulation = features->enableYcbcrEmulation;
+    sVkEmulation->guestUsesAngle = features->guestUsesAngle;
 
     if (features->useVulkanComposition) {
         if (sVkEmulation->compositorVk) {
@@ -1820,7 +1822,7 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle, bool vulkanOnly, uint32_t me
     }
 
     bool glExported = sVkEmulation->deviceInfo.supportsExternalMemory &&
-                      sVkEmulation->deviceInfo.glInteropSupported && glCompatible;
+                      sVkEmulation->deviceInfo.glInteropSupported && glCompatible && !vulkanOnly;
     if (glExported) {
         ManagedDescriptor exportedHandle(dupExternalMemory(res.memory.exportedHandle));
         glExported = FrameBuffer::getFB()->importMemoryToColorBuffer(
@@ -1828,6 +1830,9 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle, bool vulkanOnly, uint32_t me
             colorBufferHandle, res.image, *imageCi);
     }
     res.glExported = glExported;
+    if (vulkanOnly) {
+        res.vulkanMode = VkEmulation::VulkanMode::VulkanOnly;
+    }
 
     if (exported) *exported = res.glExported;
     if (allocSize) *allocSize = res.memory.size;

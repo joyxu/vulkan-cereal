@@ -536,6 +536,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
             .enableAstcLdrEmulation = feature_is_enabled(kFeature_VulkanAstcLdrEmulation),
             .enableEtc2Emulation = feature_is_enabled(kFeature_VulkanEtc2Emulation),
             .enableYcbcrEmulation = feature_is_enabled(kFeature_VulkanYcbcrEmulation),
+            .guestUsesAngle = fb->m_guestUsesAngle,
         });
 
     //
@@ -1579,7 +1580,7 @@ void FrameBuffer::createColorBufferWithHandle(int p_width, int p_height, GLenum 
     if (m_displayVk || m_guestUsesAngle) {
         goldfish_vk::setupVkColorBuffer(
             handle,
-            false /* not vulkan only */,
+            m_guestUsesAngle /* not vulkan only */,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT /* memory property */,
             nullptr /* exported */);
     }
@@ -1595,7 +1596,7 @@ HandleType FrameBuffer::createColorBufferWithHandleLocked(
     ColorBufferPtr cb(ColorBuffer::create(getDisplay(), p_width, p_height,
                                           p_internalFormat, p_frameworkFormat,
                                           handle, m_colorBufferHelper,
-                                          m_fastBlitSupported));
+                                          m_fastBlitSupported, m_guestUsesAngle));
     if (cb.get() != NULL) {
         assert(m_colorbuffers.count(handle) == 0);
         // When guest feature flag RefCountPipe is on, no reference counting is
