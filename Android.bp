@@ -49,7 +49,7 @@ cc_library_headers {
         "include",
         "base/include",
         "host-common/include",
-        "snapshot",
+        "snapshot/include",
         "stream-servers",
         "stream-servers/vulkan",
         "stream-servers/glestranslator/include",

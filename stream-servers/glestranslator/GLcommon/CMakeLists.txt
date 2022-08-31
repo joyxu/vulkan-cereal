@@ -30,6 +30,7 @@ target_link_libraries(
     GLcommon PUBLIC
     gfxstream-base.headers
     gfxstream-host-common.headers
+    gfxstream-snapshot.headers
     astc-codec)
 if (NOT MSVC)
     target_compile_options(GLcommon PRIVATE -fvisibility=hidden)
