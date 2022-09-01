@@ -38,6 +38,7 @@ set(stream-server-core-sources
     render_api.cpp
     RenderChannelImpl.cpp
     RenderThreadInfo.cpp
+    RenderThreadInfoGl.cpp
     RingStream.cpp
     SyncThread.cpp
     TextureDraw.cpp

@@ -252,14 +252,19 @@ class FrameBuffer {
     void createBufferWithHandle(uint64_t size, HandleType handle);
 
     // Call this function when a render thread terminates to destroy all
-    // the remaining contexts it created. Necessary to avoid leaking host
-    // contexts when a guest application crashes, for example.
-    void drainRenderContext();
+    // resources it created. Necessary to avoid leaking host resources
+    // when a guest application crashes, for example.
+    void drainRenderThreadResources();
 
     // Call this function when a render thread terminates to destroy all
-    // remaining window surfqce it created. Necessary to avoid leaking
+    // the remaining contexts it created. Necessary to avoid leaking host
+    // contexts when a guest application crashes, for example.
+    void drainRenderThreadContexts();
+
+    // Call this function when a render thread terminates to destroy all
+    // remaining window surface it created. Necessary to avoid leaking
     // host buffers when a guest application crashes, for example.
-    void drainWindowSurface();
+    void drainRenderThreadWindowSurfaces();
 
     // Destroy a given RenderContext instance. |p_context| is its handle
     // value as returned by createRenderContext().

@@ -23,7 +23,7 @@
 #include "Debug.h"
 #include "OpenGLESDispatch/DispatchTables.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
-#include "RenderThreadInfo.h"
+#include "RenderThreadInfoGl.h"
 #include "TextureDraw.h"
 #include "TextureResize.h"
 #include "YUVConverter.h"
@@ -645,7 +645,12 @@ bool ColorBuffer::readContents(size_t* numBytes, void* pixels) {
 }
 
 bool ColorBuffer::blitFromCurrentReadBuffer() {
-    RenderThreadInfo* tInfo = RenderThreadInfo::get();
+    RenderThreadInfoGl* const tInfo = RenderThreadInfoGl::get();
+    if (!tInfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Render thread GL not available.";
+    }
+
     if (!tInfo->currContext.get()) {
         // no Current context
         return false;
@@ -808,7 +813,12 @@ bool ColorBuffer::bindToTexture() {
         return false;
     }
 
-    RenderThreadInfo* tInfo = RenderThreadInfo::get();
+    RenderThreadInfoGl* const tInfo = RenderThreadInfoGl::get();
+    if (!tInfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Render thread GL not available.";
+    }
+
     if (!tInfo->currContext.get()) {
         return false;
     }
@@ -835,7 +845,13 @@ bool ColorBuffer::bindToRenderbuffer() {
     if (!m_eglImage) {
         return false;
     }
-    RenderThreadInfo* tInfo = RenderThreadInfo::get();
+
+    RenderThreadInfoGl* const tInfo = RenderThreadInfoGl::get();
+    if (!tInfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Render thread GL not available.";
+    }
+
     if (!tInfo->currContext.get()) {
         return false;
     }

@@ -99,11 +99,11 @@ void SnapshotTestDispatch::loadSnapshot() {
         threadInfo->onLoad(m_stream.get());
         // rebind to context
         fb->bindContext(
-                threadInfo->currContext ? threadInfo->currContext->getHndl()
+                threadInfo->m_glInfo->currContext ? threadInfo->m_glInfo->currContext->getHndl()
                                         : 0,
-                threadInfo->currDrawSurf ? threadInfo->currDrawSurf->getHndl()
+                threadInfo->m_glInfo->currDrawSurf ? threadInfo->m_glInfo->currDrawSurf->getHndl()
                                          : 0,
-                threadInfo->currReadSurf ? threadInfo->currReadSurf->getHndl()
+                threadInfo->m_glInfo->currReadSurf ? threadInfo->m_glInfo->currReadSurf->getHndl()
                                          : 0);
     }
 

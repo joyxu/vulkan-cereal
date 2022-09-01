@@ -268,8 +268,8 @@ intptr_t RenderThread::main() {
     //
     // initialize decoders
     //
-    tInfo.m_glDec.initGL(gles1_dispatch_get_proc_func, nullptr);
-    tInfo.m_gl2Dec.initGL(gles2_dispatch_get_proc_func, nullptr);
+    tInfo.initGl();
+
     initRenderControlContext(&tInfo.m_rcDec);
 
     if (!mChannel && !mRingStream) {
@@ -380,16 +380,7 @@ intptr_t RenderThread::main() {
                 // restores the contexts from the handles, so check again here.
 
                 tInfo.postLoadRefreshCurrentContextSurfacePtrs();
-                // We just loaded from a snapshot, need to initialize / bind
-                // the contexts.
                 needRestoreFromSnapshot = false;
-                HandleType ctx = tInfo.currContext ? tInfo.currContext->getHndl()
-                        : 0;
-                HandleType draw = tInfo.currDrawSurf ? tInfo.currDrawSurf->getHndl()
-                        : 0;
-                HandleType read = tInfo.currReadSurf ? tInfo.currReadSurf->getHndl()
-                        : 0;
-                FrameBuffer::getFB()->bindContext(ctx, draw, read);
             }
         }
 
@@ -482,26 +473,28 @@ intptr_t RenderThread::main() {
                 FrameBuffer::getFB()->lockContextStructureRead();
             }
 
-            {
-                last = tInfo.m_glDec.decode(
-                        readBuf.buf(), readBuf.validData(), ioStream, &checksumCalc);
-                if (last > 0) {
-                    progress = true;
-                    readBuf.consume(last);
+            if (tInfo.m_glInfo) {
+                {
+                    last = tInfo.m_glInfo->m_glDec.decode(
+                            readBuf.buf(), readBuf.validData(), ioStream, &checksumCalc);
+                    if (last > 0) {
+                        progress = true;
+                        readBuf.consume(last);
+                    }
                 }
-            }
 
-            //
-            // try to process some of the command buffer using the GLESv2
-            // decoder
-            //
-            {
-                last = tInfo.m_gl2Dec.decode(readBuf.buf(), readBuf.validData(),
-                                             ioStream, &checksumCalc);
+                //
+                // try to process some of the command buffer using the GLESv2
+                // decoder
+                //
+                {
+                    last = tInfo.m_glInfo->m_gl2Dec.decode(readBuf.buf(), readBuf.validData(),
+                                                           ioStream, &checksumCalc);
 
-                if (last > 0) {
-                    progress = true;
-                    readBuf.consume(last);
+                    if (last > 0) {
+                        progress = true;
+                        readBuf.consume(last);
+                    }
                 }
             }
 
@@ -530,22 +523,7 @@ intptr_t RenderThread::main() {
         fclose(dumpFP);
     }
 
-    // Don't check for snapshots here: if we're already exiting then snapshot
-    // should not contain this thread information at all.
-    if (!FrameBuffer::getFB()->isShuttingDown()) {
-        // Release references to the current thread's context/surfaces if any
-        FrameBuffer::getFB()->bindContext(0, 0, 0);
-        if (tInfo.currContext || tInfo.currDrawSurf || tInfo.currReadSurf) {
-            ERR("ERROR: RenderThread exiting with current context/surfaces");
-        }
-
-        FrameBuffer::getFB()->drainWindowSurface();
-        FrameBuffer::getFB()->drainRenderContext();
-    }
-
-    if (!s_egl.eglReleaseThread()) {
-        ERR("Error: RenderThread @%p failed to eglReleaseThread()", this);
-    }
+    FrameBuffer::getFB()->drainRenderThreadResources();
 
     setFinished();
 

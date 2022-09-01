@@ -31,6 +31,8 @@
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "RenderControl.h"
 #include "RenderThreadInfo.h"
+#include "RenderThreadInfoGl.h"
+#include "SyncThread.h"
 #include "YUVConverter.h"
 #include "base/LayoutResolver.h"
 #include "base/Lock.h"
@@ -1731,7 +1733,11 @@ HandleType FrameBuffer::createRenderContext(int p_config,
         if (puid) {
             m_procOwnedRenderContext[puid].insert(ret);
         } else { // legacy path to manage context lifetime by threads
-            tinfo->m_contextSet.insert(ret);
+            if (!tinfo->m_glInfo) {
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                    << "Render thread GL not available.";
+            }
+            tinfo->m_glInfo->m_contextSet.insert(ret);
         }
     } else {
         ret = 0;
@@ -1764,19 +1770,46 @@ HandleType FrameBuffer::createWindowSurface(int p_config,
         if (puid) {
             m_procOwnedWindowSurfaces[puid].insert(ret);
         } else { // legacy path to manage window surface lifetime by threads
-            tInfo->m_windowSet.insert(ret);
+            if (!tInfo->m_glInfo) {
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                    << "Render thread GL not available.";
+            }
+            tInfo->m_glInfo->m_windowSet.insert(ret);
         }
     }
 
     return ret;
 }
 
-void FrameBuffer::drainRenderContext() {
-    if (m_shuttingDown) {
+void FrameBuffer::drainRenderThreadResources() {
+    // If we're already exiting then snapshot should not contain
+    // this thread information at all.
+    if (isShuttingDown()) {
         return;
     }
 
-    RenderThreadInfo* const tinfo = RenderThreadInfo::get();
+    // Release references to the current thread's context/surfaces if any
+    bindContext(0, 0, 0);
+
+    drainRenderThreadWindowSurfaces();
+    drainRenderThreadContexts();
+
+    if (!s_egl.eglReleaseThread()) {
+        ERR("Error: RenderThread @%p failed to eglReleaseThread()", this);
+    }
+}
+
+void FrameBuffer::drainRenderThreadContexts() {
+    if (isShuttingDown()) {
+        return;
+    }
+
+    RenderThreadInfoGl* const tinfo = RenderThreadInfoGl::get();
+    if (!tinfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Render thread GL not available.";
+    }
+
     if (tinfo->m_contextSet.empty()) {
         return;
     }
@@ -1789,11 +1822,17 @@ void FrameBuffer::drainRenderContext() {
     tinfo->m_contextSet.clear();
 }
 
-void FrameBuffer::drainWindowSurface() {
-    if (m_shuttingDown) {
+void FrameBuffer::drainRenderThreadWindowSurfaces() {
+    if (isShuttingDown()) {
         return;
     }
-    RenderThreadInfo* const tinfo = RenderThreadInfo::get();
+
+    RenderThreadInfoGl* const tinfo = RenderThreadInfoGl::get();
+    if (!tinfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Render thread GL not available.";
+    }
+
     if (tinfo->m_windowSet.empty()) {
         return;
     }
@@ -1847,7 +1886,11 @@ void FrameBuffer::DestroyRenderContext(HandleType p_context) {
             ite->second.erase(p_context);
         }
     } else {
-        tinfo->m_contextSet.erase(p_context);
+        if (!tinfo->m_glInfo) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Render thread GL not available.";
+        }
+        tinfo->m_glInfo->m_contextSet.erase(p_context);
     }
 }
 
@@ -1890,7 +1933,11 @@ std::vector<HandleType> FrameBuffer::DestroyWindowSurfaceLocked(HandleType p_sur
                 ite->second.erase(p_surface);
             }
         } else {
-            tinfo->m_windowSet.erase(p_surface);
+            if (!tinfo->m_glInfo) {
+                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                    << "Render thread GL not available.";
+            }
+            tinfo->m_glInfo->m_windowSet.erase(p_surface);
         }
     }
     return colorBuffersToCleanUp;
@@ -2626,7 +2673,12 @@ bool FrameBuffer::bindContext(HandleType p_context,
     //
     // Bind the surface(s) to the context
     //
-    RenderThreadInfo* tinfo = RenderThreadInfo::get();
+    RenderThreadInfoGl* const tinfo = RenderThreadInfoGl::get();
+    if (!tinfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Render thread GL not available.";
+    }
+
     WindowSurfacePtr bindDraw, bindRead;
     if (draw.get() == NULL && read.get() == NULL) {
         // Unbind the current read and draw surfaces from the context
