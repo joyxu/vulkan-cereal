@@ -287,11 +287,8 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
 
     android::base::setEnvironmentVariable("ANDROID_EMU_HEADLESS", "1");
     android::base::setEnvironmentVariable("ANDROID_EMU_SANDBOX", "1");
-    android::base::setEnvironmentVariable("ANDROID_EMUGL_FIXED_BACKEND_LIST", "1");
-    bool vkDisabledByEnv = android::base::getEnvironmentVariable("ANDROID_EMU_DISABLE_VULKAN") == "1";
-    bool vkDisabledByFlag =
-        (renderer_flags & GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT);
-    bool enableVk = !vkDisabledByEnv && !vkDisabledByFlag;
+    bool enableVk =
+        !(renderer_flags & GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT);
 
     bool egl2eglByEnv = android::base::getEnvironmentVariable("ANDROID_EGL_ON_EGL") == "1";
     bool egl2eglByFlag = renderer_flags & GFXSTREAM_RENDERER_FLAGS_USE_EGL_BIT;
@@ -301,11 +298,6 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
         android::base::setEnvironmentVariable("ANDROID_EGL_ON_EGL", "1");
     }
 
-    bool ignoreHostGlErrorsFlag = renderer_flags & GFXSTREAM_RENDERER_FLAGS_IGNORE_HOST_GL_ERRORS_BIT;
-    bool nativeTextureDecompression = renderer_flags & GFXSTREAM_RENDERER_FLAGS_NATIVE_TEXTURE_DECOMPRESSION_BIT;
-    bool bptcTextureSupport = renderer_flags & GFXSTREAM_RENDERER_FLAGS_ENABLE_BPTC_TEXTURES_BIT;
-    bool s3tcTextureSupport = renderer_flags & GFXSTREAM_RENDERER_FLAGS_ENABLE_S3TC_TEXTURES_BIT;
-    bool syncFdDisabledByFlag = renderer_flags & GFXSTREAM_RENDERER_FLAGS_NO_SYNCFD_BIT;
     bool surfaceless =
             renderer_flags & GFXSTREAM_RENDERER_FLAGS_USE_SURFACELESS_BIT;
     bool enableGlEs31Flag = renderer_flags & GFXSTREAM_RENDERER_FLAGS_ENABLE_GLES31_BIT;
@@ -315,11 +307,6 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
 
     GFXS_LOG("Vulkan enabled? %d", enableVk);
     GFXS_LOG("egl2egl enabled? %d", enable_egl2egl);
-    GFXS_LOG("ignore host gl errors enabled? %d", ignoreHostGlErrorsFlag);
-    GFXS_LOG("syncfd enabled? %d", !syncFdDisabledByFlag);
-    GFXS_LOG("use native texture decompression if available? %d", nativeTextureDecompression);
-    GFXS_LOG("enable BPTC support if available? %d", bptcTextureSupport);
-    GFXS_LOG("enable S3TC support if available? %d", s3tcTextureSupport);
     GFXS_LOG("surfaceless? %d", surfaceless);
     GFXS_LOG("OpenGL ES 3.1 enabled? %d", enableGlEs31Flag);
     GFXS_LOG("guest using ANGLE? %d", guestUsesAngle);
@@ -352,14 +339,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     feature_set_enabled_override(
             kFeature_NoDelayCloseColorBuffer, true);
     feature_set_enabled_override(
-            kFeature_IgnoreHostOpenGLErrors, ignoreHostGlErrorsFlag);
-    feature_set_enabled_override(
-            kFeature_NativeTextureDecompression, nativeTextureDecompression);
-    feature_set_enabled_override(
-            kFeature_BptcTextureSupport, bptcTextureSupport);
-    feature_set_enabled_override(
-            kFeature_S3tcTextureSupport, s3tcTextureSupport);
-    feature_set_enabled_override(kFeature_RgtcTextureSupport, true);
+            kFeature_NativeTextureDecompression, false);
     feature_set_enabled_override(
             kFeature_GLDirectMem, false);
     feature_set_enabled_override(
@@ -377,7 +357,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     feature_set_enabled_override(
             kFeature_VirtioGpuNext, true);
     feature_set_enabled_override(
-            kFeature_VirtioGpuNativeSync, !syncFdDisabledByFlag);
+            kFeature_VirtioGpuNativeSync, true);
     feature_set_enabled_override(
             kFeature_GuestUsesAngle, guestUsesAngle);
     feature_set_enabled_override(
@@ -390,7 +370,6 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     // fence contexts require us to be running a new-enough guest kernel.
     feature_set_enabled_override(
            kFeature_VirtioGpuFenceContexts,
-           !syncFdDisabledByFlag &&
            (renderer_flags & GFXSTREAM_RENDERER_FLAGS_ASYNC_FENCE_CB));
     feature_set_enabled_override(kFeature_VulkanAstcLdrEmulation, true);
     feature_set_enabled_override(kFeature_VulkanEtc2Emulation, true);
