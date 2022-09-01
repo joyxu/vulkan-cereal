@@ -4,6 +4,4 @@
 # Example:
 #   set_tests_properties(MyTestSuite.SomeTest PROPERTIES LABELS foobar)
 #
-# For this to work:
-# 1. Use gtest_discover_tests() to add the test targets
-# 2. Call the set_test_include_files() macro at the end of each CMakeLists.txt that defines tests
+# For this to work, use gtest_discover_tests() to add the test targets
