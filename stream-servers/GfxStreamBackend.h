@@ -14,8 +14,9 @@
 
 #pragma once
 
+#include <stddef.h>
+
 extern "C" {
-#include "host-common/goldfish_pipe.h"
 #include "virtio-gpu-gfxstream-renderer.h"
 #include "virgl_hw.h"
 }  // extern "C"
@@ -66,3 +67,7 @@ extern "C" VG_EXPORT void gfxstream_backend_getrender(
       char* buf,
       size_t bufSize,
       size_t* size);
+
+// A customization point that allows the downstream to call their own functions when
+// gfxstream_backend_init is called.
+void gfxstream_backend_init_product_override();

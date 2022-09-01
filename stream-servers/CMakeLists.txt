@@ -95,6 +95,10 @@ if (WIN32)
     target_link_libraries(gfxstream_backend_static PRIVATE D3d9.lib)
 endif()
 
+if(NOT TARGET gfxstream_backend.init-product-override)
+    add_library(gfxstream_backend.init-product-override OBJECT GfxStreamBackendInitOverride.cpp)
+endif()
+
 # gfxstream_backend.dll
 add_library(
     gfxstream_backend
@@ -105,7 +109,9 @@ add_library(
 target_link_libraries(
     gfxstream_backend
     PUBLIC
-    gfxstream_backend_static)
+    gfxstream_backend_static
+    PRIVATE
+    gfxstream_backend.init-product-override)
 
 if (APPLE)
     set_target_properties(gfxstream_backend

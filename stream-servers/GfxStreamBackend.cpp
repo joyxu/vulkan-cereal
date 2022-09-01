@@ -266,6 +266,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
         }
     }
 
+    gfxstream_backend_init_product_override();
     // First we make some agents available.
 
     GFXS_LOG("start. display dimensions: width %u height %u, renderer flags: 0x%x", display_width,
