@@ -234,7 +234,8 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
     const unsigned long bufsize = ((unsigned long)bytesPerPixel) * p_width
             * p_height;
 
-    ColorBuffer* cb = new ColorBuffer(p_display, hndl, helper);
+    // This constructor is private, so std::make_unique can't be used.
+    std::unique_ptr<ColorBuffer> cb{new ColorBuffer(p_display, hndl, helper)};
     cb->m_width = p_width;
     cb->m_height = p_height;
     cb->m_internalFormat = p_internalFormat;
@@ -247,7 +248,7 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
     cb->m_vulkanOnly = vulkanOnly;
 
     if (vulkanOnly) {
-        return cb;
+        return cb.release();
     }
 
     RecursiveScopedContextBind context(helper);
@@ -326,7 +327,7 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
     s_gles2.glPixelStorei(GL_UNPACK_ALIGNMENT, prevUnpackAlignment);
 
     s_gles2.glFinish();
-    return cb;
+    return cb.release();
 }
 
 ColorBuffer::ColorBuffer(EGLDisplay display, HandleType hndl, ContextHelper* helper)
