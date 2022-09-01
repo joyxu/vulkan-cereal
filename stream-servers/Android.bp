@@ -72,7 +72,6 @@ cc_library_shared {
         "RingStream.cpp",
         "SyncThread.cpp",
         "WindowSurface.cpp",
-        "RenderContext.cpp",
         "RenderControl.cpp",
         "RenderWindow.cpp",
         "RenderLibImpl.cpp",

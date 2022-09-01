@@ -13,7 +13,6 @@
 #include "BorrowedImage.h"
 #include "CompositorVk.h"
 #include "Hwc2.h"
-#include "RenderContext.h"
 #include "SwapChainStateVk.h"
 #include "base/Lock.h"
 #include "vulkan/cereal/common/goldfish_vk_dispatch.h"

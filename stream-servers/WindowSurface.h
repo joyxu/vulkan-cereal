@@ -16,13 +16,14 @@
 #ifndef _LIBRENDER_WINDOW_SURFACE_H
 #define _LIBRENDER_WINDOW_SURFACE_H
 
-#include "ColorBuffer.h"
-#include "RenderContext.h"
+#include <memory>
 
 #include <EGL/egl.h>
 #include <GLES/gl.h>
 
-#include <memory>
+#include "ColorBuffer.h"
+#include "Handle.h"
+#include "gl/RenderContext.h"
 
 // A class used to model a guest-side window surface. The implementation
 // uses a host Pbuffer to act as the EGL rendering surface instead.

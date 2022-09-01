@@ -34,7 +34,6 @@ set(stream-server-core-sources
     SyncThread.cpp
     WindowSurface.cpp
     RenderThread.cpp
-    RenderContext.cpp
     RenderControl.cpp
     RenderWindow.cpp
     RenderLibImpl.cpp

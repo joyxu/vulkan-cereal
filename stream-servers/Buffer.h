@@ -14,13 +14,15 @@
 
 #pragma once
 
+#include <memory>
+
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES/gl.h>
 #include <GLES3/gl3.h>
 
 #include "ContextHelper.h"
-#include "RenderContext.h"
+#include "Handle.h"
 #include "snapshot/LazySnapshotObj.h"
 
 class Buffer : public android::snapshot::LazySnapshotObj<Buffer> {

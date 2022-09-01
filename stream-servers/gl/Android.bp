@@ -15,6 +15,7 @@ cc_library_static {
         "CompositorGl.cpp",
         "EmulatedEglConfig.cpp",
         "GLESVersionDetector.cpp",
+        "RenderContext.cpp",
         "TextureDraw.cpp",
         "TextureResize.cpp",
         "YUVConverter.cpp",
