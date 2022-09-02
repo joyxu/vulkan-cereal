@@ -16,7 +16,6 @@
 #include "WindowSurface.h"
 
 #include "host-common/logging.h"
-#include "FbConfig.h"
 #include "FrameBuffer.h"
 
 #include "OpenGLESDispatch/EGLDispatch.h"
