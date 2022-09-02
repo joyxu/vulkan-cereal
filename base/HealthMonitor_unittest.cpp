@@ -33,12 +33,17 @@ using emugl::kDefaultIntervalMs;
 using emugl::kDefaultTimeoutMs;
 using ::testing::_;
 using ::testing::AllOf;
+using ::testing::ByMove;
+using ::testing::Contains;
 using ::testing::Field;
 using ::testing::Ge;
 using ::testing::HasSubstr;
 using ::testing::InSequence;
+using ::testing::Key;
 using ::testing::Le;
 using ::testing::MockFunction;
+using ::testing::Pointee;
+using ::testing::Return;
 using ::testing::Test;
 using ::testing::VariantWith;
 
@@ -80,7 +85,8 @@ TEST_F(HealthMonitorTest, badTimeoutTimeTest) {
             .Times(1);
     }
 
-    auto id = healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>(), 1);
+    auto id =
+        healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>(), std::nullopt, 1);
     step(expectedHangThresholdS + expectedHangDurationS);
     healthMonitor.stopMonitoringTask(id);
 }
@@ -248,7 +254,7 @@ TEST_F(HealthMonitorTest, twoTasksHangNonOverlappingTest) {
     step(defaultHangThresholdS + expectedHangDurationS1);
     healthMonitor.stopMonitoringTask(id);
     step(1);
-    id = healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>(),
+    id = healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>(), std::nullopt,
                                            SToMs(hangThresholdS2));
     step(hangThresholdS2 + expectedHangDurationS2);
     healthMonitor.stopMonitoringTask(id);
@@ -314,6 +320,32 @@ TEST_F(HealthMonitorTest, simultaneousTasks) {
     step(defaultHangThresholdS + expectedHangDurationS);
     healthMonitor.stopMonitoringTask(id1);
     healthMonitor.stopMonitoringTask(id2);
+}
+
+TEST_F(HealthMonitorTest, taskHungWithAttachedCallback) {
+    MockFunction<std::unique_ptr<HangAnnotations>()> mockCallback;
+    std::unique_ptr<HangAnnotations> testAnnotations = std::make_unique<HangAnnotations>();
+    testAnnotations->insert({{"key1", "value1"}, {"key2", "value2"}});
+    int expectedHangDurationS = 5;
+    {
+        InSequence s;
+        EXPECT_CALL(mockCallback, Call()).WillOnce(Return(ByMove(std::move(testAnnotations))));
+        EXPECT_CALL(logger,
+                    logMetricEvent(VariantWith<MetricEventHang>(Field(
+                        &MetricEventHang::metadata,
+                        Field(&EventHangMetadata::data,
+                              Pointee(AllOf(Contains(Key("key1")), Contains(Key("key2")))))))))
+            .Times(1);
+        EXPECT_CALL(logger,
+                    logMetricEvent(VariantWith<MetricEventUnHang>(Field(
+                        &MetricEventUnHang::hung_ms, AllOf(Ge(SToMs(expectedHangDurationS - 1)),
+                                                           Le(SToMs(expectedHangDurationS + 1)))))))
+            .Times(1);
+    }
+    auto id = healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>(),
+                                                mockCallback.AsStdFunction());
+    step(defaultHangThresholdS + expectedHangDurationS);
+    healthMonitor.stopMonitoringTask(id);
 }
 
 }  // namespace emugl

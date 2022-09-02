@@ -447,7 +447,8 @@ intptr_t RenderThread::main() {
             // so we do it outside the limiter
             if (tInfo.m_vkInfo) {
                 last = tInfo.m_vkInfo->m_vkDec.decode(readBuf.buf(), readBuf.validData(), ioStream,
-                                                      seqnoPtr, gfxLogger);
+                                                      seqnoPtr, gfxLogger,
+                                                      FrameBuffer::getFB()->getHealthMonitor());
                 if (last > 0) {
                     readBuf.consume(last);
                     progress = true;

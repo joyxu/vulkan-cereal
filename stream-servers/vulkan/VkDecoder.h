@@ -34,6 +34,7 @@
 #include <memory>
 
 #include "base/GfxApiLogger.h"
+#include "base/HealthMonitor.h"
 #include "vulkan_gfxstream.h"
 
 namespace android {
@@ -50,7 +51,7 @@ class VkDecoder {
     ~VkDecoder();
     void setForSnapshotLoad(bool forSnapshotLoad);
     size_t decode(void* buf, size_t bufsize, IOStream* stream, uint32_t* seqnoPtr,
-                  emugl::GfxApiLogger& gfx_logger);
+                  emugl::GfxApiLogger& gfx_logger, emugl::HealthMonitor<>& healthMonitor);
 
    private:
     class Impl;
