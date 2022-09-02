@@ -65,13 +65,33 @@ class SwapChainStateVkTest : public ::testing::Test {
     void createWindowAndSurface() {
         m_window = emugl::createOrGetTestWindow(0, 0, k_width, k_height);
         ASSERT_NE(m_window, nullptr);
-        // TODO(kaiyili, b/179477624): add support for other platforms
 #ifdef _WIN32
         VkWin32SurfaceCreateInfoKHR surfaceCi = {
             .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
             .hinstance = GetModuleHandle(nullptr),
             .hwnd = m_window->getNativeWindow()};
         ASSERT_EQ(k_vk->vkCreateWin32SurfaceKHR(m_vkInstance, &surfaceCi,
+                                                nullptr, &m_vkSurface),
+                  VK_SUCCESS);
+#elif defined(__linux__)
+        VkXcbSurfaceCreateInfoKHR surfaceCi = {
+            .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+            .pNext = nullptr,
+            .flags = {},
+            .window = static_cast<xcb_window_t>(m_window->getNativeWindow()),
+        };
+        ASSERT_EQ(k_vk->vkCreateXcbSurfaceKHR(m_vkInstance, &surfaceCi,
+                                              nullptr, &m_vkSurface),
+                  VK_SUCCESS);
+#elif defined(__APPLE__)
+        VkMetalSurfaceCreateInfoEXT surfaceCi = {
+                .sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT,
+                .pNext = nullptr,
+                .flags = {},
+                .pLayer = reinterpret_cast<const CAMetalLayer*>(
+                        m_window->getNativeWindow()),
+        };
+        ASSERT_EQ(k_vk->vkCreateMetalSurfaceEXT(m_vkInstance, &surfaceCi,
                                                 nullptr, &m_vkSurface),
                   VK_SUCCESS);
 #endif
@@ -149,5 +169,6 @@ TEST_F(SwapChainStateVkTest, init) {
         *k_vk, m_vkSurface, m_vkPhysicalDevice, k_width, k_height,
         {m_swapChainQueueFamilyIndex});
     ASSERT_NE(swapChainCi, std::nullopt);
-    SwapChainStateVk swapChainState(*k_vk, m_vkDevice, swapChainCi->mCreateInfo);
+    std::unique_ptr<SwapChainStateVk> swapChainState =
+        SwapChainStateVk::createSwapChainVk(*k_vk, m_vkDevice, swapChainCi->mCreateInfo);
 }

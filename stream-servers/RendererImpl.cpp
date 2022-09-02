@@ -13,20 +13,18 @@
 // limitations under the License.
 #include "RendererImpl.h"
 
-#include "RenderChannelImpl.h"
-#include "RenderThread.h"
-
-#include "base/System.h"
-#include "snapshot/common.h"
-#include "host-common/logging.h"
-
-#include "FenceSync.h"
-#include "FrameBuffer.h"
+#include <assert.h>
 
 #include <algorithm>
 #include <utility>
 
-#include <assert.h>
+#include "FenceSync.h"
+#include "FrameBuffer.h"
+#include "RenderChannelImpl.h"
+#include "RenderThread.h"
+#include "base/System.h"
+#include "host-common/logging.h"
+#include "snapshot/common.h"
 
 namespace emugl {
 
@@ -233,11 +231,24 @@ RenderChannelPtr RendererImpl::createRenderChannel(
     return channel;
 }
 
+void RendererImpl::addListener(FrameBufferChangeEventListener* listener) {
+    // TODO: need CP
+    (void)listener;
+}
+
+void RendererImpl::removeListener(FrameBufferChangeEventListener* listener) {
+    // TODO: need CP
+    (void)listener;
+}
+
 void* RendererImpl::addressSpaceGraphicsConsumerCreate(
     struct asg_context context,
     android::base::Stream* loadStream,
-    android::emulation::asg::ConsumerCallbacks callbacks) {
-    auto thread = new RenderThread(context, loadStream, callbacks);
+    android::emulation::asg::ConsumerCallbacks callbacks,
+    uint32_t contextId, uint32_t capsetId,
+    std::optional<std::string> nameOpt) {
+    auto thread = new RenderThread(context, loadStream, callbacks, contextId,
+                                   capsetId, std::move(nameOpt));
     thread->start();
     return (void*)thread;
 }
@@ -481,6 +492,10 @@ void RendererImpl::cleanupProcGLObjects(uint64_t puid) {
 }
 
 static struct AndroidVirtioGpuOps sVirtioGpuOps = {
+        .create_buffer_with_handle =
+                [](uint64_t size, uint32_t handle) {
+                    FrameBuffer::getFB()->createBufferWithHandle(size, handle);
+                },
         .create_color_buffer_with_handle =
                 [](uint32_t width,
                    uint32_t height,
@@ -495,9 +510,21 @@ static struct AndroidVirtioGpuOps sVirtioGpuOps = {
                 [](uint32_t handle) {
                     FrameBuffer::getFB()->openColorBuffer(handle);
                 },
+        .close_buffer =
+                [](uint32_t handle) {
+                    FrameBuffer::getFB()->closeBuffer(handle);
+                },
         .close_color_buffer =
                 [](uint32_t handle) {
                     FrameBuffer::getFB()->closeColorBuffer(handle);
+                },
+        .update_buffer =
+                [](uint32_t handle,
+                   uint64_t offset,
+                   uint64_t size,
+                   void* bytes) {
+                    FrameBuffer::getFB()->updateBuffer(
+                            handle, offset, size, bytes);
                 },
         .update_color_buffer =
                 [](uint32_t handle,
@@ -510,6 +537,14 @@ static struct AndroidVirtioGpuOps sVirtioGpuOps = {
                    void* pixels) {
                     FrameBuffer::getFB()->updateColorBuffer(
                             handle, x, y, width, height, format, type, pixels);
+                },
+        .read_buffer =
+                [](uint32_t handle,
+                   uint64_t offset,
+                   uint64_t size,
+                   void* bytes) {
+                    FrameBuffer::getFB()->readBuffer(
+                            handle, offset, size, bytes);
                 },
         .read_color_buffer =
                 [](uint32_t handle,
@@ -536,6 +571,9 @@ static struct AndroidVirtioGpuOps sVirtioGpuOps = {
                 },
         .post_color_buffer =
                 [](uint32_t handle) { FrameBuffer::getFB()->post(handle); },
+        .async_post_color_buffer =
+                [](uint32_t handle, CpuCompletionCallback cb) {
+                    FrameBuffer::getFB()->postWithCallback(handle, cb); },
         .repost = []() { FrameBuffer::getFB()->repost(); },
         .create_yuv_textures =
                 [](uint32_t type,
@@ -589,7 +627,7 @@ static struct AndroidVirtioGpuOps sVirtioGpuOps = {
             FrameBuffer::getFB()->waitForGpuVulkan(device, fence);
         },
         .set_guest_managed_color_buffer_lifetime = [](bool guestManaged) {
-            FrameBuffer::getFB()->setGuestManagedColorBufferLifetime(true);
+            FrameBuffer::getFB()->setGuestManagedColorBufferLifetime(guestManaged);
         },
         .async_wait_for_gpu_with_cb = [](uint64_t eglsync, FenceCompletionCallback cb) {
             FrameBuffer::getFB()->asyncWaitForGpuWithCb(eglsync, cb);
@@ -603,8 +641,8 @@ static struct AndroidVirtioGpuOps sVirtioGpuOps = {
         .wait_for_gpu_vulkan_qsri = [](uint64_t image) {
             FrameBuffer::getFB()->waitForGpuVulkanQsri(image);
         },
-        .platform_import_resource = [](uint32_t handle, uint32_t type, void* resource) {
-            return FrameBuffer::getFB()->platformImportResource(handle, type, resource);
+        .platform_import_resource = [](uint32_t handle, uint32_t info, void* resource) {
+            return FrameBuffer::getFB()->platformImportResource(handle, info, resource);
         },
         .platform_resource_info = [](uint32_t handle, int32_t* width, int32_t* height, int32_t* internal_format) {
             return FrameBuffer::getFB()->getColorBufferInfo(handle, width, height, internal_format);
@@ -649,4 +687,23 @@ void RendererImpl::snapshotOperationCallback(int op, int stage) {
     }
 }
 
+void RendererImpl::setVsyncHz(int vsyncHz) {
+    // TODO: need CP
+    (void)vsyncHz;
+}
+
+void RendererImpl::setDisplayConfigs(int configId, int w, int h,
+                                     int dpiX, int dpiY) {
+    // TODO: need CP
+    (void)configId;
+    (void)w;
+    (void)h;
+    (void)dpiX;
+    (void)dpiY;
+}
+
+void RendererImpl::setDisplayActiveConfig(int configId) {
+    // TODO: need CP
+    (void)configId;
+}
 }  // namespace emugl

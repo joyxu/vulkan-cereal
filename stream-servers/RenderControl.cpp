@@ -16,29 +16,31 @@
 
 #include "RenderControl.h"
 
-#include "DispatchTables.h"
+#include <inttypes.h>
+#include <string.h>
+
+#include <atomic>
+#include <memory>
+
+#include "ChecksumCalculatorThreadInfo.h"
 #include "FbConfig.h"
 #include "FenceSync.h"
 #include "FrameBuffer.h"
 #include "GLESVersionDetector.h"
+#include "OpenGLESDispatch/DispatchTables.h"
+#include "OpenGLESDispatch/EGLDispatch.h"
 #include "RenderContext.h"
 #include "RenderThreadInfo.h"
+#include "RenderThreadInfoGl.h"
 #include "SyncThread.h"
-#include "ChecksumCalculatorThreadInfo.h"
-#include "OpenGLESDispatch/EGLDispatch.h"
+#include "base/Tracing.h"
+#include "host-common/dma_device.h"
+#include "host-common/feature_control.h"
+#include "host-common/misc.h"
+#include "host-common/sync_device.h"
+#include "math.h"
 #include "vulkan/VkCommonOperations.h"
 #include "vulkan/VkDecoderGlobalState.h"
-
-#include "base/Tracing.h"
-#include "host-common/feature_control.h"
-#include "host-common/sync_device.h"
-#include "host-common/dma_device.h"
-#include "host-common/misc.h"
-#include "math.h"
-
-#include <atomic>
-#include <inttypes.h>
-#include <string.h>
 
 using android::base::AutoLock;
 using android::base::Lock;
@@ -66,9 +68,9 @@ using emugl::emugl_sync_register_trigger_wait;
 #endif
 
 // GrallocSync is a class that helps to reflect the behavior of
-// grallock_lock/gralloc_unlock on the guest.
+// gralloc_lock/gralloc_unlock on the guest.
 // If we don't use this, apps that use gralloc buffers (such as webcam)
-// will have out of order frames,
+// will have out-of-order frames,
 // as GL calls from different threads in the guest
 // are allowed to arrive at the host in any ordering.
 class GrallocSync {
@@ -90,7 +92,7 @@ public:
         // width/height, but since we're using that as synchronization,
         // that lack of calling can lead to a deadlock on the host
         // in many situations
-        // (switching camera sides, exiting benchmark apps, etc)
+        // (switching camera sides, exiting benchmark apps, etc).
         // So, we put GrallocSync under the feature control.
         mEnabled = feature_is_enabled(kFeature_GrallocSync);
 
@@ -101,7 +103,7 @@ public:
         // b. The pipe doesn't have to preserve ordering of the
         // gralloc_lock and gralloc_unlock commands themselves.
         //
-        // To handle a), notice the situation is one of one type of uses
+        // To handle a), notice the situation is one of one type of user
         // needing multiple locks that needs to exclude concurrent use
         // by another type of user. This maps well to a read/write lock,
         // where gralloc_lock and gralloc_unlock users are readers
@@ -179,8 +181,6 @@ static const char* kGLESDynamicVersion_3_1 = "ANDROID_EMU_gles_max_version_3_1";
 // HWComposer Host Composition
 static const char* kHostCompositionV1 = "ANDROID_EMU_host_composition_v1";
 static const char* kHostCompositionV2 = "ANDROID_EMU_host_composition_v2";
-
-static const char* kGLESNoHostError = "ANDROID_EMU_gles_no_host_error";
 
 // Vulkan
 static const char* kVulkanFeatureStr = "ANDROID_EMU_vulkan";
@@ -315,14 +315,9 @@ static bool shouldEnableHostComposition() {
 }
 
 static bool shouldEnableVulkan() {
-    auto supportInfo =
-        goldfish_vk::VkDecoderGlobalState::get()->
-            getHostFeatureSupport();
-    bool flagEnabled =
-        feature_is_enabled(kFeature_Vulkan);
     // TODO: Restrict further to devices supporting external memory.
-    return supportInfo.supportsVulkan &&
-           flagEnabled;
+    return feature_is_enabled(kFeature_Vulkan) &&
+           goldfish_vk::VkDecoderGlobalState::get()->getHostFeatureSupport().supportsVulkan;
 }
 
 static bool shouldEnableDeferredVulkanCommands() {
@@ -430,7 +425,7 @@ void removeExtension(std::string& currExts, const std::string& toRemove) {
 }
 
 static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
-    RenderThreadInfo *tInfo = RenderThreadInfo::get();
+    RenderThreadInfoGl* const tInfo = RenderThreadInfoGl::get();
 
     // whatever we end up returning,
     // it will have a terminating \0,
@@ -480,7 +475,7 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         feature_is_enabled(kFeature_YUV420888toNV21);
     bool YUVCacheEnabled =
         feature_is_enabled(kFeature_YUVCache);
-    bool AsyncUnmapBufferEnabled = false;
+    bool AsyncUnmapBufferEnabled = feature_is_enabled(kFeature_AsyncComposeSupport);
     bool vulkanIgnoredHandlesEnabled =
         shouldEnableVulkan() && feature_is_enabled(kFeature_VulkanIgnoredHandles);
     bool virtioGpuNextEnabled =
@@ -652,29 +647,13 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
         // ASTC LDR compressed texture support.
         glStr += "GL_KHR_texture_compression_astc_ldr ";
 
-        // BPTC compressed texture support
-        if (feature_is_enabled(kFeature_BptcTextureSupport)) {
-            glStr += "GL_EXT_texture_compression_bptc ";
-        }
-
-        if (feature_is_enabled(kFeature_S3tcTextureSupport)) {
-            glStr += "GL_EXT_texture_compression_s3tc ";
-        }
-
-        if (feature_is_enabled(kFeature_RgtcTextureSupport)) {
-            glStr += "GL_EXT_texture_compression_rgtc ";
-        }
-
         // Host side tracing support.
         glStr += kHostSideTracing;
         glStr += " ";
 
-        // Async makecurrent support.
-       // glStr += kAsyncFrameCommands;
-       // glStr += " ";
-
-        if (feature_is_enabled(kFeature_IgnoreHostOpenGLErrors)) {
-            glStr += kGLESNoHostError;
+        if (feature_is_enabled(kFeature_AsyncComposeSupport)) {
+            // Async makecurrent support.
+            glStr += kAsyncFrameCommands;
             glStr += " ";
         }
 
@@ -898,8 +877,7 @@ static int rcFlushWindowColorBuffer(uint32_t windowSurface)
     }
 
     // Update from Vulkan if necessary
-    goldfish_vk::updateColorBufferFromVkImage(
-        fb->getWindowSurfaceColorBufferHandle(windowSurface));
+    goldfish_vk::readColorBufferToGl(fb->getWindowSurfaceColorBufferHandle(windowSurface));
 
     if (!fb->flushWindowSurfaceColorBuffer(windowSurface)) {
         GRSYNC_DPRINT("unlock gralloc cb lock }");
@@ -907,8 +885,7 @@ static int rcFlushWindowColorBuffer(uint32_t windowSurface)
     }
 
     // Update to Vulkan if necessary
-    goldfish_vk::updateVkImageFromColorBuffer(
-        fb->getWindowSurfaceColorBufferHandle(windowSurface));
+    goldfish_vk::updateColorBufferFromGl(fb->getWindowSurfaceColorBufferHandle(windowSurface));
 
     GRSYNC_DPRINT("unlock gralloc cb lock }");
 
@@ -974,7 +951,7 @@ static void rcFBPost(uint32_t colorBuffer)
     }
 
     // Update from Vulkan if necessary
-    goldfish_vk::updateColorBufferFromVkImage(colorBuffer);
+    goldfish_vk::readColorBufferToGl(colorBuffer);
 
     fb->post(colorBuffer);
 }
@@ -992,7 +969,7 @@ static void rcBindTexture(uint32_t colorBuffer)
     }
 
     // Update from Vulkan if necessary
-    goldfish_vk::updateColorBufferFromVkImage(colorBuffer);
+    goldfish_vk::readColorBufferToGl(colorBuffer);
 
     fb->bindColorBufferToTexture(colorBuffer);
 }
@@ -1005,7 +982,7 @@ static void rcBindRenderbuffer(uint32_t colorBuffer)
     }
 
     // Update from Vulkan if necessary
-    goldfish_vk::updateColorBufferFromVkImage(colorBuffer);
+    goldfish_vk::readColorBufferToGl(colorBuffer);
 
     fb->bindColorBufferToRenderbuffer(colorBuffer);
 }
@@ -1031,7 +1008,7 @@ static void rcReadColorBuffer(uint32_t colorBuffer,
     }
 
     // Update from Vulkan if necessary
-    goldfish_vk::updateColorBufferFromVkImage(colorBuffer);
+    goldfish_vk::readColorBufferToGl(colorBuffer);
 
     fb->readColorBuffer(colorBuffer, x, y, width, height, format, type, pixels);
 }
@@ -1051,7 +1028,7 @@ static int rcUpdateColorBuffer(uint32_t colorBuffer,
 
     // Since this is a modify operation, also read the current contents
     // of the VkImage, if any.
-    goldfish_vk::updateColorBufferFromVkImage(colorBuffer);
+    goldfish_vk::readColorBufferToGl(colorBuffer);
 
     fb->updateColorBuffer(colorBuffer, x, y, width, height, format, type, pixels);
 
@@ -1059,7 +1036,7 @@ static int rcUpdateColorBuffer(uint32_t colorBuffer,
     sGrallocSync()->unlockColorBufferPrepare();
 
     // Update to Vulkan if necessary
-    goldfish_vk::updateVkImageFromColorBuffer(colorBuffer);
+    goldfish_vk::updateColorBufferFromGl(colorBuffer);
 
     return 0;
 }
@@ -1080,7 +1057,7 @@ static int rcUpdateColorBufferDMA(uint32_t colorBuffer,
 
     // Since this is a modify operation, also read the current contents
     // of the VkImage, if any.
-    goldfish_vk::updateColorBufferFromVkImage(colorBuffer);
+    goldfish_vk::readColorBufferToGl(colorBuffer);
 
     fb->updateColorBuffer(colorBuffer, x, y, width, height,
                           format, type, pixels);
@@ -1089,7 +1066,7 @@ static int rcUpdateColorBufferDMA(uint32_t colorBuffer,
     sGrallocSync()->unlockColorBufferPrepare();
 
     // Update to Vulkan if necessary
-    goldfish_vk::updateVkImageFromColorBuffer(colorBuffer);
+    goldfish_vk::updateColorBufferFromGl(colorBuffer);
 
     return 0;
 }
@@ -1167,7 +1144,11 @@ static void rcCreateSyncKHR(EGLenum type,
     // rcTriggerWait is registered.
     emugl_sync_register_trigger_wait(rcTriggerWait);
 
-    RenderThreadInfo *tInfo = RenderThreadInfo::get();
+    RenderThreadInfoGl* const tInfo = RenderThreadInfoGl::get();
+    if (!tInfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Render thread GL not available.";
+    }
 
     if (!tInfo->currContext) {
         auto fb = FrameBuffer::getFB();
@@ -1204,7 +1185,12 @@ static void rcCreateSyncKHR(EGLenum type,
 static EGLint rcClientWaitSyncKHR(uint64_t handle,
                                   EGLint flags,
                                   uint64_t timeout) {
-    RenderThreadInfo *tInfo = RenderThreadInfo::get();
+    RenderThreadInfoGl* const tInfo = RenderThreadInfoGl::get();
+    if (!tInfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Render thread GL not available.";
+    }
+
     FrameBuffer *fb = FrameBuffer::getFB();
 
     EGLSYNC_DPRINT("handle=0x%lx flags=0x%x timeout=%" PRIu64,
@@ -1236,7 +1222,12 @@ static EGLint rcClientWaitSyncKHR(uint64_t handle,
 
 static void rcWaitSyncKHR(uint64_t handle,
                                   EGLint flags) {
-    RenderThreadInfo *tInfo = RenderThreadInfo::get();
+    RenderThreadInfoGl* const tInfo = RenderThreadInfoGl::get();
+    if (!tInfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Render thread GL not available.";
+    }
+
     FrameBuffer *fb = FrameBuffer::getFB();
 
     EGLSYNC_DPRINT("handle=0x%lx flags=0x%x", handle, flags);
@@ -1556,10 +1547,18 @@ static int rcReadColorBufferDMA(uint32_t colorBuffer,
     }
 
     // Update from Vulkan if necessary
-    goldfish_vk::updateColorBufferFromVkImage(colorBuffer);
+    goldfish_vk::readColorBufferToGl(colorBuffer);
 
     fb->readColorBuffer(colorBuffer, x, y, width, height, format, type, pixels);
     return 0;
+}
+
+static void rcSetProcessMetadata(char* key, RenderControlByte* valuePtr, uint32_t valueSize) {
+    RenderThreadInfo* tInfo = RenderThreadInfo::get();
+    if (strcmp(key, "process_name") == 0) {
+        // We know this is a c formatted string
+        tInfo->m_processName = std::string((char*) valuePtr);
+    }
 }
 
 void initRenderControlContext(renderControl_decoder_context_t *dec)
@@ -1629,4 +1628,5 @@ void initRenderControlContext(renderControl_decoder_context_t *dec)
     dec->rcCreateDisplayById = rcCreateDisplayById;
     dec->rcSetDisplayPoseDpi = rcSetDisplayPoseDpi;
     dec->rcReadColorBufferDMA = rcReadColorBufferDMA;
+    dec->rcSetProcessMetadata = rcSetProcessMetadata;
 }

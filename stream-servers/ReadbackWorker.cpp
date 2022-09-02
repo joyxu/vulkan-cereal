@@ -18,9 +18,9 @@
 #include <string.h>                           // for memcpy
 
 #include "ColorBuffer.h"                      // for ColorBuffer
-#include "DispatchTables.h"                   // for s_gles2
 #include "FbConfig.h"                         // for FbConfig, FbConfigList
 #include "FrameBuffer.h"                      // for FrameBuffer
+#include "OpenGLESDispatch/DispatchTables.h"  // for s_gles2
 #include "OpenGLESDispatch/EGLDispatch.h"     // for EGLDispatch, s_egl
 #include "OpenGLESDispatch/GLESv2Dispatch.h"  // for GLESv2Dispatch
 #include "host-common/misc.h"                // for getGlesVersion
@@ -168,7 +168,10 @@ void ReadbackWorker::flushPipeline(uint32_t displayId) {
 
     // This is not called from a renderthread, so let's activate
     // the context.
-    s_egl.eglMakeCurrent(mFb->getDisplay(), mFlushSurf, mFlushSurf, mFlushContext);
+    if (EGL_FALSE == s_egl.eglMakeCurrent(mFb->getDisplay(), mSurf, mSurf, mContext)) {
+            fprintf(stderr, "ReadbackWorker cannot set normal context, skip flushing.");
+            return;
+    }
 
     // We now copy the last frame into slot 4, where no other thread
     // ever writes.

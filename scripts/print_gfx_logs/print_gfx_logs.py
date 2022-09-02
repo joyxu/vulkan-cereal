@@ -144,6 +144,8 @@ def main():
 
     streams.sort(key=lambda s: s.timestamp)
 
+    total_commands = 0
+    num_errors = 0
     for stream_idx, stream in enumerate(streams):
         print(textwrap.dedent("""
                   ======================================================= 
@@ -160,11 +162,13 @@ def main():
 
         subdecode_size = 0
         for cmd_idx, cmd in enumerate(stream.commands):
+            total_commands += 1
             cmd_printer = command_printer.CommandPrinter(cmd.opcode, cmd.original_size, cmd.data, stream_idx, cmd_idx)
 
             try:
                 cmd_printer.print_cmd()
             except:
+                num_errors += 1
                 # Print stack trace and continue
                 traceback.print_exc(file=sys.stdout)
 
@@ -178,6 +182,12 @@ def main():
                 assert subdecode_size == 0
                 subdecode_size = cmd.original_size - 36
                 print("\n--- start of subdecode, size = {} bytes ---".format(subdecode_size))
+    print("\nDone: {} commands, {} errors".format(total_commands, num_errors))
+    if num_errors > 0:
+        print("""
+NOTE: This script uses some simplifying assumptions to decode the commands. All
+decoding errors are almost certainly a bug with this script, NOT a sign of bad
+or corrupted data.""")
 
 
 if __name__ == '__main__':

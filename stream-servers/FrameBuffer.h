@@ -28,7 +28,10 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "Buffer.h"
 #include "ColorBuffer.h"
+#include "Compositor.h"
+#include "CompositorGl.h"
 #include "DisplayVk.h"
 #include "FbConfig.h"
 #include "GLESVersionDetector.h"
@@ -37,19 +40,27 @@
 #include "PostWorker.h"
 #include "ReadbackWorker.h"
 #include "RenderContext.h"
-#include "Renderer.h"
 #include "TextureDraw.h"
 #include "WindowSurface.h"
+#include "base/AsyncResult.h"
+#include "base/HealthMonitor.h"
 #include "base/Lock.h"
+#include "base/ManagedDescriptor.hpp"
 #include "base/MessageChannel.h"
+#include "base/Metrics.h"
 #include "base/Stream.h"
 #include "base/Thread.h"
 #include "base/WorkerThread.h"
 #include "host-common/RenderDoc.h"
 #include "render_api.h"
+#include "render-utils/Renderer.h"
+#include "render-utils/virtio_gpu_ops.h"
 #include "snapshot/common.h"
-#include "virtio_gpu_ops.h"
 #include "vulkan/vk_util.h"
+
+using android::base::CreateMetricsLogger;
+using emugl::HealthMonitor;
+using emugl::MetricsLogger;
 
 struct ColorBufferRef {
     ColorBufferPtr cb;
@@ -190,9 +201,9 @@ class FrameBuffer {
     // that are owned by the instance (and must not be freed by the caller).
     void getGLStrings(const char** vendor, const char** renderer,
                       const char** version) const {
-        *vendor = m_glVendor.c_str();
-        *renderer = m_glRenderer.c_str();
-        *version = m_glVersion.c_str();
+        *vendor = m_graphicsAdapterVendor.c_str();
+        *renderer = m_graphicsAdapterName.c_str();
+        *version = m_graphicsApiVersion.c_str();
     }
 
     // Create a new RenderContext instance for this display instance.
@@ -224,10 +235,8 @@ class FrameBuffer {
     // Variant of createColorBuffer except with a particular
     // handle already assigned. This is for use with
     // virtio-gpu's RESOURCE_CREATE ioctl.
-    void createColorBufferWithHandle(int p_width, int p_height,
-                                     GLenum p_internalFormat,
-                                     FrameworkFormat p_frameworkFormat,
-                                     HandleType handle);
+    void createColorBufferWithHandle(int p_width, int p_height, GLenum p_internalFormat,
+                                     FrameworkFormat p_frameworkFormat, HandleType handle);
 
     // Create a new data Buffer instance from this display instance.
     // The buffer will be backed by a VkBuffer and VkDeviceMemory (if Vulkan
@@ -237,15 +246,25 @@ class FrameBuffer {
     // memory.
     HandleType createBuffer(uint64_t size, uint32_t memoryProperty);
 
+    // Variant of createBuffer except with a particular handle already
+    // assigned and using device local memory. This is for use with
+    // virtio-gpu's RESOURCE_CREATE ioctl for BLOB resources.
+    void createBufferWithHandle(uint64_t size, HandleType handle);
+
+    // Call this function when a render thread terminates to destroy all
+    // resources it created. Necessary to avoid leaking host resources
+    // when a guest application crashes, for example.
+    void drainGlRenderThreadResources();
+
     // Call this function when a render thread terminates to destroy all
     // the remaining contexts it created. Necessary to avoid leaking host
     // contexts when a guest application crashes, for example.
-    void drainRenderContext();
+    void drainGlRenderThreadContexts();
 
     // Call this function when a render thread terminates to destroy all
-    // remaining window surfqce it created. Necessary to avoid leaking
+    // remaining window surface it created. Necessary to avoid leaking
     // host buffers when a guest application crashes, for example.
-    void drainWindowSurface();
+    void drainGlRenderThreadWindowSurfaces();
 
     // Destroy a given RenderContext instance. |p_context| is its handle
     // value as returned by createRenderContext().
@@ -286,9 +305,6 @@ class FrameBuffer {
     RenderContextPtr getContext_locked(HandleType p_context);
 
     // Return a color buffer pointer from its handle
-    ColorBufferPtr getColorBuffer_locked(HandleType p_colorBuffer);
-
-    // Return a color buffer pointer from its handle
     WindowSurfacePtr getWindowSurface_locked(HandleType p_windowsurface);
 
     // Attach a ColorBuffer to a WindowSurface instance.
@@ -323,6 +339,14 @@ class FrameBuffer {
     // |p_colorbuffer| is the ColorBuffer's handle value.
     // Returns true on success, false on failure.
     bool bindColorBufferToRenderbuffer(HandleType p_colorbuffer);
+
+    // Read the content of a given Buffer into client memory.
+    // |p_buffer| is the Buffer's handle value.
+    // |offset| and |size| are the position and size of a slice of the buffer
+    // that will be read.
+    // |bytes| is the address of a caller-provided buffer that will be filled
+    // with the buffer data.
+    void readBuffer(HandleType p_buffer, uint64_t offset, uint64_t size, void* bytes);
 
     // Read the content of a given ColorBuffer into client memory.
     // |p_colorbuffer| is the ColorBuffer's handle value. Similar
@@ -359,6 +383,14 @@ class FrameBuffer {
                                           uint32_t format, uint32_t type,
                                           uint32_t texture_type,
                                           uint32_t* textures);
+
+    // Update the content of a given Buffer from client data.
+    // |p_buffer| is the Buffer's handle value.
+    // |offset| and |size| are the position and size of a slice of the buffer
+    // that will be updated.
+    // |bytes| is the address of a caller-provided buffer containing the new
+    // buffer data.
+    bool updateBuffer(HandleType p_buffer, uint64_t offset, uint64_t size, void* pixels);
 
     // Update the content of a given ColorBuffer from client data.
     // |p_colorbuffer| is the ColorBuffer's handle value. Similar
@@ -402,6 +434,10 @@ class FrameBuffer {
     // acquiring/releasing the FrameBuffer instance's lock and binding the
     // contexts. It should be |false| only when called internally.
     bool post(HandleType p_colorbuffer, bool needLockAndBind = true);
+    // The callback will always be called; however, the callback may not be called
+    // until after this function has returned. If the callback is deferred, then it
+    // will be dispatched to run on SyncThread.
+    void postWithCallback(HandleType p_colorbuffer, Post::CompletionCallback callback, bool needLockAndBind = true);
     bool hasGuestPostedAFrame() { return m_guestPostedAFrame; }
     void resetGuestPostedAFrame() { m_guestPostedAFrame = false; }
 
@@ -490,8 +526,8 @@ class FrameBuffer {
     bool compose(uint32_t bufferSize, void* buffer, bool post = true);
     // When false is returned, the callback won't be called. The callback will
     // be called on the PostWorker thread without blocking the current thread.
-    bool composeWithCallback(uint32_t bufferSize, void* buffer,
-                             Post::ComposeCallback callback);
+    AsyncResult composeWithCallback(uint32_t bufferSize, void* buffer,
+                             Post::CompletionCallback callback);
 
     ~FrameBuffer();
 
@@ -516,14 +552,10 @@ class FrameBuffer {
 
     bool isFastBlitSupported() const { return m_fastBlitSupported; }
     bool isVulkanInteropSupported() const { return m_vulkanInteropSupported; }
-    bool importMemoryToColorBuffer(
-#ifdef _WIN32
-        void* handle,
-#else
-        int handle,
-#endif
-        uint64_t size, bool dedicated, bool vulkanOnly, uint32_t colorBufferHandle, VkImage,
-        const VkImageCreateInfo&);
+    bool isVulkanEnabled() const { return m_vulkanEnabled; }
+    bool importMemoryToColorBuffer(android::base::ManagedDescriptor descriptor, uint64_t size,
+                                   bool dedicated, bool vulkanOnly, uint32_t colorBufferHandle,
+                                   VkImage, const VkImageCreateInfo&);
     void setColorBufferInUse(uint32_t colorBufferHandle, bool inUse);
 
     // Used during tests to disable fast blit.
@@ -539,8 +571,9 @@ class FrameBuffer {
                        int displayId, int desiredWidth, int desiredHeight,
                        int desiredRotation);
     void onLastColorBufferRef(uint32_t handle);
-    ColorBuffer::Helper* getColorBufferHelper() { return m_colorBufferHelper; }
+    ContextHelper* getColorBufferHelper() { return m_colorBufferHelper; }
     ColorBufferPtr findColorBuffer(HandleType p_colorbuffer);
+    BufferPtr findBuffer(HandleType p_buffer);
 
     void registerProcessCleanupCallback(void* key,
                                         std::function<void()> callback);
@@ -586,16 +619,22 @@ class FrameBuffer {
     void asyncWaitForGpuVulkanQsriWithCb(uint64_t image, FenceCompletionCallback cb);
     void waitForGpuVulkanQsri(uint64_t image);
 
-    bool platformImportResource(uint32_t handle, uint32_t type, void* resource);
+    bool platformImportResource(uint32_t handle, uint32_t info, void* resource);
     void* platformCreateSharedEglContext(void);
     bool platformDestroySharedEglContext(void* context);
 
     void setGuestManagedColorBufferLifetime(bool guestManaged);
 
-    VkImageLayout getVkImageLayoutForComposeLayer() const;
+    std::unique_ptr<BorrowedImageInfo> borrowColorBufferForComposition(uint32_t colorBufferHandle,
+                                                                       bool colorBufferIsTarget);
+    std::unique_ptr<BorrowedImageInfo> borrowColorBufferForDisplay(uint32_t colorBufferHandle);
+
+    HealthMonitor<>& getHealthMonitor();
 
    private:
     FrameBuffer(int p_width, int p_height, bool useSubWindow);
+    // Requires the caller to hold the m_colorBufferMapLock until the new handle is inserted into of
+    // the object handle maps.
     HandleType genHandle_locked();
 
     bool bindSubwin_locked();
@@ -615,31 +654,31 @@ class FrameBuffer {
     void performDelayedColorBufferCloseLocked(bool forced = false);
     void eraseDelayedCloseColorBufferLocked(HandleType cb, uint64_t ts);
 
-    bool postImpl(HandleType p_colorbuffer, bool needLockAndBind = true,
-                  bool repaint = false);
+    AsyncResult postImpl(HandleType p_colorbuffer, Post::CompletionCallback callback,
+                  bool needLockAndBind = true, bool repaint = false);
+    bool postImplSync(HandleType p_colorbuffer, bool needLockAndBind = true, bool repaint = false);
     void setGuestPostedAFrame() { m_guestPostedAFrame = true; }
-    HandleType createColorBufferLocked(int p_width, int p_height,
-                                       GLenum p_internalFormat,
-                                       FrameworkFormat p_frameworkFormat);
-    HandleType createColorBufferWithHandleLocked(
-        int p_width, int p_height, GLenum p_internalFormat,
-        FrameworkFormat p_frameworkFormat, HandleType handle);
-    HandleType createBufferLocked(int p_size);
+    HandleType createColorBufferWithHandleLocked(int p_width, int p_height, GLenum p_internalFormat,
+                                                 FrameworkFormat p_frameworkFormat,
+                                                 HandleType handle);
     HandleType createBufferWithHandleLocked(int p_size, HandleType handle);
 
     void recomputeLayout();
     void setDisplayPoseInSkinUI(int totalHeight);
     void sweepColorBuffersLocked();
 
+    std::future<void> blockPostWorker(std::future<void> continueSignal);
+
    private:
+
     static FrameBuffer* s_theFrameBuffer;
     static HandleType s_nextHandle;
     int m_x = 0;
     int m_y = 0;
     int m_framebufferWidth = 0;
     int m_framebufferHeight = 0;
-    int m_windowWidth = 0;
-    int m_windowHeight = 0;
+    std::atomic_int m_windowWidth = 0;
+    std::atomic_int m_windowHeight = 0;
     float m_dpr = 0;
 
     bool m_useSubWindow = false;
@@ -653,6 +692,7 @@ class FrameBuffer {
     android::base::Thread* m_perfThread;
     android::base::Lock m_lock;
     android::base::ReadWriteLock m_contextStructureLock;
+    android::base::Lock m_colorBufferMapLock;
     FbConfigList* m_configs = nullptr;
     FBNativeWindowType m_nativeWindow = 0;
     FrameBufferCaps m_caps = {};
@@ -680,7 +720,7 @@ class FrameBuffer {
     using ColorBufferDelayedClose = std::vector<ColorBufferCloseInfo>;
     ColorBufferDelayedClose m_colorBufferDelayedCloseList;
 
-    ColorBuffer::Helper* m_colorBufferHelper = nullptr;
+    ContextHelper* m_colorBufferHelper = nullptr;
 
     EGLSurface m_eglSurface = EGL_NO_SURFACE;
     EGLContext m_eglContext = EGL_NO_CONTEXT;
@@ -742,10 +782,11 @@ class FrameBuffer {
     std::unique_ptr<ReadbackWorker> m_readbackWorker;
     android::base::WorkerThread<Readback> m_readbackThread;
 
-    std::string m_glVendor;
-    std::string m_glRenderer;
-    std::string m_glVersion;
-    std::string m_glExtensions;
+    std::string m_graphicsAdapterVendor;
+    std::string m_graphicsAdapterName;
+    std::string m_graphicsApiVersion;
+    std::string m_graphicsApiExtensions;
+    std::string m_graphicsDeviceExtensions;
 
     // The host associates color buffers with guest processes for memory
     // cleanup. Guest processes are identified with a host generated unique ID.
@@ -780,6 +821,7 @@ class FrameBuffer {
 
     bool m_fastBlitSupported = false;
     bool m_vulkanInteropSupported = false;
+    bool m_vulkanEnabled = false;
     bool m_guestUsesAngle = false;
     // Whether the guest manages ColorBuffer lifetime
     // so we don't need refcounting on the host side.
@@ -787,6 +829,12 @@ class FrameBuffer {
 
     android::base::MessageChannel<HandleType, 1024>
         mOutstandingColorBufferDestroys;
+
+    Compositor* m_compositor = nullptr;
+    // FrameBuffer owns the CompositorGl if used as there is no GlEmulation
+    // equivalent to VkEmulation,
+    std::unique_ptr<CompositorGl> m_compositorGl;
+    bool m_useVulkanComposition = false;
 
     // The implementation for Vulkan native swapchain. Only initialized when useVulkan is set when
     // calling FrameBuffer::initialize(). DisplayVk is actually owned by VkEmulation.
@@ -808,5 +856,8 @@ class FrameBuffer {
         EGLSurface surface;
     };
     std::unordered_map<void*, PlatformEglContextInfo> m_platformEglContexts;
+
+    std::unique_ptr<MetricsLogger> m_logger;
+    HealthMonitor<> m_healthMonitor;
 };
 #endif

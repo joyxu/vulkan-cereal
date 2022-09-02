@@ -14,6 +14,7 @@ cc_library_static {
     static_libs: [
         "gfxstream_base",
         "gfxstream_compressedTextures",
+        "gfxstream_host_common",
         "gfxstream_apigen_codec_common",
         "gfxstream_vulkan_cereal_host",
     ],
@@ -30,15 +31,23 @@ cc_library_static {
         "-Wno-unreachable-code-loop-increment",
     ],
     srcs: [
+        "AstcCpuDecompressorNoOp.cpp",
+        "BorrowedImageVk.cpp",
+        "CompositorVk.cpp",
+        "DebugUtilsHelper.cpp",
+        "DisplayVk.cpp",
+        "SwapChainStateVk.cpp",
         "VkAndroidNativeBuffer.cpp",
         "VkCommonOperations.cpp",
         "VkDecoder.cpp",
         "VkDecoderGlobalState.cpp",
         "VkDecoderSnapshot.cpp",
+        "VkFormatUtils.cpp",
         "VkReconstruction.cpp",
         "VulkanDispatch.cpp",
         "VulkanHandleMapping.cpp",
         "VulkanStream.cpp",
+        "vk_util.cpp",
     ],
     // http://b/178667698 - clang-tidy crashes with VulkanStream.cpp
     // https://android-review.googlesource.com/c/device/generic/vulkan-cereal/+/1560695/
@@ -46,4 +55,26 @@ cc_library_static {
         "VulkanStream.cpp",
         "VkDecoderGlobalState.cpp", // took more than 400 seconds
     ],
+}
+
+// Run with `atest --host gfxstream_vkformatutils_tests`
+cc_test_host {
+    name: "gfxstream_vkformatutils_tests",
+    defaults: [ "gfxstream_defaults" ],
+    srcs: [
+        "VkFormatUtils_unittest.cpp",
+    ],
+    shared_libs: [
+        "libbase",
+        "liblog",
+    ],
+    static_libs: [
+        "gfxstream_host_common",
+        "gfxstream_vulkan_server",
+        "libgtest",
+        "libgmock",
+    ],
+    test_options: {
+        unit_test: true,
+    },
 }

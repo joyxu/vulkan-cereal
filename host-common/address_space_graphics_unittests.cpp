@@ -24,11 +24,12 @@
 
 #include "base/ring_buffer.h"                        // for ring_buf...
 #include "base/FunctorThread.h"              // for FunctorT...
-#include "host-common/AndroidAgentFactory.h"                                 // for getConso...
+#include "host-common/GraphicsAgentFactory.h"                                 // for getConso...
 #include "host-common/AddressSpaceService.h"           // for AddressS...
 #include "host-common/address_space_device.hpp"        // for goldfish...
 #include "host-common/address_space_graphics.h"        // for AddressS...
 #include "host-common/address_space_graphics_types.h"  // for asg_context
+#include "host-common/testing/MockGraphicsAgentFactory.h"
 #include "testing/HostAddressSpace.h"  // for HostAddr...
 #include "host-common/globals.h"                                 // for android_hw
 
@@ -85,9 +86,9 @@ public:
             auto setVersionResult = ping((uint64_t)ASG_SET_VERSION, mVersion);
             uint32_t hostVersion = setVersionResult.size;
             EXPECT_LE(hostVersion, mVersion);
-            EXPECT_EQ(android_hw->hw_gltransport_asg_writeStepSize,
+            EXPECT_EQ(aemu_get_android_hw()->hw_gltransport_asg_writeStepSize,
                       mContext.ring_config->flush_interval);
-            EXPECT_EQ(android_hw->hw_gltransport_asg_writeBufferSize,
+            EXPECT_EQ(aemu_get_android_hw()->hw_gltransport_asg_writeBufferSize,
                       mBufferSize);
 
             mContext.ring_config->transfer_mode = 1;
@@ -550,22 +551,26 @@ public:
     };
 
 protected:
-    static void SetUpTestCase() {
-        goldfish_address_space_set_vm_operations(getConsoleAgents()->vm);
+    static void SetUpTestSuite() {
+        android::emulation::injectGraphicsAgents(
+                android::emulation::MockGraphicsAgentFactory());
+        goldfish_address_space_set_vm_operations(getGraphicsAgents()->vm);
     }
 
-    static void TearDownTestCase() { }
+    static void TearDownTestSuite() { }
 
     void SetUp() override {
-        android_hw->hw_gltransport_asg_writeBufferSize = 524288;
-        android_hw->hw_gltransport_asg_writeStepSize = 1024;
+        aemu_get_android_hw()->hw_gltransport_asg_writeBufferSize = 524288;
+        aemu_get_android_hw()->hw_gltransport_asg_writeStepSize = 1024;
 
         mDevice = HostAddressSpaceDevice::get();
         ConsumerInterface interface = {
             // create
             [this](struct asg_context context,
                base::Stream* loadStream,
-               ConsumerCallbacks callbacks) {
+               ConsumerCallbacks callbacks,
+               uint32_t contextId, uint32_t capsetId,
+               std::optional<std::string> nameOpt) {
                Consumer* c = new Consumer(context, callbacks);
                mCurrentConsumer = c;
                return (void*)c;
@@ -597,8 +602,8 @@ protected:
     void TearDown() override {
         AddressSpaceGraphicsContext::clear();
         mDevice->clear();
-        android_hw->hw_gltransport_asg_writeBufferSize = 524288;
-        android_hw->hw_gltransport_asg_writeStepSize = 1024;
+        aemu_get_android_hw()->hw_gltransport_asg_writeBufferSize = 524288;
+        aemu_get_android_hw()->hw_gltransport_asg_writeStepSize = 1024;
         EXPECT_EQ(nullptr, mCurrentConsumer);
     }
 
@@ -622,8 +627,8 @@ protected:
             std::vector<char> expectedRead(trip.readBytes, ASG_TEST_READ_PATTERN);
             std::vector<char> toRead(trip.readBytes, 0);
 
-            size_t stepSize = android_hw->hw_gltransport_asg_writeStepSize;
-            size_t stepSizeRead = android_hw->hw_gltransport_asg_writeBufferSize;
+            size_t stepSize = aemu_get_android_hw()->hw_gltransport_asg_writeStepSize;
+            size_t stepSizeRead = aemu_get_android_hw()->hw_gltransport_asg_writeBufferSize;
 
             size_t sent = 0;
             while (sent < trip.writeBytes) {
@@ -669,7 +674,7 @@ TEST_F(AddressSpaceGraphicsTest, Basic) {
 // Tests writing via an IOStream-like interface
 // (allocBuffer, then flush)
 TEST_F(AddressSpaceGraphicsTest, BasicWrite) {
-    EXPECT_EQ(1024, android_hw->hw_gltransport_asg_writeStepSize);
+    EXPECT_EQ(1024, aemu_get_android_hw()->hw_gltransport_asg_writeStepSize);
     Client client(mDevice);
 
     // Tests that going over the step size results in nullptr
@@ -685,7 +690,7 @@ TEST_F(AddressSpaceGraphicsTest, BasicWrite) {
 
 // Tests that further allocs result in flushing
 TEST_F(AddressSpaceGraphicsTest, FlushFromAlloc) {
-    EXPECT_EQ(1024, android_hw->hw_gltransport_asg_writeStepSize);
+    EXPECT_EQ(1024, aemu_get_android_hw()->hw_gltransport_asg_writeStepSize);
     Client client(mDevice);
 
     auto buf = client.allocBuffer(1024);

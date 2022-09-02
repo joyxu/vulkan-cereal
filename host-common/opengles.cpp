@@ -33,13 +33,15 @@
 #include "host-common/opengl/logger.h"
 #include "host-common/opengl/gpuinfo.h"
 
-#include "../stream-servers/render_api_functions.h"
-#include "../stream-servers/OpenGLESDispatch/EGLDispatch.h"
-#include "../stream-servers/OpenGLESDispatch/GLESv2Dispatch.h"
+#include "render-utils/render_api_functions.h"
+#include "OpenGLESDispatch/EGLDispatch.h"
+#include "OpenGLESDispatch/GLESv2Dispatch.h"
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <optional>
 
 #define D(...)
 #define DD(...)
@@ -270,10 +272,11 @@ android_startOpenglesRenderer(int width, int height, bool guestPhoneApi, int gue
     ConsumerInterface iface = {
         // create
         [](struct asg_context context,
-           android::base::Stream* loadStream,
-           ConsumerCallbacks callbacks) {
+           android::base::Stream* loadStream, ConsumerCallbacks callbacks,
+           uint32_t contextId, uint32_t capsetId,
+           std::optional<std::string> nameOpt) {
            return sRenderer->addressSpaceGraphicsConsumerCreate(
-               context, loadStream, callbacks);
+               context, loadStream, callbacks, contextId, capsetId, std::move(nameOpt));
         },
         // destroy
         [](void* consumer) {

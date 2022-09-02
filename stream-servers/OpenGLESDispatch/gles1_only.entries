@@ -18,7 +18,6 @@ void glEnableClientState(GLenum array);
 void glEnd(void);
 void glFogf(GLenum pname, GLfloat param);
 void glFogfv(GLenum pname, const GLfloat *params);
-void glFrustum(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdouble zNear, GLdouble zFar);
 void glGetClipPlane(GLenum plane, GLdouble *equation);
 void glGetDoublev( GLenum pname, GLdouble *params );
 void glGetLightfv(GLenum light, GLenum pname, GLfloat *params);

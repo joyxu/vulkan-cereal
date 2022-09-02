@@ -538,6 +538,30 @@ typedef void (gles2_APIENTRY *glDrawElementsDataNullAEMU_server_proc_t) (void *c
 typedef void (gles2_APIENTRY *glUnmapBufferAsyncAEMU_server_proc_t) (void *ctx, GLenum, GLintptr, GLsizeiptr, GLbitfield, void*, GLboolean*);
 typedef void (gles2_APIENTRY *glFlushMappedBufferRangeAEMU2_server_proc_t) (void *ctx, GLenum, GLintptr, GLsizeiptr, GLbitfield, void*);
 typedef GLboolean (gles2_APIENTRY *glBufferDataSyncAEMU_server_proc_t) (void *ctx, GLenum, GLsizeiptr, const GLvoid*, GLenum);
+typedef void (gles2_APIENTRY *glTexBufferOES_server_proc_t) (void *ctx, GLenum, GLenum, GLuint);
+typedef void (gles2_APIENTRY *glTexBufferOES_dec_server_proc_t) (GLenum, GLenum, GLuint);
+typedef void (gles2_APIENTRY *glTexBufferRangeOES_server_proc_t) (void *ctx, GLenum, GLenum, GLuint, GLintptr, GLsizeiptr);
+typedef void (gles2_APIENTRY *glTexBufferRangeOES_dec_server_proc_t) (GLenum, GLenum, GLuint, GLintptr, GLsizeiptr);
+typedef void (gles2_APIENTRY *glTexBufferEXT_server_proc_t) (void *ctx, GLenum, GLenum, GLuint);
+typedef void (gles2_APIENTRY *glTexBufferEXT_dec_server_proc_t) (GLenum, GLenum, GLuint);
+typedef void (gles2_APIENTRY *glTexBufferRangeEXT_server_proc_t) (void *ctx, GLenum, GLenum, GLuint, GLintptr, GLsizeiptr);
+typedef void (gles2_APIENTRY *glTexBufferRangeEXT_dec_server_proc_t) (GLenum, GLenum, GLuint, GLintptr, GLsizeiptr);
+typedef void (gles2_APIENTRY *glEnableiEXT_server_proc_t) (void *ctx, GLenum, GLuint);
+typedef void (gles2_APIENTRY *glEnableiEXT_dec_server_proc_t) (GLenum, GLuint);
+typedef void (gles2_APIENTRY *glDisableiEXT_server_proc_t) (void *ctx, GLenum, GLuint);
+typedef void (gles2_APIENTRY *glDisableiEXT_dec_server_proc_t) (GLenum, GLuint);
+typedef void (gles2_APIENTRY *glBlendEquationiEXT_server_proc_t) (void *ctx, GLuint, GLenum);
+typedef void (gles2_APIENTRY *glBlendEquationiEXT_dec_server_proc_t) (GLuint, GLenum);
+typedef void (gles2_APIENTRY *glBlendEquationSeparateiEXT_server_proc_t) (void *ctx, GLuint, GLenum, GLenum);
+typedef void (gles2_APIENTRY *glBlendEquationSeparateiEXT_dec_server_proc_t) (GLuint, GLenum, GLenum);
+typedef void (gles2_APIENTRY *glBlendFunciEXT_server_proc_t) (void *ctx, GLuint, GLenum, GLenum);
+typedef void (gles2_APIENTRY *glBlendFunciEXT_dec_server_proc_t) (GLuint, GLenum, GLenum);
+typedef void (gles2_APIENTRY *glBlendFuncSeparateiEXT_server_proc_t) (void *ctx, GLuint, GLenum, GLenum, GLenum, GLenum);
+typedef void (gles2_APIENTRY *glBlendFuncSeparateiEXT_dec_server_proc_t) (GLuint, GLenum, GLenum, GLenum, GLenum);
+typedef void (gles2_APIENTRY *glColorMaskiEXT_server_proc_t) (void *ctx, GLuint, GLboolean, GLboolean, GLboolean, GLboolean);
+typedef void (gles2_APIENTRY *glColorMaskiEXT_dec_server_proc_t) (GLuint, GLboolean, GLboolean, GLboolean, GLboolean);
+typedef GLboolean (gles2_APIENTRY *glIsEnablediEXT_server_proc_t) (void *ctx, GLenum, GLuint);
+typedef GLboolean (gles2_APIENTRY *glIsEnablediEXT_dec_server_proc_t) (GLenum, GLuint);
 
 
 #endif

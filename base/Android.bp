@@ -23,15 +23,17 @@ cc_library_static {
         "FileUtils.cpp",
         "FunctorThread.cpp",
         "GLObjectCounter.cpp",
+        "HealthMonitor.cpp",
         "LayoutResolver.cpp",
         "MemStream.cpp",
         "StdioStream.cpp",
         "MemoryTracker.cpp",
         "MessageChannel.cpp",
-        "MetricsNoOp.cpp",
+        "Metrics.cpp",
         "PathUtils.cpp",
         "ring_buffer.cpp",
         "SharedLibrary.cpp",
+        "SharedMemory_posix.cpp",
         "StringFormat.cpp",
         "Stream.cpp",
         "StreamSerializing.cpp",
@@ -43,4 +45,22 @@ cc_library_static {
     whole_static_libs: ["perfetto-tracing-only"],
     static_libs: ["gfxstream_lz4"],
     export_header_lib_headers: ["gfxstream_renderdoc_headers"]
+}
+
+// Run with `atest --host gfxstream_base_tests`
+cc_test_host {
+    name: "gfxstream_base_tests",
+    defaults: [ "gfxstream_defaults" ],
+    srcs: [
+        "LruCache_unittest.cpp",
+    ],
+    static_libs: [
+        "gfxstream_base",
+        "libgmock",
+        "libgtest",
+        "libgtest_main",
+    ],
+    test_options: {
+        unit_test: true,
+    },
 }

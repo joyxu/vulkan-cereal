@@ -28,7 +28,7 @@ TEST(HostmemIdMapping, BasicEntry) {
     HostmemIdMapping m;
     {
         MemEntry entry{
-            .hva = 0,
+            .hva = (void *)(uintptr_t)0,
             .size = 1,
             .register_fixed = 0,
             .fixed_id = 0,
@@ -39,7 +39,7 @@ TEST(HostmemIdMapping, BasicEntry) {
     }
     {
         MemEntry entry{
-            .hva = 1,
+            .hva = (void *)(uintptr_t) 1,
             .size = 0,
             .register_fixed = 0,
             .fixed_id = 0,
@@ -50,7 +50,7 @@ TEST(HostmemIdMapping, BasicEntry) {
     }
     {
         MemEntry inputEntry{
-            .hva = 1,
+            .hva = (void *)(uintptr_t) 1,
             .size = 2,
             .register_fixed = 0,
             .fixed_id = 0,
@@ -61,7 +61,7 @@ TEST(HostmemIdMapping, BasicEntry) {
 
         auto entry = m.get(id);
         EXPECT_EQ(id, entry.id);
-        EXPECT_EQ(1, entry.hva);
+        EXPECT_EQ(1, (uint64_t)(uintptr_t)entry.hva);
         EXPECT_EQ(2, entry.size);
 
         m.remove(id);
@@ -69,7 +69,7 @@ TEST(HostmemIdMapping, BasicEntry) {
         entry = m.get(id);
 
         EXPECT_EQ(HostmemIdMapping::kInvalidHostmemId, entry.id);
-        EXPECT_EQ(0, entry.hva);
+        EXPECT_EQ(0, (uint64_t)(uintptr_t)entry.hva);
         EXPECT_EQ(0, entry.size);
     }
 }
@@ -78,7 +78,7 @@ TEST(HostmemIdMapping, BasicEntry) {
 TEST(HostmemIdMapping, Clear) {
     HostmemIdMapping m;
     MemEntry entry1{
-        .hva = 1,
+        .hva = (void *)(uintptr_t) 1,
         .size = 2,
         .register_fixed = 0,
         .fixed_id = 0,
@@ -86,7 +86,7 @@ TEST(HostmemIdMapping, Clear) {
     };
     auto id1 = m.add(&entry1);
     MemEntry entry2{
-        .hva = 3,
+        .hva = (void *)(uintptr_t) 3,
         .size = 4,
         .register_fixed = 0,
         .fixed_id = 0,
@@ -98,12 +98,12 @@ TEST(HostmemIdMapping, Clear) {
 
     auto entry = m.get(id1);
     EXPECT_EQ(HostmemIdMapping::kInvalidHostmemId, entry.id);
-    EXPECT_EQ(0, entry.hva);
+    EXPECT_EQ(0, (uint64_t)(uintptr_t)entry.hva);
     EXPECT_EQ(0, entry.size);
 
     entry = m.get(id2);
     EXPECT_EQ(HostmemIdMapping::kInvalidHostmemId, entry.id);
-    EXPECT_EQ(0, entry.hva);
+    EXPECT_EQ(0, (uint64_t)(uintptr_t)entry.hva);
     EXPECT_EQ(0, entry.size);
 }
 

@@ -15,7 +15,7 @@
 */
 
 #include "misc.h"
-#include "AndroidAgentFactory.h"
+#include "GraphicsAgentFactory.h"
 #include <cassert>
 
 namespace {

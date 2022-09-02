@@ -1,16 +1,26 @@
 cmake_policy(SET CMP0048 NEW)
-project(gfx-streaming-kit)
-cmake_minimum_required(VERSION 3.11)
+# Set this policy to allow gfxstream to modify the passed in targets like
+# ${GFXSTREAM_HOST_COMMON_LIB}.
+cmake_policy(SET CMP0079 NEW)
+get_directory_property(hasParent PARENT_DIRECTORY)
+if(NOT hasParent)
+    project(gfx-streaming-kit)
+endif()
+cmake_minimum_required(VERSION 3.18)
 
+option(ENABLE_VKCEREAL_TESTS "Enable building vulkan-cereal unittests" ON)
 option(BUILD_ASAN_WIN32 "Build with ASAN on Windows platform" OFF)
+
+option(BUILD_STANDALONE "Build with standalone implementations of base/host-common libraries" ON)
+if (BUILD_STANDALONE)
+    # These libraries may be changed in non-standalone builds to inject another implementation of
+    # these APIs.
+    set(GFXSTREAM_BASE_LIB gfxstream-base)
+    set(GFXSTREAM_HOST_COMMON_LIB gfxstream-host-common)
+endif()
 
 if (WIN32)
     add_definitions("-DUNICODE -D_UNICODE -DNOMINMAX -DEMUGL_BUILD -DVK_USE_PLATFORM_WIN32_KHR -DBUILDING_EMUGL_COMMON_SHARED")
-
-    option(RECORDER_DELEGATE_LIB "Use recorder_delegate_lib dll" OFF)
-    if(RECORDER_DELEGATE_LIB)
-        add_definitions(-DRECORDER_DELEGATE_LIB)
-    endif()
 endif()
 
 option(VIRGL_RENDERER_UNSTABLE_APIS "Use unstable virglrenderer APIs" OFF)
@@ -18,14 +28,22 @@ if(VIRGL_RENDERER_UNSTABLE_APIS)
     add_definitions(-DVIRGL_RENDERER_UNSTABLE_APIS)
 endif()
 
+option(ASTC_CPU_DECODING "Enable decoding ASTC textures on the CPU" OFF)
+
 if(UNIX AND NOT APPLE)
     set(LINUX TRUE)
 endif()
 
 find_package(Threads)
 include(ExternalProject)
+include(FetchContent)
+
 include(GoogleTest)
 enable_testing()
+# Disable test discovery after build.
+# By default, `gtest_discover_tests()` adds a post-build step to run the test executables in order to discover the test
+# targets. This is problematic in some build environments. (for example: if cross-compiling)
+set(CMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE "PRE_TEST")
 
 # set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -58,11 +76,10 @@ if (MSVC)
     add_compile_definitions(_CRT_NONSTDC_NO_DEPRECATE)
 endif()
 
-# Macro to easily set the TEST_INCLUDE_FILES properties to point to `test_properties.cmake`
-# This macro should be called at the end of any CMakeLists.txt file that defines test targets.
-macro("set_test_include_files")
-set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES ${CMAKE_SOURCE_DIR}/test_properties.cmake)
-endmacro()
+if(MSVC OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    # generate PDB files
+    add_link_options("/DEBUG")
+endif()
 
 # Uncomment for ASAN support
 # set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
@@ -90,6 +107,8 @@ set(GFXSTREAM_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
 include(android.cmake)
 
+set(EXTRA_SUBDIR_TEST_INCLUDE_FILES)
+
 # Third party dependencies
 add_subdirectory(third-party)
 
@@ -112,3 +131,9 @@ add_subdirectory(protocols)
 if (NOT WIN32)
     add_subdirectory(fake-android-guest)
 endif()
+
+if (ENABLE_VKCEREAL_TESTS)
+    list(APPEND EXTRA_SUBDIR_TEST_INCLUDE_FILES ${CMAKE_SOURCE_DIR}/cmake/test_properties.cmake)
+endif()
+
+include(cmake/SetSubdirectorProperties.cmake)

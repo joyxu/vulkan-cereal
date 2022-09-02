@@ -26,6 +26,7 @@
 #include <unordered_set>
 
 #include "FrameBuffer.h"
+#include "VkFormatUtils.h"
 #include "VulkanDispatch.h"
 #include "base/Lock.h"
 #include "base/Lookup.h"
@@ -48,11 +49,16 @@
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
-#define VK_COMMON_ERROR(fmt,...) fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
-#define VK_COMMON_LOG(fmt,...) fprintf(stdout, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
-#define VK_COMMON_VERBOSE(fmt,...) if (android::base::isVerboseLogging()) fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
+#define VK_COMMON_ERROR(fmt, ...) \
+    fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
+#define VK_COMMON_LOG(fmt, ...) \
+    fprintf(stdout, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
+#define VK_COMMON_VERBOSE(fmt, ...)        \
+    if (android::base::isVerboseLogging()) \
+        fprintf(stderr, "%s:%d " fmt "\n", __func__, __LINE__, ##__VA_ARGS__);
 
 using android::base::AutoLock;
+using android::base::ManagedDescriptor;
 using android::base::Optional;
 using android::base::StaticLock;
 using android::base::StaticMap;
@@ -70,8 +76,7 @@ constexpr size_t kPageSize = 1u << kPageBits;
 
 }  // namespace
 
-static StaticMap<VkDevice, uint32_t>
-sKnownStagingTypeIndices;
+static StaticMap<VkDevice, uint32_t> sKnownStagingTypeIndices;
 
 static android::base::StaticLock sVkEmulationLock;
 
@@ -79,24 +84,19 @@ VK_EXT_MEMORY_HANDLE dupExternalMemory(VK_EXT_MEMORY_HANDLE h) {
 #ifdef _WIN32
     auto myProcessHandle = GetCurrentProcess();
     VK_EXT_MEMORY_HANDLE res;
-    DuplicateHandle(
-        myProcessHandle, h, // source process and handle
-        myProcessHandle, &res, // target process and pointer to handle
-        0 /* desired access (ignored) */,
-        true /* inherit */,
-        DUPLICATE_SAME_ACCESS /* same access option */);
+    DuplicateHandle(myProcessHandle, h,     // source process and handle
+                    myProcessHandle, &res,  // target process and pointer to handle
+                    0 /* desired access (ignored) */, true /* inherit */,
+                    DUPLICATE_SAME_ACCESS /* same access option */);
     return res;
 #else
     return dup(h);
 #endif
 }
 
-bool getStagingMemoryTypeIndex(
-    VulkanDispatch* vk,
-    VkDevice device,
-    const VkPhysicalDeviceMemoryProperties* memProps,
-    uint32_t* typeIndex) {
-
+bool getStagingMemoryTypeIndex(VulkanDispatch* vk, VkDevice device,
+                               const VkPhysicalDeviceMemoryProperties* memProps,
+                               uint32_t* typeIndex) {
     auto res = sKnownStagingTypeIndices.get(device);
 
     if (res) {
@@ -105,16 +105,18 @@ bool getStagingMemoryTypeIndex(
     }
 
     VkBufferCreateInfo testCreateInfo = {
-        VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, 0, 0,
+        VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        0,
+        0,
         4096,
         // To be a staging buffer, it must support being
         // both a transfer src and dst.
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         // TODO: See if buffers over shared queues need to be
         // considered separately
         VK_SHARING_MODE_EXCLUSIVE,
-        0, nullptr,
+        0,
+        nullptr,
     };
 
     VkBuffer testBuffer;
@@ -140,10 +142,8 @@ bool getStagingMemoryTypeIndex(
 
     for (uint32_t i = 0; i < VK_MAX_MEMORY_TYPES; ++i) {
         const auto& typeInfo = memProps->memoryTypes[i];
-        bool hostVisible =
-            typeInfo.propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-        bool hostCached =
-            typeInfo.propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+        bool hostVisible = typeInfo.propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+        bool hostCached = typeInfo.propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
         bool allowedInBuffer = (1 << i) & memReqs.memoryTypeBits;
         if (hostVisible && hostCached && allowedInBuffer) {
             foundSuitableStagingMemoryType = true;
@@ -156,18 +156,15 @@ bool getStagingMemoryTypeIndex(
 
     if (!foundSuitableStagingMemoryType) {
         std::stringstream ss;
-        ss <<
-            "Could not find suitable memory type index " <<
-            "for staging buffer. Memory type bits: " <<
-            std::hex << memReqs.memoryTypeBits << "\n" <<
-            "Available host visible memory type indices:" << "\n";
+        ss << "Could not find suitable memory type index "
+           << "for staging buffer. Memory type bits: " << std::hex << memReqs.memoryTypeBits << "\n"
+           << "Available host visible memory type indices:"
+           << "\n";
         for (uint32_t i = 0; i < VK_MAX_MEMORY_TYPES; ++i) {
-            if (memProps->memoryTypes[i].propertyFlags &
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+            if (memProps->memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
                 ss << "Host visible memory type index: %u" << i << "\n";
             }
-            if (memProps->memoryTypes[i].propertyFlags &
-                VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
+            if (memProps->memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
                 ss << "Host cached memory type index: %u" << i << "\n";
             }
         }
@@ -185,10 +182,8 @@ bool getStagingMemoryTypeIndex(
 
 static VkEmulation* sVkEmulation = nullptr;
 
-static bool extensionsSupported(
-    const std::vector<VkExtensionProperties>& currentProps,
-    const std::vector<const char*>& wantedExtNames) {
-
+static bool extensionsSupported(const std::vector<VkExtensionProperties>& currentProps,
+                                const std::vector<const char*>& wantedExtNames) {
     std::vector<bool> foundExts(wantedExtNames.size(), false);
 
     for (uint32_t i = 0; i < currentProps.size(); ++i) {
@@ -220,20 +215,17 @@ static bool extensionsSupported(
 // not needed.
 // Precondition: sVkEmulation instance has been created and ext memory caps known.
 // Returns false if the query failed.
-static bool getImageFormatExternalMemorySupportInfo(
-    VulkanDispatch* vk,
-    VkPhysicalDevice physdev,
-    VkEmulation::ImageSupportInfo* info) {
-
+static bool getImageFormatExternalMemorySupportInfo(VulkanDispatch* vk, VkPhysicalDevice physdev,
+                                                    VkEmulation::ImageSupportInfo* info) {
     // Currently there is nothing special we need to do about
     // VkFormatProperties2, so just use the normal version
     // and put it in the format2 struct.
     VkFormatProperties outFormatProps;
-    vk->vkGetPhysicalDeviceFormatProperties(
-            physdev, info->format, &outFormatProps);
+    vk->vkGetPhysicalDeviceFormatProperties(physdev, info->format, &outFormatProps);
 
     info->formatProps2 = {
-        VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2, 0,
+        VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2,
+        0,
         outFormatProps,
     };
 
@@ -243,8 +235,8 @@ static bool getImageFormatExternalMemorySupportInfo(
 
         VkImageFormatProperties outImageFormatProps;
         VkResult res = vk->vkGetPhysicalDeviceImageFormatProperties(
-                physdev, info->format, info->type, info->tiling,
-                info->usageFlags, info->createFlags, &outImageFormatProps);
+            physdev, info->format, info->type, info->tiling, info->usageFlags, info->createFlags,
+            &outImageFormatProps);
 
         if (res != VK_SUCCESS) {
             if (res == VK_ERROR_FORMAT_NOT_SUPPORTED) {
@@ -255,8 +247,8 @@ static bool getImageFormatExternalMemorySupportInfo(
                         "%s: vkGetPhysicalDeviceImageFormatProperties query "
                         "failed with %d "
                         "for format 0x%x type 0x%x usage 0x%x flags 0x%x\n",
-                        __func__, res, info->format, info->type,
-                        info->usageFlags, info->createFlags);
+                        __func__, res, info->format, info->type, info->usageFlags,
+                        info->createFlags);
                 return false;
             }
         }
@@ -264,7 +256,8 @@ static bool getImageFormatExternalMemorySupportInfo(
         info->supported = true;
 
         info->imageFormatProps2 = {
-            VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2, 0,
+            VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2,
+            0,
             outImageFormatProps,
         };
 
@@ -279,14 +272,19 @@ static bool getImageFormatExternalMemorySupportInfo(
     }
 
     VkPhysicalDeviceExternalImageFormatInfo extInfo = {
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO, 0,
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO,
+        0,
         VK_EXT_MEMORY_HANDLE_TYPE_BIT,
     };
 
     VkPhysicalDeviceImageFormatInfo2 formatInfo2 = {
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2, &extInfo,
-        info->format, info->type, info->tiling,
-        info->usageFlags, info->createFlags,
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
+        &extInfo,
+        info->format,
+        info->type,
+        info->tiling,
+        info->usageFlags,
+        info->createFlags,
     };
 
     VkExternalImageFormatProperties outExternalProps = {
@@ -299,19 +297,17 @@ static bool getImageFormatExternalMemorySupportInfo(
         },
     };
 
-    VkImageFormatProperties2 outProps2 = {
-        VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2, &outExternalProps,
-        {
-            { 0, 0, 0},
-            0, 0,
-            1, 0,
-        }
-    };
+    VkImageFormatProperties2 outProps2 = {VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2,
+                                          &outExternalProps,
+                                          {
+                                              {0, 0, 0},
+                                              0,
+                                              0,
+                                              1,
+                                              0,
+                                          }};
 
-    VkResult res = sVkEmulation->getImageFormatProperties2Func(
-        physdev,
-        &formatInfo2,
-        &outProps2);
+    VkResult res = sVkEmulation->getImageFormatProperties2Func(physdev, &formatInfo2, &outProps2);
 
     if (res != VK_SUCCESS) {
         if (res == VK_ERROR_FORMAT_NOT_SUPPORTED) {
@@ -322,8 +318,7 @@ static bool getImageFormatExternalMemorySupportInfo(
                     "%s: vkGetPhysicalDeviceImageFormatProperties2KHR query "
                     "failed "
                     "for format 0x%x type 0x%x usage 0x%x flags 0x%x\n",
-                    __func__, info->format, info->type, info->usageFlags,
-                    info->createFlags);
+                    __func__, info->format, info->type, info->usageFlags, info->createFlags);
             return false;
         }
     }
@@ -342,10 +337,9 @@ static bool getImageFormatExternalMemorySupportInfo(
     VkExternalMemoryHandleTypeFlags compatibleHandleTypes =
         outExternalProps.externalMemoryProperties.compatibleHandleTypes;
 
-    info->supportsExternalMemory =
-        (VK_EXT_MEMORY_HANDLE_TYPE_BIT & compatibleHandleTypes) &&
-        (VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT & featureFlags) &&
-        (VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT & featureFlags);
+    info->supportsExternalMemory = (VK_EXT_MEMORY_HANDLE_TYPE_BIT & compatibleHandleTypes) &&
+                                   (VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT & featureFlags) &&
+                                   (VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT & featureFlags);
 
     info->requiresDedicatedAllocation =
         (VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT & featureFlags);
@@ -368,34 +362,83 @@ static bool getImageFormatExternalMemorySupportInfo(
     return true;
 }
 
+// Vulkan driverVersions are bit-shift packs of their dotted versions
+// For example, nvidia driverversion 1934229504 unpacks to 461.40
+// note: while this is equivalent to VkPhysicalDeviceDriverProperties.driverInfo on NVIDIA,
+// on intel that value is simply "Intel driver".
+static std::string decodeDriverVersion(uint32_t vendorId, uint32_t driverVersion) {
+    std::stringstream result;
+    switch (vendorId) {
+        case 0x10DE: {
+            // Nvidia. E.g. driverVersion = 1934229504(0x734a0000) maps to 461.40
+            uint32_t major = driverVersion >> 22;
+            uint32_t minor = (driverVersion >> 14) & 0xff;
+            uint32_t build = (driverVersion >> 6) & 0xff;
+            uint32_t revision = driverVersion & 0x3f;
+            result << major << '.' << minor << '.' << build << '.' << revision;
+            break;
+        }
+        case 0x8086: {
+            // Intel. E.g. driverVersion = 1647866(0x1924fa) maps to 100.9466 (27.20.100.9466)
+            uint32_t high = driverVersion >> 14;
+            uint32_t low = driverVersion & 0x3fff;
+            result << high << '.' << low;
+            break;
+        }
+        case 0x002:  // amd
+        default: {
+            uint32_t major = VK_VERSION_MAJOR(driverVersion);
+            uint32_t minor = VK_VERSION_MINOR(driverVersion);
+            uint32_t patch = VK_VERSION_PATCH(driverVersion);
+            result << major << "." << minor << "." << patch;
+            break;
+        }
+    }
+    return result.str();
+}
+
 static std::vector<VkEmulation::ImageSupportInfo> getBasicImageSupportList() {
-    std::vector<VkFormat> formats = {
+    struct ImageFeatureCombo {
+        VkFormat format;
+        VkImageCreateFlags createFlags = 0;
+    };
+    // Set the mutable flag for RGB UNORM formats so that the created image can also be sampled in
+    // the sRGB Colorspace. See
+    // https://chromium-review.googlesource.com/c/chromiumos/platform/minigbm/+/3827672/comments/77db9cb3_60663a6a
+    // for details.
+    std::vector<ImageFeatureCombo> combos = {
         // Cover all the gralloc formats
-        VK_FORMAT_R8G8B8A8_UNORM,
-        VK_FORMAT_R8G8B8_UNORM,
+        {VK_FORMAT_R8G8B8A8_UNORM,
+         VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT | VK_IMAGE_CREATE_EXTENDED_USAGE_BIT},
+        {VK_FORMAT_R8G8B8_UNORM,
+         VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT | VK_IMAGE_CREATE_EXTENDED_USAGE_BIT},
 
-        VK_FORMAT_R5G6B5_UNORM_PACK16,
+        {VK_FORMAT_R5G6B5_UNORM_PACK16},
 
-        VK_FORMAT_R16G16B16A16_SFLOAT,
-        VK_FORMAT_R16G16B16_SFLOAT,
+        {VK_FORMAT_R16G16B16A16_SFLOAT},
+        {VK_FORMAT_R16G16B16_SFLOAT},
 
-        VK_FORMAT_B8G8R8A8_UNORM,
+        {VK_FORMAT_B8G8R8A8_UNORM,
+         VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT | VK_IMAGE_CREATE_EXTENDED_USAGE_BIT},
 
-        VK_FORMAT_R8_UNORM,
+        {VK_FORMAT_R8_UNORM,
+         VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT | VK_IMAGE_CREATE_EXTENDED_USAGE_BIT},
 
-        VK_FORMAT_A2R10G10B10_UINT_PACK32,
-        VK_FORMAT_A2R10G10B10_UNORM_PACK32,
+        {VK_FORMAT_A2R10G10B10_UINT_PACK32},
+        {VK_FORMAT_A2R10G10B10_UNORM_PACK32},
+        {VK_FORMAT_A2B10G10R10_UNORM_PACK32},
 
         // Compressed texture formats
-        VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK,
-        VK_FORMAT_ASTC_4x4_UNORM_BLOCK,
+        {VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK},
+        {VK_FORMAT_ASTC_4x4_UNORM_BLOCK},
 
         // TODO: YUV formats used in Android
         // Fails on Mac
-        VK_FORMAT_G8_B8R8_2PLANE_420_UNORM,
-        VK_FORMAT_G8_B8R8_2PLANE_422_UNORM,
-        VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM,
-        VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM,
+        {VK_FORMAT_G8_B8R8_2PLANE_420_UNORM},
+        {VK_FORMAT_G8_B8R8_2PLANE_422_UNORM},
+        {VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM},
+        {VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM},
+        {VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16},
 
     };
 
@@ -409,34 +452,25 @@ static std::vector<VkEmulation::ImageSupportInfo> getBasicImageSupportList() {
     };
 
     std::vector<VkImageUsageFlags> usageFlags = {
-        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-        VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
-        VK_IMAGE_USAGE_SAMPLED_BIT,
-        VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+        VK_IMAGE_USAGE_SAMPLED_BIT,          VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
         VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-    };
-
-    std::vector<VkImageCreateFlags> createFlags = {
-        0,
     };
 
     std::vector<VkEmulation::ImageSupportInfo> res;
 
-    // Currently: 12 formats, 2 tilings, 5 usage flags -> 120 cases
-    // to check
-    for (auto f : formats) {
+    // Currently: 17 format + create flags combo, 2 tilings, 5 usage flags -> 170 cases to check.
+    for (auto combo : combos) {
         for (auto t : types) {
             for (auto ti : tilings) {
                 for (auto u : usageFlags) {
-                    for (auto c : createFlags) {
-                        VkEmulation::ImageSupportInfo info;
-                        info.format = f;
-                        info.type = t;
-                        info.tiling = ti;
-                        info.usageFlags = u;
-                        info.createFlags = c;
-                        res.push_back(info);
-                    }
+                    VkEmulation::ImageSupportInfo info;
+                    info.format = combo.format;
+                    info.type = t;
+                    info.tiling = ti;
+                    info.usageFlags = u;
+                    info.createFlags = combo.createFlags;
+                    res.push_back(info);
                 }
             }
         }
@@ -446,10 +480,12 @@ static std::vector<VkEmulation::ImageSupportInfo> getBasicImageSupportList() {
 }
 
 VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
-#define VK_EMU_INIT_RETURN_ON_ERROR(...) \
-    do {                                 \
-        ERR(__VA_ARGS__);                \
-        return nullptr;                  \
+// Downstream branches can provide abort logic or otherwise use result without a new macro
+#define VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(res, ...) \
+    do {                                               \
+        (void)res; /* no-op of unused param*/          \
+        ERR(__VA_ARGS__);                              \
+        return nullptr;                                \
     } while (0)
 
     AutoLock lock(sVkEmulationLock);
@@ -457,7 +493,7 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     if (sVkEmulation) return sVkEmulation;
 
     if (!emugl::vkDispatchValid(vk)) {
-        VK_EMU_INIT_RETURN_ON_ERROR("Dispatch is invalid.");
+        VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(ABORT_REASON_OTHER, "Dispatch is invalid.");
     }
 
     sVkEmulation = new VkEmulation;
@@ -466,35 +502,40 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     auto gvk = vk;
 
     std::vector<const char*> externalMemoryInstanceExtNames = {
-        "VK_KHR_external_memory_capabilities",
-        "VK_KHR_get_physical_device_properties2",
+        VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME,
+        VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
     };
 
     std::vector<const char*> externalMemoryDeviceExtNames = {
-        "VK_KHR_dedicated_allocation",
-        "VK_KHR_get_memory_requirements2",
-        "VK_KHR_external_memory",
+        VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME,
+        VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
+        VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
 #ifdef _WIN32
-        "VK_KHR_external_memory_win32",
+        VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME,
 #else
-        "VK_KHR_external_memory_fd",
+        VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
 #endif
+    };
+
+    std::vector<const char*> externalSemaphoreInstanceExtNames = {
+        VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME,
     };
 
     uint32_t extCount = 0;
     gvk->vkEnumerateInstanceExtensionProperties(nullptr, &extCount, nullptr);
-    std::vector<VkExtensionProperties> exts(extCount);
+    std::vector<VkExtensionProperties>& exts = sVkEmulation->instanceExtensions;
+    exts.resize(extCount);
     gvk->vkEnumerateInstanceExtensionProperties(nullptr, &extCount, exts.data());
 
     bool externalMemoryCapabilitiesSupported =
         extensionsSupported(exts, externalMemoryInstanceExtNames);
-    bool moltenVKSupported = (vk->vkGetMTLTextureMVK != nullptr) &&
-        (vk->vkSetMTLTextureMVK != nullptr);
+    bool externalSemaphoreCapabilitiesSupported =
+        extensionsSupported(exts, externalSemaphoreInstanceExtNames);
+    bool moltenVKSupported =
+        (vk->vkGetMTLTextureMVK != nullptr) && (vk->vkSetMTLTextureMVK != nullptr);
 
     VkInstanceCreateInfo instCi = {
-        VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        0, 0, nullptr, 0, nullptr,
-        0, nullptr,
+        VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO, 0, 0, nullptr, 0, nullptr, 0, nullptr,
     };
 
     std::unordered_set<const char*> enabledExtensions;
@@ -515,17 +556,12 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     for (auto extension : SwapChainStateVk::getRequiredInstanceExtensions()) {
         enabledExtensions.emplace(extension);
     }
-    std::vector<const char*> enabledExtensions_(enabledExtensions.begin(),
-                                                enabledExtensions.end());
-    instCi.enabledExtensionCount =
-        static_cast<uint32_t>(enabledExtensions_.size());
+    std::vector<const char*> enabledExtensions_(enabledExtensions.begin(), enabledExtensions.end());
+    instCi.enabledExtensionCount = static_cast<uint32_t>(enabledExtensions_.size());
     instCi.ppEnabledExtensionNames = enabledExtensions_.data();
 
     VkApplicationInfo appInfo = {
-        VK_STRUCTURE_TYPE_APPLICATION_INFO, 0,
-        "AEMU", 1,
-        "AEMU", 1,
-        VK_MAKE_VERSION(1, 0, 0),
+        VK_STRUCTURE_TYPE_APPLICATION_INFO, 0, "AEMU", 1, "AEMU", 1, VK_MAKE_VERSION(1, 0, 0),
     };
 
     instCi.pApplicationInfo = &appInfo;
@@ -551,13 +587,13 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     VkResult res = gvk->vkCreateInstance(&instCi, nullptr, &sVkEmulation->instance);
 
     if (res != VK_SUCCESS) {
-        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan instance.");
+        VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(res, "Failed to create Vulkan instance. Error %s.",
+                                             string_VkResult(res));
     }
 
     // Create instance level dispatch.
     sVkEmulation->ivk = new VulkanDispatch;
-    init_vulkan_dispatch_from_instance(
-        vk, sVkEmulation->instance, sVkEmulation->ivk);
+    init_vulkan_dispatch_from_instance(vk, sVkEmulation->instance, sVkEmulation->ivk);
 
     auto ivk = sVkEmulation->ivk;
 
@@ -568,10 +604,10 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     if (ivk->vkEnumerateInstanceVersion) {
         uint32_t instanceVersion;
         VkResult enumInstanceRes = ivk->vkEnumerateInstanceVersion(&instanceVersion);
-        if ((VK_SUCCESS == enumInstanceRes) &&
-            instanceVersion >= VK_MAKE_VERSION(1, 1, 0)) {
+        if ((VK_SUCCESS == enumInstanceRes) && instanceVersion >= VK_MAKE_VERSION(1, 1, 0)) {
             if (!vulkan_dispatch_check_instance_VK_VERSION_1_1(ivk)) {
-                fprintf(stderr, "%s: Warning: Vulkan 1.1 APIs missing from instance (1st try)\n", __func__);
+                fprintf(stderr, "%s: Warning: Vulkan 1.1 APIs missing from instance (1st try)\n",
+                        __func__);
             }
         }
 
@@ -585,22 +621,25 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
             VkResult res = gvk->vkCreateInstance(&instCi, nullptr, &sVkEmulation->instance);
 
             if (res != VK_SUCCESS) {
-                VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan 1.1 instance.");
+                VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(
+                    res, "Failed to create Vulkan 1.1 instance. Error %s.", string_VkResult(res));
             }
 
-            init_vulkan_dispatch_from_instance(
-                vk, sVkEmulation->instance, sVkEmulation->ivk);
+            init_vulkan_dispatch_from_instance(vk, sVkEmulation->instance, sVkEmulation->ivk);
 
             // LOG(VERBOSE) << "Created Vulkan 1.1 instance on second try.";
 
             if (!vulkan_dispatch_check_instance_VK_VERSION_1_1(ivk)) {
-                fprintf(stderr, "%s: Warning: Vulkan 1.1 APIs missing from instance (2nd try)\n", __func__);
+                fprintf(stderr, "%s: Warning: Vulkan 1.1 APIs missing from instance (2nd try)\n",
+                        __func__);
             }
         }
     }
 
-    sVkEmulation->instanceSupportsExternalMemoryCapabilities =
-        externalMemoryCapabilitiesSupported;
+    sVkEmulation->vulkanInstanceVersion = appInfo.apiVersion;
+
+    sVkEmulation->instanceSupportsExternalMemoryCapabilities = externalMemoryCapabilitiesSupported;
+    sVkEmulation->instanceSupportsExternalSemaphoreCapabilities = externalSemaphoreCapabilitiesSupported;
     sVkEmulation->instanceSupportsMoltenVK = moltenVKSupported;
 
     if (sVkEmulation->instanceSupportsExternalMemoryCapabilities) {
@@ -617,80 +656,119 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
 
     if (sVkEmulation->instanceSupportsMoltenVK) {
         sVkEmulation->setMTLTextureFunc = reinterpret_cast<PFN_vkSetMTLTextureMVK>(
-                vk->vkGetInstanceProcAddr(
-                        sVkEmulation->instance, "vkSetMTLTextureMVK"));
+            vk->vkGetInstanceProcAddr(sVkEmulation->instance, "vkSetMTLTextureMVK"));
 
         if (!sVkEmulation->setMTLTextureFunc) {
-            VK_EMU_INIT_RETURN_ON_ERROR("Cannot find vkSetMTLTextureMVK.");
+            VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(ABORT_REASON_OTHER,
+                                                 "Cannot find vkSetMTLTextureMVK.");
         }
-       sVkEmulation->getMTLTextureFunc = reinterpret_cast<PFN_vkGetMTLTextureMVK>(
-                vk->vkGetInstanceProcAddr(
-                        sVkEmulation->instance, "vkGetMTLTextureMVK"));
+        sVkEmulation->getMTLTextureFunc = reinterpret_cast<PFN_vkGetMTLTextureMVK>(
+            vk->vkGetInstanceProcAddr(sVkEmulation->instance, "vkGetMTLTextureMVK"));
         if (!sVkEmulation->getMTLTextureFunc) {
-            VK_EMU_INIT_RETURN_ON_ERROR("Cannot find vkGetMTLTextureMVK.");
+            VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(ABORT_REASON_OTHER,
+                                                 "Cannot find vkGetMTLTextureMVK.");
         }
         // LOG(VERBOSE) << "Instance supports VK_MVK_moltenvk.";
     }
 
     uint32_t physdevCount = 0;
-    ivk->vkEnumeratePhysicalDevices(sVkEmulation->instance, &physdevCount,
-                                   nullptr);
+    ivk->vkEnumeratePhysicalDevices(sVkEmulation->instance, &physdevCount, nullptr);
     std::vector<VkPhysicalDevice> physdevs(physdevCount);
-    ivk->vkEnumeratePhysicalDevices(sVkEmulation->instance, &physdevCount,
-                                   physdevs.data());
+    ivk->vkEnumeratePhysicalDevices(sVkEmulation->instance, &physdevCount, physdevs.data());
 
     // LOG(VERBOSE) << "Found " << physdevCount << " Vulkan physical devices.";
 
     if (physdevCount == 0) {
-        VK_EMU_INIT_RETURN_ON_ERROR("No physical devices available.");
+        VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(ABORT_REASON_OTHER, "No physical devices available.");
     }
 
     std::vector<VkEmulation::DeviceSupportInfo> deviceInfos(physdevCount);
 
     for (int i = 0; i < physdevCount; ++i) {
-        ivk->vkGetPhysicalDeviceProperties(physdevs[i],
-                                           &deviceInfos[i].physdevProps);
+        ivk->vkGetPhysicalDeviceProperties(physdevs[i], &deviceInfos[i].physdevProps);
 
         // LOG(VERBOSE) << "Considering Vulkan physical device " << i << ": "
         //              << deviceInfos[i].physdevProps.deviceName;
 
         // It's easier to figure out the staging buffer along with
         // external memories if we have the memory properties on hand.
-        ivk->vkGetPhysicalDeviceMemoryProperties(physdevs[i],
-                                                &deviceInfos[i].memProps);
+        ivk->vkGetPhysicalDeviceMemoryProperties(physdevs[i], &deviceInfos[i].memProps);
 
         uint32_t deviceExtensionCount = 0;
-        ivk->vkEnumerateDeviceExtensionProperties(
-            physdevs[i], nullptr, &deviceExtensionCount, nullptr);
-        std::vector<VkExtensionProperties> deviceExts(deviceExtensionCount);
-        ivk->vkEnumerateDeviceExtensionProperties(
-            physdevs[i], nullptr, &deviceExtensionCount, deviceExts.data());
+        ivk->vkEnumerateDeviceExtensionProperties(physdevs[i], nullptr, &deviceExtensionCount,
+                                                  nullptr);
+        std::vector<VkExtensionProperties>& deviceExts = deviceInfos[i].extensions;
+        deviceExts.resize(deviceExtensionCount);
+        ivk->vkEnumerateDeviceExtensionProperties(physdevs[i], nullptr, &deviceExtensionCount,
+                                                  deviceExts.data());
 
         deviceInfos[i].supportsExternalMemory = false;
-        deviceInfos[i].glInteropSupported = 0; // set later
+        deviceInfos[i].glInteropSupported = 0;  // set later
 
         if (sVkEmulation->instanceSupportsExternalMemoryCapabilities) {
-            deviceInfos[i].supportsExternalMemory = extensionsSupported(
-                    deviceExts, externalMemoryDeviceExtNames);
+            deviceInfos[i].supportsExternalMemory =
+                extensionsSupported(deviceExts, externalMemoryDeviceExtNames);
             deviceInfos[i].supportsIdProperties =
                 sVkEmulation->getPhysicalDeviceProperties2Func != nullptr;
+            deviceInfos[i].supportsDriverProperties =
+                extensionsSupported(deviceExts, {VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME}) ||
+                (deviceInfos[i].physdevProps.apiVersion >= VK_API_VERSION_1_2);
+
             if (!sVkEmulation->getPhysicalDeviceProperties2Func) {
-                fprintf(stderr, "%s: warning: device claims to support ID properties "
-                        "but vkGetPhysicalDeviceProperties2 could not be found\n", __func__);
+                fprintf(stderr,
+                        "%s: warning: device claims to support ID properties "
+                        "but vkGetPhysicalDeviceProperties2 could not be found\n",
+                        __func__);
             }
         }
 
-        if (deviceInfos[i].supportsIdProperties) {
-            VkPhysicalDeviceIDPropertiesKHR idProps = {
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES_KHR, nullptr,
+        if (sVkEmulation->getPhysicalDeviceProperties2Func) {
+            VkPhysicalDeviceProperties2 deviceProps = {
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR,
             };
-            VkPhysicalDeviceProperties2KHR propsWithId = {
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR, &idProps,
+            VkPhysicalDeviceIDProperties idProps = {
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES_KHR,
             };
-            sVkEmulation->getPhysicalDeviceProperties2Func(
-                physdevs[i],
-                &propsWithId);
-            deviceInfos[i].idProps = idProps;
+            VkPhysicalDeviceDriverPropertiesKHR driverProps = {
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES_KHR,
+            };
+
+            auto devicePropsChain = vk_make_chain_iterator(&deviceProps);
+
+            if (deviceInfos[i].supportsIdProperties) {
+                vk_append_struct(&devicePropsChain, &idProps);
+            }
+
+            if (deviceInfos[i].supportsDriverProperties) {
+                vk_append_struct(&devicePropsChain, &driverProps);
+            }
+
+            sVkEmulation->getPhysicalDeviceProperties2Func(physdevs[i], &deviceProps);
+
+            deviceInfos[i].idProps = vk_make_orphan_copy(idProps);
+
+            std::stringstream driverVendorBuilder;
+            driverVendorBuilder << "Vendor " << std::hex << std::setfill('0') << std::showbase
+                                << deviceInfos[i].physdevProps.vendorID;
+
+            std::string decodedDriverVersion = decodeDriverVersion(
+                deviceInfos[i].physdevProps.vendorID, deviceInfos[i].physdevProps.driverVersion);
+
+            std::stringstream driverVersionBuilder;
+            driverVersionBuilder << "Driver Version " << std::hex << std::setfill('0')
+                                 << std::showbase << deviceInfos[i].physdevProps.driverVersion
+                                 << " Decoded As " << decodedDriverVersion;
+
+            std::string driverVendor = driverVendorBuilder.str();
+            std::string driverVersion = driverVersionBuilder.str();
+            if (deviceInfos[i].supportsDriverProperties && driverProps.driverID) {
+                driverVendor = std::string{driverProps.driverName} + " (" + driverVendor + ")";
+                driverVersion = std::string{driverProps.driverInfo} + " (" +
+                                string_VkDriverId(driverProps.driverID) + " " + driverVersion + ")";
+            }
+
+            deviceInfos[i].driverVendor = driverVendor;
+            deviceInfos[i].driverVersion = driverVersion;
         }
 
         deviceInfos[i].hasSamplerYcbcrConversionExtension =
@@ -711,28 +789,23 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
         }
 
         uint32_t queueFamilyCount = 0;
-        ivk->vkGetPhysicalDeviceQueueFamilyProperties(
-                physdevs[i], &queueFamilyCount, nullptr);
+        ivk->vkGetPhysicalDeviceQueueFamilyProperties(physdevs[i], &queueFamilyCount, nullptr);
         std::vector<VkQueueFamilyProperties> queueFamilyProps(queueFamilyCount);
-        ivk->vkGetPhysicalDeviceQueueFamilyProperties(
-                physdevs[i], &queueFamilyCount, queueFamilyProps.data());
+        ivk->vkGetPhysicalDeviceQueueFamilyProperties(physdevs[i], &queueFamilyCount,
+                                                      queueFamilyProps.data());
 
         for (uint32_t j = 0; j < queueFamilyCount; ++j) {
             auto count = queueFamilyProps[j].queueCount;
             auto flags = queueFamilyProps[j].queueFlags;
 
-            bool hasGraphicsQueueFamily =
-                (count > 0 && (flags & VK_QUEUE_GRAPHICS_BIT));
-            bool hasComputeQueueFamily =
-                (count > 0 && (flags & VK_QUEUE_COMPUTE_BIT));
+            bool hasGraphicsQueueFamily = (count > 0 && (flags & VK_QUEUE_GRAPHICS_BIT));
+            bool hasComputeQueueFamily = (count > 0 && (flags & VK_QUEUE_COMPUTE_BIT));
 
             deviceInfos[i].hasGraphicsQueueFamily =
-                deviceInfos[i].hasGraphicsQueueFamily ||
-                hasGraphicsQueueFamily;
+                deviceInfos[i].hasGraphicsQueueFamily || hasGraphicsQueueFamily;
 
             deviceInfos[i].hasComputeQueueFamily =
-                deviceInfos[i].hasComputeQueueFamily ||
-                hasComputeQueueFamily;
+                deviceInfos[i].hasComputeQueueFamily || hasComputeQueueFamily;
 
             if (hasGraphicsQueueFamily) {
                 deviceInfos[i].graphicsQueueFamilyIndices.push_back(j);
@@ -790,8 +863,10 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     // If we don't support physical device ID properties,
     // just pick the first physical device.
     if (!sVkEmulation->instanceSupportsExternalMemoryCapabilities) {
-        fprintf(stderr, "%s: warning: instance doesn't support "
-            "external memory capabilities, picking first physical device\n", __func__);
+        fprintf(stderr,
+                "%s: warning: instance doesn't support "
+                "external memory capabilities, picking first physical device\n",
+                __func__);
         maxScoringIndex = 0;
     } else {
         for (uint32_t i = 0; i < physdevCount; ++i) {
@@ -803,6 +878,7 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     }
 
     sVkEmulation->physdev = physdevs[maxScoringIndex];
+    sVkEmulation->physicalDeviceIndex = maxScoringIndex;
     sVkEmulation->deviceInfo = deviceInfos[maxScoringIndex];
     // Postcondition: sVkEmulation has valid device support info
 
@@ -812,19 +888,21 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     // support)
     sVkEmulation->imageSupportInfo = getBasicImageSupportList();
     for (size_t i = 0; i < sVkEmulation->imageSupportInfo.size(); ++i) {
-        getImageFormatExternalMemorySupportInfo(
-                ivk, sVkEmulation->physdev, &sVkEmulation->imageSupportInfo[i]);
+        getImageFormatExternalMemorySupportInfo(ivk, sVkEmulation->physdev,
+                                                &sVkEmulation->imageSupportInfo[i]);
     }
 
     if (!sVkEmulation->deviceInfo.hasGraphicsQueueFamily) {
-        VK_EMU_INIT_RETURN_ON_ERROR("No Vulkan devices with graphics queues found.");
+        VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(ABORT_REASON_OTHER,
+                                             "No Vulkan devices with graphics queues found.");
     }
 
     auto deviceVersion = sVkEmulation->deviceInfo.physdevProps.apiVersion;
     VK_COMMON_LOG("Selecting Vulkan device: %s", sVkEmulation->deviceInfo.physdevProps.deviceName);
 
     // LOG(VERBOSE) << "Version: "
-    //              << VK_VERSION_MAJOR(deviceVersion) << "." << VK_VERSION_MINOR(deviceVersion) << "." << VK_VERSION_PATCH(deviceVersion);
+    //              << VK_VERSION_MAJOR(deviceVersion) << "." << VK_VERSION_MINOR(deviceVersion) <<
+    //              "." << VK_VERSION_PATCH(deviceVersion);
     // LOG(VERBOSE) << "Has graphics queue? "
     //              << sVkEmulation->deviceInfo.hasGraphicsQueueFamily;
     // LOG(VERBOSE) << "Has external memory support? "
@@ -834,9 +912,12 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
 
     float priority = 1.0f;
     VkDeviceQueueCreateInfo dqCi = {
-        VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO, 0, 0,
+        VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+        0,
+        0,
         sVkEmulation->deviceInfo.graphicsQueueFamilyIndices[0],
-        1, &priority,
+        1,
+        &priority,
     };
 
     std::unordered_set<const char*> selectedDeviceExtensionNames_;
@@ -852,16 +933,14 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     if (sVkEmulation->deviceInfo.hasSamplerYcbcrConversionExtension) {
         selectedDeviceExtensionNames_.emplace(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME);
     }
-    std::vector<const char*> selectedDeviceExtensionNames(
-        selectedDeviceExtensionNames_.begin(),
-        selectedDeviceExtensionNames_.end());
+    std::vector<const char*> selectedDeviceExtensionNames(selectedDeviceExtensionNames_.begin(),
+                                                          selectedDeviceExtensionNames_.end());
 
     VkDeviceCreateInfo dCi = {};
     dCi.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     dCi.queueCreateInfoCount = 1;
     dCi.pQueueCreateInfos = &dqCi;
-    dCi.enabledExtensionCount =
-        static_cast<uint32_t>(selectedDeviceExtensionNames.size());
+    dCi.enabledExtensionCount = static_cast<uint32_t>(selectedDeviceExtensionNames.size());
     dCi.ppEnabledExtensionNames = selectedDeviceExtensionNames.data();
 
     // Setting up VkDeviceCreateInfo::pNext
@@ -882,17 +961,16 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
         vk_append_struct(&deviceCiChain, samplerYcbcrConversionFeatures.get());
     }
 
-    ivk->vkCreateDevice(sVkEmulation->physdev, &dCi, nullptr,
-                        &sVkEmulation->device);
+    ivk->vkCreateDevice(sVkEmulation->physdev, &dCi, nullptr, &sVkEmulation->device);
 
     if (res != VK_SUCCESS) {
-        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create Vulkan device.");
+        VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(res, "Failed to create Vulkan device. Error %s.",
+                                             string_VkResult(res));
     }
 
     // device created; populate dispatch table
     sVkEmulation->dvk = new VulkanDispatch;
-    init_vulkan_dispatch_from_device(
-        ivk, sVkEmulation->device, sVkEmulation->dvk);
+    init_vulkan_dispatch_from_device(ivk, sVkEmulation->device, sVkEmulation->dvk);
 
     auto dvk = sVkEmulation->dvk;
 
@@ -909,31 +987,29 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     if (sVkEmulation->deviceInfo.supportsExternalMemory) {
         sVkEmulation->deviceInfo.getImageMemoryRequirements2Func =
             reinterpret_cast<PFN_vkGetImageMemoryRequirements2KHR>(
-                dvk->vkGetDeviceProcAddr(
-                    sVkEmulation->device, "vkGetImageMemoryRequirements2KHR"));
+                dvk->vkGetDeviceProcAddr(sVkEmulation->device, "vkGetImageMemoryRequirements2KHR"));
         if (!sVkEmulation->deviceInfo.getImageMemoryRequirements2Func) {
-            VK_EMU_INIT_RETURN_ON_ERROR("Cannot find vkGetImageMemoryRequirements2KHR.");
+            VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(ABORT_REASON_OTHER,
+                                                 "Cannot find vkGetImageMemoryRequirements2KHR.");
         }
         sVkEmulation->deviceInfo.getBufferMemoryRequirements2Func =
-            reinterpret_cast<PFN_vkGetBufferMemoryRequirements2KHR>(
-                dvk->vkGetDeviceProcAddr(
-                    sVkEmulation->device, "vkGetBufferMemoryRequirements2KHR"));
+            reinterpret_cast<PFN_vkGetBufferMemoryRequirements2KHR>(dvk->vkGetDeviceProcAddr(
+                sVkEmulation->device, "vkGetBufferMemoryRequirements2KHR"));
         if (!sVkEmulation->deviceInfo.getBufferMemoryRequirements2Func) {
-            VK_EMU_INIT_RETURN_ON_ERROR("Cannot find vkGetBufferMemoryRequirements2KHR");
+            VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(ABORT_REASON_OTHER,
+                                                 "Cannot find vkGetBufferMemoryRequirements2KHR");
         }
 #ifdef _WIN32
         sVkEmulation->deviceInfo.getMemoryHandleFunc =
-                reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(
-                        dvk->vkGetDeviceProcAddr(sVkEmulation->device,
-                                                "vkGetMemoryWin32HandleKHR"));
+            reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(
+                dvk->vkGetDeviceProcAddr(sVkEmulation->device, "vkGetMemoryWin32HandleKHR"));
 #else
-        sVkEmulation->deviceInfo.getMemoryHandleFunc =
-                reinterpret_cast<PFN_vkGetMemoryFdKHR>(
-                        dvk->vkGetDeviceProcAddr(sVkEmulation->device,
-                                                "vkGetMemoryFdKHR"));
+        sVkEmulation->deviceInfo.getMemoryHandleFunc = reinterpret_cast<PFN_vkGetMemoryFdKHR>(
+            dvk->vkGetDeviceProcAddr(sVkEmulation->device, "vkGetMemoryFdKHR"));
 #endif
         if (!sVkEmulation->deviceInfo.getMemoryHandleFunc) {
-            VK_EMU_INIT_RETURN_ON_ERROR("Cannot find vkGetMemory(Fd|Win32Handle)KHR");
+            VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(ABORT_REASON_OTHER,
+                                                 "Cannot find vkGetMemory(Fd|Win32Handle)KHR");
         }
     }
 
@@ -942,55 +1018,61 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     sVkEmulation->queueLock = std::make_shared<android::base::Lock>();
     {
         android::base::AutoLock lock(*sVkEmulation->queueLock);
-        dvk->vkGetDeviceQueue(
-            sVkEmulation->device,
-            sVkEmulation->deviceInfo.graphicsQueueFamilyIndices[0], 0,
-            &sVkEmulation->queue);
+        dvk->vkGetDeviceQueue(sVkEmulation->device,
+                              sVkEmulation->deviceInfo.graphicsQueueFamilyIndices[0], 0,
+                              &sVkEmulation->queue);
     }
 
-    sVkEmulation->queueFamilyIndex =
-            sVkEmulation->deviceInfo.graphicsQueueFamilyIndices[0];
+    sVkEmulation->queueFamilyIndex = sVkEmulation->deviceInfo.graphicsQueueFamilyIndices[0];
 
     // LOG(VERBOSE) << "Vulkan device queue obtained.";
 
     VkCommandPoolCreateInfo poolCi = {
-        VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, 0,
+        VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        0,
         VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
         sVkEmulation->queueFamilyIndex,
     };
 
-    VkResult poolCreateRes = dvk->vkCreateCommandPool(
-            sVkEmulation->device, &poolCi, nullptr, &sVkEmulation->commandPool);
+    VkResult poolCreateRes = dvk->vkCreateCommandPool(sVkEmulation->device, &poolCi, nullptr,
+                                                      &sVkEmulation->commandPool);
 
     if (poolCreateRes != VK_SUCCESS) {
-        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create command pool. Error: %s.",
-                                    string_VkResult(poolCreateRes));
+        VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(poolCreateRes,
+                                             "Failed to create command pool. Error: %s.",
+                                             string_VkResult(poolCreateRes));
     }
 
     VkCommandBufferAllocateInfo cbAi = {
-        VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, 0,
-        sVkEmulation->commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1,
+        VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        0,
+        sVkEmulation->commandPool,
+        VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        1,
     };
 
-    VkResult cbAllocRes = dvk->vkAllocateCommandBuffers(
-            sVkEmulation->device, &cbAi, &sVkEmulation->commandBuffer);
+    VkResult cbAllocRes =
+        dvk->vkAllocateCommandBuffers(sVkEmulation->device, &cbAi, &sVkEmulation->commandBuffer);
 
     if (cbAllocRes != VK_SUCCESS) {
-        VK_EMU_INIT_RETURN_ON_ERROR("Failed to allocate command buffer. Error: %s.",
-                                    string_VkResult(cbAllocRes));
+        VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(cbAllocRes,
+                                             "Failed to allocate command buffer. Error: %s.",
+                                             string_VkResult(cbAllocRes));
     }
 
     VkFenceCreateInfo fenceCi = {
-        VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, 0, 0,
+        VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        0,
+        0,
     };
 
-    VkResult fenceCreateRes = dvk->vkCreateFence(
-        sVkEmulation->device, &fenceCi, nullptr,
-        &sVkEmulation->commandBufferFence);
+    VkResult fenceCreateRes = dvk->vkCreateFence(sVkEmulation->device, &fenceCi, nullptr,
+                                                 &sVkEmulation->commandBufferFence);
 
     if (fenceCreateRes != VK_SUCCESS) {
-        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create fence for command buffer. Error: %s.",
-                                    string_VkResult(fenceCreateRes));
+        VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(
+            fenceCreateRes, "Failed to create fence for command buffer. Error: %s.",
+            string_VkResult(fenceCreateRes));
     }
 
     // At this point, the global emulation state's logical device can alloc
@@ -1000,56 +1082,59 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     // non-external-memory fallback.
 
     VkBufferCreateInfo bufCi = {
-        VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, 0, 0,
+        VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        0,
+        0,
         sVkEmulation->staging.size,
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VK_SHARING_MODE_EXCLUSIVE,
-        0, nullptr,
+        0,
+        nullptr,
     };
 
     VkResult bufCreateRes =
-            dvk->vkCreateBuffer(sVkEmulation->device, &bufCi, nullptr,
-                               &sVkEmulation->staging.buffer);
+        dvk->vkCreateBuffer(sVkEmulation->device, &bufCi, nullptr, &sVkEmulation->staging.buffer);
 
     if (bufCreateRes != VK_SUCCESS) {
-        VK_EMU_INIT_RETURN_ON_ERROR("Failed to create staging buffer index. Error: %s.",
-                                    string_VkResult(bufCreateRes));
+        VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(bufCreateRes,
+                                             "Failed to create staging buffer index. Error: %s.",
+                                             string_VkResult(bufCreateRes));
     }
 
     VkMemoryRequirements memReqs;
-    dvk->vkGetBufferMemoryRequirements(sVkEmulation->device,
-                                      sVkEmulation->staging.buffer, &memReqs);
+    dvk->vkGetBufferMemoryRequirements(sVkEmulation->device, sVkEmulation->staging.buffer,
+                                       &memReqs);
 
     sVkEmulation->staging.memory.size = memReqs.size;
 
-    bool gotStagingTypeIndex = getStagingMemoryTypeIndex(
-            dvk, sVkEmulation->device, &sVkEmulation->deviceInfo.memProps,
-            &sVkEmulation->staging.memory.typeIndex);
+    bool gotStagingTypeIndex =
+        getStagingMemoryTypeIndex(dvk, sVkEmulation->device, &sVkEmulation->deviceInfo.memProps,
+                                  &sVkEmulation->staging.memory.typeIndex);
 
     if (!gotStagingTypeIndex) {
-        VK_EMU_INIT_RETURN_ON_ERROR("Failed to determine staging memory type index.");
+        VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(ABORT_REASON_OTHER,
+                                             "Failed to determine staging memory type index.");
     }
 
-    if (!((1 << sVkEmulation->staging.memory.typeIndex) &
-          memReqs.memoryTypeBits)) {
-        VK_EMU_INIT_RETURN_ON_ERROR(
+    if (!((1 << sVkEmulation->staging.memory.typeIndex) & memReqs.memoryTypeBits)) {
+        VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(
+            ABORT_REASON_OTHER,
             "Failed: Inconsistent determination of memory type index for staging buffer");
     }
 
-    if (!allocExternalMemory(dvk, &sVkEmulation->staging.memory,
-                             false /* not external */,
+    if (!allocExternalMemory(dvk, &sVkEmulation->staging.memory, false /* not external */,
                              kNullopt /* deviceAlignment */)) {
-        VK_EMU_INIT_RETURN_ON_ERROR("Failed to allocate memory for staging buffer.");
+        VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(ABORT_REASON_OTHER,
+                                             "Failed to allocate memory for staging buffer.");
     }
 
     VkResult stagingBufferBindRes = dvk->vkBindBufferMemory(
-        sVkEmulation->device,
-        sVkEmulation->staging.buffer,
-        sVkEmulation->staging.memory.memory, 0);
+        sVkEmulation->device, sVkEmulation->staging.buffer, sVkEmulation->staging.memory.memory, 0);
 
     if (stagingBufferBindRes != VK_SUCCESS) {
-        VK_EMU_INIT_RETURN_ON_ERROR("Failed to bind memory for staging buffer.");
+        VK_EMU_INIT_RETURN_OR_ABORT_ON_ERROR(stagingBufferBindRes,
+                                             "Failed to bind memory for staging buffer. Error %s.",
+                                             string_VkResult(stagingBufferBindRes));
     }
 
     // LOG(VERBOSE) << "Vulkan global emulation state successfully initialized.";
@@ -1072,12 +1157,30 @@ void initVkEmulationFeatures(std::unique_ptr<VkEmulationFeatures> features) {
     INFO("    useDeferredCommands: %s", features->deferredCommands ? "true" : "false");
     INFO("    createResourceWithRequirements: %s",
          features->createResourceWithRequirements ? "true" : "false");
+    INFO("    useVulkanComposition: %s", features->useVulkanComposition ? "true" : "false");
     INFO("    useVulkanNativeSwapchain: %s", features->useVulkanNativeSwapchain ? "true" : "false");
     INFO("    enable guestRenderDoc: %s", features->guestRenderDoc ? "true" : "false");
+    INFO("    enable ASTC LDR emulation: %s", features->enableAstcLdrEmulation ? "true" : "false");
+    INFO("    enable ETC2 emulation: %s", features->enableEtc2Emulation ? "true" : "false");
+    INFO("    enable Ycbcr emulation: %s", features->enableYcbcrEmulation ? "true" : "false");
+    INFO("    guestUsesAngle: %s", features->guestUsesAngle ? "true" : "false");
     sVkEmulation->deviceInfo.glInteropSupported = features->glInteropSupported;
     sVkEmulation->useDeferredCommands = features->deferredCommands;
     sVkEmulation->useCreateResourcesWithRequirements = features->createResourceWithRequirements;
     sVkEmulation->guestRenderDoc = std::move(features->guestRenderDoc);
+    sVkEmulation->enableAstcLdrEmulation = features->enableAstcLdrEmulation;
+    sVkEmulation->enableEtc2Emulation = features->enableEtc2Emulation;
+    sVkEmulation->enableYcbcrEmulation = features->enableYcbcrEmulation;
+    sVkEmulation->guestUsesAngle = features->guestUsesAngle;
+
+    if (features->useVulkanComposition) {
+        if (sVkEmulation->compositorVk) {
+            ERR("Reset VkEmulation::compositorVk.");
+        }
+        sVkEmulation->compositorVk = CompositorVk::create(
+            *sVkEmulation->ivk, sVkEmulation->device, sVkEmulation->physdev, sVkEmulation->queue,
+            sVkEmulation->queueLock, sVkEmulation->queueFamilyIndex, 3);
+    }
 
     if (features->useVulkanNativeSwapchain) {
         if (sVkEmulation->displayVk) {
@@ -1101,6 +1204,7 @@ void teardownGlobalVkEmulation() {
     // Don't try to tear down something that did not set up completely; too risky
     if (!sVkEmulation->live) return;
 
+    sVkEmulation->compositorVk.reset();
     sVkEmulation->displayVk.reset();
 
     freeExternalMemoryLocked(sVkEmulation->dvk, &sVkEmulation->staging.memory);
@@ -1114,28 +1218,26 @@ void teardownGlobalVkEmulation() {
 }
 
 // Precondition: sVkEmulation has valid device support info
-bool allocExternalMemory(VulkanDispatch* vk,
-                         VkEmulation::ExternalMemoryInfo* info,
-                         bool actuallyExternal,
-                         Optional<uint64_t> deviceAlignment) {
+bool allocExternalMemory(VulkanDispatch* vk, VkEmulation::ExternalMemoryInfo* info,
+                         bool actuallyExternal, Optional<uint64_t> deviceAlignment) {
     VkExportMemoryAllocateInfo exportAi = {
-        VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO, 0,
+        VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
+        0,
         VK_EXT_MEMORY_HANDLE_TYPE_BIT,
     };
 
     VkExportMemoryAllocateInfo* exportAiPtr = nullptr;
 
-    if (sVkEmulation->deviceInfo.supportsExternalMemory &&
-        actuallyExternal) {
+    if (sVkEmulation->deviceInfo.supportsExternalMemory && actuallyExternal) {
         exportAiPtr = &exportAi;
     }
 
     info->actualSize = (info->size + 2 * kPageSize - 1) / kPageSize * kPageSize;
     VkMemoryAllocateInfo allocInfo = {
-            VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-            exportAiPtr,
-            info->actualSize,
-            info->typeIndex,
+        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        exportAiPtr,
+        info->actualSize,
+        info->typeIndex,
     };
 
     bool memoryAllocated = false;
@@ -1143,8 +1245,8 @@ bool allocExternalMemory(VulkanDispatch* vk,
     constexpr size_t kMaxAllocationAttempts = 20u;
 
     while (!memoryAllocated) {
-        VkResult allocRes = vk->vkAllocateMemory(
-                sVkEmulation->device, &allocInfo, nullptr, &info->memory);
+        VkResult allocRes =
+            vk->vkAllocateMemory(sVkEmulation->device, &allocInfo, nullptr, &info->memory);
 
         if (allocRes != VK_SUCCESS) {
             // LOG(VERBOSE) << "allocExternalMemory: failed in vkAllocateMemory: "
@@ -1152,12 +1254,10 @@ bool allocExternalMemory(VulkanDispatch* vk,
             break;
         }
 
-        if (sVkEmulation->deviceInfo.memProps.memoryTypes[info->typeIndex]
-                    .propertyFlags &
+        if (sVkEmulation->deviceInfo.memProps.memoryTypes[info->typeIndex].propertyFlags &
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
-            VkResult mapRes =
-                    vk->vkMapMemory(sVkEmulation->device, info->memory, 0,
-                                    info->actualSize, 0, &info->mappedPtr);
+            VkResult mapRes = vk->vkMapMemory(sVkEmulation->device, info->memory, 0,
+                                              info->actualSize, 0, &info->mappedPtr);
             if (mapRes != VK_SUCCESS) {
                 // LOG(VERBOSE) << "allocExternalMemory: failed in vkMapMemory: "
                 //              << mapRes;
@@ -1165,22 +1265,21 @@ bool allocExternalMemory(VulkanDispatch* vk,
             }
         }
 
-        uint64_t mappedPtrPageOffset =
-                reinterpret_cast<uint64_t>(info->mappedPtr) % kPageSize;
+        uint64_t mappedPtrPageOffset = reinterpret_cast<uint64_t>(info->mappedPtr) % kPageSize;
 
         if (  // don't care about alignment (e.g. device-local memory)
-                !deviceAlignment.hasValue() ||
-                // If device has an alignment requirement larger than current
-                // host pointer alignment (i.e. the lowest 1 bit of mappedPtr),
-                // the only possible way to make mappedPtr valid is to ensure
-                // that it is already aligned to page.
-                mappedPtrPageOffset == 0u ||
-                // If device has an alignment requirement smaller or equals to
-                // current host pointer alignment, clients can set a offset
-                // |kPageSize - mappedPtrPageOffset| in vkBindImageMemory to
-                // make it aligned to page and compatible with device
-                // requirements.
-                (kPageSize - mappedPtrPageOffset) % deviceAlignment.value() == 0) {
+            !deviceAlignment.hasValue() ||
+            // If device has an alignment requirement larger than current
+            // host pointer alignment (i.e. the lowest 1 bit of mappedPtr),
+            // the only possible way to make mappedPtr valid is to ensure
+            // that it is already aligned to page.
+            mappedPtrPageOffset == 0u ||
+            // If device has an alignment requirement smaller or equals to
+            // current host pointer alignment, clients can set a offset
+            // |kPageSize - mappedPtrPageOffset| in vkBindImageMemory to
+            // make it aligned to page and compatible with device
+            // requirements.
+            (kPageSize - mappedPtrPageOffset) % deviceAlignment.value() == 0) {
             // allocation success.
             memoryAllocated = true;
         } else {
@@ -1208,29 +1307,28 @@ bool allocExternalMemory(VulkanDispatch* vk,
         return false;
     }
 
-    if (!sVkEmulation->deviceInfo.supportsExternalMemory ||
-        !actuallyExternal) {
+    if (!sVkEmulation->deviceInfo.supportsExternalMemory || !actuallyExternal) {
         return true;
     }
 
 #ifdef _WIN32
     VkMemoryGetWin32HandleInfoKHR getWin32HandleInfo = {
-        VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR, 0,
-        info->memory, VK_EXT_MEMORY_HANDLE_TYPE_BIT,
+        VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
+        0,
+        info->memory,
+        VK_EXT_MEMORY_HANDLE_TYPE_BIT,
     };
-    VkResult exportRes =
-        sVkEmulation->deviceInfo.getMemoryHandleFunc(
-            sVkEmulation->device, &getWin32HandleInfo,
-            &info->exportedHandle);
+    VkResult exportRes = sVkEmulation->deviceInfo.getMemoryHandleFunc(
+        sVkEmulation->device, &getWin32HandleInfo, &info->exportedHandle);
 #else
     VkMemoryGetFdInfoKHR getFdInfo = {
-        VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR, 0,
-        info->memory, VK_EXT_MEMORY_HANDLE_TYPE_BIT,
+        VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
+        0,
+        info->memory,
+        VK_EXT_MEMORY_HANDLE_TYPE_BIT,
     };
-    VkResult exportRes =
-        sVkEmulation->deviceInfo.getMemoryHandleFunc(
-            sVkEmulation->device, &getFdInfo,
-            &info->exportedHandle);
+    VkResult exportRes = sVkEmulation->deviceInfo.getMemoryHandleFunc(
+        sVkEmulation->device, &getFdInfo, &info->exportedHandle);
 #endif
 
     if (exportRes != VK_SUCCESS) {
@@ -1245,19 +1343,14 @@ bool allocExternalMemory(VulkanDispatch* vk,
     return true;
 }
 
-void freeExternalMemoryLocked(VulkanDispatch* vk,
-                              VkEmulation::ExternalMemoryInfo* info) {
-    if (!info->memory)
-        return;
+void freeExternalMemoryLocked(VulkanDispatch* vk, VkEmulation::ExternalMemoryInfo* info) {
+    if (!info->memory) return;
 
-    if (sVkEmulation->deviceInfo.memProps.memoryTypes[info->typeIndex]
-                .propertyFlags &
+    if (sVkEmulation->deviceInfo.memProps.memoryTypes[info->typeIndex].propertyFlags &
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
-        if (sVkEmulation->occupiedGpas.find(info->gpa) !=
-            sVkEmulation->occupiedGpas.end()) {
+        if (sVkEmulation->occupiedGpas.find(info->gpa) != sVkEmulation->occupiedGpas.end()) {
             sVkEmulation->occupiedGpas.erase(info->gpa);
-            get_emugl_vm_operations().unmapUserBackedRam(info->gpa,
-                                                         info->sizeToPage);
+            get_emugl_vm_operations().unmapUserBackedRam(info->gpa, info->sizeToPage);
             info->gpa = 0u;
         }
 
@@ -1280,20 +1373,20 @@ void freeExternalMemoryLocked(VulkanDispatch* vk,
     }
 }
 
-bool importExternalMemory(VulkanDispatch* vk,
-                          VkDevice targetDevice,
-                          const VkEmulation::ExternalMemoryInfo* info,
-                          VkDeviceMemory* out) {
+bool importExternalMemory(VulkanDispatch* vk, VkDevice targetDevice,
+                          const VkEmulation::ExternalMemoryInfo* info, VkDeviceMemory* out) {
 #ifdef _WIN32
     VkImportMemoryWin32HandleInfoKHR importInfo = {
-        VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR, 0,
+        VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+        0,
         VK_EXT_MEMORY_HANDLE_TYPE_BIT,
         info->exportedHandle,
         0,
     };
 #else
     VkImportMemoryFdInfoKHR importInfo = {
-        VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR, 0,
+        VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
+        0,
         VK_EXT_MEMORY_HANDLE_TYPE_BIT,
         dupExternalMemory(info->exportedHandle),
     };
@@ -1301,7 +1394,7 @@ bool importExternalMemory(VulkanDispatch* vk,
     VkMemoryAllocateInfo allocInfo = {
         VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         &importInfo,
-        info->size,
+        info->actualSize,
         info->typeIndex,
     };
 
@@ -1315,15 +1408,12 @@ bool importExternalMemory(VulkanDispatch* vk,
     return true;
 }
 
-bool importExternalMemoryDedicatedImage(
-    VulkanDispatch* vk,
-    VkDevice targetDevice,
-    const VkEmulation::ExternalMemoryInfo* info,
-    VkImage image,
-    VkDeviceMemory* out) {
-
+bool importExternalMemoryDedicatedImage(VulkanDispatch* vk, VkDevice targetDevice,
+                                        const VkEmulation::ExternalMemoryInfo* info, VkImage image,
+                                        VkDeviceMemory* out) {
     VkMemoryDedicatedAllocateInfo dedicatedInfo = {
-        VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, 0,
+        VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
+        0,
         image,
         VK_NULL_HANDLE,
     };
@@ -1363,6 +1453,7 @@ bool importExternalMemoryDedicatedImage(
 
 static VkFormat glFormat2VkFormat(GLint internalformat) {
     switch (internalformat) {
+        case GL_R8:
         case GL_LUMINANCE:
             return VK_FORMAT_R8_UNORM;
         case GL_RGB:
@@ -1388,8 +1479,14 @@ static VkFormat glFormat2VkFormat(GLint internalformat) {
             return VK_FORMAT_R16G16B16A16_SFLOAT;
         case GL_BGRA_EXT:
         case GL_BGRA8_EXT:
-            return VK_FORMAT_B8G8R8A8_UNORM;;
+            return VK_FORMAT_B8G8R8A8_UNORM;
+        case GL_R16_EXT:
+            return VK_FORMAT_R16_UNORM;
+        case GL_RG8_EXT:
+            return VK_FORMAT_R8G8_UNORM;
         default:
+            VK_COMMON_ERROR("Unhandled format %d, falling back to VK_FORMAT_R8G8B8A8_UNORM",
+                            internalformat);
             return VK_FORMAT_R8G8B8A8_UNORM;
     }
 };
@@ -1401,8 +1498,7 @@ bool isColorBufferVulkanCompatible(uint32_t colorBufferHandle) {
     int height;
     GLint internalformat;
 
-    if (!fb->getColorBufferInfo(colorBufferHandle, &width, &height,
-                                &internalformat)) {
+    if (!fb->getColorBufferInfo(colorBufferHandle, &width, &height, &internalformat)) {
         return false;
     }
 
@@ -1426,14 +1522,12 @@ static uint32_t lastGoodTypeIndex(uint32_t indices) {
     return 0;
 }
 
-static uint32_t lastGoodTypeIndexWithMemoryProperties(
-        uint32_t indices,
-        VkMemoryPropertyFlags memoryProperty) {
+static uint32_t lastGoodTypeIndexWithMemoryProperties(uint32_t indices,
+                                                      VkMemoryPropertyFlags memoryProperty) {
     for (int32_t i = 31; i >= 0; --i) {
         if ((indices & (1u << i)) &&
             (!memoryProperty ||
-             (sVkEmulation->deviceInfo.memProps.memoryTypes[i].propertyFlags &
-              memoryProperty))) {
+             (sVkEmulation->deviceInfo.memProps.memoryTypes[i].propertyFlags & memoryProperty))) {
             return i;
         }
     }
@@ -1444,21 +1538,23 @@ static uint32_t lastGoodTypeIndexWithMemoryProperties(
 // filled.
 static std::unique_ptr<VkImageCreateInfo> generateColorBufferVkImageCreateInfo_locked(
     VkFormat format, uint32_t width, uint32_t height, VkImageTiling tiling) {
-    const VkFormatProperties* maybeFormatProperties = nullptr;
+    const VkEmulation::ImageSupportInfo* maybeImageSupportInfo = nullptr;
     for (const auto& supportInfo : sVkEmulation->imageSupportInfo) {
         if (supportInfo.format == format && supportInfo.supported) {
-            maybeFormatProperties = &supportInfo.formatProps2.formatProperties;
+            maybeImageSupportInfo = &supportInfo;
             break;
         }
     }
-    if (!maybeFormatProperties) {
+    if (!maybeImageSupportInfo) {
         ERR("Format %s is not supported.", string_VkFormat(format));
         return nullptr;
     }
-    const VkFormatProperties& formatProperties = *maybeFormatProperties;
+    const VkEmulation::ImageSupportInfo& imageSupportInfo = *maybeImageSupportInfo;
+    const VkFormatProperties& formatProperties = imageSupportInfo.formatProps2.formatProperties;
 
     constexpr std::pair<VkFormatFeatureFlags, VkImageUsageFlags> formatUsagePairs[] = {
-        {VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT},
+        {VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT,
+         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT},
         {VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT, VK_IMAGE_USAGE_SAMPLED_BIT},
         {VK_FORMAT_FEATURE_TRANSFER_SRC_BIT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT},
         {VK_FORMAT_FEATURE_TRANSFER_DST_BIT, VK_IMAGE_USAGE_TRANSFER_DST_BIT},
@@ -1477,7 +1573,7 @@ static std::unique_ptr<VkImageCreateInfo> generateColorBufferVkImageCreateInfo_l
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         // The caller is responsible to fill pNext.
         .pNext = nullptr,
-        .flags = 0,
+        .flags = imageSupportInfo.createFlags,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = format,
         .extent =
@@ -1528,12 +1624,8 @@ std::unique_ptr<VkImageCreateInfo> generateColorBufferVkImageCreateInfo(VkFormat
 // We should make it so the guest can only allocate external images/
 // buffers of one type index for image and one type index for buffer
 // to begin with, via filtering from the host.
-bool setupVkColorBuffer(uint32_t colorBufferHandle,
-                        bool vulkanOnly,
-                        uint32_t memoryProperty,
-                        bool* exported,
-                        VkDeviceSize* allocSize,
-                        uint32_t* typeIndex,
+bool setupVkColorBuffer(uint32_t colorBufferHandle, bool vulkanOnly, uint32_t memoryProperty,
+                        bool* exported, VkDeviceSize* allocSize, uint32_t* typeIndex,
                         void** mappedPtr) {
     if (!isColorBufferVulkanCompatible(colorBufferHandle)) return false;
 
@@ -1546,8 +1638,8 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
     GLint internalformat;
     FrameworkFormat frameworkFormat;
 
-    if (!fb->getColorBufferInfo(colorBufferHandle, &width, &height,
-                                &internalformat, &frameworkFormat)) {
+    if (!fb->getColorBufferInfo(colorBufferHandle, &width, &height, &internalformat,
+                                &frameworkFormat)) {
         return false;
     }
 
@@ -1568,8 +1660,7 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
         if (typeIndex) *typeIndex = infoPtr->memory.typeIndex;
         // Update the mappedPtr to what the host driver wanted, otherwise we
         // may map the same memory twice.
-        if (mappedPtr)
-            *mappedPtr = infoPtr->memory.mappedPtr;
+        if (mappedPtr) *mappedPtr = infoPtr->memory.mappedPtr;
         return true;
     }
 
@@ -1581,6 +1672,9 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
             break;
         case FrameworkFormat::FRAMEWORK_FORMAT_NV12:
             vkFormat = VK_FORMAT_G8_B8R8_2PLANE_420_UNORM;
+            break;
+        case FrameworkFormat::FRAMEWORK_FORMAT_P010:
+            vkFormat = VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16;
             break;
         case FrameworkFormat::FRAMEWORK_FORMAT_YV12:
         case FrameworkFormat::FRAMEWORK_FORMAT_YUV_420_888:
@@ -1611,17 +1705,10 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
     imageCi->pQueueFamilyIndices = nullptr;
     imageCi->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-    res.extent = imageCi->extent;
-    res.format = imageCi->format;
-    res.type = imageCi->imageType;
-    res.tiling = imageCi->tiling;
-    res.usageFlags = imageCi->usage;
-    res.createFlags = imageCi->flags;
-    res.sharingMode = imageCi->sharingMode;
-
     // Create the image. If external memory is supported, make it external.
     VkExternalMemoryImageCreateInfo extImageCi = {
-        VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO, 0,
+        VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+        0,
         VK_EXT_MEMORY_HANDLE_TYPE_BIT,
     };
 
@@ -1641,21 +1728,24 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
         return false;
     }
 
-    vk->vkGetImageMemoryRequirements(sVkEmulation->device, res.image,
-                                     &res.memReqs);
+    res.imageCreateInfoShallow = vk_make_orphan_copy(*imageCi);
+    res.currentLayout = res.imageCreateInfoShallow.initialLayout;
+    res.currentQueueFamilyIndex = sVkEmulation->queueFamilyIndex;
+
+    vk->vkGetImageMemoryRequirements(sVkEmulation->device, res.image, &res.memReqs);
 
     // Currently we only care about two memory properties: DEVICE_LOCAL
     // and HOST_VISIBLE; other memory properties specified in
     // rcSetColorBufferVulkanMode2() call will be ignored for now.
-    memoryProperty = memoryProperty & (VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
-                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+    memoryProperty = memoryProperty &
+                     (VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
     res.memory.size = res.memReqs.size;
 
     // Determine memory type.
     if (memoryProperty) {
-        res.memory.typeIndex = lastGoodTypeIndexWithMemoryProperties(
-                res.memReqs.memoryTypeBits, memoryProperty);
+        res.memory.typeIndex =
+            lastGoodTypeIndexWithMemoryProperties(res.memReqs.memoryTypeBits, memoryProperty);
     } else {
         res.memory.typeIndex = lastGoodTypeIndex(res.memReqs.memoryTypeBits);
     }
@@ -1671,27 +1761,53 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
 
     bool isHostVisible = memoryProperty & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
     Optional<uint64_t> deviceAlignment =
-            isHostVisible ? Optional<uint64_t>(res.memReqs.alignment) : kNullopt;
-    bool allocRes = allocExternalMemory(
-            vk, &res.memory, true /*actuallyExternal*/, deviceAlignment);
+        isHostVisible ? Optional<uint64_t>(res.memReqs.alignment) : kNullopt;
+    bool allocRes =
+        allocExternalMemory(vk, &res.memory, true /*actuallyExternal*/, deviceAlignment);
 
     if (!allocRes) {
         // LOG(VERBOSE) << "Failed to allocate ColorBuffer with Vulkan backing.";
         return false;
     }
 
-    res.memory.pageOffset =
-            reinterpret_cast<uint64_t>(res.memory.mappedPtr) % kPageSize;
-    res.memory.bindOffset =
-            res.memory.pageOffset ? kPageSize - res.memory.pageOffset : 0u;
+    res.memory.pageOffset = reinterpret_cast<uint64_t>(res.memory.mappedPtr) % kPageSize;
+    res.memory.bindOffset = res.memory.pageOffset ? kPageSize - res.memory.pageOffset : 0u;
 
-    VkResult bindImageMemoryRes =
-            vk->vkBindImageMemory(sVkEmulation->device, res.image,
-                                  res.memory.memory, res.memory.bindOffset);
+    VkResult bindImageMemoryRes = vk->vkBindImageMemory(sVkEmulation->device, res.image,
+                                                        res.memory.memory, res.memory.bindOffset);
 
     if (bindImageMemoryRes != VK_SUCCESS) {
-        fprintf(stderr, "%s: Failed to bind image memory. %d\n", __func__,
-        bindImageMemoryRes);
+        fprintf(stderr, "%s: Failed to bind image memory. %d\n", __func__, bindImageMemoryRes);
+        return false;
+    }
+
+    const VkImageViewCreateInfo imageViewCi = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .image = res.image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = res.imageCreateInfoShallow.format,
+        .components =
+            {
+                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+            },
+        .subresourceRange =
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+    createRes = vk->vkCreateImageView(sVkEmulation->device, &imageViewCi, nullptr, &res.imageView);
+    if (createRes != VK_SUCCESS) {
+        // LOG(VERBOSE) << "Failed to create Vulkan image for ColorBuffer "
+        //              << colorBufferHandle;
         return false;
     }
 
@@ -1706,21 +1822,23 @@ bool setupVkColorBuffer(uint32_t colorBufferHandle,
 #endif
     }
 
-    if (sVkEmulation->deviceInfo.supportsExternalMemory &&
-        glCompatible &&
-        FrameBuffer::getFB()->importMemoryToColorBuffer(
-            dupExternalMemory(res.memory.exportedHandle), res.memory.size, false /* dedicated */,
-            vulkanOnly, colorBufferHandle, res.image, *imageCi)) {
-        res.glExported = true;
+    bool glExported = sVkEmulation->deviceInfo.supportsExternalMemory &&
+                      sVkEmulation->deviceInfo.glInteropSupported && glCompatible && !vulkanOnly;
+    if (glExported) {
+        ManagedDescriptor exportedHandle(dupExternalMemory(res.memory.exportedHandle));
+        glExported = FrameBuffer::getFB()->importMemoryToColorBuffer(
+            std::move(exportedHandle), res.memory.size, false /* dedicated */, vulkanOnly,
+            colorBufferHandle, res.image, *imageCi);
+    }
+    res.glExported = glExported;
+    if (vulkanOnly) {
+        res.vulkanMode = VkEmulation::VulkanMode::VulkanOnly;
     }
 
     if (exported) *exported = res.glExported;
     if (allocSize) *allocSize = res.memory.size;
     if (typeIndex) *typeIndex = res.memory.typeIndex;
-    if (mappedPtr)
-        *mappedPtr = res.memory.mappedPtr;
-
-    res.ownedByHost = std::make_shared<std::atomic_bool>(true);
+    if (mappedPtr) *mappedPtr = res.memory.mappedPtr;
 
     sVkEmulation->colorBuffers[colorBufferHandle] = res;
     return true;
@@ -1742,6 +1860,7 @@ bool teardownVkColorBuffer(uint32_t colorBufferHandle) {
         android::base::AutoLock lock(*sVkEmulation->queueLock);
         VK_CHECK(vk->vkQueueWaitIdle(sVkEmulation->queue));
     }
+    vk->vkDestroyImageView(sVkEmulation->device, info.imageView, nullptr);
     vk->vkDestroyImage(sVkEmulation->device, info.image, nullptr);
     freeExternalMemoryLocked(vk, &info.memory);
 
@@ -1769,349 +1888,407 @@ VkEmulation::ColorBufferInfo getColorBufferInfo(uint32_t colorBufferHandle) {
     return res;
 }
 
-bool updateColorBufferFromVkImage(uint32_t colorBufferHandle) {
-    if (!sVkEmulation || !sVkEmulation->live) return false;
-
-    auto vk = sVkEmulation->dvk;
-
-    AutoLock lock(sVkEmulationLock);
-
-    auto infoPtr = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
-
-    if (!infoPtr) {
-        // Color buffer not found; this is usually OK.
+bool colorBufferNeedsTransferBetweenGlAndVk(const VkEmulation::ColorBufferInfo& colorBufferInfo) {
+    // GL is not used.
+    if (colorBufferInfo.vulkanMode == VkEmulation::VulkanMode::VulkanOnly) {
         return false;
     }
 
-    if (!infoPtr->image) {
-        fprintf(stderr, "%s: error: ColorBuffer 0x%x has no VkImage\n", __func__, colorBufferHandle);
-        return false;
-    }
-
-    if (infoPtr->glExported ||
-        (infoPtr->vulkanMode == VkEmulation::VulkanMode::VulkanOnly) ||
-        infoPtr->frameworkFormat != FrameworkFormat::FRAMEWORK_FORMAT_GL_COMPATIBLE) {
-        // No sync needed if exported to GL or in Vulkan-only mode
+    // YUV formats require extra conversions.
+    if (colorBufferInfo.frameworkFormat != FrameworkFormat::FRAMEWORK_FORMAT_GL_COMPATIBLE) {
         return true;
     }
 
-    // Record our synchronization commands.
-    VkCommandBufferBeginInfo beginInfo = {
-        VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, 0,
-        VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-        nullptr /* no inheritance info */,
-    };
-
-    vk->vkBeginCommandBuffer(
-        sVkEmulation->commandBuffer,
-        &beginInfo);
-
-    // From the spec: If an application does not need the contents of a resource
-    // to remain valid when transferring from one queue family to another, then
-    // the ownership transfer should be skipped.
-
-    // We definitely need to transition the image to
-    // VK_TRANSFER_SRC_OPTIMAL and back.
-
-    VkImageMemoryBarrier presentToTransferSrc = {
-        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, 0,
-        0,
-        VK_ACCESS_HOST_READ_BIT,
-        infoPtr->currentLayout,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        VK_QUEUE_FAMILY_IGNORED,
-        VK_QUEUE_FAMILY_IGNORED,
-        infoPtr->image,
-        {
-            VK_IMAGE_ASPECT_COLOR_BIT,
-            0, 1, 0, 1,
-        },
-    };
-
-    vk->vkCmdPipelineBarrier(
-        sVkEmulation->commandBuffer,
-        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-        0,
-        0, nullptr,
-        0, nullptr,
-        1, &presentToTransferSrc);
-
-    infoPtr->currentLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-
-    // Copy to staging buffer
-    uint32_t bpp = 4; /* format always rgba8...not */
-    switch (infoPtr->format) {
-        case VK_FORMAT_R5G6B5_UNORM_PACK16:
-            bpp = 2;
-            break;
-        case VK_FORMAT_R8G8B8_UNORM:
-            bpp = 3;
-            break;
-        default:
-        case VK_FORMAT_R8G8B8A8_UNORM:
-            bpp = 4;
-            break;
+    // GL and VK are sharing the same underlying memory.
+    if (colorBufferInfo.glExported) {
+        return false;
     }
-    VkBufferImageCopy region = {
-        0 /* buffer offset */,
-        infoPtr->extent.width,
-        infoPtr->extent.height,
-        {
-            VK_IMAGE_ASPECT_COLOR_BIT,
-            0, 0, 1,
-        },
-        { 0, 0, 0 },
-        infoPtr->extent,
-    };
-
-    vk->vkCmdCopyImageToBuffer(
-        sVkEmulation->commandBuffer,
-        infoPtr->image,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        sVkEmulation->staging.buffer,
-        1, &region);
-
-    vk->vkEndCommandBuffer(sVkEmulation->commandBuffer);
-
-    VkSubmitInfo submitInfo = {
-        VK_STRUCTURE_TYPE_SUBMIT_INFO, 0,
-        0, nullptr,
-        nullptr,
-        1, &sVkEmulation->commandBuffer,
-        0, nullptr,
-    };
-
-    {
-        android::base::AutoLock lock(*sVkEmulation->queueLock);
-        vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
-                          sVkEmulation->commandBufferFence);
-    }
-
-    static constexpr uint64_t ANB_MAX_WAIT_NS =
-        5ULL * 1000ULL * 1000ULL * 1000ULL;
-
-    vk->vkWaitForFences(
-        sVkEmulation->device, 1, &sVkEmulation->commandBufferFence,
-        VK_TRUE, ANB_MAX_WAIT_NS);
-    vk->vkResetFences(
-        sVkEmulation->device, 1, &sVkEmulation->commandBufferFence);
-
-    VkMappedMemoryRange toInvalidate = {
-        VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, 0,
-        sVkEmulation->staging.memory.memory,
-        0, VK_WHOLE_SIZE,
-    };
-
-    vk->vkInvalidateMappedMemoryRanges(
-        sVkEmulation->device, 1, &toInvalidate);
-
-    FrameBuffer::getFB()->
-        replaceColorBufferContents(
-            colorBufferHandle,
-            sVkEmulation->staging.memory.mappedPtr,
-            bpp * infoPtr->extent.width * infoPtr->extent.height);
 
     return true;
 }
 
-bool updateVkImageFromColorBuffer(uint32_t colorBufferHandle) {
-    if (!sVkEmulation || !sVkEmulation->live) return false;
+bool readColorBufferToGl(uint32_t colorBufferHandle) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_VERBOSE("VkEmulation not available.");
+        return false;
+    }
 
     auto vk = sVkEmulation->dvk;
 
     AutoLock lock(sVkEmulationLock);
 
-    auto infoPtr = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
-
-    if (!infoPtr) {
-        // Color buffer not found; this is usually OK.
+    auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
+    if (!colorBufferInfo) {
+        VK_COMMON_VERBOSE("Failed to read from ColorBuffer:%d, not found.", colorBufferHandle);
         return false;
     }
 
-    if (infoPtr->frameworkFormat == FrameworkFormat::FRAMEWORK_FORMAT_GL_COMPATIBLE && (
-        infoPtr->glExported ||
-        infoPtr->vulkanMode == VkEmulation::VulkanMode::VulkanOnly)) {
-        // No sync needed if exported to GL or in Vulkan-only mode
+    if (!colorBufferNeedsTransferBetweenGlAndVk(*colorBufferInfo)) {
         return true;
     }
 
-    size_t cbNumBytes = 0;
-    bool readRes = FrameBuffer::getFB()->
-        readColorBufferContents(
-            colorBufferHandle, &cbNumBytes, nullptr);
-    if (!readRes) {
-        fprintf(stderr, "%s: Failed to read color buffer 0x%x\n",
-                __func__, colorBufferHandle);
+    VkDeviceSize bytesNeeded = 0;
+    bool result = getFormatTransferInfo(colorBufferInfo->imageCreateInfoShallow.format,
+                                        colorBufferInfo->imageCreateInfoShallow.extent.width,
+                                        colorBufferInfo->imageCreateInfoShallow.extent.height,
+                                        &bytesNeeded, nullptr);
+    if (!result) {
+        VK_COMMON_ERROR("Failed to read from ColorBuffer:%d, failed to get read size.",
+                        colorBufferHandle);
         return false;
     }
 
-    if (cbNumBytes > sVkEmulation->staging.memory.size) {
-        fprintf(stderr,
-            "%s: Not enough space to read to staging buffer. "
-            "Wanted: 0x%llx Have: 0x%llx\n", __func__,
-            (unsigned long long)cbNumBytes,
-            (unsigned long long)(sVkEmulation->staging.memory.size));
+    std::vector<uint8_t> bytes(bytesNeeded);
+
+    result = readColorBufferToBytes(
+        colorBufferHandle, 0, 0, colorBufferInfo->imageCreateInfoShallow.extent.width,
+        colorBufferInfo->imageCreateInfoShallow.extent.height, bytes.data());
+    if (!result) {
+        VK_COMMON_ERROR("Failed to read from ColorBuffer:%d, failed to get read size.",
+                        colorBufferHandle);
         return false;
     }
 
-    readRes = FrameBuffer::getFB()->
-        readColorBufferContents(
-            colorBufferHandle, &cbNumBytes,
-            sVkEmulation->staging.memory.mappedPtr);
+    return FrameBuffer::getFB()->replaceColorBufferContents(colorBufferHandle, bytes.data(),
+                                                            bytes.size());
+}
 
-    if (!readRes) {
-        fprintf(stderr, "%s: Failed to read color buffer 0x%x (at glReadPixels)\n",
-                __func__, colorBufferHandle);
+bool readColorBufferToBytes(uint32_t colorBufferHandle, uint32_t x, uint32_t y, uint32_t w,
+                            uint32_t h, void* outPixels) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
         return false;
+    }
+
+    auto vk = sVkEmulation->dvk;
+
+    AutoLock lock(sVkEmulationLock);
+    return readColorBufferToBytesLocked(colorBufferHandle, x, y, w, h, outPixels);
+}
+
+bool readColorBufferToBytesLocked(uint32_t colorBufferHandle, uint32_t x, uint32_t y, uint32_t w,
+                                  uint32_t h, void* outPixels) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
+        return false;
+    }
+
+    auto vk = sVkEmulation->dvk;
+
+    auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
+    if (!colorBufferInfo) {
+        VK_COMMON_ERROR("Failed to read from ColorBuffer:%d, not found.", colorBufferHandle);
+        return false;
+    }
+
+    if (!colorBufferInfo->image) {
+        VK_COMMON_ERROR("Failed to read from ColorBuffer:%d, no VkImage.", colorBufferHandle);
+        return false;
+    }
+
+    if (x != 0 || y != 0 || w != colorBufferInfo->imageCreateInfoShallow.extent.width ||
+        h != colorBufferInfo->imageCreateInfoShallow.extent.height) {
+        VK_COMMON_ERROR("Failed to read from ColorBuffer:%d, unhandled subrect.",
+                        colorBufferHandle);
+        return false;
+    }
+
+    VkDeviceSize bufferCopySize = 0;
+    std::vector<VkBufferImageCopy> bufferImageCopies;
+    if (!getFormatTransferInfo(colorBufferInfo->imageCreateInfoShallow.format,
+                               colorBufferInfo->imageCreateInfoShallow.extent.width,
+                               colorBufferInfo->imageCreateInfoShallow.extent.height,
+                               &bufferCopySize, &bufferImageCopies)) {
+        VK_COMMON_ERROR("Failed to read ColorBuffer:%d, unable to get transfer info.",
+                        colorBufferHandle);
+        return false;
+    }
+
+    // Avoid transitioning from VK_IMAGE_LAYOUT_UNDEFINED. Unfortunetly, Android does not
+    // yet have a mechanism for sharing the expected VkImageLayout. However, the Vulkan
+    // spec's image layout transition sections says "If the old layout is
+    // VK_IMAGE_LAYOUT_UNDEFINED, the contents of that range may be discarded." Some
+    // Vulkan drivers have been observed to actually perform the discard which leads to
+    // ColorBuffer-s being unintentionally cleared. See go/ahb-vkimagelayout for a more
+    // thorough write up.
+    if (colorBufferInfo->currentLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+        colorBufferInfo->currentLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     }
 
     // Record our synchronization commands.
-    VkCommandBufferBeginInfo beginInfo = {
-        VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, 0,
-        VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-        nullptr /* no inheritance info */,
+    const VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = nullptr,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
 
-    vk->vkBeginCommandBuffer(
-        sVkEmulation->commandBuffer,
-        &beginInfo);
+    VkCommandBuffer commandBuffer = sVkEmulation->commandBuffer;
 
-    // From the spec: If an application does not need the contents of a resource
-    // to remain valid when transferring from one queue family to another, then
-    // the ownership transfer should be skipped.
+    VK_CHECK(vk->vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
-    // We definitely need to transition the image to
-    // VK_TRANSFER_SRC_OPTIMAL and back.
-
-    VkImageMemoryBarrier presentToTransferSrc = {
-        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, 0,
-        0,
-        VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
-        infoPtr->currentLayout,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_QUEUE_FAMILY_IGNORED,
-        VK_QUEUE_FAMILY_IGNORED,
-        infoPtr->image,
-        {
-            VK_IMAGE_ASPECT_COLOR_BIT,
-            0, 1, 0, 1,
-        },
+    const VkImageMemoryBarrier toTransferSrcImageBarrier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_HOST_READ_BIT,
+        .oldLayout = colorBufferInfo->currentLayout,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = colorBufferInfo->image,
+        .subresourceRange =
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
     };
 
-    infoPtr->currentLayout =
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    vk->vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                             &toTransferSrcImageBarrier);
 
-    vk->vkCmdPipelineBarrier(
-        sVkEmulation->commandBuffer,
-        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-        0,
-        0, nullptr,
-        0, nullptr,
-        1, &presentToTransferSrc);
+    colorBufferInfo->currentLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
-    // Copy to staging buffer
-    std::vector<VkBufferImageCopy> regions;
-    if (infoPtr->frameworkFormat == FrameworkFormat::FRAMEWORK_FORMAT_GL_COMPATIBLE) {
-        regions.push_back({
-            0 /* buffer offset */,
-            infoPtr->extent.width,
-            infoPtr->extent.height,
-            {
-                VK_IMAGE_ASPECT_COLOR_BIT,
-                0, 0, 1,
-            },
-            { 0, 0, 0 },
-            infoPtr->extent,
-        });
-    } else {
-        // YUV formats
-        bool swapUV = infoPtr->frameworkFormat == FRAMEWORK_FORMAT_YV12;
-        VkExtent3D subplaneExtent = {
-            infoPtr->extent.width / 2,
-            infoPtr->extent.height / 2,
-            1
-        };
-        regions.push_back({
-            0 /* buffer offset */,
-            infoPtr->extent.width,
-            infoPtr->extent.height,
-            {
-                VK_IMAGE_ASPECT_PLANE_0_BIT,
-                0, 0, 1,
-            },
-            { 0, 0, 0 },
-            infoPtr->extent,
-        });
-        regions.push_back({
-            infoPtr->extent.width * infoPtr->extent.height /* buffer offset */,
-            subplaneExtent.width,
-            subplaneExtent.height,
-            {
-                (VkImageAspectFlags)(swapUV ? VK_IMAGE_ASPECT_PLANE_2_BIT : VK_IMAGE_ASPECT_PLANE_1_BIT),
-                0, 0, 1,
-            },
-            { 0, 0, 0 },
-            subplaneExtent,
-        });
-        if (infoPtr->frameworkFormat == FRAMEWORK_FORMAT_YUV_420_888
-            || infoPtr->frameworkFormat == FRAMEWORK_FORMAT_YV12) {
-            regions.push_back({
-                infoPtr->extent.width * infoPtr->extent.height
-                    + subplaneExtent.width * subplaneExtent.height,
-                subplaneExtent.width,
-                subplaneExtent.height,
-                {
-                   (VkImageAspectFlags)(swapUV ? VK_IMAGE_ASPECT_PLANE_1_BIT : VK_IMAGE_ASPECT_PLANE_2_BIT),
-                    0, 0, 1,
-                },
-                { 0, 0, 0 },
-                subplaneExtent,
-            });
-        }
-    }
+    vk->vkCmdCopyImageToBuffer(commandBuffer, colorBufferInfo->image,
+                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, sVkEmulation->staging.buffer,
+                               bufferImageCopies.size(), bufferImageCopies.data());
 
-    vk->vkCmdCopyBufferToImage(
-        sVkEmulation->commandBuffer,
-        sVkEmulation->staging.buffer,
-        infoPtr->image,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        regions.size(), regions.data());
+    VK_CHECK(vk->vkEndCommandBuffer(commandBuffer));
 
-    vk->vkEndCommandBuffer(sVkEmulation->commandBuffer);
-
-    VkSubmitInfo submitInfo = {
-        VK_STRUCTURE_TYPE_SUBMIT_INFO, 0,
-        0, nullptr,
-        nullptr,
-        1, &sVkEmulation->commandBuffer,
-        0, nullptr,
+    const VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 0,
+        .pWaitSemaphores = nullptr,
+        .pWaitDstStageMask = nullptr,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores = nullptr,
     };
 
     {
         android::base::AutoLock lock(*sVkEmulation->queueLock);
-        vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
-                          sVkEmulation->commandBufferFence);
+        VK_CHECK(vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
+                                   sVkEmulation->commandBufferFence));
     }
 
-    static constexpr uint64_t ANB_MAX_WAIT_NS =
-        5ULL * 1000ULL * 1000ULL * 1000ULL;
+    static constexpr uint64_t ANB_MAX_WAIT_NS = 5ULL * 1000ULL * 1000ULL * 1000ULL;
 
-    vk->vkWaitForFences(
-        sVkEmulation->device, 1, &sVkEmulation->commandBufferFence,
-        VK_TRUE, ANB_MAX_WAIT_NS);
-    vk->vkResetFences(
-        sVkEmulation->device, 1, &sVkEmulation->commandBufferFence);
+    VK_CHECK(vk->vkWaitForFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence,
+                                 VK_TRUE, ANB_MAX_WAIT_NS));
 
-    VkMappedMemoryRange toInvalidate = {
-        VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, 0,
-        sVkEmulation->staging.memory.memory,
-        0, VK_WHOLE_SIZE,
+    VK_CHECK(vk->vkResetFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence));
+
+    const VkMappedMemoryRange toInvalidate = {
+        .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+        .pNext = nullptr,
+        .memory = sVkEmulation->staging.memory.memory,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE,
     };
 
-    vk->vkInvalidateMappedMemoryRanges(
-        sVkEmulation->device, 1, &toInvalidate);
+    VK_CHECK(vk->vkInvalidateMappedMemoryRanges(sVkEmulation->device, 1, &toInvalidate));
+
+    const auto* stagingBufferPtr = sVkEmulation->staging.memory.mappedPtr;
+    std::memcpy(outPixels, stagingBufferPtr, bufferCopySize);
+
+    return true;
+}
+
+bool updateColorBufferFromGl(uint32_t colorBufferHandle) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_VERBOSE("VkEmulation not available.");
+        return false;
+    }
+
+    AutoLock lock(sVkEmulationLock);
+
+    auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
+    if (!colorBufferInfo) {
+        VK_COMMON_VERBOSE("Failed to update ColorBuffer:%d, not found.", colorBufferHandle);
+        return false;
+    }
+
+    if (!colorBufferNeedsTransferBetweenGlAndVk(*colorBufferInfo)) {
+        return true;
+    }
+
+    size_t bytesNeeded = 0;
+    bool result =
+        FrameBuffer::getFB()->readColorBufferContents(colorBufferHandle, &bytesNeeded, nullptr);
+    if (!result) {
+        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, failed to get read contents size.",
+                        colorBufferHandle);
+        return false;
+    }
+
+    std::vector<uint8_t> bytes(bytesNeeded);
+    result = FrameBuffer::getFB()->readColorBufferContents(colorBufferHandle, &bytesNeeded,
+                                                           bytes.data());
+    if (!result) {
+        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, failed to read contents.",
+                        colorBufferHandle);
+        return false;
+    }
+
+    return updateColorBufferFromBytesLocked(
+        colorBufferHandle, 0, 0, colorBufferInfo->imageCreateInfoShallow.extent.width,
+        colorBufferInfo->imageCreateInfoShallow.extent.height, bytes.data());
+}
+
+bool updateColorBufferFromBytes(uint32_t colorBufferHandle, uint32_t x, uint32_t y, uint32_t w,
+                                uint32_t h, const void* pixels) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
+        return false;
+    }
+
+    auto vk = sVkEmulation->dvk;
+    AutoLock lock(sVkEmulationLock);
+    return updateColorBufferFromBytesLocked(colorBufferHandle, x, y, w, h, pixels);
+}
+
+bool updateColorBufferFromBytesLocked(uint32_t colorBufferHandle, uint32_t x, uint32_t y,
+                                      uint32_t w, uint32_t h, const void* pixels) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
+        return false;
+    }
+
+    auto vk = sVkEmulation->dvk;
+
+    auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
+    if (!colorBufferInfo) {
+        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, not found.", colorBufferHandle);
+        return false;
+    }
+
+    if (!colorBufferInfo->image) {
+        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, no VkImage.", colorBufferHandle);
+        return false;
+    }
+
+    if (x != 0 || y != 0 || w != colorBufferInfo->imageCreateInfoShallow.extent.width ||
+        h != colorBufferInfo->imageCreateInfoShallow.extent.height) {
+        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, unhandled subrect.", colorBufferHandle);
+        return false;
+    }
+
+    VkDeviceSize bufferCopySize = 0;
+    std::vector<VkBufferImageCopy> bufferImageCopies;
+    if (!getFormatTransferInfo(colorBufferInfo->imageCreateInfoShallow.format,
+                               colorBufferInfo->imageCreateInfoShallow.extent.width,
+                               colorBufferInfo->imageCreateInfoShallow.extent.height,
+                               &bufferCopySize, &bufferImageCopies)) {
+        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, unable to get transfer info.",
+                        colorBufferHandle);
+        return false;
+    }
+
+    const VkDeviceSize stagingBufferSize = sVkEmulation->staging.size;
+    if (bufferCopySize > stagingBufferSize) {
+        VK_COMMON_ERROR("Failed to update ColorBuffer:%d, transfer size %" PRIu64
+                        " too large for staging buffer size:%" PRIu64 ".",
+                        colorBufferHandle, bufferCopySize, stagingBufferSize);
+        return false;
+    }
+
+    auto* stagingBufferPtr = sVkEmulation->staging.memory.mappedPtr;
+    std::memcpy(stagingBufferPtr, pixels, bufferCopySize);
+
+    // Avoid transitioning from VK_IMAGE_LAYOUT_UNDEFINED. Unfortunetly, Android does not
+    // yet have a mechanism for sharing the expected VkImageLayout. However, the Vulkan
+    // spec's image layout transition sections says "If the old layout is
+    // VK_IMAGE_LAYOUT_UNDEFINED, the contents of that range may be discarded." Some
+    // Vulkan drivers have been observed to actually perform the discard which leads to
+    // ColorBuffer-s being unintentionally cleared. See go/ahb-vkimagelayout for a more
+    // thorough write up.
+    if (colorBufferInfo->currentLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+        colorBufferInfo->currentLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    }
+
+    // Record our synchronization commands.
+    const VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = nullptr,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+
+    VkCommandBuffer commandBuffer = sVkEmulation->commandBuffer;
+
+    VK_CHECK(vk->vkBeginCommandBuffer(commandBuffer, &beginInfo));
+
+    const VkImageMemoryBarrier toTransferDstImageBarrier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_HOST_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+        .oldLayout = colorBufferInfo->currentLayout,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = colorBufferInfo->image,
+        .subresourceRange =
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+
+    vk->vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                             &toTransferDstImageBarrier);
+
+    colorBufferInfo->currentLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+    // Copy to staging buffer
+    vk->vkCmdCopyBufferToImage(commandBuffer, sVkEmulation->staging.buffer, colorBufferInfo->image,
+                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, bufferImageCopies.size(),
+                               bufferImageCopies.data());
+
+    VK_CHECK(vk->vkEndCommandBuffer(commandBuffer));
+
+    const VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 0,
+        .pWaitSemaphores = nullptr,
+        .pWaitDstStageMask = nullptr,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores = nullptr,
+    };
+
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        VK_CHECK(vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
+                                   sVkEmulation->commandBufferFence));
+    }
+
+    static constexpr uint64_t ANB_MAX_WAIT_NS = 5ULL * 1000ULL * 1000ULL * 1000ULL;
+
+    VK_CHECK(vk->vkWaitForFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence,
+                                 VK_TRUE, ANB_MAX_WAIT_NS));
+
+    VK_CHECK(vk->vkResetFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence));
+
+    const VkMappedMemoryRange toInvalidate = {
+        .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+        .pNext = nullptr,
+        .memory = sVkEmulation->staging.memory.memory,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE,
+    };
+    VK_CHECK(vk->vkInvalidateMappedMemoryRanges(sVkEmulation->device, 1, &toInvalidate));
+
     return true;
 }
 
@@ -2164,23 +2341,18 @@ MTLTextureRef getColorBufferMTLTexture(uint32_t colorBuffer) {
     return infoPtr->mtlTexture;
 }
 
-int32_t mapGpaToBufferHandle(uint32_t bufferHandle,
-                             uint64_t gpa,
-                             uint64_t size) {
-    if (!sVkEmulation || !sVkEmulation->live)
-        return VK_ERROR_DEVICE_LOST;
+int32_t mapGpaToBufferHandle(uint32_t bufferHandle, uint64_t gpa, uint64_t size) {
+    if (!sVkEmulation || !sVkEmulation->live) return VK_ERROR_DEVICE_LOST;
 
     AutoLock lock(sVkEmulationLock);
 
     VkEmulation::ExternalMemoryInfo* memoryInfoPtr = nullptr;
 
-    auto colorBufferInfoPtr =
-            android::base::find(sVkEmulation->colorBuffers, bufferHandle);
+    auto colorBufferInfoPtr = android::base::find(sVkEmulation->colorBuffers, bufferHandle);
     if (colorBufferInfoPtr) {
         memoryInfoPtr = &colorBufferInfoPtr->memory;
     }
-    auto bufferInfoPtr =
-            android::base::find(sVkEmulation->buffers, bufferHandle);
+    auto bufferInfoPtr = android::base::find(sVkEmulation->buffers, bufferHandle);
     if (bufferInfoPtr) {
         memoryInfoPtr = &bufferInfoPtr->memory;
     }
@@ -2196,42 +2368,35 @@ int32_t mapGpaToBufferHandle(uint32_t bufferHandle,
 
     memoryInfoPtr->gpa = gpa;
     memoryInfoPtr->pageAlignedHva =
-            reinterpret_cast<uint8_t*>(memoryInfoPtr->mappedPtr) +
-            memoryInfoPtr->bindOffset;
+        reinterpret_cast<uint8_t*>(memoryInfoPtr->mappedPtr) + memoryInfoPtr->bindOffset;
 
     size_t rawSize = memoryInfoPtr->size + memoryInfoPtr->pageOffset;
     if (size && size < rawSize) {
         rawSize = size;
     }
 
-    memoryInfoPtr->sizeToPage = ((rawSize + kPageSize - 1) >> kPageBits)
-                                << kPageBits;
+    memoryInfoPtr->sizeToPage = ((rawSize + kPageSize - 1) >> kPageBits) << kPageBits;
 
     // LOG(VERBOSE) << "mapGpaToColorBuffer: hva = " << memoryInfoPtr->mappedPtr
     //              << ", pageAlignedHva = " << memoryInfoPtr->pageAlignedHva
     //              << " -> [ " << memoryInfoPtr->gpa << ", "
     //              << memoryInfoPtr->gpa + memoryInfoPtr->sizeToPage << " ]";
 
-    if (sVkEmulation->occupiedGpas.find(gpa) !=
-        sVkEmulation->occupiedGpas.end()) {
+    if (sVkEmulation->occupiedGpas.find(gpa) != sVkEmulation->occupiedGpas.end()) {
         // emugl::emugl_crash_reporter("FATAL: already mapped gpa 0x%lx! ", gpa);
         return VK_ERROR_MEMORY_MAP_FAILED;
     }
 
-    get_emugl_vm_operations().mapUserBackedRam(
-            gpa, memoryInfoPtr->pageAlignedHva, memoryInfoPtr->sizeToPage);
+    get_emugl_vm_operations().mapUserBackedRam(gpa, memoryInfoPtr->pageAlignedHva,
+                                               memoryInfoPtr->sizeToPage);
 
     sVkEmulation->occupiedGpas.insert(gpa);
 
     return memoryInfoPtr->pageOffset;
 }
 
-bool setupVkBuffer(uint32_t bufferHandle,
-                   bool vulkanOnly,
-                   uint32_t memoryProperty,
-                   bool* exported,
-                   VkDeviceSize* allocSize,
-                   uint32_t* typeIndex) {
+bool setupVkBuffer(uint32_t bufferHandle, bool vulkanOnly, uint32_t memoryProperty, bool* exported,
+                   VkDeviceSize* allocSize, uint32_t* typeIndex) {
     if (vulkanOnly == false) {
         fprintf(stderr, "Data buffers should be vulkanOnly. Setup failed.\n");
         return false;
@@ -2253,12 +2418,10 @@ bool setupVkBuffer(uint32_t bufferHandle,
     if (infoPtr) {
         // Update the allocation size to what the host driver wanted, or we
         // might get VK_ERROR_OUT_OF_DEVICE_MEMORY and a host crash
-        if (allocSize)
-            *allocSize = infoPtr->memory.size;
+        if (allocSize) *allocSize = infoPtr->memory.size;
         // Update the type index to what the host driver wanted, or we might
         // get VK_ERROR_DEVICE_LOST
-        if (typeIndex)
-            *typeIndex = infoPtr->memory.typeIndex;
+        if (typeIndex) *typeIndex = infoPtr->memory.typeIndex;
         return true;
     }
 
@@ -2267,21 +2430,18 @@ bool setupVkBuffer(uint32_t bufferHandle,
     res.handle = bufferHandle;
 
     res.size = size;
-    res.usageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-                     VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                     VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT |
-                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                     VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    res.usageFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT |
+                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     res.createFlags = 0;
 
     res.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     // Create the image. If external memory is supported, make it external.
     VkExternalMemoryBufferCreateInfo extBufferCi = {
-            VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
-            0,
-            VK_EXT_MEMORY_HANDLE_TYPE_BIT,
+        VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+        0,
+        VK_EXT_MEMORY_HANDLE_TYPE_BIT,
     };
 
     VkExternalMemoryBufferCreateInfo* extBufferCiPtr = nullptr;
@@ -2290,40 +2450,38 @@ bool setupVkBuffer(uint32_t bufferHandle,
     }
 
     VkBufferCreateInfo bufferCi = {
-            VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-            extBufferCiPtr,
-            res.createFlags,
-            res.size,
-            res.usageFlags,
-            res.sharingMode,
-            /* queueFamilyIndexCount */ 0,
-            /* pQueueFamilyIndices */ nullptr,
+        VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        extBufferCiPtr,
+        res.createFlags,
+        res.size,
+        res.usageFlags,
+        res.sharingMode,
+        /* queueFamilyIndexCount */ 0,
+        /* pQueueFamilyIndices */ nullptr,
     };
 
-    VkResult createRes = vk->vkCreateBuffer(sVkEmulation->device, &bufferCi,
-                                            nullptr, &res.buffer);
+    VkResult createRes = vk->vkCreateBuffer(sVkEmulation->device, &bufferCi, nullptr, &res.buffer);
 
     if (createRes != VK_SUCCESS) {
         // LOG(VERBOSE) << "Failed to create Vulkan Buffer for Buffer "
-                     // << bufferHandle;
+        // << bufferHandle;
         return false;
     }
 
-    vk->vkGetBufferMemoryRequirements(sVkEmulation->device, res.buffer,
-                                      &res.memReqs);
+    vk->vkGetBufferMemoryRequirements(sVkEmulation->device, res.buffer, &res.memReqs);
 
     // Currently we only care about two memory properties: DEVICE_LOCAL
     // and HOST_VISIBLE; other memory properties specified in
     // rcSetColorBufferVulkanMode2() call will be ignored for now.
-    memoryProperty = memoryProperty & (VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
-                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+    memoryProperty = memoryProperty &
+                     (VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
     res.memory.size = res.memReqs.size;
 
     // Determine memory type.
     if (memoryProperty) {
-        res.memory.typeIndex = lastGoodTypeIndexWithMemoryProperties(
-                res.memReqs.memoryTypeBits, memoryProperty);
+        res.memory.typeIndex =
+            lastGoodTypeIndexWithMemoryProperties(res.memReqs.memoryTypeBits, memoryProperty);
     } else {
         res.memory.typeIndex = lastGoodTypeIndex(res.memReqs.memoryTypeBits);
     }
@@ -2339,65 +2497,54 @@ bool setupVkBuffer(uint32_t bufferHandle,
 
     bool isHostVisible = memoryProperty & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
     Optional<uint64_t> deviceAlignment =
-            isHostVisible ? Optional<uint64_t>(res.memReqs.alignment) : kNullopt;
-    bool allocRes = allocExternalMemory(
-            vk, &res.memory, true /* actuallyExternal */, deviceAlignment);
+        isHostVisible ? Optional<uint64_t>(res.memReqs.alignment) : kNullopt;
+    bool allocRes =
+        allocExternalMemory(vk, &res.memory, true /* actuallyExternal */, deviceAlignment);
 
     if (!allocRes) {
         // LOG(VERBOSE) << "Failed to allocate ColorBuffer with Vulkan backing.";
     }
 
-    res.memory.pageOffset =
-            reinterpret_cast<uint64_t>(res.memory.mappedPtr) % kPageSize;
-    res.memory.bindOffset =
-            res.memory.pageOffset ? kPageSize - res.memory.pageOffset : 0u;
+    res.memory.pageOffset = reinterpret_cast<uint64_t>(res.memory.mappedPtr) % kPageSize;
+    res.memory.bindOffset = res.memory.pageOffset ? kPageSize - res.memory.pageOffset : 0u;
 
-    VkResult bindBufferMemoryRes = vk->vkBindBufferMemory(
-            sVkEmulation->device, res.buffer, res.memory.memory, 0);
+    VkResult bindBufferMemoryRes =
+        vk->vkBindBufferMemory(sVkEmulation->device, res.buffer, res.memory.memory, 0);
 
     if (bindBufferMemoryRes != VK_SUCCESS) {
-        fprintf(stderr, "%s: Failed to bind buffer memory. %d\n", __func__,
-                bindBufferMemoryRes);
+        fprintf(stderr, "%s: Failed to bind buffer memory. %d\n", __func__, bindBufferMemoryRes);
         return bindBufferMemoryRes;
     }
 
-    bool isHostVisibleMemory =
-            memoryProperty & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    bool isHostVisibleMemory = memoryProperty & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 
     if (isHostVisibleMemory) {
-        VkResult mapMemoryRes =
-                vk->vkMapMemory(sVkEmulation->device, res.memory.memory, 0,
-                                res.memory.size, {}, &res.memory.mappedPtr);
+        VkResult mapMemoryRes = vk->vkMapMemory(sVkEmulation->device, res.memory.memory, 0,
+                                                res.memory.size, {}, &res.memory.mappedPtr);
 
         if (mapMemoryRes != VK_SUCCESS) {
-            fprintf(stderr, "%s: Failed to map image memory. %d\n", __func__,
-                    mapMemoryRes);
+            fprintf(stderr, "%s: Failed to map image memory. %d\n", __func__, mapMemoryRes);
             return false;
         }
     }
 
     res.glExported = false;
-    if (exported)
-        *exported = res.glExported;
-    if (allocSize)
-        *allocSize = res.memory.size;
-    if (typeIndex)
-        *typeIndex = res.memory.typeIndex;
+    if (exported) *exported = res.glExported;
+    if (allocSize) *allocSize = res.memory.size;
+    if (typeIndex) *typeIndex = res.memory.typeIndex;
 
     sVkEmulation->buffers[bufferHandle] = res;
     return allocRes;
 }
 
 bool teardownVkBuffer(uint32_t bufferHandle) {
-    if (!sVkEmulation || !sVkEmulation->live)
-        return false;
+    if (!sVkEmulation || !sVkEmulation->live) return false;
 
     auto vk = sVkEmulation->dvk;
     AutoLock lock(sVkEmulationLock);
 
     auto infoPtr = android::base::find(sVkEmulation->buffers, bufferHandle);
-    if (!infoPtr)
-        return false;
+    if (!infoPtr) return false;
     {
         android::base::AutoLock lock(*sVkEmulation->queueLock);
         VK_CHECK(vk->vkQueueWaitIdle(sVkEmulation->queue));
@@ -2412,8 +2559,7 @@ bool teardownVkBuffer(uint32_t bufferHandle) {
 }
 
 VK_EXT_MEMORY_HANDLE getBufferExtMemoryHandle(uint32_t bufferHandle) {
-    if (!sVkEmulation || !sVkEmulation->live)
-        return VK_EXT_MEMORY_HANDLE_INVALID;
+    if (!sVkEmulation || !sVkEmulation->live) return VK_EXT_MEMORY_HANDLE_INVALID;
 
     AutoLock lock(sVkEmulationLock);
 
@@ -2426,10 +2572,179 @@ VK_EXT_MEMORY_HANDLE getBufferExtMemoryHandle(uint32_t bufferHandle) {
     return infoPtr->memory.exportedHandle;
 }
 
-VkExternalMemoryHandleTypeFlags
-transformExternalMemoryHandleTypeFlags_tohost(
-    VkExternalMemoryHandleTypeFlags bits) {
+bool readBufferToBytes(uint32_t bufferHandle, uint64_t offset, uint64_t size, void* outBytes) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
+        return false;
+    }
 
+    auto vk = sVkEmulation->dvk;
+
+    AutoLock lock(sVkEmulationLock);
+
+    auto bufferInfo = android::base::find(sVkEmulation->buffers, bufferHandle);
+    if (!bufferInfo) {
+        VK_COMMON_ERROR("Failed to read from Buffer:%d, not found.", bufferHandle);
+        return false;
+    }
+
+    const auto& stagingBufferInfo = sVkEmulation->staging;
+    if (size > stagingBufferInfo.size) {
+        VK_COMMON_ERROR("Failed to read from Buffer:%d, staging buffer too small.", bufferHandle);
+        return false;
+    }
+
+    const VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = nullptr,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+
+    VkCommandBuffer commandBuffer = sVkEmulation->commandBuffer;
+
+    VK_CHECK(vk->vkBeginCommandBuffer(commandBuffer, &beginInfo));
+
+    const VkBufferCopy bufferCopy = {
+        .srcOffset = offset,
+        .dstOffset = 0,
+        .size = size,
+    };
+    vk->vkCmdCopyBuffer(commandBuffer, bufferInfo->buffer, stagingBufferInfo.buffer, 1,
+                        &bufferCopy);
+
+    VK_CHECK(vk->vkEndCommandBuffer(commandBuffer));
+
+    const VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 0,
+        .pWaitSemaphores = nullptr,
+        .pWaitDstStageMask = nullptr,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores = nullptr,
+    };
+
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        VK_CHECK(vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
+                                   sVkEmulation->commandBufferFence));
+    }
+
+    static constexpr uint64_t ANB_MAX_WAIT_NS = 5ULL * 1000ULL * 1000ULL * 1000ULL;
+
+    VK_CHECK(vk->vkWaitForFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence,
+                                 VK_TRUE, ANB_MAX_WAIT_NS));
+
+    VK_CHECK(vk->vkResetFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence));
+
+    const VkMappedMemoryRange toInvalidate = {
+        .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+        .pNext = nullptr,
+        .memory = stagingBufferInfo.memory.memory,
+        .offset = 0,
+        .size = size,
+    };
+
+    VK_CHECK(vk->vkInvalidateMappedMemoryRanges(sVkEmulation->device, 1, &toInvalidate));
+
+    const void* srcPtr = reinterpret_cast<const void*>(
+        reinterpret_cast<const char*>(stagingBufferInfo.memory.mappedPtr));
+    void* dstPtr = outBytes;
+    void* dstPtrOffset = reinterpret_cast<void*>(reinterpret_cast<char*>(dstPtr) + offset);
+    std::memcpy(dstPtrOffset, srcPtr, size);
+
+    return true;
+}
+
+bool updateBufferFromBytes(uint32_t bufferHandle, uint64_t offset, uint64_t size, void* bytes) {
+    if (!sVkEmulation || !sVkEmulation->live) {
+        VK_COMMON_ERROR("VkEmulation not available.");
+        return false;
+    }
+
+    auto vk = sVkEmulation->dvk;
+
+    AutoLock lock(sVkEmulationLock);
+
+    auto bufferInfo = android::base::find(sVkEmulation->buffers, bufferHandle);
+    if (!bufferInfo) {
+        VK_COMMON_ERROR("Failed to update Buffer:%d, not found.", bufferHandle);
+        return false;
+    }
+
+    const auto& stagingBufferInfo = sVkEmulation->staging;
+    if (size > stagingBufferInfo.size) {
+        VK_COMMON_ERROR("Failed to update Buffer:%d, staging buffer too small.", bufferHandle);
+        return false;
+    }
+
+    const void* srcPtr = bytes;
+    const void* srcPtrOffset =
+        reinterpret_cast<const void*>(reinterpret_cast<const char*>(srcPtr) + offset);
+    void* dstPtr = stagingBufferInfo.memory.mappedPtr;
+    std::memcpy(dstPtr, srcPtrOffset, size);
+
+    const VkMappedMemoryRange toFlush = {
+        .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+        .pNext = nullptr,
+        .memory = stagingBufferInfo.memory.memory,
+        .offset = 0,
+        .size = size,
+    };
+    VK_CHECK(vk->vkFlushMappedMemoryRanges(sVkEmulation->device, 1, &toFlush));
+
+    const VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = nullptr,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+
+    VkCommandBuffer commandBuffer = sVkEmulation->commandBuffer;
+
+    VK_CHECK(vk->vkBeginCommandBuffer(commandBuffer, &beginInfo));
+
+    const VkBufferCopy bufferCopy = {
+        .srcOffset = 0,
+        .dstOffset = offset,
+        .size = size,
+    };
+    vk->vkCmdCopyBuffer(commandBuffer, stagingBufferInfo.buffer, bufferInfo->buffer, 1,
+                        &bufferCopy);
+
+    VK_CHECK(vk->vkEndCommandBuffer(commandBuffer));
+
+    const VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 0,
+        .pWaitSemaphores = nullptr,
+        .pWaitDstStageMask = nullptr,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores = nullptr,
+    };
+
+    {
+        android::base::AutoLock lock(*sVkEmulation->queueLock);
+        VK_CHECK(vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo,
+                                   sVkEmulation->commandBufferFence));
+    }
+
+    static constexpr uint64_t ANB_MAX_WAIT_NS = 5ULL * 1000ULL * 1000ULL * 1000ULL;
+
+    VK_CHECK(vk->vkWaitForFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence,
+                                 VK_TRUE, ANB_MAX_WAIT_NS));
+
+    VK_CHECK(vk->vkResetFences(sVkEmulation->device, 1, &sVkEmulation->commandBufferFence));
+
+    return true;
+}
+
+VkExternalMemoryHandleTypeFlags transformExternalMemoryHandleTypeFlags_tohost(
+    VkExternalMemoryHandleTypeFlags bits) {
     VkExternalMemoryHandleTypeFlags res = bits;
 
     // Transform Android/Fuchsia/Linux bits to host bits.
@@ -2459,11 +2774,9 @@ transformExternalMemoryHandleTypeFlags_tohost(
     return res;
 }
 
-VkExternalMemoryHandleTypeFlags
-transformExternalMemoryHandleTypeFlags_fromhost(
+VkExternalMemoryHandleTypeFlags transformExternalMemoryHandleTypeFlags_fromhost(
     VkExternalMemoryHandleTypeFlags hostBits,
     VkExternalMemoryHandleTypeFlags wantedGuestHandleType) {
-
     VkExternalMemoryHandleTypeFlags res = hostBits;
 
     if (res & VK_EXT_MEMORY_HANDLE_TYPE_BIT) {
@@ -2479,33 +2792,35 @@ transformExternalMemoryHandleTypeFlags_fromhost(
     return res;
 }
 
-VkExternalMemoryProperties
-transformExternalMemoryProperties_tohost(
+VkExternalMemoryProperties transformExternalMemoryProperties_tohost(
     VkExternalMemoryProperties props) {
     VkExternalMemoryProperties res = props;
     res.exportFromImportedHandleTypes =
-        transformExternalMemoryHandleTypeFlags_tohost(
-            props.exportFromImportedHandleTypes);
+        transformExternalMemoryHandleTypeFlags_tohost(props.exportFromImportedHandleTypes);
     res.compatibleHandleTypes =
-        transformExternalMemoryHandleTypeFlags_tohost(
-            props.compatibleHandleTypes);
+        transformExternalMemoryHandleTypeFlags_tohost(props.compatibleHandleTypes);
     return res;
 }
 
-VkExternalMemoryProperties
-transformExternalMemoryProperties_fromhost(
-    VkExternalMemoryProperties props,
-    VkExternalMemoryHandleTypeFlags wantedGuestHandleType) {
+VkExternalMemoryProperties transformExternalMemoryProperties_fromhost(
+    VkExternalMemoryProperties props, VkExternalMemoryHandleTypeFlags wantedGuestHandleType) {
     VkExternalMemoryProperties res = props;
-    res.exportFromImportedHandleTypes =
-        transformExternalMemoryHandleTypeFlags_fromhost(
-            props.exportFromImportedHandleTypes,
-            wantedGuestHandleType);
-    res.compatibleHandleTypes =
-        transformExternalMemoryHandleTypeFlags_fromhost(
-            props.compatibleHandleTypes,
-            wantedGuestHandleType);
+    res.exportFromImportedHandleTypes = transformExternalMemoryHandleTypeFlags_fromhost(
+        props.exportFromImportedHandleTypes, wantedGuestHandleType);
+    res.compatibleHandleTypes = transformExternalMemoryHandleTypeFlags_fromhost(
+        props.compatibleHandleTypes, wantedGuestHandleType);
     return res;
+}
+
+void setColorBufferCurrentLayout(uint32_t colorBufferHandle, VkImageLayout layout) {
+    AutoLock lock(sVkEmulationLock);
+
+    auto infoPtr = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
+    if (!infoPtr) {
+        VK_COMMON_ERROR("Invalid ColorBuffer handle %d.", static_cast<int>(colorBufferHandle));
+        return;
+    }
+    infoPtr->currentLayout = layout;
 }
 
 // Allocate a ready to use VkCommandBuffer for queue transfer. The caller needs
@@ -2524,16 +2839,16 @@ static std::tuple<VkCommandBuffer, VkFence> allocateQueueTransferCommandBuffer_l
         auto res = vk->vkGetFenceStatus(sVkEmulation->device, fence);
         if (res == VK_SUCCESS) {
             VK_CHECK(vk->vkResetFences(sVkEmulation->device, 1, &fence));
-            VK_CHECK(vk->vkResetCommandBuffer(
-                commandBuffer,
-                VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT));
+            VK_CHECK(vk->vkResetCommandBuffer(commandBuffer,
+                                              VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT));
             return std::make_tuple(commandBuffer, fence);
         }
         if (res == VK_NOT_READY) {
             continue;
         }
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "Invalid fence state: " << static_cast<int>(res);
+        // We either have a device lost, or an invalid fence state. For the device lost case,
+        // VK_CHECK will ensure we capture the relevant streams.
+        VK_CHECK(res);
     }
     VkCommandBuffer commandBuffer;
     VkCommandBufferAllocateInfo allocateInfo = {
@@ -2543,16 +2858,14 @@ static std::tuple<VkCommandBuffer, VkFence> allocateQueueTransferCommandBuffer_l
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1,
     };
-    VK_CHECK(vk->vkAllocateCommandBuffers(sVkEmulation->device, &allocateInfo,
-                                          &commandBuffer));
+    VK_CHECK(vk->vkAllocateCommandBuffers(sVkEmulation->device, &allocateInfo, &commandBuffer));
     VkFence fence;
     VkFenceCreateInfo fenceCi = {
         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
     };
-    VK_CHECK(
-        vk->vkCreateFence(sVkEmulation->device, &fenceCi, nullptr, &fence));
+    VK_CHECK(vk->vkCreateFence(sVkEmulation->device, &fenceCi, nullptr, &fence));
 
     sVkEmulation->transferQueueCommandBufferPool.emplace_back(commandBuffer, fence);
 
@@ -2564,181 +2877,31 @@ static std::tuple<VkCommandBuffer, VkFence> allocateQueueTransferCommandBuffer_l
     return std::make_tuple(commandBuffer, fence);
 }
 
-void acquireColorBuffersForHostComposing(const std::vector<uint32_t>& layerColorBuffers,
-                                         uint32_t renderTargetColorBuffer) {
-    if (!sVkEmulation || !sVkEmulation->live) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Host Vulkan device lost";
-    }
+const VkImageLayout kGuestUseDefaultImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-    std::vector<std::tuple<uint32_t, VkImageLayout>> colorBuffersAndLayouts;
-    for (uint32_t layerColorBuffer : layerColorBuffers) {
-        colorBuffersAndLayouts.emplace_back(
-            layerColorBuffer, FrameBuffer::getFB()->getVkImageLayoutForComposeLayer());
-    }
-    colorBuffersAndLayouts.emplace_back(renderTargetColorBuffer, VK_IMAGE_LAYOUT_UNDEFINED);
-    AutoLock lock(sVkEmulationLock);
-    auto vk = sVkEmulation->dvk;
-
-    std::vector<std::tuple<VkEmulation::ColorBufferInfo*, VkImageLayout>>
-        colorBufferInfosAndLayouts;
-    for (auto [colorBufferHandle, newLayout] : colorBuffersAndLayouts) {
-        VkEmulation::ColorBufferInfo *infoPtr =
-            android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
-        if (!infoPtr) {
-            VK_COMMON_ERROR("Invalid ColorBuffer handle %d.",
-                            static_cast<int>(colorBufferHandle));
-            continue;
-        }
-        colorBufferInfosAndLayouts.emplace_back(infoPtr, newLayout);
-    }
-
-    std::vector<VkImageMemoryBarrier> queueTransferBarriers;
-    std::stringstream transferredColorBuffers;
-    for (auto [infoPtr, _] : colorBufferInfosAndLayouts) {
-        if (infoPtr->ownedByHost->load()) {
-            VK_COMMON_VERBOSE("Skipping queue transfer from guest to host for ColorBuffer(id = %d)",
-                              static_cast<int>(infoPtr->handle));
-            continue;
-        }
-        VkImageMemoryBarrier queueTransferBarrier = {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .pNext = nullptr,
-            .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
-            // VK_ACCESS_SHADER_READ_BIT for the compose layers, and VK_ACCESS_TRANSFER_READ_BIT for
-            // the render target/post source.
-            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT,
-            .oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL,
-            .dstQueueFamilyIndex = sVkEmulation->queueFamilyIndex,
-            .image = infoPtr->image,
-            .subresourceRange =
-                {
-                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                    .baseMipLevel = 0,
-                    .levelCount = 1,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1,
-                },
-        };
-        queueTransferBarriers.emplace_back(queueTransferBarrier);
-        transferredColorBuffers << infoPtr->handle << " ";
-        infoPtr->ownedByHost->store(true);
-        infoPtr->currentLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    }
-
-    std::vector<VkImageMemoryBarrier> layoutTransitionBarriers;
-    for (auto [infoPtr, newLayout] : colorBufferInfosAndLayouts) {
-        infoPtr->currentLayout = newLayout;
-        if (newLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
-            continue;
-        }
-        VkImageMemoryBarrier layoutTransitionBarrier = {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .pNext = nullptr,
-            .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
-            // VK_ACCESS_SHADER_READ_BIT for the compose layers, and VK_ACCESS_TRANSFER_READ_BIT for
-            // the render target/post source.
-            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT,
-            .oldLayout = infoPtr->currentLayout,
-            .newLayout = newLayout,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = infoPtr->image,
-            .subresourceRange =
-                {
-                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                    .baseMipLevel = 0,
-                    .levelCount = 1,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1,
-                },
-        };
-        layoutTransitionBarriers.emplace_back(layoutTransitionBarrier);
-    }
-
-    auto [commandBuffer, fence] = allocateQueueTransferCommandBuffer_locked();
-
-    VkCommandBufferBeginInfo beginInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .pInheritanceInfo = nullptr,
-    };
-    VK_CHECK(vk->vkBeginCommandBuffer(commandBuffer, &beginInfo));
-    if (!queueTransferBarriers.empty()) {
-        vk->vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr,
-                                 static_cast<uint32_t>(queueTransferBarriers.size()),
-                                 queueTransferBarriers.data());
-    }
-    if (!layoutTransitionBarriers.empty()) {
-        vk->vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr,
-                                 static_cast<uint32_t>(layoutTransitionBarriers.size()),
-                                 layoutTransitionBarriers.data());
-    }
-    VK_CHECK(vk->vkEndCommandBuffer(commandBuffer));
-
-    // We assume the host Vulkan compositor lives on the same queue, so we don't
-    // need to use semaphore to synchronize with the host compositor.
-    VkSubmitInfo submitInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 0,
-        .pWaitSemaphores = nullptr,
-        .pWaitDstStageMask = nullptr,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &commandBuffer,
-        .signalSemaphoreCount = 0,
-        .pSignalSemaphores = nullptr,
-    };
-    {
-        std::stringstream ss;
-        ss << __func__
-           << ": submitting commands to issue acquire queue transfer from "
-              "guest to host for ColorBuffer("
-           << transferredColorBuffers.str() << ")";
-        AEMU_SCOPED_TRACE(ss.str().c_str());
-        android::base::AutoLock lock(*sVkEmulation->queueLock);
-        VK_CHECK(vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo, fence));
-    }
-}
-
-static VkFence doReleaseColorBufferForGuestRendering(
-    const std::vector<uint32_t>& colorBufferHandles) {
+void releaseColorBufferForGuestUse(uint32_t colorBufferHandle) {
     if (!sVkEmulation || !sVkEmulation->live) {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Host Vulkan device lost";
     }
 
     AutoLock lock(sVkEmulationLock);
-    auto vk = sVkEmulation->dvk;
 
-    std::stringstream transferredColorBuffers;
-    std::vector<VkImageMemoryBarrier> layoutTransitionBarriers;
-    std::vector<VkImageMemoryBarrier> queueTransferBarriers;
-    for (uint32_t colorBufferHandle : colorBufferHandles) {
-        auto infoPtr =
-            android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
-        if (!infoPtr) {
-            VK_COMMON_ERROR("Invalid ColorBuffer handle %d.",
-                            static_cast<int>(colorBufferHandle));
-            continue;
-        }
-        if (!infoPtr->ownedByHost->load()) {
-            VK_COMMON_VERBOSE(
-                "Skipping queue transfer from host to guest for "
-                "ColorBuffer(id = %d)",
-                static_cast<int>(colorBufferHandle));
-            continue;
-        }
-        VkImageMemoryBarrier layoutTransitionBarrier = {
+    auto infoPtr = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
+    if (!infoPtr) {
+        VK_COMMON_ERROR("Failed to find ColorBuffer handle %d.",
+                        static_cast<int>(colorBufferHandle));
+        return;
+    }
+
+    std::optional<VkImageMemoryBarrier> layoutTransitionBarrier;
+    if (infoPtr->currentLayout != kGuestUseDefaultImageLayout) {
+        layoutTransitionBarrier = VkImageMemoryBarrier{
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = nullptr,
             .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
             .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
             .oldLayout = infoPtr->currentLayout,
-            .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            .newLayout = kGuestUseDefaultImageLayout,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = infoPtr->image,
@@ -2751,17 +2914,19 @@ static VkFence doReleaseColorBufferForGuestRendering(
                     .layerCount = 1,
                 },
         };
-        layoutTransitionBarriers.emplace_back(layoutTransitionBarrier);
-        infoPtr->currentLayout = layoutTransitionBarrier.newLayout;
+        infoPtr->currentLayout = kGuestUseDefaultImageLayout;
+    }
 
-        VkImageMemoryBarrier queueTransferBarrier = {
+    std::optional<VkImageMemoryBarrier> queueTransferBarrier;
+    if (infoPtr->currentQueueFamilyIndex != VK_QUEUE_FAMILY_EXTERNAL) {
+        queueTransferBarrier = VkImageMemoryBarrier{
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = nullptr,
             .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
             .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
             .oldLayout = infoPtr->currentLayout,
             .newLayout = infoPtr->currentLayout,
-            .srcQueueFamilyIndex = sVkEmulation->queueFamilyIndex,
+            .srcQueueFamilyIndex = infoPtr->currentQueueFamilyIndex,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL,
             .image = infoPtr->image,
             .subresourceRange =
@@ -2773,33 +2938,40 @@ static VkFence doReleaseColorBufferForGuestRendering(
                     .layerCount = 1,
                 },
         };
-        queueTransferBarriers.emplace_back(queueTransferBarrier);
-        transferredColorBuffers << colorBufferHandle << " ";
-        infoPtr->ownedByHost->store(false);
+        infoPtr->currentQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL;
     }
 
+    if (!layoutTransitionBarrier && !queueTransferBarrier) {
+        return;
+    }
+
+    auto vk = sVkEmulation->dvk;
     auto [commandBuffer, fence] = allocateQueueTransferCommandBuffer_locked();
 
     VK_CHECK(vk->vkResetCommandBuffer(commandBuffer, 0));
-    VkCommandBufferBeginInfo beginInfo = {
+
+    const VkCommandBufferBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .pNext = nullptr,
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         .pInheritanceInfo = nullptr,
     };
     VK_CHECK(vk->vkBeginCommandBuffer(commandBuffer, &beginInfo));
-    vk->vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr,
-                             static_cast<uint32_t>(layoutTransitionBarriers.size()),
-                             layoutTransitionBarriers.data());
-    vk->vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr,
-                             static_cast<uint32_t>(queueTransferBarriers.size()),
-                             queueTransferBarriers.data());
+
+    if (layoutTransitionBarrier) {
+        vk->vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                                 &layoutTransitionBarrier.value());
+    }
+    if (queueTransferBarrier) {
+        vk->vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                                 &queueTransferBarrier.value());
+    }
+
     VK_CHECK(vk->vkEndCommandBuffer(commandBuffer));
-    // We assume the host Vulkan compositor lives on the same queue, so we don't
-    // need to use semaphore to synchronize with the host compositor.
-    VkSubmitInfo submitInfo = {
+
+    const VkSubmitInfo submitInfo = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .pNext = nullptr,
         .waitSemaphoreCount = 0,
@@ -2810,47 +2982,84 @@ static VkFence doReleaseColorBufferForGuestRendering(
         .signalSemaphoreCount = 0,
         .pSignalSemaphores = nullptr,
     };
-
     {
-        std::stringstream ss;
-        ss << __func__
-           << ": submitting commands to issue release queue transfer from host "
-              "to guest for ColorBuffer("
-           << transferredColorBuffers.str() << ")";
-        AEMU_SCOPED_TRACE(ss.str().c_str());
         android::base::AutoLock lock(*sVkEmulation->queueLock);
         VK_CHECK(vk->vkQueueSubmit(sVkEmulation->queue, 1, &submitInfo, fence));
     }
-    return fence;
+
+    static constexpr uint64_t ANB_MAX_WAIT_NS = 5ULL * 1000ULL * 1000ULL * 1000ULL;
+    VK_CHECK(vk->vkWaitForFences(sVkEmulation->device, 1, &fence, VK_TRUE, ANB_MAX_WAIT_NS));
 }
 
-void releaseColorBufferFromHostComposing(const std::vector<uint32_t>& colorBufferHandles) {
-    doReleaseColorBufferForGuestRendering(colorBufferHandles);
-}
-
-void releaseColorBufferFromHostComposingSync(const std::vector<uint32_t>& colorBufferHandles) {
-    VkFence fence = doReleaseColorBufferForGuestRendering(colorBufferHandles);
-    if (!sVkEmulation || !sVkEmulation->live) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Host Vulkan device lost";
-    }
-
-    AutoLock lock(sVkEmulationLock);
-    auto vk = sVkEmulation->dvk;
-    static constexpr uint64_t ANB_MAX_WAIT_NS =
-        5ULL * 1000ULL * 1000ULL * 1000ULL;
-    VK_CHECK(vk->vkWaitForFences(sVkEmulation->device, 1, &fence, VK_TRUE,
-                                 ANB_MAX_WAIT_NS));
-}
-
-void setColorBufferCurrentLayout(uint32_t colorBufferHandle, VkImageLayout layout) {
+std::unique_ptr<BorrowedImageInfoVk> borrowColorBufferForComposition(uint32_t colorBufferHandle,
+                                                                     bool colorBufferIsTarget) {
     AutoLock lock(sVkEmulationLock);
 
-    auto infoPtr = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
-    if (!infoPtr) {
+    auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
+    if (!colorBufferInfo) {
         VK_COMMON_ERROR("Invalid ColorBuffer handle %d.", static_cast<int>(colorBufferHandle));
-        return;
+        return nullptr;
     }
-    infoPtr->currentLayout = layout;
+
+    auto compositorInfo = std::make_unique<BorrowedImageInfoVk>();
+    compositorInfo->id = colorBufferInfo->handle;
+    compositorInfo->width = colorBufferInfo->imageCreateInfoShallow.extent.width;
+    compositorInfo->height = colorBufferInfo->imageCreateInfoShallow.extent.height;
+    compositorInfo->image = colorBufferInfo->image;
+    compositorInfo->imageView = colorBufferInfo->imageView;
+    compositorInfo->imageCreateInfo = colorBufferInfo->imageCreateInfoShallow;
+    compositorInfo->preBorrowLayout = colorBufferInfo->currentLayout;
+    compositorInfo->preBorrowQueueFamilyIndex = colorBufferInfo->currentQueueFamilyIndex;
+    if (colorBufferIsTarget && sVkEmulation->displayVk) {
+        // Instruct the compositor to perform the layout transition after use so
+        // that it is ready to be blitted to the display.
+        compositorInfo->postBorrowQueueFamilyIndex = sVkEmulation->queueFamilyIndex;
+        compositorInfo->postBorrowLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    } else {
+        // Instruct the compositor to perform the queue transfer release after use
+        // so that the color buffer can be acquired by the guest.
+        compositorInfo->postBorrowQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL;
+        compositorInfo->postBorrowLayout = colorBufferInfo->currentLayout;
+
+        if (compositorInfo->postBorrowLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+            compositorInfo->postBorrowLayout = kGuestUseDefaultImageLayout;
+        }
+    }
+
+    colorBufferInfo->currentLayout = compositorInfo->postBorrowLayout;
+    colorBufferInfo->currentQueueFamilyIndex = compositorInfo->postBorrowQueueFamilyIndex;
+
+    return compositorInfo;
 }
 
-} // namespace goldfish_vk
+std::unique_ptr<BorrowedImageInfoVk> borrowColorBufferForDisplay(uint32_t colorBufferHandle) {
+    AutoLock lock(sVkEmulationLock);
+
+    auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
+    if (!colorBufferInfo) {
+        VK_COMMON_ERROR("Invalid ColorBuffer handle %d.", static_cast<int>(colorBufferHandle));
+        return nullptr;
+    }
+
+    auto compositorInfo = std::make_unique<BorrowedImageInfoVk>();
+    compositorInfo->id = colorBufferInfo->handle;
+    compositorInfo->width = colorBufferInfo->imageCreateInfoShallow.extent.width;
+    compositorInfo->height = colorBufferInfo->imageCreateInfoShallow.extent.height;
+    compositorInfo->image = colorBufferInfo->image;
+    compositorInfo->imageView = colorBufferInfo->imageView;
+    compositorInfo->imageCreateInfo = colorBufferInfo->imageCreateInfoShallow;
+    compositorInfo->preBorrowLayout = colorBufferInfo->currentLayout;
+    compositorInfo->preBorrowQueueFamilyIndex = sVkEmulation->queueFamilyIndex;
+
+    // Instruct the display to perform the queue transfer release after use so
+    // that the color buffer can be acquired by the guest.
+    compositorInfo->postBorrowQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL;
+    compositorInfo->postBorrowLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    colorBufferInfo->currentLayout = compositorInfo->postBorrowLayout;
+    colorBufferInfo->currentQueueFamilyIndex = compositorInfo->postBorrowQueueFamilyIndex;
+
+    return compositorInfo;
+}
+
+}  // namespace goldfish_vk

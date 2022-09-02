@@ -14,6 +14,8 @@
 
 #include "OpenGLTestContext.h"
 
+#include "host-common/GraphicsAgentFactory.h"
+#include "host-common/testing/MockGraphicsAgentFactory.h"
 #include "Standalone.h"
 
 namespace emugl {
@@ -114,13 +116,20 @@ void destroyDisplay(EGLDisplay dpy) {
     sDisplayNeedsInit = true;
 }
 
+// static
+void GLTest::SetUpTestSuite() {
+    android::emulation::injectGraphicsAgents(android::emulation::MockGraphicsAgentFactory());
+}
+
 void GLTest::SetUp() {
     // setupStandaloneLibrarySearchPaths();
 
     const EGLDispatch* egl = LazyLoadedEGLDispatch::get();
     gl = LazyLoadedGLESv2Dispatch::get();
+    gles1 = LazyLoadedGLESv1Dispatch::get();
     EXPECT_TRUE(egl != nullptr);
     EXPECT_TRUE(gl != nullptr);
+    EXPECT_TRUE(gles1 != nullptr);
 
     m_display = getDisplay();
     m_config = createConfig(m_display, 8, 8, 8, 8, 24, 8, 0);

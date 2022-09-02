@@ -11,39 +11,42 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "base/MemStream.h"
-#include "base/Metrics.h"
-#include "base/PathUtils.h"
-#include "base/System.h"
-#include "host-common/address_space_device.h"
-#include "host-common/address_space_device.hpp"
-#include "host-common/address_space_graphics.h"
-#include "host-common/address_space_graphics_types.h"
-#include "host-common/AndroidPipe.h"
-#include "host-common/android_pipe_device.h"
-#include "host-common/vm_operations.h"
-#include "host-common/window_agent.h"
-#include "host-common/GfxstreamFatalError.h"
-#include "host-common/HostmemIdMapping.h"
-#include "host-common/FeatureControl.h"
-#include "host-common/feature_control.h"
-#include "host-common/opengl/emugl_config.h"
-#include "host-common/opengles-pipe.h"
-#include "host-common/opengles.h"
-#include "host-common/refcount-pipe.h"
-#include "host-common/globals.h"
-#include "snapshot/interface.h"
-
-#include <fstream>
-#include <string>
+#include "GfxStreamBackend.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#include "VulkanDispatch.h"
-#include "GfxStreamAgents.h"
-#include "render_api.h"
+#include <fstream>
+#include <string>
+
 #include "FrameBuffer.h"
+#include "GfxStreamAgents.h"
+#include "VkCommonOperations.h"
+#include "VulkanDispatch.h"
+#include "base/MemStream.h"
+#include "base/Metrics.h"
+#include "base/PathUtils.h"
+#include "base/System.h"
+#include "host-common/AndroidPipe.h"
+#include "host-common/FeatureControl.h"
+#include "host-common/GfxstreamFatalError.h"
+#include "host-common/HostmemIdMapping.h"
+#include "host-common/address_space_device.h"
+#include "host-common/address_space_device.hpp"
+#include "host-common/address_space_graphics.h"
+#include "host-common/address_space_graphics_types.h"
+#include "host-common/android_pipe_device.h"
+#include "host-common/feature_control.h"
+#include "host-common/globals.h"
+#include "host-common/opengl/emugl_config.h"
+#include "host-common/opengles-pipe.h"
+#include "host-common/opengles.h"
+#include "host-common/refcount-pipe.h"
+#include "host-common/vm_operations.h"
+#include "host-common/window_agent.h"
+#include "render_api.h"
+#include "snapshot/interface.h"
+#include "vk_util.h"
 
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
@@ -84,37 +87,6 @@ struct renderer_display_info;
 typedef void (*get_pixels_t)(void*, uint32_t, uint32_t);
 static get_pixels_t sGetPixelsFunc = 0;
 typedef void (*post_callback_t)(void*, uint32_t, int, int, int, int, int, unsigned char*);
-
-struct gfxstream_callbacks {
-   /* Metrics callbacks */
-   void (*add_instant_event)(int64_t event_code);
-   void (*add_instant_event_with_descriptor)(
-       int64_t event_code, int64_t descriptor);
-   void (*add_instant_event_with_metric)(
-       int64_t event_code, int64_t metric_value);
-   void (*set_annotation)(
-       const char* key, const char* value);
-   void (*abort)();
-};
-
-
-extern "C" VG_EXPORT void gfxstream_backend_init(
-    uint32_t display_width,
-    uint32_t display_height,
-    uint32_t display_type,
-    void* renderer_cookie,
-    int renderer_flags,
-    struct virgl_renderer_callbacks* virglrenderer_callbacks,
-    struct gfxstream_callbacks* gfxstreamcallbacks);
-
-extern "C" VG_EXPORT void gfxstream_backend_setup_window(
-        void* native_window_handle,
-        int32_t window_x,
-        int32_t window_y,
-        int32_t window_width,
-        int32_t window_height,
-        int32_t fb_width,
-        int32_t fb_height);
 
 // For reading back rendered contents to display
 extern "C" VG_EXPORT void get_pixels(void* pixels, uint32_t bytes);
@@ -262,20 +234,6 @@ static void default_post_callback(
     // no-op
 }
 
-uint32_t sBackendFlags = 0;
-
-enum BackendFlags {
-    GFXSTREAM_BACKEND_FLAGS_NO_VK_BIT = 1 << 0,
-    GFXSTREAM_BACKEND_FLAGS_EGL2EGL_BIT = 1 << 1,
-};
-
-// Sets backend flags for different kinds of initialization.
-// Default (and default if not called): flags == 0
-// Needs to be called before |gfxstream_backend_init|.
-extern "C" VG_EXPORT void gfxstream_backend_set_flags(uint32_t flags) {
-    sBackendFlags = flags;
-}
-
 extern "C" VG_EXPORT void gfxstream_backend_init(
     uint32_t display_width,
     uint32_t display_height,
@@ -308,22 +266,11 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
         }
     }
 
-
+    gfxstream_backend_init_product_override();
     // First we make some agents available.
 
-
-    GFXS_LOG("start. display dimensions: width %u height %u. backend flags: 0x%x renderer flags: 0x%x",
-             display_width, display_height, sBackendFlags, renderer_flags);
-
-    AvdInfo** avdInfoPtr = aemu_get_android_avdInfoPtr();
-
-    (*avdInfoPtr) = avdInfo_newCustom(
-        "goldfish_opengl_test",
-        28,
-        "x86_64",
-        "x86_64",
-        true /* is google APIs */,
-        AVD_PHONE);
+    GFXS_LOG("start. display dimensions: width %u height %u, renderer flags: 0x%x", display_width,
+             display_height, renderer_flags);
 
     // Flags processing
 
@@ -341,12 +288,8 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
 
     android::base::setEnvironmentVariable("ANDROID_EMU_HEADLESS", "1");
     android::base::setEnvironmentVariable("ANDROID_EMU_SANDBOX", "1");
-    android::base::setEnvironmentVariable("ANDROID_EMUGL_FIXED_BACKEND_LIST", "1");
-    bool vkDisabledByEnv = android::base::getEnvironmentVariable("ANDROID_EMU_DISABLE_VULKAN") == "1";
-    bool vkDisabledByFlag =
-        (sBackendFlags & GFXSTREAM_BACKEND_FLAGS_NO_VK_BIT) ||
-        (renderer_flags & GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT);
-    bool enableVk = !vkDisabledByEnv && !vkDisabledByFlag;
+    bool enableVk =
+        !(renderer_flags & GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT);
 
     bool egl2eglByEnv = android::base::getEnvironmentVariable("ANDROID_EGL_ON_EGL") == "1";
     bool egl2eglByFlag = renderer_flags & GFXSTREAM_RENDERER_FLAGS_USE_EGL_BIT;
@@ -356,11 +299,6 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
         android::base::setEnvironmentVariable("ANDROID_EGL_ON_EGL", "1");
     }
 
-    bool ignoreHostGlErrorsFlag = renderer_flags & GFXSTREAM_RENDERER_FLAGS_IGNORE_HOST_GL_ERRORS_BIT;
-    bool nativeTextureDecompression = renderer_flags & GFXSTREAM_RENDERER_FLAGS_NATIVE_TEXTURE_DECOMPRESSION_BIT;
-    bool bptcTextureSupport = renderer_flags & GFXSTREAM_RENDERER_FLAGS_ENABLE_BPTC_TEXTURES_BIT;
-    bool s3tcTextureSupport = renderer_flags & GFXSTREAM_RENDERER_FLAGS_ENABLE_S3TC_TEXTURES_BIT;
-    bool syncFdDisabledByFlag = renderer_flags & GFXSTREAM_RENDERER_FLAGS_NO_SYNCFD_BIT;
     bool surfaceless =
             renderer_flags & GFXSTREAM_RENDERER_FLAGS_USE_SURFACELESS_BIT;
     bool enableGlEs31Flag = renderer_flags & GFXSTREAM_RENDERER_FLAGS_ENABLE_GLES31_BIT;
@@ -370,11 +308,6 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
 
     GFXS_LOG("Vulkan enabled? %d", enableVk);
     GFXS_LOG("egl2egl enabled? %d", enable_egl2egl);
-    GFXS_LOG("ignore host gl errors enabled? %d", ignoreHostGlErrorsFlag);
-    GFXS_LOG("syncfd enabled? %d", !syncFdDisabledByFlag);
-    GFXS_LOG("use native texture decompression if available? %d", nativeTextureDecompression);
-    GFXS_LOG("enable BPTC support if available? %d", bptcTextureSupport);
-    GFXS_LOG("enable S3TC support if available? %d", s3tcTextureSupport);
     GFXS_LOG("surfaceless? %d", surfaceless);
     GFXS_LOG("OpenGL ES 3.1 enabled? %d", enableGlEs31Flag);
     GFXS_LOG("guest using ANGLE? %d", guestUsesAngle);
@@ -407,14 +340,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     feature_set_enabled_override(
             kFeature_NoDelayCloseColorBuffer, true);
     feature_set_enabled_override(
-            kFeature_IgnoreHostOpenGLErrors, ignoreHostGlErrorsFlag);
-    feature_set_enabled_override(
-            kFeature_NativeTextureDecompression, nativeTextureDecompression);
-    feature_set_enabled_override(
-            kFeature_BptcTextureSupport, bptcTextureSupport);
-    feature_set_enabled_override(
-            kFeature_S3tcTextureSupport, s3tcTextureSupport);
-    feature_set_enabled_override(kFeature_RgtcTextureSupport, true);
+            kFeature_NativeTextureDecompression, false);
     feature_set_enabled_override(
             kFeature_GLDirectMem, false);
     feature_set_enabled_override(
@@ -432,7 +358,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     feature_set_enabled_override(
             kFeature_VirtioGpuNext, true);
     feature_set_enabled_override(
-            kFeature_VirtioGpuNativeSync, !syncFdDisabledByFlag);
+            kFeature_VirtioGpuNativeSync, true);
     feature_set_enabled_override(
             kFeature_GuestUsesAngle, guestUsesAngle);
     feature_set_enabled_override(
@@ -445,8 +371,13 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     // fence contexts require us to be running a new-enough guest kernel.
     feature_set_enabled_override(
            kFeature_VirtioGpuFenceContexts,
-           !syncFdDisabledByFlag &&
            (renderer_flags & GFXSTREAM_RENDERER_FLAGS_ASYNC_FENCE_CB));
+    feature_set_enabled_override(kFeature_VulkanAstcLdrEmulation, true);
+    feature_set_enabled_override(kFeature_VulkanEtc2Emulation, true);
+    feature_set_enabled_override(kFeature_VulkanYcbcrEmulation, false);
+    feature_set_enabled_override(kFeature_ExternalBlob, false);
+
+    android::featurecontrol::productFeatureOverride();
 
     if (useVulkanNativeSwapchain && !enableVk) {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
@@ -465,7 +396,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     EmuglConfig config;
 
     // Make all the console agents available.
-    android::emulation::injectConsoleAgents(android::emulation::GfxStreamAndroidConsoleFactory());
+    android::emulation::injectGraphicsAgents(android::emulation::GfxStreamGraphicsAgentFactory());
 
     emuglConfig_init(&config, true /* gpu enabled */, "auto",
                      enable_egl2egl ? "swiftshader_indirect" : "host",
@@ -492,9 +423,9 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     int min;
     android_startOpenglesRenderer(
         display_width, display_height, 1, 28,
-        getConsoleAgents()->vm,
-        getConsoleAgents()->emu,
-        getConsoleAgents()->multi_display,
+        getGraphicsAgents()->vm,
+        getGraphicsAgents()->emu,
+        getGraphicsAgents()->multi_display,
         &maj, &min);
 
     char* vendor = nullptr;
@@ -513,7 +444,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "No renderer started, fatal";
     }
 
-    address_space_set_vm_operations(getConsoleAgents()->vm);
+    address_space_set_vm_operations(getGraphicsAgents()->vm);
     android_init_opengles_pipe();
     android_opengles_pipe_set_recv_mode(2 /* virtio-gpu */);
     android_init_refcount_pipe();

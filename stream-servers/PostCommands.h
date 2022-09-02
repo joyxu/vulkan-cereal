@@ -17,15 +17,23 @@ enum class PostCmd {
     Clear = 3,
     Screenshot = 4,
     Exit = 5,
+    Block = 6,
 };
 
 struct Post {
-    using ComposeCallback =
+    struct Block {
+        // schduledSignal will be set when the block task is scheduled.
+        std::promise<void> scheduledSignal;
+        // The block task won't stop until continueSignal is ready.
+        std::future<void> continueSignal;
+    };
+    using CompletionCallback =
         std::function<void(std::shared_future<void> waitForGpu)>;
     PostCmd cmd;
     int composeVersion;
     std::vector<char> composeBuffer;
-    std::shared_ptr<ComposeCallback> composeCallback = nullptr;
+    std::unique_ptr<CompletionCallback> completionCallback = nullptr;
+    std::unique_ptr<Block> block = nullptr;
     union {
         ColorBuffer* cb;
         struct {

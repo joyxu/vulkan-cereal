@@ -1421,6 +1421,23 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			android::base::endTrace();
 			break;
 		}
+		case OP_rcSetProcessMetadata: {
+			android::base::beginTrace("rcSetProcessMetadata decode");
+			uint32_t size_key __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8);
+			InputBuffer inptr_key(ptr + 8 + 4, size_key);
+			uint32_t size_valuePtr __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + size_key);
+			InputBuffer inptr_valuePtr(ptr + 8 + 4 + size_key + 4, size_valuePtr);
+			uint32_t var_valueSize = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + size_key + 4 + size_valuePtr);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_key + 4 + size_valuePtr + 4, ptr + 8 + 4 + size_key + 4 + size_valuePtr + 4, checksumSize,
+					"renderControl_decoder_context_t::decode, OP_rcSetProcessMetadata: GL checksumCalculator failure\n");
+			}
+			DECODER_DEBUG_LOG("renderControl(%p): rcSetProcessMetadata(key:%p(%u) valuePtr:%p(%u) valueSize:0x%08x )", stream, (char*)(inptr_key.get()), size_key, (RenderControlByte*)(inptr_valuePtr.get()), size_valuePtr, var_valueSize);
+			this->rcSetProcessMetadata((char*)(inptr_key.get()), (RenderControlByte*)(inptr_valuePtr.get()), var_valueSize);
+			SET_LASTCALL("rcSetProcessMetadata");
+			android::base::endTrace();
+			break;
+		}
 		default:
 			return ptr - (unsigned char*)buf;
 		} //switch
