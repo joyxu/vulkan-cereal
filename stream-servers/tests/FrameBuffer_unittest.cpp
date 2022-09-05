@@ -104,6 +104,7 @@ protected:
         EXPECT_EQ(EGL_SUCCESS, egl->eglGetError());
 
         mRenderThreadInfo = new RenderThreadInfo();
+        mRenderThreadInfo->initGl();
 
         // Snapshots
         mTestSystem.getTempRoot()->makeSubDir("Snapshots");

@@ -38,6 +38,7 @@ set(stream-server-core-sources
     render_api.cpp
     RenderChannelImpl.cpp
     RenderThreadInfo.cpp
+    RenderThreadInfoGl.cpp
     RingStream.cpp
     SyncThread.cpp
     TextureDraw.cpp
@@ -94,6 +95,10 @@ if (WIN32)
     target_link_libraries(gfxstream_backend_static PRIVATE D3d9.lib)
 endif()
 
+if(NOT TARGET gfxstream_backend.init-product-override)
+    add_library(gfxstream_backend.init-product-override OBJECT GfxStreamBackendInitOverride.cpp)
+endif()
+
 # gfxstream_backend.dll
 add_library(
     gfxstream_backend
@@ -104,7 +109,9 @@ add_library(
 target_link_libraries(
     gfxstream_backend
     PUBLIC
-    gfxstream_backend_static)
+    gfxstream_backend_static
+    PRIVATE
+    gfxstream_backend.init-product-override)
 
 if (APPLE)
     set_target_properties(gfxstream_backend
@@ -272,6 +279,4 @@ if (ENABLE_VKCEREAL_TESTS)
                        COMMAND ${CMAKE_COMMAND} -E copy_if_different
                             ${Vulkan_unittests_datafiles}
                             ${CMAKE_BINARY_DIR}/tests/testdata)
-
-    set_test_include_files()
 endif()

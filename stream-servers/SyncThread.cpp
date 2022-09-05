@@ -269,9 +269,12 @@ void SyncThread::sendAsync(std::function<void(WorkerId)> job, std::string descri
 }
 
 void SyncThread::doSyncThreadCmd(Command&& command, WorkerId workerId) {
-    HealthWatchdog watchdog(mHealthMonitor,
-                            WATCHDOG_DATA("SyncThread task execution",
-                                          EventHangMetadata::HangType::kSyncThread, nullptr));
+    std::unique_ptr<std::unordered_map<std::string, std::string>> syncThreadData =
+        std::make_unique<std::unordered_map<std::string, std::string>>();
+    syncThreadData->insert({{"syncthread_cmd_desc", command.mDescription}});
+    HealthWatchdog watchdog(mHealthMonitor, WATCHDOG_DATA("SyncThread task execution",
+                                                          EventHangMetadata::HangType::kSyncThread,
+                                                          std::move(syncThreadData)));
     command.mTask(workerId);
 }
 

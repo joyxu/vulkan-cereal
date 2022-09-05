@@ -460,7 +460,17 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
     }
     std::shared_future<std::shared_ptr<PostResource>> postResourceFuture =
         std::async(std::launch::deferred, [postCompleteFence, postResource, this]() mutable {
-            VK_CHECK(m_vk.vkWaitForFences(m_vkDevice, 1, &postCompleteFence, VK_TRUE, UINT64_MAX));
+            VkResult res = m_vk.vkWaitForFences(m_vkDevice, 1, &postCompleteFence, VK_TRUE,
+                                                kVkWaitForFencesTimeoutNsecs);
+            if (res == VK_SUCCESS) {
+                return postResource;
+            }
+            if (res == VK_TIMEOUT) {
+                // Retry. If device lost, hopefully this returns immediately.
+                res = m_vk.vkWaitForFences(m_vkDevice, 1, &postCompleteFence, VK_TRUE,
+                                           kVkWaitForFencesTimeoutNsecs);
+            }
+            VK_CHECK(res);
             return postResource;
         }).share();
     m_postResourceFutures[imageIndex] = postResourceFuture;

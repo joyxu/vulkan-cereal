@@ -36,7 +36,9 @@ struct EventHangMetadata {
     const int line;
     const unsigned long threadId;
     // Field for adding custom key value annotations
-    std::unique_ptr<std::unordered_map<std::string, std::string>> data;
+    using HangAnnotations = std::unordered_map<std::string, std::string>;
+    // Field for adding custom key value annotations
+    std::unique_ptr<HangAnnotations> data;
 
     // TODO: willho@ replace this enum with a generic string field embedded in the
     // proto and replace the individual event codes with a general hang event
@@ -45,8 +47,7 @@ struct EventHangMetadata {
     HangType hangType;
 
     EventHangMetadata(const char* file, const char* function, const char* msg, int line,
-                      HangType hangType,
-                      std::unique_ptr<std::unordered_map<std::string, std::string>> data)
+                      HangType hangType, std::unique_ptr<HangAnnotations> data)
         : file(file),
           function(function),
           msg(msg),
@@ -57,6 +58,13 @@ struct EventHangMetadata {
 
     EventHangMetadata()
         : EventHangMetadata(nullptr, nullptr, nullptr, 0, HangType::kRenderThread, nullptr) {}
+
+    void mergeAnnotations(std::unique_ptr<HangAnnotations> annotations) {
+        if (!data) {
+            data = std::make_unique<HangAnnotations>();
+        }
+        data->merge(*annotations);
+    }
 };
 
 // Events that can be logged.

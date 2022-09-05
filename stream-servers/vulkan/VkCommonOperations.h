@@ -99,6 +99,9 @@ struct VkEmulation {
     VkPhysicalDevice physdev = VK_NULL_HANDLE;
     VkDevice device = VK_NULL_HANDLE;
 
+    // Physical device index
+    uint32_t physicalDeviceIndex = 0;
+
     // Global, instance and device dispatch tables.
     VulkanDispatch* gvk = nullptr;
     VulkanDispatch* ivk = nullptr;

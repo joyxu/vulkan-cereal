@@ -199,6 +199,7 @@ WHITELIST(GL_EXT_draw_buffers)
 WHITELIST(GL_EXT_instanced_arrays)
 WHITELIST(GL_EXT_occlusion_query_boolean)
 WHITELIST(GL_EXT_read_format_bgra)
+WHITELIST(GL_EXT_texture_compression_rgtc)
 WHITELIST(GL_EXT_texture_filter_anisotropic)
 WHITELIST(GL_EXT_texture_format_BGRA8888)
 WHITELIST(GL_EXT_texture_rg)
@@ -209,6 +210,11 @@ WHITELIST(GL_CHROMIUM_texture_filtering_hint)
 WHITELIST(GL_NV_fence)
 WHITELIST(GL_NV_framebuffer_blit)
 WHITELIST(GL_NV_read_depth)
+
+#if defined(__linux__)
+WHITELIST(GL_EXT_texture_compression_bptc)
+WHITELIST(GL_EXT_texture_compression_s3tc)
+#endif
 
 #undef WHITELIST
 

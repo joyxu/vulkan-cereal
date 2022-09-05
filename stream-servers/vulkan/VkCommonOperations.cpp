@@ -878,6 +878,7 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     }
 
     sVkEmulation->physdev = physdevs[maxScoringIndex];
+    sVkEmulation->physicalDeviceIndex = maxScoringIndex;
     sVkEmulation->deviceInfo = deviceInfos[maxScoringIndex];
     // Postcondition: sVkEmulation has valid device support info
 

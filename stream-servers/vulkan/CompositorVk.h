@@ -27,6 +27,7 @@
 // If we see rendering error or significant time spent on updating
 // descriptors in setComposition, we should tune this number.
 static constexpr const uint32_t kMaxLayersPerFrame = 16;
+static const uint64_t kVkWaitForFencesTimeoutNsecs = 5ULL * 1000ULL * 1000ULL * 1000ULL;
 
 // Base used to grant visibility to members to the vk_util::* helper classes.
 struct CompositorVkBase : public vk_util::MultiCrtp<CompositorVkBase,         //

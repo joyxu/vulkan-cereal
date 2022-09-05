@@ -23,7 +23,7 @@
 #include "Debug.h"
 #include "OpenGLESDispatch/DispatchTables.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
-#include "RenderThreadInfo.h"
+#include "RenderThreadInfoGl.h"
 #include "TextureDraw.h"
 #include "TextureResize.h"
 #include "YUVConverter.h"
@@ -234,7 +234,8 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
     const unsigned long bufsize = ((unsigned long)bytesPerPixel) * p_width
             * p_height;
 
-    ColorBuffer* cb = new ColorBuffer(p_display, hndl, helper);
+    // This constructor is private, so std::make_unique can't be used.
+    std::unique_ptr<ColorBuffer> cb{new ColorBuffer(p_display, hndl, helper)};
     cb->m_width = p_width;
     cb->m_height = p_height;
     cb->m_internalFormat = p_internalFormat;
@@ -247,7 +248,7 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
     cb->m_vulkanOnly = vulkanOnly;
 
     if (vulkanOnly) {
-        return cb;
+        return cb.release();
     }
 
     RecursiveScopedContextBind context(helper);
@@ -326,7 +327,7 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
     s_gles2.glPixelStorei(GL_UNPACK_ALIGNMENT, prevUnpackAlignment);
 
     s_gles2.glFinish();
-    return cb;
+    return cb.release();
 }
 
 ColorBuffer::ColorBuffer(EGLDisplay display, HandleType hndl, ContextHelper* helper)
@@ -645,7 +646,12 @@ bool ColorBuffer::readContents(size_t* numBytes, void* pixels) {
 }
 
 bool ColorBuffer::blitFromCurrentReadBuffer() {
-    RenderThreadInfo* tInfo = RenderThreadInfo::get();
+    RenderThreadInfoGl* const tInfo = RenderThreadInfoGl::get();
+    if (!tInfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Render thread GL not available.";
+    }
+
     if (!tInfo->currContext.get()) {
         // no Current context
         return false;
@@ -808,7 +814,12 @@ bool ColorBuffer::bindToTexture() {
         return false;
     }
 
-    RenderThreadInfo* tInfo = RenderThreadInfo::get();
+    RenderThreadInfoGl* const tInfo = RenderThreadInfoGl::get();
+    if (!tInfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Render thread GL not available.";
+    }
+
     if (!tInfo->currContext.get()) {
         return false;
     }
@@ -835,7 +846,13 @@ bool ColorBuffer::bindToRenderbuffer() {
     if (!m_eglImage) {
         return false;
     }
-    RenderThreadInfo* tInfo = RenderThreadInfo::get();
+
+    RenderThreadInfoGl* const tInfo = RenderThreadInfoGl::get();
+    if (!tInfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Render thread GL not available.";
+    }
+
     if (!tInfo->currContext.get()) {
         return false;
     }

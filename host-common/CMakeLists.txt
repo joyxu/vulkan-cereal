@@ -179,6 +179,4 @@ if (ENABLE_VKCEREAL_TESTS)
         gmock_main)
 
     gtest_discover_tests(gfxstream-host-common_unittests)
-
-    set_test_include_files()
 endif()

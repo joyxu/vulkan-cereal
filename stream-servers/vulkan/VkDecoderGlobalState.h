@@ -25,6 +25,7 @@
 #include "VulkanHandleMapping.h"
 #include "base/AsyncResult.h"
 #include "base/GfxApiLogger.h"
+#include "base/HealthMonitor.h"
 #include "base/Lock.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 #include "cereal/common/goldfish_vk_transform.h"
@@ -35,6 +36,7 @@ using android::base::AutoLock;
 using android::base::Lock;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
+using emugl::HealthMonitor;
 
 class VkDecoderSnapshot;
 
@@ -73,7 +75,8 @@ class VkDecoderGlobalState {
     bool vkCleanupEnabled() const;
 
     void save(android::base::Stream* stream);
-    void load(android::base::Stream* stream, emugl::GfxApiLogger& gfxLogger);
+    void load(android::base::Stream* stream, emugl::GfxApiLogger& gfxLogger,
+              emugl::HealthMonitor<>& healthMonitor);
 
     // Lock/unlock of global state to serve as a global lock
     void lock();

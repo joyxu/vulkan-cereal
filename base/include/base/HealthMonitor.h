@@ -16,6 +16,7 @@
 #pragma once
 
 #include <chrono>
+#include <functional>
 #include <future>
 #include <optional>
 #include <queue>
@@ -43,6 +44,7 @@ using android::base::MetricsLogger;
 using std::chrono::duration;
 using std::chrono::steady_clock;
 using std::chrono::time_point;
+using HangAnnotations = EventHangMetadata::HangAnnotations;
 
 static uint64_t kDefaultIntervalMs = 1'000;
 static uint64_t kDefaultTimeoutMs = 5'000;
@@ -71,11 +73,15 @@ class HealthMonitor : public android::base::Thread {
     // Start monitoring a task. Returns an id that is used for touch and stop operations.
     // `metadata` is a struct containing info on the task watchdog to be passed through to the
     // metrics logger.
+    // `onHangAnnotationsCallback` is an optional containing a callable that will return key-value
+    // string pairs to be recorded at the time a hang is detected, which is useful for debugging.
     // `timeout` is the duration in milliseconds a task is allowed to run before it's
     // considered "hung". Because `timeout` must be larger than the monitor's heartbeat
     // interval, as shorter timeout periods would not be detected, this method will set actual
     // timeout to the lesser of `timeout` and twice the heartbeat interval.
     Id startMonitoringTask(std::unique_ptr<EventHangMetadata> metadata,
+                           std::optional<std::function<std::unique_ptr<HangAnnotations>()>>
+                               onHangAnnotationsCallback = std::nullopt,
                            uint64_t timeout = kDefaultTimeoutMs);
 
     // Touch a monitored task. Resets the timeout countdown for that task.
@@ -96,6 +102,8 @@ class HealthMonitor : public android::base::Thread {
             Id id;
             std::unique_ptr<EventHangMetadata> metadata;
             Timestamp timeOccurred;
+            std::optional<std::function<std::unique_ptr<HangAnnotations>()>>
+                onHangAnnotationsCallback;
             Duration timeoutThreshold;
         };
         struct Touch {
@@ -123,6 +131,7 @@ class HealthMonitor : public android::base::Thread {
         Duration timeoutThreshold;
         std::optional<Timestamp> hungTimestamp;
         std::unique_ptr<EventHangMetadata> metadata;
+        std::optional<std::function<std::unique_ptr<HangAnnotations>()>> onHangAnnotationsCallback;
     };
 
     // Thread's main loop
@@ -152,9 +161,12 @@ template <class Clock = steady_clock>
 class HealthWatchdog {
    public:
     HealthWatchdog(HealthMonitor<Clock>& healthMonitor, std::unique_ptr<EventHangMetadata> metadata,
+                   std::optional<std::function<std::unique_ptr<HangAnnotations>()>>
+                       onHangAnnotationsCallback = std::nullopt,
                    uint64_t timeout = kDefaultTimeoutMs)
         : mHealthMonitor(healthMonitor) {
-        mId = mHealthMonitor.startMonitoringTask(std::move(metadata), timeout);
+        mId = mHealthMonitor.startMonitoringTask(std::move(metadata),
+                                                 std::move(onHangAnnotationsCallback), timeout);
     }
 
     ~HealthWatchdog() { mHealthMonitor.stopMonitoringTask(mId); }
