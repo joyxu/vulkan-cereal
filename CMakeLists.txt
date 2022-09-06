@@ -125,12 +125,6 @@ set(EXTRA_SUBDIR_TEST_INCLUDE_FILES)
 # Third party dependencies
 add_subdirectory(third-party)
 
-# Common base libraries for host################################################
-
-add_subdirectory(base)
-add_subdirectory(snapshot)
-add_subdirectory(host-common)
-
 # Backends######################################################################
 
 add_subdirectory(stream-servers)

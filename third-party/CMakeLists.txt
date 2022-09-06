@@ -31,6 +31,27 @@ add_subdirectory(googletest)
 
 set(PROJECT_TO_FETCH)
 
+if(NOT TARGET aemu_common)
+    if(DEPENDENCY_RESOLUTION STREQUAL "AOSP")
+        set(AEMU_COMMON_PATH ${PROJECT_SOURCE_DIR}/../../../hardware/google/aemu)
+        if(EXISTS ${AEMU_COMMON_PATH})
+            add_subdirectory(${AEMU_COMMON_PATH} aemu_common)
+        endif()
+    elseif(DEPENDENCY_RESOLUTION STREQUAL "SYSTEM")
+        message(FATAL_ERROR "aemu_common not yet implemented for DEPENDENCY_RESOLUTION=SYSTEM")
+    elseif(DEPENDENCY_RESOLUTION STREQUAL "DOWNLOAD")
+        FetchContent_Declare(
+            aemu_common
+            GIT_REPOSITORY https://android.googlesource.com/platform/hardware/google/aemu
+            GIT_REMOTE_NAME aosp
+            GIT_TAG aosp/master
+            GIT_REMOTE_UPDATE_STRATEGY CHECKOUT
+            GIT_PROGRESS TRUE
+        )
+        list(APPEND PROJECT_TO_FETCH aemu_common)
+    endif()
+endif()
+
 if(NOT TARGET gfxstream_vulkan_headers)
     if(DEPENDENCY_RESOLUTION STREQUAL "AOSP")
         set(GFXSTREAM_PROTOCOLS_PATH ${PROJECT_SOURCE_DIR}/../../../external/gfxstream-protocols)
@@ -89,6 +110,9 @@ if(PROJECT_TO_FETCH)
     FetchContent_MakeAvailable(${PROJECT_TO_FETCH})
 endif()
 
+if(NOT TARGET aemu_common)
+    message(FATAL_ERROR "The dependency aemu_common not found")
+endif()
 if(NOT TARGET gfxstream_vulkan_headers)
     message(FATAL_ERROR "The dependency gfxstream_vulkan_headers not found")
 endif()
