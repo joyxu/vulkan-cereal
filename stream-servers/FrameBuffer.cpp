@@ -684,7 +684,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     //
     // Initialize set of configs
     //
-    fb->m_configs = new FbConfigList(fb->m_eglDisplay);
+    fb->m_configs = new EmulatedEglConfigList(fb->m_eglDisplay, dispatchMaxVersion);
     if (fb->m_configs->empty()) {
         ERR("Failed: Initialize set of configs");
         return false;
@@ -1704,7 +1704,7 @@ HandleType FrameBuffer::createRenderContext(int p_config,
     AutoLock colorBufferMapLock(m_colorBufferMapLock);
     HandleType ret = 0;
 
-    const FbConfig* config = getConfigs()->get(p_config);
+    const EmulatedEglConfig* config = getConfigs()->get(p_config);
     if (!config) {
         return ret;
     }
@@ -1722,7 +1722,7 @@ HandleType FrameBuffer::createRenderContext(int p_config,
 
     ret = genHandle_locked();
     RenderContextPtr rctx(RenderContext::create(
-            m_eglDisplay, config->getEglConfig(), sharedContext, ret, version));
+            m_eglDisplay, config->getHostEglConfig(), sharedContext, ret, version));
     if (rctx.get() != NULL) {
         m_contexts[ret] = rctx;
         RenderThreadInfo* tinfo = RenderThreadInfo::get();
@@ -1755,14 +1755,14 @@ HandleType FrameBuffer::createWindowSurface(int p_config,
 
     HandleType ret = 0;
 
-    const FbConfig* config = getConfigs()->get(p_config);
+    const EmulatedEglConfig* config = getConfigs()->get(p_config);
     if (!config) {
         return ret;
     }
 
     ret = genHandle_locked();
     WindowSurfacePtr win(WindowSurface::create(
-            getDisplay(), config->getEglConfig(), p_width, p_height, ret));
+            getDisplay(), config->getHostEglConfig(), p_width, p_height, ret));
     if (win.get() != NULL) {
         m_windows[ret] = { win, 0 };
         RenderThreadInfo* tInfo = RenderThreadInfo::get();
@@ -2885,7 +2885,7 @@ void FrameBuffer::createSharedTrivialContext(EGLContext* contextOut,
     assert(contextOut);
     assert(surfOut);
 
-    const FbConfig* config = getConfigs()->get(0 /* p_config */);
+    const EmulatedEglConfig* config = getConfigs()->get(0 /* p_config */);
     if (!config) return;
 
     int maj, min;
@@ -2897,12 +2897,12 @@ void FrameBuffer::createSharedTrivialContext(EGLContext* contextOut,
         EGL_NONE };
 
     *contextOut = s_egl.eglCreateContext(
-            m_eglDisplay, config->getEglConfig(), m_pbufContext, contextAttribs);
+            m_eglDisplay, config->getHostEglConfig(), m_pbufContext, contextAttribs);
 
     const EGLint pbufAttribs[] = {
         EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE };
 
-    *surfOut = s_egl.eglCreatePbufferSurface(m_eglDisplay, config->getEglConfig(), pbufAttribs);
+    *surfOut = s_egl.eglCreatePbufferSurface(m_eglDisplay, config->getHostEglConfig(), pbufAttribs);
 }
 
 void FrameBuffer::destroySharedTrivialContext(EGLContext context,

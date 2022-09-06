@@ -23,7 +23,6 @@
 #include <memory>
 
 #include "ChecksumCalculatorThreadInfo.h"
-#include "FbConfig.h"
 #include "FenceSync.h"
 #include "FrameBuffer.h"
 #include "GLESVersionDetector.h"
