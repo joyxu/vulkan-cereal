@@ -28,6 +28,7 @@ python3 print_gfx_logs.py <path to minidump file>
 """
 
 from __future__ import annotations
+import argparse
 import ctypes
 import sys
 from datetime import datetime
@@ -145,19 +146,18 @@ def process_stream(file_bytes: mmap, file_pos: int) -> Stream:
     return Stream(file_pos, timestamp_ms, header.thread_id, header.capture_id, commands, None)
 
 
-def process_minidump(dump_file: str) -> List[Stream]:
+def process_minidump(mm: mmap) -> List[Stream]:
     """
     Extracts a list of commands streams from a minidump file
     """
     streams = []
-    with open(dump_file, "r+b") as f:
-        mm = mmap.mmap(f.fileno(), 0)
-        pos = 0
-        while True:
-            pos = mm.find(b'GFXAPILOG', pos + 1)
-            if pos == -1:
-                break
-            streams.append(process_stream(mm, pos))
+    pos = 0
+    while True:
+        pos = mm.find(b'GFXAPILOG', pos)
+        if pos == -1:
+            break
+        streams.append(process_stream(mm, pos))
+        pos += 1
 
     return streams
 
@@ -168,7 +168,10 @@ def main():
     parser.add_argument('dump_file', help="Path to  minidump file")
 
     args = parser.parse_args()
-    streams = process_minidump(args.dump_file)
+    streams = None
+    with open(args.dump_file, "r+b") as f:
+        with mmap.mmap(f.fileno(), 0) as mm:
+            streams = process_minidump(mm)
 
     streams.sort(key=lambda s: s.timestamp)
 
