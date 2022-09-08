@@ -2,6 +2,9 @@
 add_subdirectory(gles1_dec)
 add_subdirectory(gles2_dec)
 
+# GLES dispatch based on Translator
+add_subdirectory(OpenGLESDispatch)
+
 add_library(gfxstream-gl-server
             EmulatedEglConfig.cpp)
 
@@ -10,7 +13,8 @@ target_link_libraries(
         PUBLIC
         gfxstream-base.headers
         gles1_dec
-        gles2_dec)
+        gles2_dec
+        OpenGLESDispatch)
 
 target_include_directories(gfxstream-gl-server
                            PRIVATE

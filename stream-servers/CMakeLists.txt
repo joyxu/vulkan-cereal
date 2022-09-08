@@ -12,9 +12,6 @@ add_subdirectory(vulkan)
 add_subdirectory(glestranslator)
 add_subdirectory(libGLSnapshot)
 
-# GLES dispatch based on Translator
-add_subdirectory(OpenGLESDispatch)
-
 # RenderControl decoder
 add_subdirectory(renderControl_dec)
 
