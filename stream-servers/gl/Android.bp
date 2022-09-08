@@ -4,19 +4,18 @@ package {
     // all of the 'license_kinds' from "device_generic_vulkan-cereal_license"
     // to get the below license kinds:
     //   SPDX-license-identifier-Apache-2.0
-    //   SPDX-license-identifier-GPL-2.0
+    //   SPDX-license-identifier-MIT
     default_applicable_licenses: ["device_generic_vulkan-cereal_license"],
 }
 
 cc_library_static {
-    name: "gfxstream_snapshot",
+    name: "gfxstream_gl_server",
     defaults: [ "gfxstream_defaults" ],
     srcs: [
-        "TextureLoader.cpp",
-        "TextureSaver.cpp",
+        "EmulatedEglConfig.cpp",
     ],
     static_libs: [
-        "gfxstream_base",
+        "gfxstream_gles1_dec",
+        "gfxstream_gles2_dec",
     ],
-    export_include_dirs: [ "include" ],
 }

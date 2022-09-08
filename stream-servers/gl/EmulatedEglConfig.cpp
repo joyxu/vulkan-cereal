@@ -12,20 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "FbConfig.h"
+#include "EmulatedEglConfig.h"
 
 #include "host-common/opengl/emugl_config.h"
 #include "host-common/feature_control.h"
+#include "host-common/logging.h"
 #include "host-common/misc.h"
-#include "FrameBuffer.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
 
 #include <stdio.h>
 #include <string.h>
 
 namespace {
-
-#define E(...)  fprintf(stderr, __VA_ARGS__)
 
 #ifndef EGL_PRESERVED_RESOURCES
 #define EGL_PRESERVED_RESOURCES 0x3030
@@ -99,13 +97,12 @@ bool isCompatibleHostConfig(EGLConfig config, EGLDisplay display) {
 
 }  // namespace
 
-FbConfig::~FbConfig() {
-    delete [] mAttribValues;
-}
-
-FbConfig::FbConfig(EGLConfig hostConfig, EGLDisplay hostDisplay) :
-        mEglConfig(hostConfig), mAttribValues() {
-    mAttribValues = new GLint[kConfigAttributesLen];
+EmulatedEglConfig::EmulatedEglConfig(EGLint guestConfig,
+                                     EGLConfig hostConfig,
+                                     EGLDisplay hostDisplay)
+        : mGuestConfig(guestConfig),
+          mHostConfig(hostConfig),
+          mAttribValues(kConfigAttributesLen) {
     for (size_t i = 0; i < kConfigAttributesLen; ++i) {
         mAttribValues[i] = 0;
         s_egl.eglGetConfigAttrib(hostDisplay,
@@ -130,51 +127,41 @@ FbConfig::FbConfig(EGLConfig hostConfig, EGLDisplay hostDisplay) :
     }
 }
 
-FbConfigList::FbConfigList(EGLDisplay display) : mDisplay(display) {
+EmulatedEglConfigList::EmulatedEglConfigList(EGLDisplay display,
+                                             GLESDispatchMaxVersion version)
+        : mDisplay(display), mGlesDispatchMaxVersion(version) {
     if (display == EGL_NO_DISPLAY) {
-        E("%s: Invalid display value %p (EGL_NO_DISPLAY)\n",
-          __FUNCTION__, (void*)display);
+        ERR("Invalid display value %p (EGL_NO_DISPLAY).", (void*)display);
         return;
     }
 
     EGLint numHostConfigs = 0;
     if (!s_egl.eglGetConfigs(display, NULL, 0, &numHostConfigs)) {
-        E("%s: Could not get number of host EGL configs\n", __FUNCTION__);
+        ERR("Failed to get number of host EGL configs.");
         return;
     }
-    EGLConfig* hostConfigs = new EGLConfig[numHostConfigs];
-    s_egl.eglGetConfigs(display, hostConfigs, numHostConfigs, &numHostConfigs);
+    std::vector<EGLConfig> hostConfigs(numHostConfigs);
+    s_egl.eglGetConfigs(display, hostConfigs.data(), numHostConfigs, &numHostConfigs);
 
-    mConfigs = new FbConfig*[numHostConfigs];
-    for (EGLint i = 0;  i < numHostConfigs; ++i) {
+    for (EGLConfig hostConfig : hostConfigs) {
         // Filter out configs that are not compatible with our implementation.
-        if (!isCompatibleHostConfig(hostConfigs[i], display)) {
+        if (!isCompatibleHostConfig(hostConfig, display)) {
             continue;
         }
-        mConfigs[mCount] = new FbConfig(hostConfigs[i], display);
-        mCount++;
-    }
 
-    delete [] hostConfigs;
+        const EGLint guestConfig = static_cast<EGLint>(mConfigs.size());
+        mConfigs.push_back(EmulatedEglConfig(guestConfig, hostConfig, display));
+    }
 }
 
-FbConfigList::~FbConfigList() {
-    for (int n = 0; n < mCount; ++n) {
-        delete mConfigs[n];
-    }
-    delete [] mConfigs;
-}
-
-int FbConfigList::chooseConfig(const EGLint* attribs,
-                               EGLint* configs,
-                               EGLint configsSize) const {
+int EmulatedEglConfigList::chooseConfig(const EGLint* attribs,
+                                        EGLint* configs,
+                                        EGLint configsSize) const {
     EGLint numHostConfigs = 0;
     if (!s_egl.eglGetConfigs(mDisplay, NULL, 0, &numHostConfigs)) {
-        E("%s: Could not get number of host EGL configs\n", __FUNCTION__);
+        ERR("Failed to get number of host EGL configs.");
         return 0;
     }
-
-    EGLConfig* matchedConfigs = new EGLConfig[numHostConfigs];
 
     // If EGL_SURFACE_TYPE appears in |attribs|, the value passed to
     // eglChooseConfig should be forced to EGL_PBUFFER_BIT because that's
@@ -199,7 +186,7 @@ int FbConfigList::chooseConfig(const EGLint* attribs,
                 attribs[numAttribs + 1] & EGL_OPENGL_ES3_BIT_KHR &&
                 (!feature_is_enabled(
                          kFeature_GLESDynamicVersion) ||
-                 FrameBuffer::getMaxGLESVersion() <
+                 mGlesDispatchMaxVersion <
                          GLES_DISPATCH_MAX_VERSION_3_0)) {
                 return 0;
             }
@@ -229,12 +216,13 @@ int FbConfigList::chooseConfig(const EGLint* attribs,
 
     newAttribs.push_back(EGL_NONE);
 
+
+    std::vector<EGLConfig> matchedConfigs(numHostConfigs);
     if (s_egl.eglChooseConfig(mDisplay,
                               &newAttribs[0],
-                              matchedConfigs,
+                              matchedConfigs.data(),
                               numHostConfigs,
                               &numHostConfigs) == EGL_FALSE) {
-        delete [] matchedConfigs;
         return -s_egl.eglGetError();
     }
 
@@ -249,43 +237,40 @@ int FbConfigList::chooseConfig(const EGLint* attribs,
         if (!isCompatibleHostConfig(matchedConfigs[n], mDisplay)) {
             continue;
         }
-        // Find the FbConfig with the same EGL_CONFIG_ID
+        // Find the EmulatedEglConfig with the same EGL_CONFIG_ID
         EGLint hostConfigId;
         s_egl.eglGetConfigAttrib(
                 mDisplay, matchedConfigs[n], EGL_CONFIG_ID, &hostConfigId);
-        for (int k = 0; k < mCount; ++k) {
-            int guestConfigId = mConfigs[k]->getConfigId();
-            if (guestConfigId == hostConfigId) {
+        for (const EmulatedEglConfig& config : mConfigs) {
+            if (config.getConfigId() == hostConfigId) {
                 // There is a match. Write it to |configs| if it is not NULL.
                 if (configs && result < configsSize) {
-                    configs[result] = (uint32_t)k;
+                    configs[result] = config.getGuestEglConfig();
                 }
-                result ++;
+                result++;
                 break;
             }
         }
     }
 
-    delete [] matchedConfigs;
-
     return result;
 }
 
 
-void FbConfigList::getPackInfo(EGLint* numConfigs,
+void EmulatedEglConfigList::getPackInfo(EGLint* numConfigs,
                                EGLint* numAttributes) const {
     if (numConfigs) {
-        *numConfigs = mCount;
+        *numConfigs = mConfigs.size();
     }
     if (numAttributes) {
         *numAttributes = static_cast<EGLint>(kConfigAttributesLen);
     }
 }
 
-EGLint FbConfigList::packConfigs(GLuint bufferByteSize, GLuint* buffer) const {
+EGLint EmulatedEglConfigList::packConfigs(GLuint bufferByteSize, GLuint* buffer) const {
     GLuint numAttribs = static_cast<GLuint>(kConfigAttributesLen);
     GLuint kGLuintSize = static_cast<GLuint>(sizeof(GLuint));
-    GLuint neededByteSize = (mCount + 1) * numAttribs * kGLuintSize;
+    GLuint neededByteSize = (mConfigs.size() + 1) * numAttribs * kGLuintSize;
     if (!buffer || bufferByteSize < neededByteSize) {
         return -neededByteSize;
     }
@@ -293,10 +278,10 @@ EGLint FbConfigList::packConfigs(GLuint bufferByteSize, GLuint* buffer) const {
     // of the configs, their values.
     memcpy(buffer, kConfigAttributes, kConfigAttributesLen * kGLuintSize);
 
-    for (int i = 0; i < mCount; ++i) {
+    for (int i = 0; i < mConfigs.size(); ++i) {
         memcpy(buffer + (i + 1) * kConfigAttributesLen,
-               mConfigs[i]->mAttribValues,
+               mConfigs[i].mAttribValues.data(),
                kConfigAttributesLen * kGLuintSize);
     }
-    return mCount;
+    return mConfigs.size();
 }

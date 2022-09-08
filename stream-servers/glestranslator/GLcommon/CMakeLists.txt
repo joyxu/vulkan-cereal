@@ -24,13 +24,13 @@ target_include_directories(
     GLcommon PUBLIC
     ${GFXSTREAM_REPO_ROOT}
     ${GFXSTREAM_REPO_ROOT}/include
-    ${GFXSTREAM_REPO_ROOT}/gldispatch/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers
     ${GFXSTREAM_REPO_ROOT}/stream-servers/glestranslator/include)
 target_link_libraries(
     GLcommon PUBLIC
     gfxstream-base.headers
     gfxstream-host-common.headers
+    gfxstream-snapshot.headers
     astc-codec)
 if (NOT MSVC)
     target_compile_options(GLcommon PRIVATE -fvisibility=hidden)

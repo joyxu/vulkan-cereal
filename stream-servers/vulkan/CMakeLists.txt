@@ -31,6 +31,7 @@ target_link_libraries(gfxstream-vulkan-server PUBLIC
         gfxstream-compressedTextures
         apigen-codec-common
         gfxstream-base.headers
+        gfxstream-snapshot.headers
         gfxstream_vulkan_headers)
 if(ASTC_CPU_DECODING)
     target_link_libraries(gfxstream-vulkan-server PRIVATE astcdec-avx2-static)
@@ -54,7 +55,6 @@ target_include_directories(gfxstream-vulkan-server
                            PRIVATE
                            ${GFXSTREAM_REPO_ROOT}
                            ${GFXSTREAM_REPO_ROOT}/include
-                           ${GFXSTREAM_REPO_ROOT}/gldispatch/include
                            ${GFXSTREAM_REPO_ROOT}/stream-servers
                            ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan
                            ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common)

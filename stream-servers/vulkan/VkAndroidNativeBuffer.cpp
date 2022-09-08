@@ -500,7 +500,7 @@ VkResult setAndroidNativeImageSemaphoreSignaled(VulkanDispatch* vk, VkDevice dev
             semaphore == VK_NULL_HANDLE ? nullptr : &semaphore,
         };
         AutoLock qlock(*defaultQueueLock);
-        vk->vkQueueSubmit(defaultQueue, 1, &submitInfo, fence);
+        VK_CHECK(vk->vkQueueSubmit(defaultQueue, 1, &submitInfo, fence));
     } else {
         const AndroidNativeBufferInfo::QueueState& queueState =
             anbInfo->queueStates[anbInfo->lastUsedQueueFamilyIndex];
@@ -556,7 +556,7 @@ VkResult setAndroidNativeImageSemaphoreSignaled(VulkanDispatch* vk, VkDevice dev
 
             AutoLock qlock(*queueState.lock);
             // TODO(kaiyili): initiate ownership transfer from DisplayVk here
-            vk->vkQueueSubmit(queueState.queue, 1, &submitInfo, fence);
+            VK_CHECK(vk->vkQueueSubmit(queueState.queue, 1, &submitInfo, fence));
         } else {
             const AndroidNativeBufferInfo::QueueState& queueState =
                 anbInfo->queueStates[anbInfo->lastUsedQueueFamilyIndex];
@@ -572,7 +572,7 @@ VkResult setAndroidNativeImageSemaphoreSignaled(VulkanDispatch* vk, VkDevice dev
                 semaphore == VK_NULL_HANDLE ? nullptr : &semaphore,
             };
             AutoLock qlock(*queueState.lock);
-            vk->vkQueueSubmit(queueState.queue, 1, &submitInfo, fence);
+            VK_CHECK(vk->vkQueueSubmit(queueState.queue, 1, &submitInfo, fence));
         }
     }
 

@@ -2,16 +2,15 @@
 add_subdirectory(apigen-codec-common)
 add_subdirectory(compressedTextureFormats)
 
+# GL
+add_subdirectory(gl)
+
 # Vulkan
 add_subdirectory(vulkan)
 
 # GLES translator
 add_subdirectory(glestranslator)
 add_subdirectory(libGLSnapshot)
-
-# GLES decoder
-add_subdirectory(gles1_dec)
-add_subdirectory(gles2_dec)
 
 # GLES dispatch based on Translator
 add_subdirectory(OpenGLESDispatch)
@@ -28,7 +27,6 @@ set(stream-server-core-sources
     ColorBuffer.cpp
     CompositorGl.cpp
     Debug.cpp
-    FbConfig.cpp
     FenceSync.cpp
     GLESVersionDetector.cpp
     Hwc2.cpp
@@ -73,9 +71,8 @@ target_link_libraries(
         GLES_CM_translator_static
         ${GFXSTREAM_BASE_LIB}
         OpenGLESDispatch
-        gles1_dec
-        gles2_dec
         renderControl_dec
+        gfxstream-gl-server
         gfxstream-vulkan-server
         gfxstream-snapshot
         apigen-codec-common
@@ -89,6 +86,7 @@ target_include_directories(
         ${GFXSTREAM_REPO_ROOT}/include
         ${GFXSTREAM_REPO_ROOT}/stream-servers
         ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
+        ${GFXSTREAM_REPO_ROOT}/stream-servers/gl
         ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan)
 
 if (WIN32)

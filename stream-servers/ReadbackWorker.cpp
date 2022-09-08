@@ -18,7 +18,6 @@
 #include <string.h>                           // for memcpy
 
 #include "ColorBuffer.h"                      // for ColorBuffer
-#include "FbConfig.h"                         // for FbConfig, FbConfigList
 #include "FrameBuffer.h"                      // for FrameBuffer
 #include "OpenGLESDispatch/DispatchTables.h"  // for s_gles2
 #include "OpenGLESDispatch/EGLDispatch.h"     // for EGLDispatch, s_egl

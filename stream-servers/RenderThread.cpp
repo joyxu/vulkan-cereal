@@ -423,9 +423,11 @@ intptr_t RenderThread::main() {
         do {
             std::unique_ptr<std::unordered_map<std::string, std::string>> renderThreadData =
                 std::make_unique<std::unordered_map<std::string, std::string>>();
+            const char* processName = nullptr;
             if (tInfo.m_processName) {
                 renderThreadData->insert(
                     {{"renderthread_guest_process", tInfo.m_processName.value()}});
+                processName = tInfo.m_processName.value().c_str();
             }
             HealthWatchdog watchdog(FrameBuffer::getFB()->getHealthMonitor(),
                                     WATCHDOG_DATA("RenderThread decode operation",
@@ -447,7 +449,9 @@ intptr_t RenderThread::main() {
             // so we do it outside the limiter
             if (tInfo.m_vkInfo) {
                 last = tInfo.m_vkInfo->m_vkDec.decode(readBuf.buf(), readBuf.validData(), ioStream,
-                                                      seqnoPtr, gfxLogger);
+                                                      seqnoPtr, gfxLogger,
+                                                      FrameBuffer::getFB()->getHealthMonitor(),
+                                                      processName);
                 if (last > 0) {
                     readBuf.consume(last);
                     progress = true;

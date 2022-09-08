@@ -10,11 +10,11 @@ target_link_libraries(
     GLES_CM_translator_static PRIVATE
     apigen-codec-common
     gfxstream-base.headers
-    gfxstream-host-common.headers)
+    gfxstream-host-common.headers
+    gfxstream-snapshot.headers)
 target_include_directories(
     GLES_CM_translator_static PRIVATE
     ${GFXSTREAM_REPO_ROOT}
     ${GFXSTREAM_REPO_ROOT}/include
-    ${GFXSTREAM_REPO_ROOT}/gldispatch/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers/
     ${GFXSTREAM_REPO_ROOT}/stream-servers/glestranslator/include)
