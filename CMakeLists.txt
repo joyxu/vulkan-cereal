@@ -11,6 +11,18 @@ cmake_minimum_required(VERSION 3.18)
 option(ENABLE_VKCEREAL_TESTS "Enable building vulkan-cereal unittests" ON)
 option(BUILD_ASAN_WIN32 "Build with ASAN on Windows platform" OFF)
 
+set(VALID_DEPENDENCY_RESOLUTION AOSP SYSTEM DOWNLOAD)
+set(DEPENDENCY_RESOLUTION "AOSP"  CACHE STRING "\
+How to resolve the dependencies. Currently there are 3 options: AOSP, SYSTEM and DOWNLOAD. AOSP \
+will assume the repo is checked out in an Android tree, and find the dependencies through \
+relative paths. SYSTEM will use the cmake find_package to identify the package. DOWNLOAD will use \
+CMake FetchContent to download the dependencies from the AOSP tree.\
+")
+set_property(CACHE DEPENDENCY_RESOLUTION PROPERTY STRINGS ${VALID_DEPENDENCY_RESOLUTION})
+if(NOT DEPENDENCY_RESOLUTION IN_LIST VALID_DEPENDENCY_RESOLUTION)
+    message(FATAL_ERROR "DEPENDENCY_RESOLUTION must be one of ${VALID_DEPENDENCY_RESOLUTION}.")
+endif()
+
 option(BUILD_STANDALONE "Build with standalone implementations of base/host-common libraries" ON)
 if (BUILD_STANDALONE)
     # These libraries may be changed in non-standalone builds to inject another implementation of
@@ -37,6 +49,7 @@ endif()
 find_package(Threads)
 include(ExternalProject)
 include(FetchContent)
+set(FETCHCONTENT_QUIET FALSE)
 
 include(GoogleTest)
 enable_testing()
