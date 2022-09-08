@@ -18,13 +18,12 @@
 
 #include <stdio.h>
 #include <string.h>
-
 #include <sstream>
 #include <string>
 #include <utility>
 
-#include "FrameBuffer.h"
-#include "GLES2/gl2ext.h"
+#include <GLES2/gl2ext.h>
+
 #include "OpenGLESDispatch/DispatchTables.h"
 #include "host-common/logging.h"
 #include "host-common/misc.h"
