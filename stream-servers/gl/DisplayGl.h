@@ -22,9 +22,9 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
-#include "ColorBuffer.h"
 #include "Display.h"
 #include "Hwc2.h"
+#include "gl/ColorBufferGl.h"
 
 class DisplayGl : public gfxstream::Display {
   public:
