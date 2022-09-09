@@ -38,7 +38,11 @@ if(NOT TARGET gfxstream_vulkan_headers)
             add_subdirectory(${GFXSTREAM_PROTOCOLS_PATH} gfxstream-protocols)
         endif()
     elseif(DEPENDENCY_RESOLUTION STREQUAL "SYSTEM")
-        message(FATAL_ERROR "Not yet implemented")
+        find_package(Vulkan 1.2.198 REQUIRED)
+        add_library(gfxstream_vulkan_headers INTERFACE)
+        target_include_directories(gfxstream_vulkan_headers INTERFACE ${Vulkan_INCLUDE_DIRS})
+        target_compile_definitions(gfxstream_vulkan_headers
+                                   INTERFACE VK_GFXSTREAM_STRUCTURE_TYPE_EXT)
     elseif(DEPENDENCY_RESOLUTION STREQUAL "DOWNLOAD")
         FetchContent_Declare(
             gfxstream_protocols

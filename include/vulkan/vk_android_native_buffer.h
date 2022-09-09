@@ -20,15 +20,18 @@
 #ifndef __VK_ANDROID_NATIVE_BUFFER_H__
 #define __VK_ANDROID_NATIVE_BUFFER_H__
 
-#include <cutils/native_handle.h>
 #include <vulkan/vulkan.h>
+
+#include "stream-servers/vulkan/vk_android_native_buffer.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#ifndef VK_ANDROID_NATIVE_BUFFER_ENUM
 #define VK_ANDROID_NATIVE_BUFFER_ENUM(type, id) \
     ((type)(1000000000 + (1000 * (VK_ANDROID_NATIVE_BUFFER_NUMBER - 1)) + (id)))
+#endif
 #define VK_STRUCTURE_TYPE_SWAPCHAIN_IMAGE_CREATE_INFO_ANDROID VK_ANDROID_NATIVE_BUFFER_ENUM(VkStructureType, 1)
 #define VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENTATION_PROPERTIES_ANDROID VK_ANDROID_NATIVE_BUFFER_ENUM(VkStructureType, 2)
 

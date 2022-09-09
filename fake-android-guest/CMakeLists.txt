@@ -73,7 +73,7 @@ target_compile_definitions(
   vulkan_android PRIVATE -DLOG_TAG=\"vulkan\" -DVK_USE_PLATFORM_ANDROID_KHR
                          -DVK_NO_PROTOTYPES -D__ANDROID_API__=28)
 target_include_directories(vulkan_android
-    PRIVATE ${GFXSTREAM_REPO_ROOT}/include)
+    PRIVATE ${GFXSTREAM_REPO_ROOT}/include ${GFXSTREAM_REPO_ROOT})
 target_compile_options(vulkan_android PRIVATE -fvisibility=hidden
                                               -fstrict-aliasing)
 target_link_libraries(vulkan_android PRIVATE grallocusage)

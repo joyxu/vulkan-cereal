@@ -113,9 +113,11 @@ struct VkEmulation {
     PFN_vkGetPhysicalDeviceProperties2KHR getPhysicalDeviceProperties2Func = nullptr;
     PFN_vkGetPhysicalDeviceFeatures2 getPhysicalDeviceFeatures2Func = nullptr;
 
+#ifdef VK_MVK_moltenvk
     bool instanceSupportsMoltenVK = false;
     PFN_vkSetMTLTextureMVK setMTLTextureFunc = nullptr;
     PFN_vkGetMTLTextureMVK getMTLTextureFunc = nullptr;
+#endif
 
     // Queue, command pool, and command buffer
     // for running commands to sync stuff system-wide.

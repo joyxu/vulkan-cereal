@@ -33,6 +33,7 @@
 
 #include "base/GfxApiLogger.h"
 #include "base/HealthMonitor.h"
+#include "vk_android_native_buffer.h"
 #include "vulkan_gfxstream.h"
 
 namespace android {
