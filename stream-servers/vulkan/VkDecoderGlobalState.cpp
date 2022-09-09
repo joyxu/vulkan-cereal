@@ -486,11 +486,13 @@ class VkDecoderGlobalState::Impl {
         init_vulkan_dispatch_from_instance(m_vk, *pInstance, dispatch_VkInstance(boxed));
         info.boxed = boxed;
 
+#ifdef VK_MVK_moltenvk
         if (m_emu->instanceSupportsMoltenVK) {
             if (!m_vk->vkSetMTLTextureMVK) {
                 GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Cannot find vkSetMTLTextureMVK";
             }
         }
+#endif
 
         // TODO(gregschlom) Use a better criteria to determine when to use ASTC CPU decompression.
         //   The goal is to only enable ASTC CPU decompression for specific applications.
@@ -1100,7 +1102,11 @@ class VkDecoderGlobalState::Impl {
         auto physicalDevice = unbox_VkPhysicalDevice(boxed_physicalDevice);
         auto vk = dispatch_VkPhysicalDevice(boxed_physicalDevice);
 
-        if (!m_emu->instanceSupportsMoltenVK && !m_emu->enableYcbcrEmulation) {
+        bool shouldPassthrough = !m_emu->enableYcbcrEmulation;
+#ifdef VK_MVK_moltenvk
+        shouldPassthrough = shouldPassthrough && !m_emu->instanceSupportsMoltenVK;
+#endif
+        if (shouldPassthrough) {
             return vk->vkEnumerateDeviceExtensionProperties(physicalDevice, pLayerName,
                                                             pPropertyCount, pProperties);
         }
@@ -1114,6 +1120,7 @@ class VkDecoderGlobalState::Impl {
             return result;
         }
 
+#ifdef VK_MVK_moltenvk
         if (m_emu->instanceSupportsMoltenVK && !hasDeviceExtension(properties,
                                                                 VK_MVK_MOLTENVK_EXTENSION_NAME)) {
             VkExtensionProperties mvk_props;
@@ -1122,6 +1129,7 @@ class VkDecoderGlobalState::Impl {
             mvk_props.specVersion = VK_MVK_MOLTENVK_SPEC_VERSION;
             properties.push_back(mvk_props);
         }
+#endif
 
         if (m_emu->enableYcbcrEmulation &&
             !hasDeviceExtension(properties, VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME)) {
@@ -1643,6 +1651,7 @@ class VkDecoderGlobalState::Impl {
         if (mapInfoIt == mMapInfo.end()) {
             return VK_ERROR_OUT_OF_HOST_MEMORY;
         }
+#ifdef VK_MVK_moltenvk
         if (mapInfoIt->second.mtlTexture) {
             result = m_vk->vkSetMTLTextureMVK(image, mapInfoIt->second.mtlTexture);
             if (result != VK_SUCCESS) {
@@ -1650,6 +1659,7 @@ class VkDecoderGlobalState::Impl {
                 return VK_ERROR_OUT_OF_HOST_MEMORY;
             }
         }
+#endif
         if (!deviceInfoIt->second.emulateTextureEtc2 && !deviceInfoIt->second.emulateTextureAstc) {
             return VK_SUCCESS;
         }
@@ -3299,9 +3309,11 @@ class VkDecoderGlobalState::Impl {
         mapInfo.size = localAllocInfo.allocationSize;
         mapInfo.device = device;
         mapInfo.memoryIndex = localAllocInfo.memoryTypeIndex;
+#ifdef VK_MVK_moltenvk
         if (importCbInfoPtr && m_emu->instanceSupportsMoltenVK) {
             mapInfo.mtlTexture = getColorBufferMTLTexture(importCbInfoPtr->colorBuffer);
         }
+#endif
 
         if (!hostVisible) {
             *pMemory = new_boxed_non_dispatchable_VkDeviceMemory(*pMemory);
