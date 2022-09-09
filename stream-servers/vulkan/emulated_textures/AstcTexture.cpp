@@ -37,6 +37,26 @@ uint32_t mipmapSize(uint32_t size, uint32_t mipLevel) {
     return std::max<uint32_t>(size >> mipLevel, 1);
 }
 
+bool isRegionValid(const VkBufferImageCopy& region, uint32_t width, uint32_t height) {
+    // TODO(gregschlom) deal with those cases. See details at:
+    // https://registry.khronos.org/vulkan/specs/1.0-extensions/html/chap20.html#copies-buffers-images-addressing
+    // https://stackoverflow.com/questions/46501832/vulkan-vkbufferimagecopy-for-partial-transfer
+
+    if (region.bufferRowLength != 0 || region.bufferImageHeight != 0) {
+        WARN("ASTC CPU decompression skipped: non-packed buffer");
+        return false;
+    }
+    if (region.imageOffset.x != 0 || region.imageOffset.y != 0) {
+        WARN("ASTC CPU decompression skipped: imageOffset is non-zero");
+        return false;
+    }
+    if (region.imageExtent.width != width || region.imageExtent.height != height) {
+        WARN("ASTC CPU decompression skipped: imageExtent is less than the entire image");
+        return false;
+    }
+    return true;
+}
+
 }  // namespace
 
 AstcTexture::AstcTexture(VulkanDispatch* vk, VkDevice device, VkPhysicalDevice physicalDevice,
@@ -50,97 +70,23 @@ AstcTexture::AstcTexture(VulkanDispatch* vk, VkDevice device, VkPhysicalDevice p
       mBlockHeight(blockHeight),
       mDecompressor(decompressor) {}
 
-AstcTexture::~AstcTexture() {
-    if (mVk && mDevice) {
-        mVk->vkDestroyBuffer(mDevice, mDecompBuffer, nullptr);
-        mVk->vkFreeMemory(mDevice, mDecompBufferMemory, nullptr);
-    }
-}
+AstcTexture::~AstcTexture() { destroyVkBuffer(); }
 
 bool AstcTexture::canDecompressOnCpu() const { return mDecompressor->available(); }
 
-void AstcTexture::on_vkCmdCopyBufferToImage(VkCommandBuffer commandBuffer, uint8_t* srcAstcData,
-                                            size_t astcDataSize, VkImage dstImage,
-                                            VkImageLayout dstImageLayout, uint32_t regionCount,
-                                            const VkBufferImageCopy* pRegions) {
-    auto start_time = std::chrono::steady_clock::now();
-    mSuccess = false;
+uint8_t* AstcTexture::createVkBufferAndMapMemory(size_t bufferSize) {
     VkResult res;
 
     if (mDecompBuffer || mDecompBufferMemory) {
         WARN(
             "ASTC CPU decompression failed: tried to decompress same image more than once. Falling"
             " back to GPU decompression");
-        return;
+        return nullptr;
     }
 
-    size_t decompSize = 0;  // How many bytes we need to hold the decompressed data
-
-    // Make a copy of the regions and update the buffer offset of each to reflect the
-    // correct location of the decompressed data
-    std::vector<VkBufferImageCopy> decompRegions(pRegions, pRegions + regionCount);
-    for (auto& decompRegion : decompRegions) {
-        const uint32_t mipLevel = decompRegion.imageSubresource.mipLevel;
-        const uint32_t width = mipmapSize(mImgSize.width, mipLevel);
-        const uint32_t height = mipmapSize(mImgSize.height, mipLevel);
-
-        // TODO(gregschlom) deal with those cases. See details at:
-        // https://registry.khronos.org/vulkan/specs/1.0-extensions/html/chap20.html#copies-buffers-images-addressing
-        // https://stackoverflow.com/questions/46501832/vulkan-vkbufferimagecopy-for-partial-transfer
-        if (decompRegion.bufferRowLength != 0 || decompRegion.bufferImageHeight != 0) {
-            WARN("ASTC CPU decompression skipped: non-packed buffer");
-            return;
-        }
-        if (decompRegion.imageOffset.x != 0 || decompRegion.imageOffset.y != 0) {
-            WARN("ASTC CPU decompression skipped: imageOffset is non-zero");
-            return;
-        }
-        if (decompRegion.imageExtent.width != width || decompRegion.imageExtent.height != height) {
-            WARN("ASTC CPU decompression skipped: imageExtent is less than the entire image");
-            return;
-        }
-
-        decompRegion.bufferOffset = decompSize;
-        decompSize += width * height * 4;
-    }
-
-    std::vector<uint8_t> decompData(decompSize);
-
-    // Decompress each region
-    for (int i = 0; i < regionCount; i++) {
-        const auto& compRegion = pRegions[i];
-        const auto& decompRegion = decompRegions[i];
-        const uint32_t mipLevel = decompRegion.imageSubresource.mipLevel;
-        const uint32_t width = mipmapSize(mImgSize.width, mipLevel);
-        const uint32_t height = mipmapSize(mImgSize.height, mipLevel);
-
-        const size_t numBlocks = ((width + mBlockWidth - 1) / mBlockWidth) *
-                                 ((height + mBlockHeight - 1) / mBlockHeight);
-
-        const size_t compressedSize = numBlocks * 16;
-        if (compRegion.bufferOffset + compressedSize > astcDataSize) {
-            WARN(
-                "ASTC CPU decompression failed: compressed data size (%llu) is larger than the "
-                "buffer (%llu)",
-                compRegion.bufferOffset + compressedSize, astcDataSize);
-            return;
-        }
-
-        int32_t status = mDecompressor->decompress(
-            width, height, mBlockWidth, mBlockHeight, srcAstcData + compRegion.bufferOffset,
-            compressedSize, decompData.data() + decompRegion.bufferOffset);
-
-        if (status != 0) {
-            WARN("ASTC CPU decompression failed: %s - will try compute shader instead.",
-                 mDecompressor->getStatusString(status));
-            return;
-        }
-    }
-
-    // Copy the decompressed data to a new VkBuffer
     VkBufferCreateInfo bufferInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = decompData.size(),
+        .size = bufferSize,
         .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
@@ -148,7 +94,7 @@ void AstcTexture::on_vkCmdCopyBufferToImage(VkCommandBuffer commandBuffer, uint8
     if (res != VK_SUCCESS) {
         WARN("ASTC CPU decompression: vkCreateBuffer failed: %d", res);
         mDecompBuffer = VK_NULL_HANDLE;
-        return;
+        return nullptr;
     }
 
     VkMemoryRequirements memRequirements;
@@ -156,10 +102,17 @@ void AstcTexture::on_vkCmdCopyBufferToImage(VkCommandBuffer commandBuffer, uint8
 
     std::optional<uint32_t> memIndex = vk_util::findMemoryType(
         mVk, mPhysicalDevice, memRequirements.memoryTypeBits,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
+            VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
     if (!memIndex) {
-        WARN("ASTC CPU decompression: findProperties failed");
-        return;
+        // Do it again, but without VK_MEMORY_PROPERTY_HOST_CACHED_BIT this time
+        memIndex = vk_util::findMemoryType(
+            mVk, mPhysicalDevice, memRequirements.memoryTypeBits,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    }
+    if (!memIndex) {
+        WARN("ASTC CPU decompression: no suitable memory type to decompress the image");
+        return nullptr;
     }
 
     VkMemoryAllocateInfo allocInfo = {
@@ -171,23 +124,105 @@ void AstcTexture::on_vkCmdCopyBufferToImage(VkCommandBuffer commandBuffer, uint8
     if (res != VK_SUCCESS) {
         WARN("ASTC CPU decompression: vkAllocateMemory failed: %d", res);
         mDecompBufferMemory = VK_NULL_HANDLE;
-        return;
+        return nullptr;
     }
 
     res = mVk->vkBindBufferMemory(mDevice, mDecompBuffer, mDecompBufferMemory, 0);
     if (res != VK_SUCCESS) {
         WARN("ASTC CPU decompression: vkBindBufferMemory failed: %d", res);
+        return nullptr;
+    }
+
+    uint8_t* decompData;
+    res = mVk->vkMapMemory(mDevice, mDecompBufferMemory, 0, bufferSize, 0, (void**)&decompData);
+    if (res != VK_SUCCESS) {
+        WARN("ASTC CPU decompression: vkMapMemory failed: %d", res);
+        return nullptr;
+    }
+
+    return decompData;
+}
+
+void AstcTexture::destroyVkBuffer() {
+    if (mVk && mDevice) {
+        mVk->vkDestroyBuffer(mDevice, mDecompBuffer, nullptr);
+        mVk->vkFreeMemory(mDevice, mDecompBufferMemory, nullptr);
+        mDecompBuffer = VK_NULL_HANDLE;
+        mDecompBufferMemory = VK_NULL_HANDLE;
+    }
+}
+
+void AstcTexture::on_vkCmdCopyBufferToImage(VkCommandBuffer commandBuffer, uint8_t* srcAstcData,
+                                            size_t astcDataSize, VkImage dstImage,
+                                            VkImageLayout dstImageLayout, uint32_t regionCount,
+                                            const VkBufferImageCopy* pRegions) {
+    auto start_time = std::chrono::steady_clock::now();
+    mSuccess = false;
+    size_t decompSize = 0;  // How many bytes we need to hold the decompressed data
+
+    // Holds extra data about the region
+    struct RegionInfo {
+        uint32_t width;           // actual width (ie: mipmap width)
+        uint32_t height;          // actual height (ie: mipmap height)
+        uint32_t compressedSize;  // size of ASTC data for that region
+    };
+
+    std::vector<RegionInfo> regionInfos;
+    regionInfos.reserve(regionCount);
+
+    // Make a copy of the regions and update the buffer offset of each to reflect the
+    // correct location of the decompressed data
+    std::vector<VkBufferImageCopy> decompRegions(pRegions, pRegions + regionCount);
+    for (auto& decompRegion : decompRegions) {
+        const uint32_t mipLevel = decompRegion.imageSubresource.mipLevel;
+        const uint32_t width = mipmapSize(mImgSize.width, mipLevel);
+        const uint32_t height = mipmapSize(mImgSize.height, mipLevel);
+        const uint32_t numAstcBlocks = ((width + mBlockWidth - 1) / mBlockWidth) *
+                                       ((height + mBlockHeight - 1) / mBlockHeight);
+        const uint32_t compressedSize = numAstcBlocks * 16;
+        // We haven't updated decompRegion.bufferOffset yet, so it's still the _compressed_ offset.
+        const uint32_t compressedDataOffset = decompRegion.bufferOffset;
+
+        // Do all the precondition checks
+        if (!isRegionValid(decompRegion, width, height)) return;
+        if (compressedDataOffset + compressedSize > astcDataSize) {
+            WARN("ASTC CPU decompression: data out of bounds. Offset: %llu, Size: %llu, Total %llu",
+                 compressedDataOffset, compressedSize, astcDataSize);
+            return;
+        }
+
+        decompRegion.bufferOffset = decompSize;
+        decompSize += width * height * 4;
+        regionInfos.push_back({width, height, compressedSize});
+    }
+
+    // Create a new VkBuffer to hold the decompressed data
+    uint8_t* decompData = createVkBufferAndMapMemory(decompSize);
+    if (!decompData) {
+        destroyVkBuffer();  // The destructor would have done it anyway, but may as well do it early
         return;
     }
 
-    // Copy data to buffer
-    void* data;
-    res = mVk->vkMapMemory(mDevice, mDecompBufferMemory, 0, decompData.size(), 0, &data);
-    if (res != VK_SUCCESS) {
-        WARN("ASTC CPU decompression: vkMapMemory failed: %d", res);
-        return;
+    // Decompress each region
+    for (int i = 0; i < regionCount; i++) {
+        const auto& compRegion = pRegions[i];
+        const auto& decompRegion = decompRegions[i];
+        const auto& regionInfo = regionInfos[i];
+
+        int32_t status = mDecompressor->decompress(
+            regionInfo.width, regionInfo.height, mBlockWidth, mBlockHeight,
+            srcAstcData + compRegion.bufferOffset, regionInfo.compressedSize,
+            decompData + decompRegion.bufferOffset);
+
+        if (status != 0) {
+            WARN("ASTC CPU decompression failed: %s - will try compute shader instead.",
+                 mDecompressor->getStatusString(status));
+            mVk->vkUnmapMemory(mDevice, mDecompBufferMemory);
+            destroyVkBuffer();
+            return;
+        }
     }
-    memcpy(data, decompData.data(), decompData.size());
+
     mVk->vkUnmapMemory(mDevice, mDecompBufferMemory);
 
     // Finally, actually copy the buffer to the image

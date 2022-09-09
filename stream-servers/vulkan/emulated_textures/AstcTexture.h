@@ -40,6 +40,9 @@ class AstcTexture {
                                    const VkBufferImageCopy* pRegions);
 
    private:
+    uint8_t* createVkBufferAndMapMemory(size_t bufferSize);
+    void destroyVkBuffer();
+
     bool mSuccess = false;  // true if the image was successfully decompressed
     VulkanDispatch* mVk;
     VkDevice mDevice;
