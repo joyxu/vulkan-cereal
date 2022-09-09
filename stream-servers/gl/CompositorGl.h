@@ -20,16 +20,19 @@
 #include <GLES3/gl3.h>
 
 #include "Compositor.h"
+#include "TextureDraw.h"
 
 class CompositorGl : public Compositor {
-   public:
-    CompositorGl();
+  public:
+    CompositorGl(TextureDraw* textureDraw);
     virtual ~CompositorGl();
 
     void bindToWindow();
 
     CompositionFinishedWaitable compose(const CompositionRequest& compositionRequest) override;
 
-   private:
+  private:
     GLuint m_composeFbo = 0;
+    // Owned by FrameBuffer.
+    TextureDraw* m_textureDraw = nullptr;
 };

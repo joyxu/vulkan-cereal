@@ -16,9 +16,9 @@
 
 #include "BorrowedImageGl.h"
 #include "Debug.h"
-#include "FrameBuffer.h"
 #include "OpenGLESDispatch/DispatchTables.h"
 #include "TextureDraw.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/misc.h"
 
 namespace {
@@ -36,7 +36,7 @@ const BorrowedImageInfoGl* getInfoOrAbort(const std::unique_ptr<BorrowedImageInf
 
 }  // namespace
 
-CompositorGl::CompositorGl() {}
+CompositorGl::CompositorGl(TextureDraw* textureDraw) : m_textureDraw(textureDraw) {}
 
 CompositorGl::~CompositorGl() {
     if (m_composeFbo) {
@@ -71,18 +71,17 @@ Compositor::CompositionFinishedWaitable CompositorGl::compose(
                                    targetTexture,
                                    /*level=*/0);
 
-    TextureDraw* textureDraw = FrameBuffer::getFB()->getTextureDraw();
-    textureDraw->prepareForDrawLayer();
+    m_textureDraw->prepareForDrawLayer();
 
     for (const CompositionRequestLayer& layer : composeRequest.layers) {
         if (layer.props.composeMode == HWC2_COMPOSITION_DEVICE) {
             const BorrowedImageInfoGl* layerImage = getInfoOrAbort(layer.source);
             const GLuint layerTexture = layerImage->texture;
             GL_SCOPED_DEBUG_GROUP("CompositorGl::compose() from layer texture:%d", layerTexture);
-            textureDraw->drawLayer(layer.props, targetWidth, targetHeight, layerImage->width,
-                                   layerImage->height, layerTexture);
+            m_textureDraw->drawLayer(layer.props, targetWidth, targetHeight, layerImage->width,
+                                     layerImage->height, layerTexture);
         } else {
-            textureDraw->drawLayer(layer.props, targetWidth, targetHeight, 1, 1, 0);
+            m_textureDraw->drawLayer(layer.props, targetWidth, targetHeight, 1, 1, 0);
         }
     }
 
@@ -90,7 +89,7 @@ Compositor::CompositionFinishedWaitable CompositorGl::compose(
     s_gles2.glViewport(restoredViewport[0], restoredViewport[1], restoredViewport[2],
                        restoredViewport[3]);
 
-    textureDraw->cleanupForDrawLayer();
+    m_textureDraw->cleanupForDrawLayer();
 
     targetImage->onCommandsIssued();
 

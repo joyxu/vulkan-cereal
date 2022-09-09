@@ -20,7 +20,6 @@ set(stream-server-core-sources
     VirtioGpuTimelines.cpp
     ChannelStream.cpp
     ColorBuffer.cpp
-    CompositorGl.cpp
     Debug.cpp
     FenceSync.cpp
     GLESVersionDetector.cpp
@@ -34,7 +33,6 @@ set(stream-server-core-sources
     RenderThreadInfoGl.cpp
     RingStream.cpp
     SyncThread.cpp
-    TextureDraw.cpp
     WindowSurface.cpp
     YUVConverter.cpp
     RenderThread.cpp

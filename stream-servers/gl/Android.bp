@@ -12,7 +12,9 @@ cc_library_static {
     name: "gfxstream_gl_server",
     defaults: [ "gfxstream_defaults" ],
     srcs: [
+        "CompositorGl.cpp",
         "EmulatedEglConfig.cpp",
+        "TextureDraw.cpp",
         "TextureResize.cpp",
     ],
     static_libs: [
