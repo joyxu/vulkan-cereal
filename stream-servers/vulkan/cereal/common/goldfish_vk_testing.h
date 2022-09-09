@@ -33,6 +33,7 @@
 #include <functional>
 
 #include "goldfish_vk_private_defs.h"
+#include "vk_android_native_buffer.h"
 #include "vulkan_gfxstream.h"
 using OnFailCompareFunc = std::function<void(const char*)>;
 
