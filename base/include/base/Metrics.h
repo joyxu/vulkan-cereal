@@ -71,10 +71,12 @@ struct EventHangMetadata {
 struct MetricEventFreeze {};
 struct MetricEventUnFreeze { int64_t frozen_ms; };
 struct MetricEventHang {
+    uint64_t taskId; /* From HealthMonitor */
     EventHangMetadata* metadata;
     int64_t otherHungTasks;
 };
 struct MetricEventUnHang {
+    uint64_t taskId; /* From HealthMonitor */
     EventHangMetadata* metadata;
     int64_t hung_ms;
 };
