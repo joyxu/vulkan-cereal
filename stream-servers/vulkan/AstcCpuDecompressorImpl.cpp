@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <chrono>
 #include <optional>
 #include <vector>
 
@@ -23,6 +24,7 @@
 namespace goldfish_vk {
 
 namespace {
+using std::chrono::milliseconds;
 
 // Used by std::unique_ptr to release the context when the pointer is destroyed
 struct AstcencContextDeleter {
@@ -34,6 +36,12 @@ using AstcencContextUniquePtr = std::unique_ptr<astcenc_context, AstcencContextD
 uint32_t mipmapSize(uint32_t size, uint32_t mipLevel) {
     return std::max<uint32_t>(size >> mipLevel, 1);
 }
+
+// Print stats each time we decompress this many pixels:
+constexpr uint64_t kProcessedPixelsLogInterval = 10'000'000;
+
+std::atomic<uint64_t> pixels_processed = 0;
+std::atomic<uint64_t> ms_elapsed = 0;
 
 // Caches and manages astcenc_context objects.
 //
@@ -147,6 +155,7 @@ class AstcCpuDecompressorImpl : public AstcCpuDecompressor {
                                    size_t astcDataSize, VkImage dstImage,
                                    VkImageLayout dstImageLayout, uint32_t regionCount,
                                    const VkBufferImageCopy* pRegions) override {
+        auto start_time = std::chrono::high_resolution_clock::now();
         mSuccess = false;
         VkResult res;
 
@@ -288,6 +297,22 @@ class AstcCpuDecompressorImpl : public AstcCpuDecompressor {
                                     decompRegions.size(), decompRegions.data());
 
         mSuccess = true;
+        auto end_time = std::chrono::high_resolution_clock::now();
+
+        // Compute stats
+        pixels_processed += decompSize / 4;
+        ms_elapsed += std::chrono::duration_cast<milliseconds>(end_time - start_time).count();
+
+        uint64_t total_pixels = pixels_processed.load();
+        uint64_t total_time = ms_elapsed.load();
+
+        if (total_pixels >= kProcessedPixelsLogInterval && total_time > 0) {
+            pixels_processed.store(0);
+            ms_elapsed.store(0);
+            INFO("ASTC CPU decompression: %.2f Mpix in %.2f seconds (%.2f Mpix/s)",
+                 total_pixels / 1'000'000.0, total_time / 1000.0,
+                 total_pixels / total_time / 1000.0);
+        }
     }
 
     bool successful() const override { return mSuccess; }
