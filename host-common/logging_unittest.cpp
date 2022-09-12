@@ -64,25 +64,25 @@ TEST(Logging, ERRMacroWithArguments) {
 }
 
 TEST(Logging, INFOMacroNoArguments) {
-    CaptureStdout();
+    CaptureStderr();
     INFO("Hello world.");
-    std::string log = GetCapturedStdout();
+    std::string log = GetCapturedStderr();
     EXPECT_THAT(log, StartsWith("I"));
     EXPECT_THAT(log, EndsWith("] Hello world.\n"));
 }
 
 TEST(Logging, INFOMacroWithArguments) {
-    CaptureStdout();
+    CaptureStderr();
     INFO("hello %s %d", "world", 1);
-    std::string log = GetCapturedStdout();
+    std::string log = GetCapturedStderr();
     EXPECT_THAT(log, StartsWith("I"));
     EXPECT_THAT(log, EndsWith("] hello world 1\n"));
 }
 
 TEST(Logging, FormatsPrefixCorrectly) {
-    CaptureStdout();
+    CaptureStderr();
     INFO("foo");
-    std::string log = GetCapturedStdout();
+    std::string log = GetCapturedStderr();
     EXPECT_THAT(
         log, MatchesStdRegex(
                  R"re(I\d{4} \d{2}:\d{2}:\d{2}\.\d{6} +\d+ logging_unittest.cpp:\d+\] foo\n)re"));
@@ -114,13 +114,13 @@ TEST(Logging, FileHasBasenameOnlyWithForwardSlashes) {
 }
 
 TEST(Logging, OutputsDifferentThreadIdsOnDifferentThreads) {
-    CaptureStdout();
+    CaptureStderr();
     INFO("hello");
-    std::string log1 = GetCapturedStdout();
+    std::string log1 = GetCapturedStderr();
 
-    CaptureStdout();
+    CaptureStderr();
     std::thread([]() { INFO("from thread"); }).join();
-    std::string log2 = GetCapturedStdout();
+    std::string log2 = GetCapturedStderr();
 
     std::string tid1 = log1.substr(21, 9);
     std::string tid2 = log2.substr(21, 9);
