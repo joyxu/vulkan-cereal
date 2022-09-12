@@ -333,8 +333,8 @@ PostWorker::~PostWorker() {
 void PostWorker::post(ColorBuffer* cb, std::unique_ptr<Post::CompletionCallback> postCallback) {
     auto packagedPostCallback = std::shared_ptr<Post::CompletionCallback>(std::move(postCallback));
     runTask(
-        std::packaged_task<void()>([cb, packagedPostCallback, this] { 
-            auto completedFuture = postImpl(cb); 
+        std::packaged_task<void()>([cb, packagedPostCallback, this] {
+            auto completedFuture = postImpl(cb);
             (*packagedPostCallback)(completedFuture);
         }));
 }

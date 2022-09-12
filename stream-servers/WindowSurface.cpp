@@ -15,17 +15,15 @@
 */
 #include "WindowSurface.h"
 
-#include "host-common/logging.h"
-#include "FbConfig.h"
-#include "FrameBuffer.h"
-
-#include "OpenGLESDispatch/EGLDispatch.h"
-
 #include <assert.h>
-#include <GLES/glext.h>
 #include <stdio.h>
 #include <string.h>
 
+#include <GLES/glext.h>
+
+#include "FrameBuffer.h"
+#include "OpenGLESDispatch/EGLDispatch.h"
+#include "host-common/logging.h"
 
 WindowSurface::WindowSurface(EGLDisplay display,
                              EGLConfig config,

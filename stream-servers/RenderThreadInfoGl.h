@@ -18,8 +18,8 @@
 #include <string>
 
 #include "base/Stream.h"
-#include "gles1_dec/GLESv1Decoder.h"
-#include "gles2_dec/GLESv2Decoder.h"
+#include "gl/gles1_dec/GLESv1Decoder.h"
+#include "gl/gles2_dec/GLESv2Decoder.h"
 #include "RenderContext.h"
 #include "WindowSurface.h"
 #include "StalePtrRegistry.h"

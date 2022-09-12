@@ -31,16 +31,13 @@
 #include "Buffer.h"
 #include "ColorBuffer.h"
 #include "Compositor.h"
-#include "CompositorGl.h"
 #include "DisplayVk.h"
-#include "FbConfig.h"
 #include "GLESVersionDetector.h"
 #include "Hwc2.h"
 #include "PostCommands.h"
 #include "PostWorker.h"
 #include "ReadbackWorker.h"
 #include "RenderContext.h"
-#include "TextureDraw.h"
 #include "WindowSurface.h"
 #include "base/AsyncResult.h"
 #include "base/HealthMonitor.h"
@@ -51,6 +48,9 @@
 #include "base/Stream.h"
 #include "base/Thread.h"
 #include "base/WorkerThread.h"
+#include "gl/CompositorGl.h"
+#include "gl/EmulatedEglConfig.h"
+#include "gl/TextureDraw.h"
 #include "host-common/RenderDoc.h"
 #include "render_api.h"
 #include "render-utils/Renderer.h"
@@ -187,7 +187,7 @@ class FrameBuffer {
     int getHeight() const { return m_framebufferHeight; }
 
     // Return the list of configs available from this display.
-    const FbConfigList* getConfigs() const { return m_configs; }
+    const EmulatedEglConfigList* getConfigs() const { return m_configs; }
 
     // Set a callback that will be called each time the emulated GPU content
     // is updated. This can be relatively slow with host-based GPU emulation,
@@ -693,7 +693,7 @@ class FrameBuffer {
     android::base::Lock m_lock;
     android::base::ReadWriteLock m_contextStructureLock;
     android::base::Lock m_colorBufferMapLock;
-    FbConfigList* m_configs = nullptr;
+    EmulatedEglConfigList* m_configs = nullptr;
     FBNativeWindowType m_nativeWindow = 0;
     FrameBufferCaps m_caps = {};
     EGLDisplay m_eglDisplay = EGL_NO_DISPLAY;

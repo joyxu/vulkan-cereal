@@ -252,7 +252,7 @@ void VkReconstruction::load(android::base::Stream* stream, emugl::GfxApiLogger& 
     // TODO: This needs to be the puid seqno ptr
     uint32_t seqno;
     decoderForLoading.decode(mLoadedTrace.data(), mLoadedTrace.size(), &trivialStream, &seqno,
-                             gfxLogger, healthMonitor);
+                             gfxLogger, healthMonitor, nullptr);
 
     DEBUG_RECON("finished decoding trace");
 }

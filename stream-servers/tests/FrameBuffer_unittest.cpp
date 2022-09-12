@@ -373,7 +373,7 @@ TEST_F(FrameBufferTest, CreateOpenUpdateCloseColorBuffer_FormatChange) {
 
 // Tests obtaining EGL configs from FrameBuffer.
 TEST_F(FrameBufferTest, Configs) {
-    const FbConfigList* configs = mFb->getConfigs();
+    const EmulatedEglConfigList* configs = mFb->getConfigs();
     EXPECT_GE(configs->size(), 0);
 }
 

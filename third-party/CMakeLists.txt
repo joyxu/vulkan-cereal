@@ -29,16 +29,69 @@ add_subdirectory(stb)
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 add_subdirectory(googletest)
 
-set(GFXSTREAM_PROTOCOLS_PATH ${PROJECT_SOURCE_DIR}/../../../external/gfxstream-protocols)
-if (EXISTS ${GFXSTREAM_PROTOCOLS_PATH})
-    add_subdirectory(${GFXSTREAM_PROTOCOLS_PATH} gfxstream-protocols)
-else()
-    FetchContent_Declare(
-        gfxstream_protocols
-        GIT_REPOSITORY https://android.googlesource.com/platform/external/gfxstream-protocols
-        GIT_REMOTE_NAME aosp
-        GIT_TAG aosp/master
-        GIT_REMOTE_UPDATE_STRATEGY CHECKOUT
-    )
-    FetchContent_MakeAvailable(gfxstream_protocols)
+set(PROJECT_TO_FETCH)
+
+if(NOT TARGET gfxstream_vulkan_headers)
+    if(DEPENDENCY_RESOLUTION STREQUAL "AOSP")
+        set(GFXSTREAM_PROTOCOLS_PATH ${PROJECT_SOURCE_DIR}/../../../external/gfxstream-protocols)
+        if(EXISTS ${GFXSTREAM_PROTOCOLS_PATH})
+            add_subdirectory(${GFXSTREAM_PROTOCOLS_PATH} gfxstream-protocols)
+        endif()
+    elseif(DEPENDENCY_RESOLUTION STREQUAL "SYSTEM")
+        find_package(Vulkan 1.2.198 REQUIRED)
+        add_library(gfxstream_vulkan_headers INTERFACE)
+        target_include_directories(gfxstream_vulkan_headers INTERFACE ${Vulkan_INCLUDE_DIRS})
+        target_compile_definitions(gfxstream_vulkan_headers
+                                   INTERFACE VK_GFXSTREAM_STRUCTURE_TYPE_EXT)
+    elseif(DEPENDENCY_RESOLUTION STREQUAL "DOWNLOAD")
+        FetchContent_Declare(
+            gfxstream_protocols
+            GIT_REPOSITORY https://android.googlesource.com/platform/external/gfxstream-protocols
+            GIT_REMOTE_NAME aosp
+            GIT_TAG aosp/master
+            GIT_REMOTE_UPDATE_STRATEGY CHECKOUT
+            GIT_PROGRESS TRUE
+        )
+        list(APPEND PROJECT_TO_FETCH gfxstream_protocols)
+    endif()
+endif()
+
+if(NOT TARGET flatbuffers)
+    option(FLATBUFFERS_BUILD_TESTS "" OFF)
+    option(FLATBUFFERS_BUILD_CPP17 "" ON)
+
+    if(DEPENDENCY_RESOLUTION STREQUAL "AOSP")
+        set(FLATBUFFERS_PATH ${PROJECT_SOURCE_DIR}/../../../external/flatbuffers)
+        if(EXISTS ${FLATBUFFERS_PATH})
+            add_subdirectory(${FLATBUFFERS_PATH} flatbuffers)
+        endif()
+    elseif(DEPENDENCY_RESOLUTION STREQUAL "SYSTEM")
+        find_package(FlatBuffers 2.0.8 REQUIRED CONFIG)
+        # Promote the targets to global.
+        set_property(TARGET flatbuffers::flatbuffers PROPERTY IMPORTED_GLOBAL TRUE)
+        set_property(TARGET flatbuffers::flatc PROPERTY IMPORTED_GLOBAL TRUE)
+        add_library(flatbuffers ALIAS flatbuffers::flatbuffers)
+        add_executable(flatc ALIAS flatbuffers::flatc)
+    elseif(DEPENDENCY_RESOLUTION STREQUAL "DOWNLOAD")
+        FetchContent_Declare(
+            flatbuffers
+            GIT_REPOSITORY https://android.googlesource.com/platform/external/flatbuffers
+            GIT_REMOTE_NAME aosp
+            GIT_TAG aosp/master
+            GIT_REMOTE_UPDATE_STRATEGY CHECKOUT
+            GIT_PROGRESS TRUE
+        )
+        list(APPEND PROJECT_TO_FETCH flatbuffers)
+    endif()
+endif()
+
+if(PROJECT_TO_FETCH)
+    FetchContent_MakeAvailable(${PROJECT_TO_FETCH})
+endif()
+
+if(NOT TARGET gfxstream_vulkan_headers)
+    message(FATAL_ERROR "The dependency gfxstream_vulkan_headers not found")
+endif()
+if(NOT TARGET flatbuffers)
+    message(FATAL_ERROR "The dependency flatbuffers not found.")
 endif()

@@ -14,8 +14,9 @@
 #include "RenderLibImpl.h"
 
 #include "FrameBuffer.h"
+#include "OpenGLESDispatch/EGLDispatch.h"
+#include "OpenGLESDispatch/DispatchTables.h"
 #include "RendererImpl.h"
-
 #include "base/Stream.h"
 #include "host-common/address_space_device_control_ops.h"
 #include "host-common/crash_reporter.h"
@@ -24,9 +25,6 @@
 #include "host-common/logging.h"
 #include "host-common/misc.h"
 #include "host-common/sync_device.h"
-
-#include "OpenGLESDispatch/EGLDispatch.h"
-#include "OpenGLESDispatch/DispatchTables.h"
 
 namespace emugl {
 
