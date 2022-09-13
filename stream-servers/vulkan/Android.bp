@@ -13,6 +13,7 @@ cc_library_static {
     defaults: [ "gfxstream_defaults" ],
     static_libs: [
         "gfxstream_base",
+        "gfxstream_glm",
         "gfxstream_compressedTextures",
         "gfxstream_host_common",
         "gfxstream_apigen_codec_common",
@@ -69,6 +70,7 @@ cc_test_host {
         "liblog",
     ],
     static_libs: [
+        "gfxstream_glm",
         "gfxstream_host_common",
         "gfxstream_vulkan_server",
         "libgtest",
