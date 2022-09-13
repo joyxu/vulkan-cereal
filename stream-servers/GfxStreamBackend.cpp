@@ -220,8 +220,6 @@ static const GoldfishPipeServiceOps goldfish_pipe_service_ops = {
 
 extern const QAndroidVmOperations* const gQAndroidVmOperations;
 
-static void set_post_callback(struct renderer_display_info* r, post_callback_t func, uint32_t display_type);
-
 static void default_post_callback(
     void* context, uint32_t displayId, int width, int height, int ydir, int format, int frame_type, unsigned char* pixels) {
     (void)context;
@@ -454,10 +452,6 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     pipe_virgl_renderer_init(renderer_cookie, renderer_flags, virglrenderer_callbacks);
 
     GFXS_LOG("Started renderer");
-
-    if (surfaceless) {
-        set_post_callback(nullptr, default_post_callback, display_type);
-    }
 }
 
 extern "C" VG_EXPORT void gfxstream_backend_setup_window(
@@ -471,24 +465,6 @@ extern "C" VG_EXPORT void gfxstream_backend_setup_window(
     android_showOpenglesWindow(native_window_handle, window_x, window_y,
                                window_width, window_height, fb_width, fb_height,
                                1.0f, 0, false, false);
-}
-
-static void set_post_callback(struct renderer_display_info* r, post_callback_t func, uint32_t display_type) {
-    switch (display_type) {
-        case POST_CALLBACK_DISPLAY_TYPE_X:
-            GFXS_LOG("using display type: X11");
-            break;
-        case POST_CALLBACK_DISPLAY_TYPE_WAYLAND_SHARED_MEM:
-            GFXS_LOG("using display type: wayland shared mem");
-            break;
-        case POST_CALLBACK_DISPLAY_TYPE_WINDOWS_HWND:
-            GFXS_LOG("using display type: windows hwnd");
-            break;
-        default:
-            break;
-    }
-
-    android_setPostCallback(func, r, false, 0);
 }
 
 extern "C" VG_EXPORT void gfxstream_backend_teardown() {
