@@ -1438,6 +1438,30 @@ size_t renderControl_decoder_context_t::decode(void *buf, size_t len, IOStream *
 			android::base::endTrace();
 			break;
 		}
+		case OP_rcGetHostExtensionsString: {
+			android::base::beginTrace("rcGetHostExtensionsString decode");
+			uint32_t var_bufferSize = Unpack<uint32_t,uint32_t>(ptr + 8);
+			uint32_t size_buffer __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
+					"renderControl_decoder_context_t::decode, OP_rcGetHostExtensionsString: GL checksumCalculator failure\n");
+			}
+			size_t totalTmpSize = size_buffer;
+			totalTmpSize += sizeof(int);
+			totalTmpSize += checksumSize;
+			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			OutputBuffer outptr_buffer(&tmpBuf[0], size_buffer);
+			DECODER_DEBUG_LOG("renderControl(%p): rcGetHostExtensionsString(bufferSize:0x%08x buffer:%p(%u) )", stream, var_bufferSize, (void*)(outptr_buffer.get()), size_buffer);
+			*(int *)(&tmpBuf[0 + size_buffer]) = 			this->rcGetHostExtensionsString(var_bufferSize, (void*)(outptr_buffer.get()));
+			outptr_buffer.flush();
+			if (useChecksum) {
+				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
+			}
+			stream->flush();
+			SET_LASTCALL("rcGetHostExtensionsString");
+			android::base::endTrace();
+			break;
+		}
 		default:
 			return ptr - (unsigned char*)buf;
 		} //switch
