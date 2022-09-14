@@ -95,11 +95,6 @@ std::shared_future<void> PostWorker::postImpl(ColorBuffer* cb) {
     }
 
     if (m_displayVk) {
-        bool shouldSkip = m_lastVkComposeColorBuffer == cb->getHndl();
-        m_lastVkComposeColorBuffer = std::nullopt;
-        if (shouldSkip) {
-            return completedFuture;
-        }
         const auto imageInfo = mFb->borrowColorBufferForDisplay(cb->getHndl());
         bool success;
         Compositor::CompositionFinishedWaitable waitForGpu;
