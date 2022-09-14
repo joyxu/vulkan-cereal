@@ -206,7 +206,7 @@ std::shared_future<void> PostWorker::postImpl(ColorBuffer* cb) {
     }
     else {
         // render the color buffer to the window and apply the overlay
-        GLuint tex = cb->scale();
+        GLuint tex = cb->getViewportScaledTexture();
         cb->postWithOverlay(tex, zRot, dx, dy);
     }
 

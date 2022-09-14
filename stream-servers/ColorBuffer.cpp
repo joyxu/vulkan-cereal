@@ -867,7 +867,7 @@ bool ColorBuffer::bindToRenderbuffer() {
     return true;
 }
 
-GLuint ColorBuffer::scale() {
+GLuint ColorBuffer::getViewportScaledTexture() {
     return m_resizer->update(m_tex);
 }
 
