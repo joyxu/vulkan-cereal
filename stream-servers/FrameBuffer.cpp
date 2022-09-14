@@ -2984,9 +2984,8 @@ AsyncResult FrameBuffer::postImpl(HandleType p_colorbuffer,
 
     m_lastPostedColorBuffer = p_colorbuffer;
 
+    colorBuffer->touch();
     if (m_subWin) {
-        colorBuffer->touch();
-
         Post postCmd;
         postCmd.cmd = PostCmd::Post;
         postCmd.cb = colorBuffer.get();
@@ -2996,10 +2995,6 @@ AsyncResult FrameBuffer::postImpl(HandleType p_colorbuffer,
     } else {
         // If there is no sub-window, don't display anything, the client will
         // rely on m_onPost to get the pixels instead.
-        colorBuffer->touch();
-        colorBuffer->waitSync();
-        colorBuffer->scale();
-        s_gles2.glFlush();
         ret = AsyncResult::OK_AND_CALLBACK_NOT_SCHEDULED;
     }
 

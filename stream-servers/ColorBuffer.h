@@ -163,9 +163,10 @@ class ColorBuffer :
     // framebuffer object / window surface. This doesn't display anything.
     bool draw();
 
-    // Scale the underlying texture of this ColorBuffer to match viewport size.
-    // It returns the texture name after scaling.
-    GLuint scale();
+    // Returns the texture name of a texture containing the contents of this
+    // ColorBuffer but that is scaled to match the current viewport. This
+    // ColorBuffer retains ownership of the returned texture.
+    GLuint getViewportScaledTexture();
     // Post this ColorBuffer to the host native sub-window.
     // |rotation| is the rotation angle in degrees, clockwise in the GL
     // coordinate space.
