@@ -127,8 +127,6 @@ std::shared_future<void> PostWorker::postImpl(ColorBuffer* cb) {
     int zRot = mFb->getZrot();
     hwc_transform_t rotation = (hwc_transform_t)0;
 
-    cb->waitSync();
-
     // Find the x and y values at the origin when "fully scrolled."
     // Multiply by 2 because the texture goes from -1 to 1, not 0 to 1.
     // Multiply the windowing coordinates by DPR because they ignore
