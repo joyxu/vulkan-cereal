@@ -21,7 +21,10 @@ package {
 // See: http://go/android-license-faq
 license {
     name: "device_generic_vulkan-cereal_license",
-    visibility: [":__subpackages__"],
+    visibility: [
+        "//hardware/google/aemu:__subpackages__",
+        ":__subpackages__",
+    ],
     license_kinds: [
         "SPDX-license-identifier-Apache-2.0",
         "SPDX-license-identifier-BSD",
