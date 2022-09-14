@@ -3268,17 +3268,20 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
     }
 
     if (needPost) {
+        // AEMU with -no-window mode uses this code path.
         ComposeDevice* composeDevice = (ComposeDevice*)buffer;
         AutoLock mutex(m_lock);
 
         switch (composeDevice->version) {
             case 1: {
+                RecursiveScopedContextBind scopedBind(m_colorBufferHelper);
                 post(composeDevice->targetHandle, false);
                 break;
             }
             case 2: {
                 ComposeDevice_v2* composeDeviceV2 = (ComposeDevice_v2*)buffer;
                 if (composeDeviceV2->displayId == 0) {
+                    RecursiveScopedContextBind scopedBind(m_colorBufferHelper);
                     post(composeDeviceV2->targetHandle, false);
                 }
                 break;
