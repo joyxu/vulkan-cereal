@@ -57,4 +57,5 @@ target_include_directories(gfxstream-vulkan-server
                            ${GFXSTREAM_REPO_ROOT}/include
                            ${GFXSTREAM_REPO_ROOT}/stream-servers
                            ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan
-                           ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common)
+                           ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
+                           ${GFXSTREAM_REPO_ROOT}/third-party/glm/include)

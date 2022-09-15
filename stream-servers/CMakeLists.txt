@@ -79,7 +79,8 @@ target_include_directories(
         ${GFXSTREAM_REPO_ROOT}/stream-servers
         ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
         ${GFXSTREAM_REPO_ROOT}/stream-servers/gl
-        ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan)
+        ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan
+        ${GFXSTREAM_REPO_ROOT}/third-party/glm/include)
 
 if (WIN32)
     target_link_libraries(gfxstream_backend_static PRIVATE D3d9.lib)

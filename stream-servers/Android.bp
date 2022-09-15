@@ -45,6 +45,7 @@ cc_library_shared {
         "gfxstream_dispatch",
         "gfxstream_astc_codec",
         "gfxstream_lz4",
+        "gfxstream_glm",
         "gfxstream_compressedTextures",
     ],
     export_static_lib_headers: [
@@ -152,6 +153,7 @@ cc_test_host {
     ],
     static_libs: [
         "gfxstream_vulkan_server",
+        "gfxstream_glm",
         "libc++fs",
     ],
     test_options: {
