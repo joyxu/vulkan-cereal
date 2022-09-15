@@ -149,7 +149,6 @@ target_include_directories(
     stream-server-testing-support
     PUBLIC
     ${GFXSTREAM_REPO_ROOT}
-    ${GFXSTREAM_REPO_ROOT}/base/testing
     ${GFXSTREAM_REPO_ROOT}/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers
     ${GFXSTREAM_REPO_ROOT}/stream-servers/gl/glestranslator/GLES_CM
@@ -159,6 +158,7 @@ target_include_directories(
 target_link_libraries(
     stream-server-testing-support
     PUBLIC
+    gfxstream-base-testing-support
     gfxstream_backend_static
     gfxstream_stb
     OSWindow
