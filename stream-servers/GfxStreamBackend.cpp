@@ -255,6 +255,10 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
             MetricsLogger::add_instant_event_with_descriptor_callback =
                 gfxstreamcallbacks->add_instant_event_with_descriptor;
         }
+        if (gfxstreamcallbacks->add_vulkan_out_of_memory_event) {
+            MetricsLogger::add_vulkan_out_of_memory_event =
+                gfxstreamcallbacks->add_vulkan_out_of_memory_event;
+        }
         if (gfxstreamcallbacks->set_annotation) {
             MetricsLogger::set_crash_annotation_callback =
                 gfxstreamcallbacks->set_annotation;
@@ -263,6 +267,29 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
             emugl::setDieFunction(gfxstreamcallbacks->abort);
         }
     }
+
+    // Set non product-specific callbacks
+    vk_util::setVkCheckCallbacks(
+        std::make_unique<vk_util::VkCheckCallbacks>(vk_util::VkCheckCallbacks{
+            .onVkErrorOutOfMemory =
+                [](VkResult result, const char* function, int line) {
+                    auto fb = FrameBuffer::getFB();
+                    if (!fb) {
+                        ERR("FrameBuffer not yet initialized. Dropping out of memory event");
+                        return;
+                    }
+                    fb->logVulkanOutOfMemory(result, function, line);
+                },
+            .onVkErrorOutOfMemoryOnAllocation =
+                [](VkResult result, const char* function, int line,
+                   std::optional<uint64_t> allocationSize) {
+                    auto fb = FrameBuffer::getFB();
+                    if (!fb) {
+                        ERR("FrameBuffer not yet initialized. Dropping out of memory event");
+                        return;
+                    }
+                    fb->logVulkanOutOfMemory(result, function, line, allocationSize);
+                }}));
 
     gfxstream_backend_init_product_override();
     // First we make some agents available.

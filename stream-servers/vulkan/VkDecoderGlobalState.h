@@ -16,6 +16,7 @@
 #include <vulkan/vulkan.h>
 
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -621,6 +622,9 @@ class VkDecoderGlobalState {
     void on_DeviceLost();
 
     void DeviceLostHandler();
+
+    void on_CheckOutOfMemory(VkResult result, uint32_t opCode, const VkDecoderContext& context,
+                        std::optional<uint64_t> allocationSize = std::nullopt);
 
     // Fence waits
     VkResult waitForFence(VkFence boxed_fence, uint64_t timeout);

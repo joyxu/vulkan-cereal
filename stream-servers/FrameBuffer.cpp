@@ -55,6 +55,7 @@
 
 using android::base::AutoLock;
 using android::base::ManagedDescriptor;
+using android::base::MetricEventVulkanOutOfMemory;
 using android::base::Stream;
 using android::base::WorkerProcessingResult;
 using emugl::ABORT_REASON_OTHER;
@@ -3851,4 +3852,14 @@ ContextHelper* FrameBuffer::getPbufferSurfaceContextHelper() const {
         reinterpret_cast<const DisplaySurfaceGl*>(m_pbufferSurface->getImpl());
 
     return displaySurfaceGl->getContextHelper();
+}
+
+void FrameBuffer::logVulkanOutOfMemory(VkResult result, const char* function, int line,
+                                       std::optional<uint64_t> allocationSize) {
+    m_logger->logMetricEvent(MetricEventVulkanOutOfMemory{
+        .vkResultCode = result,
+        .function = function,
+        .line = std::make_optional(line),
+        .allocationSize = allocationSize,
+    });
 }
