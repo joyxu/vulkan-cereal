@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <chrono>
 #include <optional>
 #include <vector>
 
@@ -23,11 +24,106 @@
 namespace goldfish_vk {
 
 namespace {
+using std::chrono::milliseconds;
+
+// Used by std::unique_ptr to release the context when the pointer is destroyed
+struct AstcencContextDeleter {
+    void operator()(astcenc_context* c) { astcenc_context_free(c); }
+};
+
+using AstcencContextUniquePtr = std::unique_ptr<astcenc_context, AstcencContextDeleter>;
 
 uint32_t mipmapSize(uint32_t size, uint32_t mipLevel) {
     return std::max<uint32_t>(size >> mipLevel, 1);
 }
 
+// Print stats each time we decompress this many pixels:
+constexpr uint64_t kProcessedPixelsLogInterval = 10'000'000;
+
+std::atomic<uint64_t> pixels_processed = 0;
+std::atomic<uint64_t> ms_elapsed = 0;
+
+// Caches and manages astcenc_context objects.
+//
+// Each context is fairly large (around 30 MB) and takes a while to construct, so it's important to
+// reuse them as much as possible.
+//
+// While context objects can be reused across multiple threads, they must be used sequentially. To
+// avoid having to lock and manage access between threads, we keep one cache per thread. This avoids
+// any concurrency issues, at the cost of extra memory.
+//
+// Currently, there is no eviction strategy. Each cache could grow to a maximum of ~400 MB in size
+// since they are 13 possible ASTC block sizes.
+class AstcDecoderContextCache {
+   public:
+    // Returns the singleton instance of this class.
+    // The singleton is thread-local: each thread gets its own instance. Having a separate cache for
+    // each thread avoids needing to synchronize access to the context objects.
+    static AstcDecoderContextCache& instance() {
+        static thread_local AstcDecoderContextCache instance;
+        return instance;
+    }
+
+    // Returns a context object for a given ASTC block size.
+    // Returns null if context initialization failed for any reason.
+    astcenc_context* get(uint32_t blockWidth, uint32_t blockHeight) {
+        AstcencContextUniquePtr& context = mContexts[{blockWidth, blockHeight}];
+        if (context == nullptr) {
+            context = makeDecoderContext(blockWidth, blockHeight);
+        }
+        return context.get();
+    }
+
+   private:
+    AstcDecoderContextCache() = default;
+
+    // Holds the data we use as the cache key
+    struct Key {
+        uint32_t blockWidth;
+        uint32_t blockHeight;
+
+        bool operator==(const Key& other) const {
+            return blockWidth == other.blockWidth && blockHeight == other.blockHeight;
+        }
+    };
+
+    // Computes the hash of a Key
+    struct KeyHash {
+        std::size_t operator()(const Key& k) const {
+            // blockWidth and blockHeight are < 256 (actually, < 16), so this is safe
+            return k.blockWidth << 8 | k.blockHeight;
+        }
+    };
+
+    // Creates a new astcenc_context and wraps it in a smart pointer, so that we don't need to
+    // manually call astcenc_context_free.
+    // Returns null if `astcenc_context_alloc` fails.
+    AstcencContextUniquePtr makeDecoderContext(uint32_t blockWidth, uint32_t blockHeight) const {
+        astcenc_config config = {};
+        astcenc_error status =
+            // TODO(gregschlom): Do we need to pass ASTCENC_PRF_LDR_SRGB here?
+            astcenc_config_init(ASTCENC_PRF_LDR, blockWidth, blockHeight, 1, ASTCENC_PRE_FASTEST,
+                                ASTCENC_FLG_DECOMPRESS_ONLY, &config);
+        if (status != ASTCENC_SUCCESS) {
+            WARN("ASTC decoder: astcenc_config_init() failed: %s",
+                 astcenc_get_error_string(status));
+            return nullptr;
+        }
+
+        astcenc_context* context;
+        status = astcenc_context_alloc(&config, /*thread_count=*/1, &context);
+        if (status != ASTCENC_SUCCESS) {
+            WARN("ASTC decoder: astcenc_context_alloc() failed: %s",
+                 astcenc_get_error_string(status));
+            return nullptr;
+        }
+        return AstcencContextUniquePtr(context);
+    }
+
+    std::unordered_map<Key, AstcencContextUniquePtr, KeyHash> mContexts;
+};
+
+// Performs ASTC decompression of an image on the CPU
 class AstcCpuDecompressorImpl : public AstcCpuDecompressor {
    public:
     bool initialized() const override { return mVk && mDecoderContext; }
@@ -41,29 +137,11 @@ class AstcCpuDecompressorImpl : public AstcCpuDecompressor {
         mImgSize = imgSize;
         mBlockWidth = blockWidth;
         mBlockHeight = blockHeight;
-
-        astcenc_error status;
-        astcenc_config config = {};
-        status =
-            // TODO(gregschlom): Do we need to pass ASTCENC_PRF_LDR_SRGB here?
-            astcenc_config_init(ASTCENC_PRF_LDR, mBlockWidth, mBlockHeight, 1, ASTCENC_PRE_FASTEST,
-                                ASTCENC_FLG_DECOMPRESS_ONLY, &config);
-        if (status != ASTCENC_SUCCESS) {
-            WARN("ASTC decoder: astcenc_config_init() failed: %s",
-                 astcenc_get_error_string(status));
-            return;
-        }
-
-        status = astcenc_context_alloc(&config, /*thread_count=*/1, &mDecoderContext);
-        if (status != ASTCENC_SUCCESS) {
-            WARN("ASTC decoder: astcenc_context_alloc() failed: %s",
-                 astcenc_get_error_string(status));
-        }
+        mDecoderContext = AstcDecoderContextCache::instance().get(blockWidth, blockHeight);
     }
 
     void release() override {
         mSuccess = false;
-        astcenc_context_free(mDecoderContext);
         mDecoderContext = nullptr;
         if (mVk && mDevice) {
             mVk->vkDestroyBuffer(mDevice, mDecompBuffer, nullptr);
@@ -77,6 +155,7 @@ class AstcCpuDecompressorImpl : public AstcCpuDecompressor {
                                    size_t astcDataSize, VkImage dstImage,
                                    VkImageLayout dstImageLayout, uint32_t regionCount,
                                    const VkBufferImageCopy* pRegions) override {
+        auto start_time = std::chrono::high_resolution_clock::now();
         mSuccess = false;
         VkResult res;
 
@@ -218,6 +297,22 @@ class AstcCpuDecompressorImpl : public AstcCpuDecompressor {
                                     decompRegions.size(), decompRegions.data());
 
         mSuccess = true;
+        auto end_time = std::chrono::high_resolution_clock::now();
+
+        // Compute stats
+        pixels_processed += decompSize / 4;
+        ms_elapsed += std::chrono::duration_cast<milliseconds>(end_time - start_time).count();
+
+        uint64_t total_pixels = pixels_processed.load();
+        uint64_t total_time = ms_elapsed.load();
+
+        if (total_pixels >= kProcessedPixelsLogInterval && total_time > 0) {
+            pixels_processed.store(0);
+            ms_elapsed.store(0);
+            INFO("ASTC CPU decompression: %.2f Mpix in %.2f seconds (%.2f Mpix/s)",
+                 total_pixels / 1'000'000.0, total_time / 1000.0,
+                 total_pixels / total_time / 1000.0);
+        }
     }
 
     bool successful() const override { return mSuccess; }

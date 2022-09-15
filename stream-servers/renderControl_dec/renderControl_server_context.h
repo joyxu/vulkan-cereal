@@ -79,6 +79,7 @@ struct renderControl_server_context_t {
 	rcGetFBDisplayConfigsParam_server_proc_t rcGetFBDisplayConfigsParam;
 	rcGetFBDisplayActiveConfig_server_proc_t rcGetFBDisplayActiveConfig;
 	rcSetProcessMetadata_server_proc_t rcSetProcessMetadata;
+	rcGetHostExtensionsString_server_proc_t rcGetHostExtensionsString;
 	virtual ~renderControl_server_context_t() {}
 	int initDispatchByName( void *(*getProc)(const char *name, void *userData), void *userData);
 };

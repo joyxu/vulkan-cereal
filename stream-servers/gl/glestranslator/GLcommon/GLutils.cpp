@@ -22,7 +22,6 @@
 #include <GLES2/gl2ext.h>
 #include <GLES3/gl3.h>
 #include <GLES3/gl31.h>
-#include <GLES3/gl3ext.h>
 
 bool isPowerOf2(int num) {
     return (num & (num -1)) == 0;

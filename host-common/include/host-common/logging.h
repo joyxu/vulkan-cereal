@@ -53,5 +53,5 @@ void OutputLog(FILE* stream, char severity, const char* file, unsigned int line,
 
 #define INFO(fmt, ...)                                  \
     do {                                                \
-        GFXSTREAM_LOG(stdout, 'I', fmt, ##__VA_ARGS__); \
+        GFXSTREAM_LOG(stderr, 'I', fmt, ##__VA_ARGS__); \
     } while (0)

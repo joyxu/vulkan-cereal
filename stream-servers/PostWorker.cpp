@@ -95,11 +95,6 @@ std::shared_future<void> PostWorker::postImpl(ColorBuffer* cb) {
     }
 
     if (m_displayVk) {
-        bool shouldSkip = m_lastVkComposeColorBuffer == cb->getHndl();
-        m_lastVkComposeColorBuffer = std::nullopt;
-        if (shouldSkip) {
-            return completedFuture;
-        }
         const auto imageInfo = mFb->borrowColorBufferForDisplay(cb->getHndl());
         bool success;
         Compositor::CompositionFinishedWaitable waitForGpu;
@@ -126,8 +121,6 @@ std::shared_future<void> PostWorker::postImpl(ColorBuffer* cb) {
     float py = mFb->getPy();
     int zRot = mFb->getZrot();
     hwc_transform_t rotation = (hwc_transform_t)0;
-
-    cb->waitSync();
 
     // Find the x and y values at the origin when "fully scrolled."
     // Multiply by 2 because the texture goes from -1 to 1, not 0 to 1.
@@ -206,7 +199,7 @@ std::shared_future<void> PostWorker::postImpl(ColorBuffer* cb) {
     }
     else {
         // render the color buffer to the window and apply the overlay
-        GLuint tex = cb->scale();
+        GLuint tex = cb->getViewportScaledTexture();
         cb->postWithOverlay(tex, zRot, dx, dy);
     }
 

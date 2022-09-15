@@ -81,6 +81,7 @@ typedef int (renderControl_APIENTRY *rcGetFBDisplayConfigsCount_server_proc_t) (
 typedef int (renderControl_APIENTRY *rcGetFBDisplayConfigsParam_server_proc_t) (int, EGLint);
 typedef int (renderControl_APIENTRY *rcGetFBDisplayActiveConfig_server_proc_t) ();
 typedef void (renderControl_APIENTRY *rcSetProcessMetadata_server_proc_t) (char*, RenderControlByte*, uint32_t);
+typedef int (renderControl_APIENTRY *rcGetHostExtensionsString_server_proc_t) (uint32_t, void*);
 
 
 #endif
