@@ -430,10 +430,11 @@ intptr_t RenderThread::main() {
                     {{"renderthread_guest_process", tInfo.m_processName.value()}});
                 processName = tInfo.m_processName.value().c_str();
             }
-            HealthWatchdog watchdog(FrameBuffer::getFB()->getHealthMonitor(),
-                                    WATCHDOG_DATA("RenderThread decode operation",
-                                                  EventHangMetadata::HangType::kRenderThread,
-                                                  std::move(renderThreadData)));
+            auto watchdog = WATCHDOG_BUILDER(FrameBuffer::getFB()->getHealthMonitor(),
+                                             "RenderThread decode operation")
+                                .setHangType(EventHangMetadata::HangType::kRenderThread)
+                                .setAnnotations(std::move(renderThreadData))
+                                .build();
 
             if (!seqnoPtr && tInfo.m_puid) {
                 seqnoPtr = FrameBuffer::getFB()->getProcessSequenceNumberPtr(tInfo.m_puid);
