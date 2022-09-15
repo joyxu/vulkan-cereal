@@ -11,6 +11,7 @@ add_library(gfxstream-vulkan-server
             BorrowedImageVk.cpp
             CompositorVk.cpp
             DisplayVk.cpp
+            DisplaySurfaceVk.cpp
             DebugUtilsHelper.cpp
             SwapChainStateVk.cpp
             VkAndroidNativeBuffer.cpp

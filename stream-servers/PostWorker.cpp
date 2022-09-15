@@ -94,22 +94,7 @@ std::shared_future<void> PostWorker::postImpl(ColorBuffer* cb) {
 
     if (m_displayVk) {
         const auto imageInfo = mFb->borrowColorBufferForDisplay(cb->getHndl());
-        bool success;
-        Compositor::CompositionFinishedWaitable waitForGpu;
-        std::tie(success, waitForGpu) = m_displayVk->post(imageInfo.get());
-        if (!success) {
-            // Create swapChain and retry
-            if (mBindSubwin()) {
-                const auto imageInfo = mFb->borrowColorBufferForDisplay(cb->getHndl());
-                std::tie(success, waitForGpu) = m_displayVk->post(imageInfo.get());
-            }
-            if (!success) {
-                m_needsToRebindWindow = true;
-                return completedFuture;
-            }
-            m_needsToRebindWindow = false;
-        }
-        return waitForGpu;
+        return m_displayVk->post(imageInfo.get());
     }
 
     float dpr = mFb->getDpr();
