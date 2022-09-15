@@ -348,4 +348,112 @@ TEST_F(HealthMonitorTest, taskHungWithAttachedCallback) {
     healthMonitor.stopMonitoringTask(id);
 }
 
+TEST_F(HealthMonitorTest, healthyTaskWithParent) {
+    EXPECT_CALL(logger, logMetricEvent(_)).Times(0);
+
+    auto id = healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>());
+    step(defaultHangThresholdS - 1);
+    auto child = healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>(),
+                                                   std::nullopt, kDefaultTimeoutMs, id);
+    step(defaultHangThresholdS - 1);
+    healthMonitor.stopMonitoringTask(child);
+    step(defaultHangThresholdS - 1);
+    healthMonitor.stopMonitoringTask(id);
+}
+
+TEST_F(HealthMonitorTest, threeChainOfHungTasks) {
+    {
+        InSequence s;
+        EXPECT_CALL(logger, logMetricEvent(
+                                VariantWith<MetricEventHang>(Field(&MetricEventHang::taskId, 2))))
+            .Times(1);
+        EXPECT_CALL(logger, logMetricEvent(
+                                VariantWith<MetricEventHang>(Field(&MetricEventHang::taskId, 1))))
+            .Times(1);
+        EXPECT_CALL(logger, logMetricEvent(
+                                VariantWith<MetricEventHang>(Field(&MetricEventHang::taskId, 0))))
+            .Times(1);
+        EXPECT_CALL(
+            logger,
+            logMetricEvent(VariantWith<MetricEventUnHang>(Field(&MetricEventUnHang::taskId, 2))))
+            .Times(1);
+        EXPECT_CALL(
+            logger,
+            logMetricEvent(VariantWith<MetricEventUnHang>(Field(&MetricEventUnHang::taskId, 1))))
+            .Times(1);
+        EXPECT_CALL(
+            logger,
+            logMetricEvent(VariantWith<MetricEventUnHang>(Field(&MetricEventUnHang::taskId, 0))))
+            .Times(1);
+    }
+
+    auto id = healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>());
+    step(defaultHangThresholdS - 1);
+    auto child = healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>(),
+                                                   std::nullopt, kDefaultTimeoutMs, id);
+    step(defaultHangThresholdS - 1);
+    auto grandchild = healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>(),
+                                                        std::nullopt, kDefaultTimeoutMs, child);
+    step(defaultHangThresholdS + 1);
+    healthMonitor.touchMonitoredTask(grandchild);
+    step(1);
+    healthMonitor.stopMonitoringTask(grandchild);
+    healthMonitor.stopMonitoringTask(child);
+    healthMonitor.stopMonitoringTask(id);
+}
+
+TEST_F(HealthMonitorTest, parentEndsBeforeChild) {
+    {
+        InSequence s;
+        EXPECT_CALL(logger, logMetricEvent(
+                                VariantWith<MetricEventHang>(Field(&MetricEventHang::taskId, 1))))
+            .Times(1);
+        EXPECT_CALL(
+            logger,
+            logMetricEvent(VariantWith<MetricEventUnHang>(Field(&MetricEventUnHang::taskId, 1))))
+            .Times(1);
+    }
+
+    auto id = healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>());
+    step(defaultHangThresholdS - 1);
+    auto child = healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>(),
+                                                   std::nullopt, kDefaultTimeoutMs, id);
+    healthMonitor.stopMonitoringTask(id);
+    step(defaultHangThresholdS + 1);
+    healthMonitor.stopMonitoringTask(child);
+}
+
+TEST_F(HealthMonitorTest, siblingsHangParentStillHealthy) {
+    {
+        InSequence s;
+        EXPECT_CALL(logger, logMetricEvent(
+                                VariantWith<MetricEventHang>(Field(&MetricEventHang::taskId, 1))))
+            .Times(1);
+        EXPECT_CALL(
+            logger,
+            logMetricEvent(VariantWith<MetricEventUnHang>(Field(&MetricEventUnHang::taskId, 1))))
+            .Times(1);
+        EXPECT_CALL(logger, logMetricEvent(
+                                VariantWith<MetricEventHang>(Field(&MetricEventHang::taskId, 2))))
+            .Times(1);
+        EXPECT_CALL(
+            logger,
+            logMetricEvent(VariantWith<MetricEventUnHang>(Field(&MetricEventUnHang::taskId, 2))))
+            .Times(1);
+    }
+
+    auto parent = healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>());
+    step(defaultHangThresholdS - 1);
+    /* 1 */ auto child = healthMonitor.startMonitoringTask(std::make_unique<EventHangMetadata>(),
+                                                           std::nullopt, kDefaultTimeoutMs, parent);
+    step(defaultHangThresholdS - 1);
+    /* 2 */ auto secondChild = healthMonitor.startMonitoringTask(
+        std::make_unique<EventHangMetadata>(), std::nullopt, kDefaultTimeoutMs, parent);
+    step(2);
+    healthMonitor.stopMonitoringTask(child);
+    step(defaultHangThresholdS - 1);
+    healthMonitor.stopMonitoringTask(secondChild);
+    healthMonitor.stopMonitoringTask(parent);
+}
+
 }  // namespace emugl
