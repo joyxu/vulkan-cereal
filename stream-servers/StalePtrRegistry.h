@@ -15,10 +15,10 @@
 */
 #pragma once
 
-#include "base/Lookup.h"
-#include "base/Stream.h"
-#include "base/StreamSerializing.h"
-#include "base/Lock.h"
+#include "base/containers/Lookup.h"
+#include "base/files/Stream.h"
+#include "base/files/StreamSerializing.h"
+#include "base/synchronization/Lock.h"
 #include "base/Compiler.h"
 
 #include <algorithm>

@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "base/PathUtils.h"
-#include "base/System.h"
+#include "base/files/PathUtils.h"
+#include "base/system/System.h"
 #include "base/testing/TestSystem.h"
 
 #include "OpenGLTestContext.h"

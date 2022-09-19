@@ -17,9 +17,9 @@
 #include "GLcommon/SaveableTexture.h"
 
 #include "base/ArraySize.h"
-#include "base/SmallVector.h"
-#include "base/StreamSerializing.h"
-#include "base/System.h"
+#include "base/containers/SmallVector.h"
+#include "base/files/StreamSerializing.h"
+#include "base/system/System.h"
 
 #include "GLcommon/GLEScontext.h"
 #include "GLcommon/GLutils.h"

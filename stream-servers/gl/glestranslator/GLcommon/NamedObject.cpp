@@ -20,7 +20,7 @@
 #include "GLcommon/ObjectNameSpace.h"
 
 #include "base/GLObjectCounter.h"
-#include "base/Lock.h"
+#include "base/synchronization/Lock.h"
 
 static constexpr int toIndex(NamedObjectType type) {
     return static_cast<int>(type);

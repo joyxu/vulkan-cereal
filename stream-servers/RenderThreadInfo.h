@@ -20,7 +20,7 @@
 #include <memory>
 #include <unordered_set>
 
-#include "base/Stream.h"
+#include "base/files/Stream.h"
 #include "renderControl_dec/renderControl_dec.h"
 #include "RenderThreadInfoGl.h"
 #include "RenderThreadInfoVk.h"

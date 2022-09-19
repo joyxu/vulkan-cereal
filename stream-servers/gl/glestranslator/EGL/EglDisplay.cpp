@@ -15,8 +15,8 @@
 */
 #include "EglDisplay.h"
 
-#include "base/Lookup.h"
-#include "base/StreamSerializing.h"
+#include "base/containers/Lookup.h"
+#include "base/files/StreamSerializing.h"
 #include "EglConfig.h"
 #include "EglGlobalInfo.h"
 #include "EglOsApi.h"

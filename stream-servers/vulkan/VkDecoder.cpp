@@ -39,7 +39,7 @@
 #include "VulkanStream.h"
 #include "base/BumpPool.h"
 #include "base/Metrics.h"
-#include "base/System.h"
+#include "base/system/System.h"
 #include "base/Tracing.h"
 #include "common/goldfish_vk_marshaling.h"
 #include "common/goldfish_vk_private_defs.h"

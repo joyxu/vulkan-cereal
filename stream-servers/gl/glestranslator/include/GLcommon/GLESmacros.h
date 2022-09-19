@@ -4,8 +4,8 @@
 #if defined(__linux__) || defined(__APPLE__)
 
 #include <mutex>
-#include "base/PathUtils.h"
-#include "base/MemoryTracker.h"
+#include "base/files/PathUtils.h"
+#include "base/memory/MemoryTracker.h"
 
 #if 0
 

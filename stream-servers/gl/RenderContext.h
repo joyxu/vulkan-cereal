@@ -16,7 +16,7 @@
 #ifndef _LIBRENDER_RENDER_CONTEXT_H
 #define _LIBRENDER_RENDER_CONTEXT_H
 
-#include "base/Stream.h"
+#include "base/files/Stream.h"
 #include "GLDecoderContextData.h"
 
 #include <EGL/egl.h>

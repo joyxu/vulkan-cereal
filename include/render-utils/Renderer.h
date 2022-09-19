@@ -13,7 +13,7 @@
 // limitations under the License.
 #pragma once
 
-#include "base/Stream.h"
+#include "base/files/Stream.h"
 #include "base/ring_buffer.h"
 #include "host-common/address_space_graphics_types.h"
 #include "render-utils/RenderChannel.h"

@@ -14,9 +14,9 @@
 
 #include "ShaderUtils.h"
 
-#include "base/PathUtils.h"
+#include "base/files/PathUtils.h"
 #include "base/Optional.h"
-#include "base/System.h"
+#include "base/system/System.h"
 
 #include "OpenGLESDispatch/OpenGLDispatchLoader.h"
 

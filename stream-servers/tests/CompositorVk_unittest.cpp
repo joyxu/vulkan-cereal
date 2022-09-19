@@ -10,7 +10,7 @@
 #include <optional>
 
 #include "BorrowedImageVk.h"
-#include "base/Lock.h"
+#include "base/synchronization/Lock.h"
 #include "tests/ImageUtils.h"
 #include "tests/VkTestUtils.h"
 #include "vulkan/VulkanDispatch.h"

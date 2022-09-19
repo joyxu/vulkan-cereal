@@ -20,7 +20,7 @@
 #include "GLESVersionDetector.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "OpenGLESDispatch/GLESv1Dispatch.h"
-#include "base/SmallVector.h"
+#include "base/containers/SmallVector.h"
 #include "host-common/feature_control.h"
 #include "host-common/logging.h"
 #include "host-common/misc.h"

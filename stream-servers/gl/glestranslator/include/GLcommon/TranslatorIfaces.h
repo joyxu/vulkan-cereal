@@ -16,7 +16,7 @@
 #ifndef TRANSLATOR_IFACES_H
 #define TRANSLATOR_IFACES_H
 
-#include "base/SmallVector.h"
+#include "base/containers/SmallVector.h"
 #include "GLcommon/GLutils.h"
 #include "GLcommon/ShareGroup.h"
 

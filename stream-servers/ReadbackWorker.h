@@ -22,7 +22,7 @@
 #include <vector>                               // for vector
 
 #include "base/Compiler.h"              // for DISALLOW_COPY_AND_ASSIGN
-#include "base/Lock.h"  // for Lock
+#include "base/synchronization/Lock.h"  // for Lock
 
 class ColorBuffer;
 class FrameBuffer;

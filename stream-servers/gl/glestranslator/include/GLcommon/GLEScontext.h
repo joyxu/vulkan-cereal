@@ -17,9 +17,9 @@
 #ifndef GLES_CONTEXT_H
 #define GLES_CONTEXT_H
 
-#include "base/Lookup.h"
-#include "base/Stream.h"
-#include "base/Lock.h"
+#include "base/containers/Lookup.h"
+#include "base/files/Stream.h"
+#include "base/synchronization/Lock.h"
 
 #include "GLDispatch.h"
 #include "GLESpointer.h"

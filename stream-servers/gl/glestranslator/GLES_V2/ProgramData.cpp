@@ -17,8 +17,8 @@
 #include "ProgramData.h"
 #include "apigen-codec-common/glUtils.h"
 
-#include "base/Lookup.h"
-#include "base/StreamSerializing.h"
+#include "base/containers/Lookup.h"
+#include "base/files/StreamSerializing.h"
 #include "ANGLEShaderParser.h"
 #include "GLcommon/GLutils.h"
 #include "GLcommon/GLESmacros.h"

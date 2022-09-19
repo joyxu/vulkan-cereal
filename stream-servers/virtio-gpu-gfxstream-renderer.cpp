@@ -19,8 +19,8 @@
 
 #include "VirtioGpuTimelines.h"
 #include "base/AlignedBuf.h"
-#include "base/Lock.h"
-#include "base/SharedMemory.h"
+#include "base/synchronization/Lock.h"
+#include "base/memory/SharedMemory.h"
 #include "base/ManagedDescriptor.hpp"
 #include "base/Tracing.h"
 #include "host-common/AddressSpaceService.h"

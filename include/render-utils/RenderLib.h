@@ -15,7 +15,7 @@
 
 #include <memory>
 
-#include "base/Stream.h"
+#include "base/files/Stream.h"
 #include "host-common/RefcountPipe.h"
 #include "host-common/vm_operations.h"
 #include "host-common/window_agent.h"

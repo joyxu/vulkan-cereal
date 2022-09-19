@@ -26,13 +26,13 @@
 #include <type_traits>
 
 #include "FenceSync.h"
-#include "base/ConditionVariable.h"
+#include "base/synchronization/ConditionVariable.h"
 #include "base/HealthMonitor.h"
-#include "base/Lock.h"
-#include "base/MessageChannel.h"
+#include "base/synchronization/Lock.h"
+#include "base/synchronization/MessageChannel.h"
 #include "base/Optional.h"
-#include "base/Thread.h"
-#include "base/ThreadPool.h"
+#include "base/threads/Thread.h"
+#include "base/threads/ThreadPool.h"
 #include "render-utils/virtio_gpu_ops.h"
 #include "vulkan/VkDecoderGlobalState.h"
 
