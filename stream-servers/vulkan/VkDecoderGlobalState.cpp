@@ -3274,6 +3274,10 @@ class VkDecoderGlobalState::Impl {
         }
 #endif
 
+#ifdef _WIN32
+        exportAllocate.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+#endif
+
         bool hostVisible = memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
         if (hostVisible && feature_is_enabled(kFeature_ExternalBlob)) {
             localAllocInfo.pNext = &exportAllocate;
@@ -3701,6 +3705,23 @@ class VkDecoderGlobalState::Impl {
                 return result;
             }
 #endif
+
+#ifdef _WIN32
+            VkMemoryGetWin32HandleInfoKHR getHandle = {
+                .sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
+                .pNext = nullptr,
+                .memory = memory,
+                .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT,
+            };
+
+            handleType = STREAM_MEM_HANDLE_TYPE_OPAQUE_WIN32;
+
+            result = m_emu->deviceInfo.getMemoryHandleFunc(device, &getHandle, &handle);
+            if (result != VK_SUCCESS) {
+                return result;
+            }
+#endif
+
             ManagedDescriptor managedHandle(handle);
             *pHostmemId = HostmemIdMapping::get()->addDescriptorInfo(std::move(managedHandle),
                                                                      handleType, info->caching,

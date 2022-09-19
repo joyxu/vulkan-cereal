@@ -24,7 +24,8 @@ target_include_directories(
     PUBLIC
     .
     PRIVATE
-    ${GFXSTREAM_REPO_ROOT}/include)
+    ${GFXSTREAM_REPO_ROOT}/include
+    ${GFXSTREAM_REPO_ROOT}/third-party/glm/include)
 
 if (LINUX)
     target_link_libraries(

@@ -12,6 +12,7 @@ cc_library_static {
     defaults: [ "gfxstream_defaults" ],
     static_libs: [
         "gfxstream_base",
+        "gfxstream_glm",
         "gfxstream_apigen_codec_common",
         "gfxstream_translator_glcommon",
     ],
