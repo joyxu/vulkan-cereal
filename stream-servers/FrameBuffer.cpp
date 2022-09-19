@@ -1185,7 +1185,7 @@ std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
                 }
                 return true;
             },
-            postOnlyOnMainThread, m_eglContext, m_eglSurface, m_compositor, m_displayVk));
+            postOnlyOnMainThread, m_compositor, m_displayVk));
         m_postThread.start();
     }
 
