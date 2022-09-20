@@ -58,14 +58,12 @@ static void sDefaultRunOnUiThread(UiUpdateFunc f, void* data, bool wait) {
 }
 
 PostWorker::PostWorker(PostWorker::BindSubwinCallback&& cb, bool mainThreadPostingOnly,
-                       EGLContext eglContext, EGLSurface, Compositor* compositor,
-                       DisplayVk* displayVk)
+                       Compositor* compositor, DisplayVk* displayVk)
     : mFb(FrameBuffer::getFB()),
       mBindSubwin(cb),
       m_mainThreadPostingOnly(mainThreadPostingOnly),
       m_runOnUiThread(m_mainThreadPostingOnly ? emugl::get_emugl_window_operations().runOnUiThread
                                               : sDefaultRunOnUiThread),
-      mContext(eglContext),
       m_compositor(compositor),
       m_displayVk(displayVk) {}
 

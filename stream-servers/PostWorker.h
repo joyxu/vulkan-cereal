@@ -42,8 +42,8 @@ class PostWorker {
    public:
     using BindSubwinCallback = std::function<bool(void)>;
 
-    PostWorker(BindSubwinCallback&& cb, bool mainThreadPostingOnly, EGLContext eglContext,
-               EGLSurface eglSurface, Compositor*, DisplayVk*);
+    PostWorker(BindSubwinCallback&& cb, bool mainThreadPostingOnly,
+               Compositor* compositor, DisplayVk* display);
     ~PostWorker();
 
     // post: posts the next color buffer.
@@ -90,12 +90,6 @@ class PostWorker {
 
    private:
     using UiThreadRunner = std::function<void(UiUpdateFunc, void*, bool)>;
-    struct PostArgs {
-        ColorBuffer* postCb;
-        int width;
-        int height;
-        std::vector<char> composeBuffer;
-    };
 
     FrameBuffer* mFb;
 
@@ -109,7 +103,6 @@ class PostWorker {
 
     bool m_mainThreadPostingOnly = false;
     UiThreadRunner m_runOnUiThread = 0;
-    EGLContext mContext = EGL_NO_CONTEXT;
 
     // The implementation for Vulkan native swapchain. Only initialized when
     // useVulkan is set when calling FrameBuffer::initialize(). PostWorker
