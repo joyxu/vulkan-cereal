@@ -30,6 +30,7 @@
 #include "VkDecoder.h"
 
 #include <functional>
+#include <optional>
 #include <unordered_map>
 
 #include "VkDecoderGlobalState.h"
@@ -37,6 +38,7 @@
 #include "VulkanDispatch.h"
 #include "VulkanStream.h"
 #include "base/BumpPool.h"
+#include "base/Metrics.h"
 #include "base/System.h"
 #include "base/Tracing.h"
 #include "common/goldfish_vk_marshaling.h"
@@ -48,6 +50,10 @@
 #include "host-common/logging.h"
 #include "stream-servers/IOStream.h"
 
+#define MAX_PACKET_LENGTH (400 * 1024 * 1024)  // 400MB
+
+using android::base::MetricEventBadPacketLength;
+using android::base::MetricEventDuplicateSequenceNum;
 using emugl::vkDispatch;
 
 using namespace goldfish_vk;
@@ -62,7 +68,8 @@ class VkDecoder::Impl {
           m_boxedHandleCreateMapping(m_state),
           m_boxedHandleDestroyMapping(m_state),
           m_boxedHandleUnwrapAndDeleteMapping(m_state),
-          m_boxedHandleUnwrapAndDeletePreserveBoxedMapping(m_state) {}
+          m_boxedHandleUnwrapAndDeletePreserveBoxedMapping(m_state),
+          m_prevSeqno(std::nullopt) {}
     VulkanStream* stream() { return &m_vkStream; }
     VulkanMemReadingStream* readStream() { return &m_vkMemReadingStream; }
 
@@ -84,6 +91,7 @@ class VkDecoder::Impl {
     BoxedHandleUnwrapAndDeleteMapping m_boxedHandleUnwrapAndDeleteMapping;
     android::base::BumpPool m_pool;
     BoxedHandleUnwrapAndDeletePreserveBoxedMapping m_boxedHandleUnwrapAndDeletePreserveBoxedMapping;
+    std::optional<uint32_t> m_prevSeqno;
 };
 
 VkDecoder::VkDecoder() : mImpl(new VkDecoder::Impl()) {}
@@ -106,6 +114,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
     const char* processName = context.processName;
     auto& gfx_logger = *context.gfxApiLogger;
     auto& healthMonitor = *context.healthMonitor;
+    auto& metricsLogger = *context.metricsLogger;
     if (len < 8) return 0;
     bool queueSubmitWithCommandsEnabled =
         feature_is_enabled(kFeature_VulkanQueueSubmitWithCommands);
@@ -117,6 +126,13 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
     while (end - ptr >= 8) {
         uint32_t opcode = *(uint32_t*)ptr;
         uint32_t packetLen = *(uint32_t*)(ptr + 4);
+
+        // packetLen should be at least 8 (op code and packet length) and should not be excessively large
+        if (packetLen < 8 || packetLen > MAX_PACKET_LENGTH) {
+            WARN("Bad packet length %d detected, decode may fail", packetLen);
+            metricsLogger.logMetricEvent(MetricEventBadPacketLength{.len = packetLen});
+        }
+
         if (end - ptr < packetLen) return ptr - (unsigned char*)buf;
         gfx_logger.record(ptr, std::min(size_t(packetLen + 8), size_t(end - ptr)));
         stream()->setStream(ioStream);
@@ -134,6 +150,13 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
             uint32_t seqno;
             memcpy(&seqno, *readStreamPtrPtr, sizeof(uint32_t));
             *readStreamPtrPtr += sizeof(uint32_t);
+            if (m_prevSeqno && seqno == m_prevSeqno.value()) {
+                WARN(
+                    "Seqno %d is the same as previously processed on thread %d. It might be a "
+                    "duplicate command.",
+                    seqno, getCurrentThreadId());
+                metricsLogger.logMetricEvent(MetricEventDuplicateSequenceNum{.opcode = opcode});
+            }
             if (seqnoPtr && !m_forSnapshotLoad) {
                 {
                     auto watchdog =
@@ -162,6 +185,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                         __asm__ __volatile__("pause;");
 #endif
                     }
+                    m_prevSeqno = seqno;
                 }
             }
         }
@@ -32196,7 +32220,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                 if (queueSubmitWithCommandsEnabled)
                     __atomic_fetch_add(seqnoPtr, 1, __ATOMIC_SEQ_CST);
                 m_state->on_vkQueueFlushCommandsGOOGLE(&m_pool, queue, commandBuffer, dataSize,
-                                                       pData, gfx_logger);
+                                                       pData, context);
                 vkStream->unsetHandleMapping();
                 vkReadStream->setReadPos((uintptr_t)(*readStreamPtrPtr) -
                                          (uintptr_t)snapshotTraceBegin);

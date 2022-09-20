@@ -27,6 +27,7 @@
 #include "VkAndroidNativeBuffer.h"
 #include "VkCommonOperations.h"
 #include "VkDecoderSnapshot.h"
+#include "VkDecoderContext.h"
 #include "VkFormatUtils.h"
 #include "VulkanDispatch.h"
 #include "VulkanStream.h"
@@ -70,6 +71,8 @@ using android::base::AutoLock;
 using android::base::ConditionVariable;
 using android::base::Lock;
 using android::base::ManagedDescriptor;
+using android::base::MetricEventBadPacketLength;
+using android::base::MetricEventDuplicateSequenceNum;
 using android::base::DescriptorType;
 using android::base::Optional;
 using android::base::StaticLock;
@@ -4678,13 +4681,13 @@ class VkDecoderGlobalState::Impl {
 
     void on_vkQueueFlushCommandsGOOGLE(android::base::BumpPool* pool, VkQueue queue,
                                        VkCommandBuffer boxed_commandBuffer, VkDeviceSize dataSize,
-                                       const void* pData, GfxApiLogger& gfxLogger) {
+                                       const void* pData, const VkDecoderContext& context) {
         (void)queue;
 
         VkCommandBuffer commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
         VulkanDispatch* vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
         VulkanMemReadingStream* readStream = readstream_VkCommandBuffer(boxed_commandBuffer);
-        subDecode(readStream, vk, boxed_commandBuffer, commandBuffer, dataSize, pData, gfxLogger);
+        subDecode(readStream, vk, boxed_commandBuffer, commandBuffer, dataSize, pData, context);
     }
 
     VkDescriptorSet getOrAllocateDescriptorSetFromPoolAndId(VulkanDispatch* vk, VkDevice device,
@@ -8030,8 +8033,8 @@ void VkDecoderGlobalState::on_vkQueueFlushCommandsGOOGLE(android::base::BumpPool
                                                          VkQueue queue,
                                                          VkCommandBuffer commandBuffer,
                                                          VkDeviceSize dataSize, const void* pData,
-                                                         GfxApiLogger& gfxLogger) {
-    mImpl->on_vkQueueFlushCommandsGOOGLE(pool, queue, commandBuffer, dataSize, pData, gfxLogger);
+                                                         const VkDecoderContext& context) {
+    mImpl->on_vkQueueFlushCommandsGOOGLE(pool, queue, commandBuffer, dataSize, pData, context);
 }
 
 void VkDecoderGlobalState::on_vkQueueCommitDescriptorSetUpdatesGOOGLE(

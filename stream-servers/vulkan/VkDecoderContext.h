@@ -15,11 +15,15 @@
 
 #pragma once
 
+#include <memory>
+
 #include "base/GfxApiLogger.h"
 #include "base/HealthMonitor.h"
+#include "base/Metrics.h"
 
 struct VkDecoderContext {
     const char* processName = nullptr;
     emugl::GfxApiLogger* gfxApiLogger = nullptr;
     emugl::HealthMonitor<>* healthMonitor = nullptr;
+    emugl::MetricsLogger* metricsLogger = nullptr;
 };
