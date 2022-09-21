@@ -294,7 +294,8 @@ class VkDecoderGlobalState {
     void on_vkCmdCopyBufferToImage(android::base::BumpPool* pool, VkCommandBuffer commandBuffer,
                                    VkBuffer srcBuffer, VkImage dstImage,
                                    VkImageLayout dstImageLayout, uint32_t regionCount,
-                                   const VkBufferImageCopy* pRegions);
+                                   const VkBufferImageCopy* pRegions,
+                                   const VkDecoderContext& context);
 
     void on_vkCmdCopyImage(android::base::BumpPool* pool, VkCommandBuffer commandBuffer,
                            VkImage srcImage, VkImageLayout srcImageLayout, VkImage dstImage,
