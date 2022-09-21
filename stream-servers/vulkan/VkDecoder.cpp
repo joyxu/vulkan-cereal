@@ -48,8 +48,6 @@
 #include "host-common/logging.h"
 #include "stream-servers/IOStream.h"
 
-using emugl::GfxApiLogger;
-using emugl::HealthMonitor;
 using emugl::HealthWatchdog;
 using emugl::vkDispatch;
 
@@ -72,8 +70,7 @@ class VkDecoder::Impl {
     void setForSnapshotLoad(bool forSnapshotLoad) { m_forSnapshotLoad = forSnapshotLoad; }
 
     size_t decode(void* buf, size_t bufsize, IOStream* stream, uint32_t* seqnoPtr,
-                  GfxApiLogger& gfx_logger, HealthMonitor<>& healthMonitor,
-                  const char* processName);
+                  const VkDecoderContext&);
 
    private:
     bool m_logCalls;
@@ -99,18 +96,18 @@ void VkDecoder::setForSnapshotLoad(bool forSnapshotLoad) {
 }
 
 size_t VkDecoder::decode(void* buf, size_t bufsize, IOStream* stream, uint32_t* seqnoPtr,
-                         GfxApiLogger& gfx_logger, HealthMonitor<>& healthMonitor,
-                         const char* processName) {
-    return mImpl->decode(buf, bufsize, stream, seqnoPtr, gfx_logger, healthMonitor, processName);
+                         const VkDecoderContext& context) {
+    return mImpl->decode(buf, bufsize, stream, seqnoPtr, context);
 }
 
 // VkDecoder::Impl::decode to follow
 
 size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32_t* seqnoPtr,
-                               GfxApiLogger& gfx_logger, HealthMonitor<>& healthMonitor,
-                               const char* processName) {
+                               const VkDecoderContext& context) {
+    const char* processName = context.processName;
+    auto& gfx_logger = *context.gfxApiLogger;
+    auto& healthMonitor = *context.healthMonitor;
     if (len < 8) return 0;
-    ;
     bool queueSubmitWithCommandsEnabled =
         feature_is_enabled(kFeature_VulkanQueueSubmitWithCommands);
     unsigned char* ptr = (unsigned char*)buf;

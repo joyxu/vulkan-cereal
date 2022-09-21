@@ -26,6 +26,7 @@
 #include "RenderThreadInfo.h"
 #include "RendererImpl.h"
 #include "RingStream.h"
+#include "VkDecoderContext.h"
 #include "apigen-codec-common/ChecksumCalculatorThreadInfo.h"
 #include "base/HealthMonitor.h"
 #include "base/Lock.h"
@@ -448,10 +449,13 @@ intptr_t RenderThread::main() {
             // Note: It's risky to limit Vulkan decoding to one thread,
             // so we do it outside the limiter
             if (tInfo.m_vkInfo) {
+                VkDecoderContext context = {
+                    .processName = processName,
+                    .gfxApiLogger = &gfxLogger,
+                    .healthMonitor = &FrameBuffer::getFB()->getHealthMonitor(),
+                };
                 last = tInfo.m_vkInfo->m_vkDec.decode(readBuf.buf(), readBuf.validData(), ioStream,
-                                                      seqnoPtr, gfxLogger,
-                                                      FrameBuffer::getFB()->getHealthMonitor(),
-                                                      processName);
+                                                      seqnoPtr, context);
                 if (last > 0) {
                     readBuf.consume(last);
                     progress = true;

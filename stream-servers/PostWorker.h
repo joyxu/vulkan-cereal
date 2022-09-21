@@ -42,8 +42,8 @@ class PostWorker {
    public:
     using BindSubwinCallback = std::function<bool(void)>;
 
-    PostWorker(BindSubwinCallback&& cb, bool mainThreadPostingOnly,
-               Compositor* compositor, DisplayVk* display);
+    PostWorker(BindSubwinCallback&& cb, bool mainThreadPostingOnly, Compositor* compositor,
+               DisplayVk* display);
     ~PostWorker();
 
     // post: posts the next color buffer.
