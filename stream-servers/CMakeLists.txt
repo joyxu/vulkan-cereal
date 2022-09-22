@@ -22,7 +22,6 @@ set(stream-server-core-sources
     ColorBuffer.cpp
     Debug.cpp
     FenceSync.cpp
-    GLESVersionDetector.cpp
     Hwc2.cpp
     PostWorker.cpp
     ReadbackWorker.cpp
@@ -34,9 +33,7 @@ set(stream-server-core-sources
     RingStream.cpp
     SyncThread.cpp
     WindowSurface.cpp
-    YUVConverter.cpp
     RenderThread.cpp
-    RenderContext.cpp
     RenderControl.cpp
     RenderWindow.cpp
     RenderLibImpl.cpp
