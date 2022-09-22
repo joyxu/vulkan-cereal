@@ -20,24 +20,24 @@ namespace {
 
 class AstcCpuDecompressorNoOp : public AstcCpuDecompressor {
    public:
-    bool initialized() const override { return false; }
-    bool successful() const override { return false; }
+    bool available() const override { return false; }
 
-    void initialize(VulkanDispatch* vk, VkDevice device, VkPhysicalDevice physicalDevice,
-                    VkExtent3D imgSize, uint32_t blockWidth, uint32_t blockHeight) override {}
+    int32_t decompress(uint32_t imgWidth, uint32_t imgHeight, uint32_t blockWidth,
+                       uint32_t blockHeight, const uint8_t* astcData, size_t astcDataLength,
+                       uint8_t* output) override {
+        return -1;
+    };
 
-    void release() override {}
-
-    void on_vkCmdCopyBufferToImage(VkCommandBuffer commandBuffer, uint8_t* srcAstcData,
-                                   size_t astcDataSize, VkImage dstImage,
-                                   VkImageLayout dstImageLayout, uint32_t regionCount,
-                                   const VkBufferImageCopy* pRegions) override {}
+    const char* getStatusString(int32_t statusCode) const override {
+        return "ASTC CPU decomp not available";
+    }
 };
 
 }  // namespace
 
-std::unique_ptr<AstcCpuDecompressor> CreateAstcCpuDecompressor() {
-    return std::make_unique<AstcCpuDecompressorNoOp>();
+AstcCpuDecompressor& AstcCpuDecompressor::get() {
+    static AstcCpuDecompressorNoOp instance;
+    return instance;
 }
 
 }  // namespace goldfish_vk

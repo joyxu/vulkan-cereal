@@ -1,4 +1,5 @@
 add_subdirectory(cereal)
+add_subdirectory(emulated_textures)
 
 add_library(gfxstream-vulkan-server
             BorrowedImageVk.cpp
@@ -23,6 +24,7 @@ set_source_files_properties(VkDecoder.cpp PROPERTIES COMPILE_FLAGS -Wno-unused-v
 target_link_libraries(gfxstream-vulkan-server PUBLIC
         OpenglRender_vulkan_cereal
         gfxstream-compressedTextures
+        emulated_textures
         apigen-codec-common
         gfxstream-base.headers
         gfxstream-snapshot.headers

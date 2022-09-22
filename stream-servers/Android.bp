@@ -47,6 +47,7 @@ cc_library_shared {
         "gfxstream_lz4",
         "gfxstream_glm",
         "gfxstream_compressedTextures",
+        "gfxstream_emulated_textures",
     ],
     export_static_lib_headers: [
         "gfxstream_vulkan_cereal_host",

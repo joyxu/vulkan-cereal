@@ -15,6 +15,7 @@ cc_library_static {
         "gfxstream_base",
         "gfxstream_glm",
         "gfxstream_compressedTextures",
+        "gfxstream_emulated_textures",
         "gfxstream_host_common",
         "gfxstream_apigen_codec_common",
         "gfxstream_vulkan_cereal_host",

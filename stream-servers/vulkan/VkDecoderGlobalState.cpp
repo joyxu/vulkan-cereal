@@ -21,7 +21,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "compressedTextureFormats/AstcCpuDecompressor.h"
 #include "DecompressionShaders.h"
 #include "FrameBuffer.h"
 #include "VkAndroidNativeBuffer.h"
@@ -46,14 +45,16 @@
 #include "common/goldfish_vk_dispatch.h"
 #include "common/goldfish_vk_marshaling.h"
 #include "common/goldfish_vk_reserved_marshaling.h"
+#include "compressedTextureFormats/AstcCpuDecompressor.h"
 #include "compressedTextureFormats/etc.h"
 #include "host-common/GfxstreamFatalError.h"
+#include "host-common/HostmemIdMapping.h"
 #include "host-common/RenderDoc.h"
 #include "host-common/address_space_device_control_ops.h"
 #include "host-common/feature_control.h"
-#include "host-common/HostmemIdMapping.h"
 #include "host-common/vm_operations.h"
 #include "vk_util.h"
+#include "vulkan/emulated_textures/AstcTexture.h"
 #include "vulkan/vk_enum_string_helper.h"
 
 #ifndef _WIN32
@@ -1571,9 +1572,10 @@ class VkDecoderGlobalState::Impl {
                 VkInstance* instance = deviceToInstanceLocked(device);
                 InstanceInfo* instanceInfo = android::base::find(mInstanceInfo, *instance);
                 if (instanceInfo && instanceInfo->useAstcCpuDecompression) {
-                    cmpInfo.astcCpuDecompressor->initialize(
+                    cmpInfo.astcTexture = std::make_unique<AstcTexture>(
                         m_vk, device, mDeviceInfo[device].physicalDevice, cmpInfo.extent,
-                        cmpInfo.compressedBlockWidth, cmpInfo.compressedBlockHeight);
+                        cmpInfo.compressedBlockWidth, cmpInfo.compressedBlockHeight,
+                        &AstcCpuDecompressor::get());
                 }
             }
         }
@@ -1605,8 +1607,6 @@ class VkDecoderGlobalState::Impl {
                 for (const auto& image : cmpInfo.sizeCompImgs) {
                     deviceDispatch->vkDestroyImage(device, image, nullptr);
                 }
-
-                cmpInfo.astcCpuDecompressor->release();
 
                 deviceDispatch->vkDestroyDescriptorSetLayout(
                     device, cmpInfo.decompDescriptorSetLayout, nullptr);
@@ -2796,7 +2796,7 @@ class VkDecoderGlobalState::Impl {
         }
 
         // Perform CPU decompression of ASTC textures, if enabled
-        if (cmp.isAstc && cmp.astcCpuDecompressor->initialized()) {
+        if (cmp.astcTexture && cmp.astcTexture->canDecompressOnCpu()) {
             // Get a pointer to the compressed image memory
             const MappedMemoryInfo* memoryInfo = android::base::find(mMapInfo, bufferInfo->memory);
             if (!memoryInfo) {
@@ -2808,8 +2808,9 @@ class VkDecoderGlobalState::Impl {
                 return;
             }
             uint8_t* astcData = (uint8_t*)(memoryInfo->ptr) + bufferInfo->memoryOffset;
-            cmp.astcCpuDecompressor->on_vkCmdCopyBufferToImage(
-                commandBuffer, astcData, bufferInfo->size, dstImage, dstImageLayout, regionCount, pRegions);
+            cmp.astcTexture->on_vkCmdCopyBufferToImage(commandBuffer, astcData, bufferInfo->size,
+                                                       dstImage, dstImageLayout, regionCount,
+                                                       pRegions);
         }
     }
 
@@ -5494,7 +5495,7 @@ class VkDecoderGlobalState::Impl {
         uint32_t layerCount;
         uint32_t mipLevels = 1;
 
-        std::unique_ptr<AstcCpuDecompressor> astcCpuDecompressor = CreateAstcCpuDecompressor();
+        std::unique_ptr<AstcTexture> astcTexture = nullptr;
 
         uint32_t mipmapWidth(uint32_t level) {
             return std::max<uint32_t>(extent.width >> level, 1);
@@ -6797,7 +6798,7 @@ class VkDecoderGlobalState::Impl {
         // compute shader)
         bool needGpuDecompression(const CompressedImageInfo& imageInfo) {
             return needEmulatedDecompression(imageInfo) &&
-                   !imageInfo.astcCpuDecompressor->successful();
+                   !(imageInfo.astcTexture && imageInfo.astcTexture->successfullyDecompressed());
         }
         bool needEmulatedDecompression(const CompressedImageInfo& imageInfo) {
             return imageInfo.isCompressed && ((imageInfo.isEtc2 && emulateTextureEtc2) ||
