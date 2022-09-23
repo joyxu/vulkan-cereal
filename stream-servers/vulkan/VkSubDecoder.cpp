@@ -27,9 +27,12 @@
 // python3 $VULKAN_REGISTRY_SCRIPTS_DIR/genvk.py -registry $VULKAN_REGISTRY_XML_DIR/vk.xml cereal -o $CEREAL_OUTPUT_DIR
 //
 #define MAX_STACK_ITEMS 16
+#define MAX_PACKET_LENGTH (400 * 1024 * 1024)  // 400MB
 size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* boxed_dispatchHandle,
                  void* dispatchHandle, VkDeviceSize dataSize, const void* pData,
-                 GfxApiLogger& gfx_logger) {
+                 const VkDecoderContext& context) {
+    auto& gfx_logger = *context.gfxApiLogger;
+    auto& metricsLogger = *context.metricsLogger;
     uint32_t count = 0;
     unsigned char* buf = (unsigned char*)pData;
     android::base::BumpPool* pool = readStream->pool();
@@ -39,6 +42,13 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
     while (end - ptr >= 8) {
         uint32_t opcode = *(uint32_t*)ptr;
         uint32_t packetLen = *(uint32_t*)(ptr + 4);
+
+        // packetLen should be at least 8 (op code and packet length) and should not be excessively large
+        if (packetLen < 8 || packetLen > MAX_PACKET_LENGTH) {
+            WARN("Bad packet length %d detected, subdecode may fail", packetLen);
+            metricsLogger.logMetricEvent(MetricEventBadPacketLength{.len = packetLen});
+        }
+
         if (end - ptr < packetLen) return ptr - (unsigned char*)buf;
         gfx_logger.record(ptr, std::min(size_t(packetLen + 8), size_t(end - ptr)));
         readStream->setBuf((uint8_t*)(ptr + 8));

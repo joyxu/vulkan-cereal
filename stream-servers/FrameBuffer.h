@@ -630,6 +630,9 @@ class FrameBuffer {
     std::unique_ptr<BorrowedImageInfo> borrowColorBufferForDisplay(uint32_t colorBufferHandle);
 
     HealthMonitor<>& getHealthMonitor();
+    emugl::MetricsLogger& getMetricsLogger() {
+        return *m_logger;
+    }
 
    private:
     FrameBuffer(int p_width, int p_height, bool useSubWindow);

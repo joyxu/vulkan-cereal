@@ -348,6 +348,7 @@ intptr_t RenderThread::main() {
     }
 
     GfxApiLogger gfxLogger;
+    auto& metricsLogger = FrameBuffer::getFB()->getMetricsLogger();
 
     uint32_t* seqnoPtr = nullptr;
 
@@ -454,6 +455,7 @@ intptr_t RenderThread::main() {
                     .processName = processName,
                     .gfxApiLogger = &gfxLogger,
                     .healthMonitor = &FrameBuffer::getFB()->getHealthMonitor(),
+                    .metricsLogger = &metricsLogger,
                 };
                 last = tInfo.m_vkInfo->m_vkDec.decode(readBuf.buf(), readBuf.validData(), ioStream,
                                                       seqnoPtr, context);

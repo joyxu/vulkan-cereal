@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "VkDecoderContext.h"
 #include "VkQsriTimeline.h"
 #include "VulkanDispatch.h"
 #include "VulkanHandleMapping.h"
@@ -582,7 +583,7 @@ class VkDecoderGlobalState {
     // VK_GOOGLE_gfxstream
     void on_vkQueueFlushCommandsGOOGLE(android::base::BumpPool* pool, VkQueue queue,
                                        VkCommandBuffer commandBuffer, VkDeviceSize dataSize,
-                                       const void* pData, emugl::GfxApiLogger& gfxLogger);
+                                       const void* pData, const VkDecoderContext& context);
     void on_vkQueueCommitDescriptorSetUpdatesGOOGLE(
         android::base::BumpPool* pool, VkQueue queue, uint32_t descriptorPoolCount,
         const VkDescriptorPool* pDescriptorPools, uint32_t descriptorSetCount,
