@@ -423,18 +423,16 @@ class VkDecoderGlobalState::Impl {
         }
 
         VkInstanceCreateInfo createInfoFiltered;
-        VkApplicationInfo applicationInfo = {};
-        deepcopy_VkInstanceCreateInfo(pool,
-                                      VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-                                      pCreateInfo, &createInfoFiltered);
+        VkApplicationInfo appInfo = {};
+        deepcopy_VkInstanceCreateInfo(pool, VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO, pCreateInfo,
+                                      &createInfoFiltered);
 
-        createInfoFiltered.enabledExtensionCount =
-                static_cast<uint32_t>(finalExts.size());
+        createInfoFiltered.enabledExtensionCount = static_cast<uint32_t>(finalExts.size());
         createInfoFiltered.ppEnabledExtensionNames = finalExts.data();
         if (createInfoFiltered.pApplicationInfo != nullptr) {
-            const_cast<VkApplicationInfo*>(createInfoFiltered.pApplicationInfo)
-                    ->apiVersion = apiVersion;
-            applicationInfo = *createInfoFiltered.pApplicationInfo;
+            const_cast<VkApplicationInfo*>(createInfoFiltered.pApplicationInfo)->apiVersion =
+                apiVersion;
+            appInfo = *createInfoFiltered.pApplicationInfo;
         }
 
         // remove VkDebugReportCallbackCreateInfoEXT and
@@ -497,17 +495,19 @@ class VkDecoderGlobalState::Impl {
         }
 #endif
 
+        std::string_view appName = appInfo.pApplicationName ? appInfo.pApplicationName : "";
+        std::string_view engineName = appInfo.pEngineName ? appInfo.pEngineName : "";
+
         // TODO(gregschlom) Use a better criteria to determine when to use ASTC CPU decompression.
         //   The goal is to only enable ASTC CPU decompression for specific applications.
         //   Theoretically the pApplicationName field would be exactly what we want, unfortunately
         //   it looks like Unity apps always set this to "Unity" instead of the actual application.
         //   Eventually we will want to use https://r.android.com/2163499 for this purpose.
-        if (applicationInfo.pApplicationName != nullptr &&
-            applicationInfo.pEngineName != nullptr &&
-            strcmp(applicationInfo.pApplicationName, "Unity") == 0 &&
-            strcmp(applicationInfo.pEngineName, "Unity") == 0) {
+        if (appName == "Unity" && engineName == "Unity") {
             info.useAstcCpuDecompression = true;
         }
+
+        info.isAngle = (engineName == "ANGLE");
 
         mInstanceInfo[*pInstance] = info;
 
@@ -705,8 +705,8 @@ class VkDecoderGlobalState::Impl {
         auto vk = dispatch_VkPhysicalDevice(boxed_physicalDevice);
 
         vk->vkGetPhysicalDeviceFeatures(physicalDevice, pFeatures);
-        pFeatures->textureCompressionETC2 |= m_emu->enableEtc2Emulation;
-        pFeatures->textureCompressionASTC_LDR |= m_emu->enableAstcLdrEmulation;
+        pFeatures->textureCompressionETC2 |= enableEmulatedEtc2(physicalDevice, vk);
+        pFeatures->textureCompressionASTC_LDR |= enableEmulatedAstc(physicalDevice, vk);
     }
 
     void on_vkGetPhysicalDeviceFeatures2(android::base::BumpPool* pool,
@@ -746,8 +746,8 @@ class VkDecoderGlobalState::Impl {
             vk->vkGetPhysicalDeviceFeatures(physicalDevice, &pFeatures->features);
         }
 
-        pFeatures->features.textureCompressionETC2 |= m_emu->enableEtc2Emulation;
-        pFeatures->features.textureCompressionASTC_LDR |= m_emu->enableAstcLdrEmulation;
+        pFeatures->features.textureCompressionETC2 |= enableEmulatedEtc2(physicalDevice, vk);
+        pFeatures->features.textureCompressionASTC_LDR |= enableEmulatedAstc(physicalDevice, vk);
         VkPhysicalDeviceSamplerYcbcrConversionFeatures* ycbcrFeatures =
             vk_find_struct<VkPhysicalDeviceSamplerYcbcrConversionFeatures>(pFeatures);
         if (ycbcrFeatures != nullptr) {
@@ -6001,8 +6001,32 @@ class VkDecoderGlobalState::Impl {
         pMemoryRequirements->size += cmpInfo.memoryOffsets[cmpInfo.mipLevels];
     }
 
+    // Whether the VkInstance associated with this physical device was created by ANGLE
+    bool isAngleInstance(VkPhysicalDevice physicalDevice, goldfish_vk::VulkanDispatch* vk) {
+        std::lock_guard<std::recursive_mutex> lock(mLock);
+        VkInstance* instance = android::base::find(mPhysicalDeviceToInstance, physicalDevice);
+        if (!instance) return false;
+        InstanceInfo* instanceInfo = android::base::find(mInstanceInfo, *instance);
+        if (!instanceInfo) return false;
+        return instanceInfo->isAngle;
+    }
+
+    bool enableEmulatedEtc2(VkPhysicalDevice physicalDevice, goldfish_vk::VulkanDispatch* vk) {
+        if (!m_emu->enableEtc2Emulation) return false;
+
+        // Don't enable ETC2 emulation for ANGLE, let it do its own emulation.
+        return !isAngleInstance(physicalDevice, vk);
+    }
+
+    bool enableEmulatedAstc(VkPhysicalDevice physicalDevice, goldfish_vk::VulkanDispatch* vk) {
+        if (!m_emu->enableAstcLdrEmulation) return false;
+
+        // Don't enable ASTC emulation for ANGLE, let it do its own emulation.
+        return !isAngleInstance(physicalDevice, vk);
+    }
+
     bool needEmulatedEtc2(VkPhysicalDevice physicalDevice, goldfish_vk::VulkanDispatch* vk) {
-        if (!m_emu->enableEtc2Emulation) {
+        if (!enableEmulatedEtc2(physicalDevice, vk)) {
             return false;
         }
         VkPhysicalDeviceFeatures feature;
@@ -6011,7 +6035,7 @@ class VkDecoderGlobalState::Impl {
     }
 
     bool needEmulatedAstc(VkPhysicalDevice physicalDevice, goldfish_vk::VulkanDispatch* vk) {
-        if (!m_emu->enableAstcLdrEmulation) {
+        if (!enableEmulatedAstc(physicalDevice, vk)) {
             return false;
         }
         VkPhysicalDeviceFeatures feature;
@@ -6751,6 +6775,7 @@ class VkDecoderGlobalState::Impl {
         uint32_t apiVersion = VK_MAKE_VERSION(1, 0, 0);
         VkInstance boxed = nullptr;
         bool useAstcCpuDecompression = false;
+        bool isAngle = false;
     };
 
     struct PhysicalDeviceInfo {
