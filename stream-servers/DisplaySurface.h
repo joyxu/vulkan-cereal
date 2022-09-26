@@ -17,11 +17,12 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <unordered_set>
 
 namespace gfxstream {
 
-class Display;
 class DisplaySurface;
+class DisplaySurfaceUser;
 
 // Base class used for controlling the lifetime of a particular surface
 // used for a display (e.g. EGLSurface or VkSurfaceKHR).
@@ -51,13 +52,13 @@ class DisplaySurface {
     void updateSize(uint32_t newWidth, uint32_t newHeight);
 
   private:
-    friend class Display;
+    friend class DisplaySurfaceUser;
 
-    void registerBoundDisplay(Display* display);
-    void unregisterBoundDisplay(Display* display);
+    void registerUser(DisplaySurfaceUser* user);
+    void unregisterUser(DisplaySurfaceUser* user);
 
     std::unique_ptr<DisplaySurfaceImpl> mImpl;
-    Display* mBoundDisplay = nullptr;
+    std::unordered_set<DisplaySurfaceUser*> mBoundUsers;
 
     mutable std::mutex mParamsMutex;
     uint32_t mWidth = 0;

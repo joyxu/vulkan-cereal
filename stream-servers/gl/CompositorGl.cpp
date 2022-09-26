@@ -16,6 +16,7 @@
 
 #include "BorrowedImageGl.h"
 #include "Debug.h"
+#include "DisplaySurfaceGl.h"
 #include "OpenGLESDispatch/DispatchTables.h"
 #include "TextureDraw.h"
 #include "host-common/GfxstreamFatalError.h"
@@ -34,27 +35,68 @@ const BorrowedImageInfoGl* getInfoOrAbort(const std::unique_ptr<BorrowedImageInf
     return nullptr;
 }
 
+std::shared_future<void> getCompletedFuture() {
+    std::shared_future<void> completedFuture = std::async(std::launch::deferred, [] {}).share();
+    completedFuture.wait();
+    return completedFuture;
+}
+
 }  // namespace
 
 CompositorGl::CompositorGl(TextureDraw* textureDraw) : m_textureDraw(textureDraw) {}
 
-CompositorGl::~CompositorGl() {
-    if (m_composeFbo) {
-        s_gles2.glDeleteFramebuffers(1, &m_composeFbo);
-    }
-}
+CompositorGl::~CompositorGl() {}
 
-void CompositorGl::bindToWindow() {
-    if (m_composeFbo) {
-        s_gles2.glDeleteFramebuffers(1, &m_composeFbo);
+void CompositorGl::bindToSurfaceImpl(gfxstream::DisplaySurface* surface) {
+    const auto* surfaceGl = static_cast<const DisplaySurfaceGl*>(surface->getImpl());
+
+    std::optional<RecursiveScopedContextBind> contextBind;
+    if (mUseBoundSurfaceContext) {
+        contextBind.emplace(surfaceGl->getContextHelper());
+        if (!contextBind->isOk()) {
+            return;
+        }
     }
+
     s_gles2.glGenFramebuffers(1, &m_composeFbo);
 }
 
+void CompositorGl::unbindFromSurfaceImpl() {
+    const auto* surface = getBoundSurface();
+    if (!surface) {
+        return;
+    }
+    const auto* surfaceGl = static_cast<const DisplaySurfaceGl*>(surface->getImpl());
+
+    std::optional<RecursiveScopedContextBind> contextBind;
+    if (mUseBoundSurfaceContext) {
+        contextBind.emplace(surfaceGl->getContextHelper());
+        if (!contextBind->isOk()) {
+            return;
+        }
+    }
+
+    if (m_composeFbo) {
+        s_gles2.glDeleteFramebuffers(1, &m_composeFbo);
+        m_composeFbo = 0;
+    }
+}
+
 Compositor::CompositionFinishedWaitable CompositorGl::compose(
-    const CompositionRequest& composeRequest) {
-    std::shared_future<void> completedFuture = std::async(std::launch::deferred, [] {}).share();
-    completedFuture.wait();
+        const CompositionRequest& composeRequest) {
+    const auto* surface = getBoundSurface();
+    if (!surface) {
+        return getCompletedFuture();
+    }
+    const auto* surfaceGl = static_cast<const DisplaySurfaceGl*>(surface->getImpl());
+
+    std::optional<RecursiveScopedContextBind> contextBind;
+    if (mUseBoundSurfaceContext) {
+        contextBind.emplace(surfaceGl->getContextHelper());
+        if (!contextBind->isOk()) {
+            return getCompletedFuture();
+        }
+    }
 
     const auto* targetImage = getInfoOrAbort(composeRequest.target);
     const uint32_t targetWidth = targetImage->width;
@@ -97,5 +139,5 @@ Compositor::CompositionFinishedWaitable CompositorGl::compose(
     // complete but is currently only returning a future when all CPU work is completed.
     // In the future, CompositionFinishedWaitable should be replaced with something that
     // passes along a GL fence or VK fence.
-    return completedFuture;
+    return getCompletedFuture();
 }
