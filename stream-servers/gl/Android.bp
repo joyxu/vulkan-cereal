@@ -14,8 +14,11 @@ cc_library_static {
     srcs: [
         "CompositorGl.cpp",
         "EmulatedEglConfig.cpp",
+        "GLESVersionDetector.cpp",
+        "RenderContext.cpp",
         "TextureDraw.cpp",
         "TextureResize.cpp",
+        "YUVConverter.cpp",
     ],
     static_libs: [
         "gfxstream_gles1_dec",

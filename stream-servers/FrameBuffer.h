@@ -32,12 +32,10 @@
 #include "ColorBuffer.h"
 #include "Compositor.h"
 #include "DisplayVk.h"
-#include "GLESVersionDetector.h"
 #include "Hwc2.h"
 #include "PostCommands.h"
 #include "PostWorker.h"
 #include "ReadbackWorker.h"
-#include "RenderContext.h"
 #include "WindowSurface.h"
 #include "base/AsyncResult.h"
 #include "base/HealthMonitor.h"
@@ -50,6 +48,8 @@
 #include "base/WorkerThread.h"
 #include "gl/CompositorGl.h"
 #include "gl/EmulatedEglConfig.h"
+#include "gl/GLESVersionDetector.h"
+#include "gl/RenderContext.h"
 #include "gl/TextureDraw.h"
 #include "host-common/RenderDoc.h"
 #include "render_api.h"
@@ -630,6 +630,9 @@ class FrameBuffer {
     std::unique_ptr<BorrowedImageInfo> borrowColorBufferForDisplay(uint32_t colorBufferHandle);
 
     HealthMonitor<>& getHealthMonitor();
+    emugl::MetricsLogger& getMetricsLogger() {
+        return *m_logger;
+    }
 
    private:
     FrameBuffer(int p_width, int p_height, bool useSubWindow);

@@ -272,9 +272,10 @@ void SyncThread::doSyncThreadCmd(Command&& command, WorkerId workerId) {
     std::unique_ptr<std::unordered_map<std::string, std::string>> syncThreadData =
         std::make_unique<std::unordered_map<std::string, std::string>>();
     syncThreadData->insert({{"syncthread_cmd_desc", command.mDescription}});
-    HealthWatchdog watchdog(mHealthMonitor, WATCHDOG_DATA("SyncThread task execution",
-                                                          EventHangMetadata::HangType::kSyncThread,
-                                                          std::move(syncThreadData)));
+    auto watchdog = WATCHDOG_BUILDER(mHealthMonitor, "SyncThread task execution")
+                        .setHangType(EventHangMetadata::HangType::kSyncThread)
+                        .setAnnotations(std::move(syncThreadData))
+                        .build();
     command.mTask(workerId);
 }
 

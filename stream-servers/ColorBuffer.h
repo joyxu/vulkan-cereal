@@ -16,22 +16,21 @@
 #ifndef _LIBRENDER_COLORBUFFER_H
 #define _LIBRENDER_COLORBUFFER_H
 
+#include <memory>
+
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES/gl.h>
 #include <GLES3/gl3.h>
 
-#include "base/ManagedDescriptor.hpp"
-#include "base/Stream.h"
-// #include "android/skin/rect.h"
-#include <memory>
-
 #include "BorrowedImage.h"
 #include "ContextHelper.h"
 #include "DisplayVk.h"
 #include "FrameworkFormats.h"
+#include "Handle.h"
 #include "Hwc2.h"
-#include "RenderContext.h"
+#include "base/ManagedDescriptor.hpp"
+#include "base/Stream.h"
 #include "snapshot/LazySnapshotObj.h"
 
 // From ANGLE "src/common/angleutils.h"

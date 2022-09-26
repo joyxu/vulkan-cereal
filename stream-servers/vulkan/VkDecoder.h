@@ -31,8 +31,7 @@
 
 #include <memory>
 
-#include "base/GfxApiLogger.h"
-#include "base/HealthMonitor.h"
+#include "VkDecoderContext.h"
 #include "vk_android_native_buffer.h"
 #include "vulkan_gfxstream.h"
 
@@ -50,8 +49,7 @@ class VkDecoder {
     ~VkDecoder();
     void setForSnapshotLoad(bool forSnapshotLoad);
     size_t decode(void* buf, size_t bufsize, IOStream* stream, uint32_t* seqnoPtr,
-                  emugl::GfxApiLogger& gfx_logger, emugl::HealthMonitor<>& healthMonitor,
-                  const char* processName);
+                  const VkDecoderContext&);
 
    private:
     class Impl;

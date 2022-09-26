@@ -32,7 +32,6 @@
 #include "RenderThreadInfo.h"
 #include "RenderThreadInfoGl.h"
 #include "SyncThread.h"
-#include "YUVConverter.h"
 #include "base/LayoutResolver.h"
 #include "base/Lock.h"
 #include "base/Lookup.h"
@@ -42,6 +41,7 @@
 #include "base/StreamSerializing.h"
 #include "base/System.h"
 #include "base/Tracing.h"
+#include "gl/YUVConverter.h"
 #include "gl/gles2_dec/gles2_dec.h"
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/crash_reporter.h"
@@ -1060,6 +1060,11 @@ FrameBuffer::sendReadbackWorkerCmd(const Readback& readback) {
 }
 
 WorkerProcessingResult FrameBuffer::postWorkerFunc(Post& post) {
+    auto annotations = std::make_unique<EventHangMetadata::HangAnnotations>();
+    annotations->insert({"Post command opcode", std::to_string(static_cast<uint64_t>(post.cmd))});
+    auto watchdog = WATCHDOG_BUILDER(m_healthMonitor, "PostWorker main function")
+                        .setAnnotations(std::move(annotations))
+                        .build();
     switch (post.cmd) {
         case PostCmd::Post: {
             // We wrap the callback like this to workaround a bug in the MS STL implementation.
@@ -1344,11 +1349,24 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
     std::unique_ptr<ScopedPromise> postWorkerContinueSignal;
     std::future<void> postWorkerContinueSignalFuture;
     std::tie(postWorkerContinueSignal, postWorkerContinueSignalFuture) = ScopedPromise::create();
-    blockPostWorker(std::move(postWorkerContinueSignalFuture)).wait();
+    {
+        auto watchdog = WATCHDOG_BUILDER(m_healthMonitor, "Wait for other tasks on PostWorker")
+                            .setTimeoutMs(6000)
+                            .build();
+        blockPostWorker(std::move(postWorkerContinueSignalFuture)).wait();
+    }
     if (m_displayVk) {
+        auto watchdog =
+            WATCHDOG_BUILDER(m_healthMonitor, "Draining the VkQueue").setTimeoutMs(6000).build();
         m_displayVk->drainQueues();
     }
+    HealthMonitor<>::Id lockWatchdogId =
+        WATCHDOG_BUILDER(m_healthMonitor, "Wait for the FrameBuffer global lock")
+            .build()
+            ->release()
+            .value();
     AutoLock mutex(m_lock);
+    m_healthMonitor.stopMonitoringTask(lockWatchdogId);
 
 #if SNAPSHOT_PROFILE > 1
     // printf("FrameBuffer::%s(): got lock at %lld ms\n", __func__,
@@ -1415,6 +1433,7 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
         }
     }
 
+    auto watchdog = WATCHDOG_BUILDER(m_healthMonitor, "Updating subwindow state").build();
     // At this point, if the subwindow doesn't exist, it is because it either
     // couldn't be created
     // in the first place or the EGLSurface couldn't be created.
@@ -1430,8 +1449,11 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
             m_windowWidth = ww;
             m_windowHeight = wh;
 
-            success = ::moveSubWindow(m_nativeWindow, m_subWin, m_x, m_y,
-                                      m_windowWidth, m_windowHeight);
+            {
+                auto watchdog = WATCHDOG_BUILDER(m_healthMonitor, "Moving subwindow").build();
+                success = ::moveSubWindow(m_nativeWindow, m_subWin, m_x, m_y, m_windowWidth,
+                                          m_windowHeight);
+            }
         }
         // We are safe to unblock the PostWorker thread now, because we have completed all the
         // operations that could modify the state of the m_subWin. We need to unblock the PostWorker
