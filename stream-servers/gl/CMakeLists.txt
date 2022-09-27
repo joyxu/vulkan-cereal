@@ -13,6 +13,7 @@ add_library(gfxstream-gl-server
             DisplayGl.cpp
             DisplaySurfaceGl.cpp
             EmulatedEglConfig.cpp
+            EmulationGl.cpp
             GLESVersionDetector.cpp
             RenderContext.cpp
             TextureDraw.cpp
@@ -26,6 +27,7 @@ target_link_libraries(
         gfxstream_vulkan_headers
         gles1_dec
         gles2_dec
+        GLSnapshot
         OpenGLESDispatch)
 
 target_include_directories(gfxstream-gl-server
