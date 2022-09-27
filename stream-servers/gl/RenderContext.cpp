@@ -100,7 +100,7 @@ void RenderContext::onSave(android::base::Stream* stream) {
     stream->putBe32(static_cast<uint32_t>(mVersion));
     assert(s_egl.eglCreateContext);
     if (s_egl.eglSaveContext) {
-        s_egl.eglSaveContext(mDisplay, mContext, static_cast<EGLStream>(stream));
+        s_egl.eglSaveContext(mDisplay, mContext, static_cast<EGLStreamKHR>(stream));
     }
 }
 
