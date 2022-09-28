@@ -799,7 +799,7 @@ static uint32_t rcCreateWindowSurface(uint32_t config,
         return 0;
     }
 
-    return fb->createWindowSurface(config, width, height);
+    return fb->createEmulatedEglWindowSurface(config, width, height);
 }
 
 static void rcDestroyWindowSurface(uint32_t windowSurface)
@@ -809,7 +809,7 @@ static void rcDestroyWindowSurface(uint32_t windowSurface)
         return;
     }
 
-    fb->DestroyWindowSurface( windowSurface );
+    fb->DestroyEmulatedEglWindowSurface(windowSurface);
 }
 
 static uint32_t rcCreateColorBuffer(uint32_t width,
@@ -873,15 +873,17 @@ static int rcFlushWindowColorBuffer(uint32_t windowSurface)
     }
 
     // Update from Vulkan if necessary
-    goldfish_vk::readColorBufferToGl(fb->getWindowSurfaceColorBufferHandle(windowSurface));
+    goldfish_vk::readColorBufferToGl(
+        fb->getEmulatedEglWindowSurfaceColorBufferHandle(windowSurface));
 
-    if (!fb->flushWindowSurfaceColorBuffer(windowSurface)) {
+    if (!fb->flushEmulatedEglWindowSurfaceColorBuffer(windowSurface)) {
         GRSYNC_DPRINT("unlock gralloc cb lock }");
         return -1;
     }
 
     // Update to Vulkan if necessary
-    goldfish_vk::updateColorBufferFromGl(fb->getWindowSurfaceColorBufferHandle(windowSurface));
+    goldfish_vk::updateColorBufferFromGl(
+        fb->getEmulatedEglWindowSurfaceColorBufferHandle(windowSurface));
 
     GRSYNC_DPRINT("unlock gralloc cb lock }");
 
@@ -923,7 +925,7 @@ static void rcSetWindowColorBuffer(uint32_t windowSurface,
     if (!fb) {
         return;
     }
-    fb->setWindowSurfaceColorBuffer(windowSurface, colorBuffer);
+    fb->setEmulatedEglWindowSurfaceColorBuffer(windowSurface, colorBuffer);
 }
 
 static EGLint rcMakeCurrent(uint32_t context,

@@ -55,7 +55,7 @@ public:
             mFb->closeColorBuffer(mColorBuffer);
             mColorBuffer = mFb->createColorBuffer(
                     mWidth, mHeight, GL_RGBA, FRAMEWORK_FORMAT_GL_COMPATIBLE);
-            mFb->setWindowSurfaceColorBuffer(mSurface, mColorBuffer);
+            mFb->setEmulatedEglWindowSurfaceColorBuffer(mSurface, mColorBuffer);
         }
     }
 
