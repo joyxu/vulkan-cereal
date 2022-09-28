@@ -13,9 +13,9 @@ add_library(gfxstream-gl-server
             DisplayGl.cpp
             DisplaySurfaceGl.cpp
             EmulatedEglConfig.cpp
+            EmulatedEglContext.cpp
             EmulationGl.cpp
             GLESVersionDetector.cpp
-            RenderContext.cpp
             TextureDraw.cpp
             TextureResize.cpp
             YUVConverter.cpp)

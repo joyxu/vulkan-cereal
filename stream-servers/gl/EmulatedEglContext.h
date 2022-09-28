@@ -13,19 +13,16 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#ifndef _LIBRENDER_RENDER_CONTEXT_H
-#define _LIBRENDER_RENDER_CONTEXT_H
 
-#include "aemu/base/files/Stream.h"
-#include "GLDecoderContextData.h"
-
-#include <EGL/egl.h>
+#pragma once
 
 #include <memory>
 
-// Type of handles, a.k.a. "object names" in the GL specification.
-// These are integers used to uniquely identify a resource of a given type.
-typedef uint32_t HandleType;
+#include <EGL/egl.h>
+
+#include "GLDecoderContextData.h"
+#include "Handle.h"
+#include "aemu/base/files/Stream.h"
 
 // Tracks all the possible OpenGL ES API versions.
 enum GLESApi {
@@ -39,21 +36,21 @@ enum GLESApi {
 // A class used to model a guest EGLContext. This simply wraps a host
 // EGLContext, associated with an GLDecoderContextData instance that is
 // used to store copies of guest-side arrays.
-class RenderContext {
-public:
-    // Create a new RenderContext instance.
+class EmulatedEglContext {
+  public:
+    // Create a new EmulatedEglContext instance.
     // |display| is the host EGLDisplay handle.
     // |config| is the host EGLConfig to use.
     // |sharedContext| is either EGL_NO_CONTEXT of a host EGLContext handle.
     // |version| specifies the GLES version as a GLESApi.
-    static RenderContext *create(EGLDisplay display,
-                                 EGLConfig config,
-                                 EGLContext sharedContext,
-                                 HandleType hndl,
-                                 GLESApi = GLESApi_CM);
+    static EmulatedEglContext *create(EGLDisplay display,
+                                      EGLConfig config,
+                                      EGLContext sharedContext,
+                                      HandleType hndl,
+                                      GLESApi = GLESApi_CM);
 
     // Destructor.
-    ~RenderContext();
+    ~EmulatedEglContext();
 
     // Retrieve host EGLContext value.
     EGLContext getEGLContext() const { return mContext; }
@@ -64,31 +61,31 @@ public:
     GLESApi clientVersion() const;
 
     // Retrieve GLDecoderContextData instance reference for this
-    // RenderContext instance.
+    // EmulatedEglContext instance.
     GLDecoderContextData& decoderContextData() { return mContextData; }
 
     HandleType getHndl() const { return mHndl; }
 
     void onSave(android::base::Stream* stream);
-    static RenderContext *onLoad(android::base::Stream* stream,
-            EGLDisplay display);
-private:
-    RenderContext(EGLDisplay display,
-                  EGLContext context,
-                  HandleType hndl,
-                  GLESApi version,
-                  void* emulatedGLES1Context);
+    static EmulatedEglContext *onLoad(android::base::Stream* stream,
+                                      EGLDisplay display);
+  private:
+    EmulatedEglContext(EGLDisplay display,
+                       EGLContext context,
+                       HandleType hndl,
+                       GLESApi version,
+                       void* emulatedGLES1Context);
 
     // Implementation of create
     // |stream| is the stream to load from when restoring a snapshot,
     // set |stream| to nullptr if it is not loading from a snapshot
-    static RenderContext *createImpl(EGLDisplay display,
-                                 EGLConfig config,
-                                 EGLContext sharedContext,
-                                 HandleType hndl,
-                                 GLESApi version,
-                                 android::base::Stream *stream);
-private:
+    static EmulatedEglContext *createImpl(EGLDisplay display,
+                                          EGLConfig config,
+                                          EGLContext sharedContext,
+                                          HandleType hndl,
+                                          GLESApi version,
+                                          android::base::Stream *stream);
+
     EGLDisplay mDisplay;
     EGLContext mContext;
     HandleType mHndl;
@@ -96,6 +93,4 @@ private:
     GLDecoderContextData mContextData;
 };
 
-typedef std::shared_ptr<RenderContext> RenderContextPtr;
-
-#endif  // _LIBRENDER_RENDER_CONTEXT_H
+typedef std::shared_ptr<EmulatedEglContext> EmulatedEglContextPtr;

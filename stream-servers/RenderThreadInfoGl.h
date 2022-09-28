@@ -17,13 +17,13 @@
 #include <optional>
 #include <string>
 
+#include "Handle.h"
+#include "StalePtrRegistry.h"
+#include "WindowSurface.h"
 #include "aemu/base/files/Stream.h"
+#include "gl/EmulatedEglContext.h"
 #include "gl/gles1_dec/GLESv1Decoder.h"
 #include "gl/gles2_dec/GLESv2Decoder.h"
-#include "Handle.h"
-#include "RenderContext.h"
-#include "WindowSurface.h"
-#include "StalePtrRegistry.h"
 
 struct RenderThreadInfoGl {
     // Create new instance. Only call this once per thread.
@@ -62,7 +62,7 @@ struct RenderThreadInfoGl {
     HandleType currDrawSurfHandleFromLoad;
     HandleType currReadSurfHandleFromLoad;
 
-    RenderContextPtr currContext;
+    EmulatedEglContextPtr currContext;
     WindowSurfacePtr currDrawSurf;
     WindowSurfacePtr currReadSurf;
 

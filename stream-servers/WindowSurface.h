@@ -23,7 +23,7 @@
 
 #include "ColorBuffer.h"
 #include "Handle.h"
-#include "gl/RenderContext.h"
+#include "gl/EmulatedEglContext.h"
 
 // A class used to model a guest-side window surface. The implementation
 // uses a host Pbuffer to act as the EGL rendering surface instead.
@@ -80,11 +80,11 @@ public:
     // Bind a context to the WindowSurface (huh? Normally you would bind a
     // surface to the context, not the other way around)
     //
-    // |p_ctx| is a RenderContext pointer.
+    // |p_ctx| is a EmulatedEglContext pointer.
     // |p_bindType| is the type of bind. For BIND_READ, this assigns |p_ctx|
     // to mReadContext, for BIND_DRAW, it assigns it to mDrawContext, and for
     // for BIND_READDRAW, it assigns it to both.
-    void bind(RenderContextPtr p_ctx, BindType p_bindType);
+    void bind(EmulatedEglContextPtr p_ctx, BindType p_bindType);
 
     GLuint getWidth() const;
     GLuint getHeight() const;
@@ -103,8 +103,8 @@ private:
 private:
     EGLSurface mSurface = EGL_NO_SURFACE;
     ColorBufferPtr mAttachedColorBuffer;
-    RenderContextPtr mReadContext;
-    RenderContextPtr mDrawContext;
+    EmulatedEglContextPtr mReadContext;
+    EmulatedEglContextPtr mDrawContext;
     GLuint mWidth = 0;
     GLuint mHeight = 0;
     EGLConfig mConfig = nullptr;
