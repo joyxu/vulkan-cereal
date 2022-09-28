@@ -243,7 +243,7 @@ void SnapshotTest::saveSnapshot(const std::string streamFile,
 
     std::unique_ptr<StdioStream> m_stream(new StdioStream(
             android_fopen(streamFile.c_str(), "wb"), StdioStream::kOwner));
-    auto egl_stream = static_cast<EGLStream>(m_stream.get());
+    auto egl_stream = static_cast<EGLStreamKHR>(m_stream.get());
     std::unique_ptr<TextureSaver> m_texture_saver(new TextureSaver(StdioStream(
             android_fopen(textureFile.c_str(), "wb"), StdioStream::kOwner)));
 
@@ -272,7 +272,7 @@ void SnapshotTest::loadSnapshot(const std::string streamFile,
 
     std::unique_ptr<StdioStream> m_stream(new StdioStream(
             android_fopen(streamFile.c_str(), "rb"), StdioStream::kOwner));
-    auto egl_stream = static_cast<EGLStream>(m_stream.get());
+    auto egl_stream = static_cast<EGLStreamKHR>(m_stream.get());
     std::shared_ptr<TextureLoader> m_texture_loader(
             new TextureLoader(StdioStream(android_fopen(textureFile.c_str(), "rb"),
                                           StdioStream::kOwner)));

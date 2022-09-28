@@ -25,6 +25,7 @@ target_include_directories(
     .
     PRIVATE
     ${GFXSTREAM_REPO_ROOT}/include
+    ${GFXSTREAM_REPO_ROOT}/third-party/angle/include
     ${GFXSTREAM_REPO_ROOT}/third-party/glm/include)
 
 if (LINUX)
