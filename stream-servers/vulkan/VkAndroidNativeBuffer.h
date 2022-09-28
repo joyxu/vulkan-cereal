@@ -24,8 +24,8 @@
 #include "VkCommonOperations.h"
 #include "VkQsriTimeline.h"
 #include "base/BumpPool.h"
-#include "base/ConditionVariable.h"
-#include "base/Lock.h"
+#include "base/synchronization/ConditionVariable.h"
+#include "base/synchronization/Lock.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 
 namespace goldfish_vk {

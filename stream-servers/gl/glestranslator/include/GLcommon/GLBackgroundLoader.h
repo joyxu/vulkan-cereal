@@ -15,7 +15,7 @@
 */
 #pragma once
 
-#include "base/Thread.h"
+#include "base/threads/Thread.h"
 #include "snapshot/TextureLoader.h"
 #include "GLcommon/TranslatorIfaces.h"
 

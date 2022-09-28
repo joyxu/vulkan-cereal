@@ -32,7 +32,7 @@
 #include "VkDecoderGlobalState.h"
 #include "VkReconstruction.h"
 #include "VulkanHandleMapping.h"
-#include "base/Lock.h"
+#include "base/synchronization/Lock.h"
 
 using namespace goldfish_vk;
 using emugl::GfxApiLogger;

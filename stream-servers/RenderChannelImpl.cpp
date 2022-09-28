@@ -14,7 +14,7 @@
 #include "RenderChannelImpl.h"
 
 #include "RenderThread.h"
-#include "base/Lock.h"
+#include "base/synchronization/Lock.h"
 
 #include <algorithm>
 #include <utility>

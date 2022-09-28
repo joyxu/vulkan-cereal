@@ -17,7 +17,7 @@
 
 #include "MacNative.h"
 
-#include "base/Lookup.h"
+#include "base/containers/Lookup.h"
 #include "base/SharedLibrary.h"
 
 #include "host-common/logging.h"

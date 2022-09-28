@@ -20,9 +20,9 @@
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "OpenGLESDispatch/GLESv1Dispatch.h"
 #include "OpenGLESDispatch/GLESv2Dispatch.h"
-#include "base/Lock.h"
-#include "base/Lookup.h"
-#include "base/StreamSerializing.h"
+#include "base/synchronization/Lock.h"
+#include "base/containers/Lookup.h"
+#include "base/files/StreamSerializing.h"
 #include "host-common/GfxstreamFatalError.h"
 
 using android::base::AutoLock;

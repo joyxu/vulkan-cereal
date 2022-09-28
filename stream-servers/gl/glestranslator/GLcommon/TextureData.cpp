@@ -16,8 +16,8 @@
 
 #include "GLcommon/TextureData.h"
 
-#include "base/Lookup.h"
-#include "base/StreamSerializing.h"
+#include "base/containers/Lookup.h"
+#include "base/files/StreamSerializing.h"
 
 #include "GLcommon/GLEScontext.h"
 #include "GLcommon/GLutils.h"

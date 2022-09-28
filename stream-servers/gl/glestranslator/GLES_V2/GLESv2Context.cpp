@@ -20,8 +20,8 @@
 #include "SamplerData.h"
 #include "ShaderParser.h"
 #include "TransformFeedbackData.h"
-#include "base/Lock.h"
-#include "base/StreamSerializing.h"
+#include "base/synchronization/Lock.h"
+#include "base/files/StreamSerializing.h"
 
 #include "host-common/crash_reporter.h"
 

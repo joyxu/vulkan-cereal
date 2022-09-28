@@ -16,8 +16,8 @@
 
 #include "layers_extensions.h"
 
-#include "base/System.h"
-#include "base/PathUtils.h"
+#include "base/system/System.h"
+#include "base/files/PathUtils.h"
 
 #include <alloca.h>
 #include <dirent.h>

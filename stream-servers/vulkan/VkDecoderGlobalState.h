@@ -27,7 +27,7 @@
 #include "base/AsyncResult.h"
 #include "base/GfxApiLogger.h"
 #include "base/HealthMonitor.h"
-#include "base/Lock.h"
+#include "base/synchronization/Lock.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 #include "cereal/common/goldfish_vk_transform.h"
 #include "host-common/GfxstreamFatalError.h"

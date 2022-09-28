@@ -17,7 +17,7 @@
 #ifndef SHADER_PARSER_H
 #define SHADER_PARSER_H
 
-#include "base/Lock.h"
+#include "base/synchronization/Lock.h"
 #include "ANGLEShaderParser.h"
 #include "GLESv2Context.h"
 #include <string>

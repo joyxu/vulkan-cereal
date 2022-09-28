@@ -16,7 +16,7 @@
 
 #include "RenderThreadInfo.h"
 
-#include "base/Lock.h"
+#include "base/synchronization/Lock.h"
 
 #include <unordered_map>
 #include <unordered_set>

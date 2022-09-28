@@ -21,8 +21,8 @@
 
 #include "base/ArraySize.h"
 #include "base/GLObjectCounter.h"
-#include "base/PathUtils.h"
-#include "base/System.h"
+#include "base/files/PathUtils.h"
+#include "base/system/System.h"
 #include "base/testing/TestSystem.h"
 #include "host-common/GraphicsAgentFactory.h"
 #include "host-common/testing/MockGraphicsAgentFactory.h"
@@ -35,7 +35,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#include "base/Win32UnicodeString.h"
+#include "base/system/Win32UnicodeString.h"
 using android::base::Win32UnicodeString;
 #else
 #include <dlfcn.h>

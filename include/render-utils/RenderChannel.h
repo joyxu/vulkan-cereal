@@ -14,9 +14,9 @@
 #pragma once
 
 #include "base/EnumFlags.h"
-#include "base/BufferQueue.h"
-#include "base/SmallVector.h"
-#include "base/Stream.h"
+#include "base/containers/SmallVector.h"
+#include "base/files/Stream.h"
+#include "base/containers/BufferQueue.h"
 
 #include <functional>
 #include <memory>

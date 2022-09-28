@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "base/SmallVector.h"
-#include "base/Stream.h"
+#include "base/containers/SmallVector.h"
+#include "base/files/Stream.h"
 #include "snapshot/LazySnapshotObj.h"
 #include "GLcommon/NamedObject.h"
 #include "GLcommon/TextureData.h"

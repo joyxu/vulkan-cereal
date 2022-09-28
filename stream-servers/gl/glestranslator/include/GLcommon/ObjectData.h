@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "base/Stream.h"
+#include "base/files/Stream.h"
 #include "GLcommon/NamedObject.h"
 
 #include <functional>

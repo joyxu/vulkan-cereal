@@ -21,7 +21,7 @@
 #include "GLcommon/GLESpointer.h"
 #include "GLEScmContext.h"
 
-#include "base/Lookup.h"
+#include "base/containers/Lookup.h"
 #include "host-common/crash_reporter.h"
 
 #include <glm/vec3.hpp>

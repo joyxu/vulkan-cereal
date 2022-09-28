@@ -13,8 +13,8 @@
 // limitations under the License.
 #include <cutils/ashmem.h>
 
-#include "base/Lookup.h"
-#include "base/SharedMemory.h"
+#include "base/containers/Lookup.h"
+#include "base/memory/SharedMemory.h"
 
 #include "AndroidHostCommon.h"
 #include "Ashmem.h"

@@ -25,7 +25,7 @@
 #include "BorrowedImageVk.h"
 #include "CompositorVk.h"
 #include "DisplayVk.h"
-#include "base/Lock.h"
+#include "base/synchronization/Lock.h"
 #include "base/ManagedDescriptor.hpp"
 #include "base/Optional.h"
 #include "cereal/common/goldfish_vk_private_defs.h"

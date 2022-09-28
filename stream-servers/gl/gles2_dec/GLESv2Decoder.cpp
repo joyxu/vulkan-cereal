@@ -17,7 +17,7 @@
 #include "GLESv2Decoder.h"
 #include "OpenGLESDispatch/GLESv2Dispatch.h"
 
-#include "base/Lock.h"
+#include "base/synchronization/Lock.h"
 
 #include "host-common/vm_operations.h"
 #include "host-common/dma_device.h"

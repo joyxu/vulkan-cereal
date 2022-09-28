@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "base/PathUtils.h"
-#include "base/StdioStream.h"
+#include "base/files/PathUtils.h"
+#include "base/files/StdioStream.h"
 #include "base/GLObjectCounter.h"
-#include "base/System.h"
+#include "base/system/System.h"
 #include "base/testing/TestSystem.h"
 #include "host-common/GraphicsAgentFactory.h"
 #include "host-common/multi_display_agent.h"

@@ -6,9 +6,9 @@
 #include "apigen-codec-common/glUtils.h"
 #include "RenderThreadInfo.h"
 
-#include "base/PathUtils.h"
-#include "base/StdioStream.h"
-#include "base/System.h"
+#include "base/files/PathUtils.h"
+#include "base/files/StdioStream.h"
+#include "base/system/System.h"
 #include "base/testing/TestSystem.h"
 #include "snapshot/TextureLoader.h"
 #include "snapshot/TextureSaver.h"

@@ -6,7 +6,7 @@
 
 #include "BorrowedImageVk.h"
 #include "Standalone.h"
-#include "base/Lock.h"
+#include "base/synchronization/Lock.h"
 #include "tests/VkTestUtils.h"
 #include "vulkan/VulkanDispatch.h"
 

@@ -30,7 +30,7 @@
 #include "Handle.h"
 #include "Hwc2.h"
 #include "base/ManagedDescriptor.hpp"
-#include "base/Stream.h"
+#include "base/files/Stream.h"
 #include "snapshot/LazySnapshotObj.h"
 
 // From ANGLE "src/common/angleutils.h"

@@ -18,7 +18,7 @@
 
 #include "ShaderParser.h"
 
-#include "base/HybridComponentManager.h"
+#include "base/containers/HybridComponentManager.h"
 
 #include <memory>
 #include <sstream>

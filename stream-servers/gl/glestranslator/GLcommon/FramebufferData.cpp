@@ -15,7 +15,7 @@
 */
 #include "GLcommon/FramebufferData.h"
 
-#include "base/StreamSerializing.h"
+#include "base/files/StreamSerializing.h"
 #include "GLcommon/GLEScontext.h"
 #include "GLcommon/GLutils.h"
 #include "GLcommon/TextureData.h"

@@ -17,7 +17,7 @@
 #include "OpenGLESDispatch/EGLDispatch.h"
 #include "OpenGLESDispatch/DispatchTables.h"
 #include "RendererImpl.h"
-#include "base/Stream.h"
+#include "base/files/Stream.h"
 #include "host-common/address_space_device_control_ops.h"
 #include "host-common/crash_reporter.h"
 #include "host-common/dma_device.h"

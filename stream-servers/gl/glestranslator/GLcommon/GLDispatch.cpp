@@ -17,7 +17,7 @@
 #include "GLcommon/GLDispatch.h"
 #include "GLcommon/GLLibrary.h"
 
-#include "base/Lock.h"
+#include "base/synchronization/Lock.h"
 #include "base/SharedLibrary.h"
 #include "host-common/logging.h"
 

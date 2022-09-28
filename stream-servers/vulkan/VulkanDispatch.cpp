@@ -14,10 +14,10 @@
 
 #include "VulkanDispatch.h"
 
-#include "base/Lock.h"
-#include "base/PathUtils.h"
+#include "base/synchronization/Lock.h"
+#include "base/files/PathUtils.h"
 #include "base/SharedLibrary.h"
-#include "base/System.h"
+#include "base/system/System.h"
 #include "host-common/misc.h"
 
 using android::base::AutoLock;

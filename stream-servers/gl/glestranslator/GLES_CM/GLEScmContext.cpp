@@ -23,8 +23,8 @@
 #include <GLES/gl.h>
 #include <GLES/glext.h>
 
-#include "base/Lock.h"
-#include "base/StreamSerializing.h"
+#include "base/synchronization/Lock.h"
+#include "base/files/StreamSerializing.h"
 #include "host-common/crash_reporter.h"
 #include "GLEScmValidate.h"
 
