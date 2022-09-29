@@ -12,4 +12,5 @@ target_include_directories(
     ${GFXSTREAM_REPO_ROOT}
     ${GFXSTREAM_REPO_ROOT}/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers
-    ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common)
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
+    ${GFXSTREAM_REPO_ROOT}/third-party/angle/include)

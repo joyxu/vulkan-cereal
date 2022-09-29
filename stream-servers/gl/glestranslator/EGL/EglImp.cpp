@@ -130,21 +130,21 @@ EGLAPI void EGLAPIENTRY eglAddLibrarySearchPathANDROID(const char* path);
 EGLAPI EGLBoolean EGLAPIENTRY eglQueryVulkanInteropSupportANDROID(void);
 EGLAPI EGLBoolean EGLAPIENTRY eglGetSyncAttribKHR(EGLDisplay display, EGLSyncKHR sync, EGLint attribute, EGLint *value);
 
-EGLAPI EGLBoolean EGLAPIENTRY eglSaveConfig(EGLDisplay display, EGLConfig config, EGLStream stream);
-EGLAPI EGLConfig EGLAPIENTRY eglLoadConfig(EGLDisplay display, EGLStream stream);
+EGLAPI EGLBoolean EGLAPIENTRY eglSaveConfig(EGLDisplay display, EGLConfig config, EGLStreamKHR stream);
+EGLAPI EGLConfig EGLAPIENTRY eglLoadConfig(EGLDisplay display, EGLStreamKHR stream);
 
-EGLAPI EGLBoolean EGLAPIENTRY eglPreSaveContext(EGLDisplay display, EGLContext contex, EGLStream stream);
-EGLAPI EGLBoolean EGLAPIENTRY eglSaveContext(EGLDisplay display, EGLContext contex, EGLStream stream);
-EGLAPI EGLBoolean EGLAPIENTRY eglPostSaveContext(EGLDisplay display, EGLContext context, EGLStream stream);
-EGLAPI EGLContext EGLAPIENTRY eglLoadContext(EGLDisplay display, const EGLint *attrib_list, EGLStream stream);
+EGLAPI EGLBoolean EGLAPIENTRY eglPreSaveContext(EGLDisplay display, EGLContext contex, EGLStreamKHR stream);
+EGLAPI EGLBoolean EGLAPIENTRY eglSaveContext(EGLDisplay display, EGLContext contex, EGLStreamKHR stream);
+EGLAPI EGLBoolean EGLAPIENTRY eglPostSaveContext(EGLDisplay display, EGLContext context, EGLStreamKHR stream);
+EGLAPI EGLContext EGLAPIENTRY eglLoadContext(EGLDisplay display, const EGLint *attrib_list, EGLStreamKHR stream);
 
 EGLAPI EGLBoolean EGLAPIENTRY eglSaveAllImages(EGLDisplay display,
-                                               EGLStream stream,
+                                               EGLStreamKHR stream,
                                                const void* textureSaver);
 EGLAPI EGLBoolean EGLAPIENTRY eglLoadAllImages(EGLDisplay display,
-                                               EGLStream stream,
+                                               EGLStreamKHR stream,
                                                const void* textureLoader);
-EGLAPI EGLBoolean EGLAPIENTRY eglPostLoadAllImages(EGLDisplay display, EGLStream stream);
+EGLAPI EGLBoolean EGLAPIENTRY eglPostLoadAllImages(EGLDisplay display, EGLStreamKHR stream);
 EGLAPI void EGLAPIENTRY eglUseOsEglApi(EGLBoolean enable, EGLBoolean nullEgl);
 EGLAPI void EGLAPIENTRY eglSetMaxGLESVersion(EGLint version);
 EGLAPI void EGLAPIENTRY eglFillUsages(void* usages);
@@ -1650,7 +1650,7 @@ EGLAPI EGLBoolean EGLAPIENTRY eglQueryVulkanInteropSupportANDROID(void) {
 
 /*********************************************************************************/
 
-EGLAPI EGLBoolean EGLAPIENTRY eglPreSaveContext(EGLDisplay display, EGLContext contex, EGLStream stream) {
+EGLAPI EGLBoolean EGLAPIENTRY eglPreSaveContext(EGLDisplay display, EGLContext contex, EGLStreamKHR stream) {
     const GLESiface* iface = g_eglInfo->getIface(GLES_2_0);
     assert(iface->saveTexture);
     if (!iface || !iface->saveTexture) return EGL_TRUE;
@@ -1660,18 +1660,18 @@ EGLAPI EGLBoolean EGLAPIENTRY eglPreSaveContext(EGLDisplay display, EGLContext c
     return EGL_TRUE;
 }
 
-EGLAPI EGLBoolean EGLAPIENTRY eglSaveContext(EGLDisplay display, EGLContext contex, EGLStream stream) {
+EGLAPI EGLBoolean EGLAPIENTRY eglSaveContext(EGLDisplay display, EGLContext contex, EGLStreamKHR stream) {
     VALIDATE_DISPLAY(display);
     VALIDATE_CONTEXT(contex);
     ctx->onSave((android::base::Stream*)stream);
     return EGL_TRUE;
 }
 
-EGLAPI EGLContext EGLAPIENTRY eglLoadContext(EGLDisplay display, const EGLint *attrib_list, EGLStream stream) {
+EGLAPI EGLContext EGLAPIENTRY eglLoadContext(EGLDisplay display, const EGLint *attrib_list, EGLStreamKHR stream) {
     return eglCreateOrLoadContext(display, (EGLConfig)0, EGL_NO_CONTEXT, attrib_list, (android::base::Stream*)stream);
 }
 
-EGLAPI EGLBoolean EGLAPIENTRY eglPostSaveContext(EGLDisplay display, EGLContext context, EGLStream stream) {
+EGLAPI EGLBoolean EGLAPIENTRY eglPostSaveContext(EGLDisplay display, EGLContext context, EGLStreamKHR stream) {
     VALIDATE_DISPLAY(display);
     VALIDATE_CONTEXT(context);
     ctx->postSave((android::base::Stream*)stream);
@@ -1679,7 +1679,7 @@ EGLAPI EGLBoolean EGLAPIENTRY eglPostSaveContext(EGLDisplay display, EGLContext 
 }
 
 EGLAPI EGLBoolean EGLAPIENTRY eglSaveConfig(EGLDisplay display,
-        EGLConfig config, EGLStream stream) {
+        EGLConfig config, EGLStreamKHR stream) {
     VALIDATE_DISPLAY(display);
     VALIDATE_CONFIG(config);
     android::base::Stream* stm = static_cast<android::base::Stream*>(stream);
@@ -1687,7 +1687,7 @@ EGLAPI EGLBoolean EGLAPIENTRY eglSaveConfig(EGLDisplay display,
     return EGL_TRUE;
 }
 
-EGLAPI EGLConfig EGLAPIENTRY eglLoadConfig(EGLDisplay display, EGLStream stream) {
+EGLAPI EGLConfig EGLAPIENTRY eglLoadConfig(EGLDisplay display, EGLStreamKHR stream) {
     VALIDATE_DISPLAY(display);
     android::base::Stream* stm = static_cast<android::base::Stream*>(stream);
     EGLint cfgId = stm->getBe32();
@@ -1701,7 +1701,7 @@ EGLAPI EGLConfig EGLAPIENTRY eglLoadConfig(EGLDisplay display, EGLStream stream)
 }
 
 EGLAPI EGLBoolean EGLAPIENTRY eglSaveAllImages(EGLDisplay display,
-                                               EGLStream stream,
+                                               EGLStreamKHR stream,
                                                const void* textureSaver) {
     const GLESiface* iface = g_eglInfo->getIface(GLES_2_0);
     assert(iface->saveTexture);
@@ -1720,7 +1720,7 @@ EGLAPI EGLBoolean EGLAPIENTRY eglSaveAllImages(EGLDisplay display,
 }
 
 EGLAPI EGLBoolean EGLAPIENTRY eglLoadAllImages(EGLDisplay display,
-                                               EGLStream stream,
+                                               EGLStreamKHR stream,
                                                const void* textureLoader) {
     const GLESiface* iface = g_eglInfo->getIface(GLES_2_0);
     assert(iface->createTexture);
@@ -1735,7 +1735,7 @@ EGLAPI EGLBoolean EGLAPIENTRY eglLoadAllImages(EGLDisplay display,
     return EGL_TRUE;
 }
 
-EGLAPI EGLBoolean EGLAPIENTRY eglPostLoadAllImages(EGLDisplay display, EGLStream stream) {
+EGLAPI EGLBoolean EGLAPIENTRY eglPostLoadAllImages(EGLDisplay display, EGLStreamKHR stream) {
     VALIDATE_DISPLAY(display);
     android::base::Stream* stm = static_cast<android::base::Stream*>(stream);
     dpy->postLoadAllImages(stm);
