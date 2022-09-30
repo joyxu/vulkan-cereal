@@ -1939,8 +1939,6 @@ bool readColorBufferToGl(uint32_t colorBufferHandle) {
         return false;
     }
 
-    auto vk = sVkEmulation->dvk;
-
     AutoLock lock(sVkEmulationLock);
 
     auto colorBufferInfo = android::base::find(sVkEmulation->colorBuffers, colorBufferHandle);
@@ -1985,8 +1983,6 @@ bool readColorBufferToBytes(uint32_t colorBufferHandle, uint32_t x, uint32_t y, 
         VK_COMMON_ERROR("VkEmulation not available.");
         return false;
     }
-
-    auto vk = sVkEmulation->dvk;
 
     AutoLock lock(sVkEmulationLock);
     return readColorBufferToBytesLocked(colorBufferHandle, x, y, w, h, outPixels);
@@ -2173,7 +2169,6 @@ bool updateColorBufferFromBytes(uint32_t colorBufferHandle, uint32_t x, uint32_t
         return false;
     }
 
-    auto vk = sVkEmulation->dvk;
     AutoLock lock(sVkEmulationLock);
     return updateColorBufferFromBytesLocked(colorBufferHandle, x, y, w, h, pixels);
 }
