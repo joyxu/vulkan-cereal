@@ -42,9 +42,9 @@
 
 #include "VulkanDispatch.h"
 #include "base/synchronization/Lock.h"
-#include "common/vk_struct_id.h"
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"
+#include "vulkan/cereal/common/vk_struct_id.h"
 #include "vk_fn_info.h"
 
 struct vk_struct_common {

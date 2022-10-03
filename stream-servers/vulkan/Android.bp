@@ -32,7 +32,6 @@ cc_library_static {
         "-Wno-unreachable-code-loop-increment",
     ],
     srcs: [
-        "AstcCpuDecompressorNoOp.cpp",
         "BorrowedImageVk.cpp",
         "CompositorVk.cpp",
         "DebugUtilsHelper.cpp",
