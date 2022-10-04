@@ -36,7 +36,7 @@ class DisplaySurfaceGlContextHelper : public ContextHelper {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
                 << "DisplaySurfaceGlContextHelper created with no display?";
         }
-        if (mSurface == EGL_NO_DISPLAY) {
+        if (mSurface == EGL_NO_SURFACE) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
                 << "DisplaySurfaceGlContextHelper created with no surface?";
         }
@@ -55,7 +55,7 @@ class DisplaySurfaceGlContextHelper : public ContextHelper {
             currentDrawSurface != mSurface ||
             currentReadSurface != mSurface) {
             if (!s_egl.eglMakeCurrent(mDisplay, mSurface, mSurface, mContext)) {
-                ERR("Failed to make display surface context current.");
+                ERR("Failed to make display surface context current: %d", s_egl.eglGetError());
                 return false;
             }
         }
@@ -81,7 +81,7 @@ class DisplaySurfaceGlContextHelper : public ContextHelper {
                                       mPreviousDrawSurface,
                                       mPreviousReadSurface,
                                       mPreviousContext)) {
-                ERR("Failed to make restore previous context.");
+                ERR("Failed to make restore previous context: %d", s_egl.eglGetError());
                 return;
             }
         }
