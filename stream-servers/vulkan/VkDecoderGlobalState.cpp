@@ -21,7 +21,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "AstcCpuDecompressor.h"
+#include "compressedTextureFormats/AstcCpuDecompressor.h"
 #include "DecompressionShaders.h"
 #include "FrameBuffer.h"
 #include "VkAndroidNativeBuffer.h"
