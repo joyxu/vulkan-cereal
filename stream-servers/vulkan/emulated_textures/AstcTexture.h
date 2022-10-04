@@ -52,6 +52,7 @@ class AstcTexture {
     uint32_t mBlockHeight;
     VkBuffer mDecompBuffer = VK_NULL_HANDLE;              // VkBuffer of the decompressed image
     VkDeviceMemory mDecompBufferMemory = VK_NULL_HANDLE;  // Memory of the decompressed image
+    uint64_t mBufferSize = 0;                             // Size of the decompressed image
     AstcCpuDecompressor* mDecompressor;
 };
 

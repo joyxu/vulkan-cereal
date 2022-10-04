@@ -32,6 +32,7 @@ constexpr uint64_t kProcessedPixelsLogInterval = 10'000'000;
 
 std::atomic<uint64_t> pixels_processed = 0;
 std::atomic<uint64_t> ms_elapsed = 0;
+std::atomic<int64_t> bytes_used = 0;
 
 uint32_t mipmapSize(uint32_t size, uint32_t mipLevel) {
     return std::max<uint32_t>(size >> mipLevel, 1);
@@ -76,6 +77,8 @@ bool AstcTexture::canDecompressOnCpu() const { return mDecompressor->available()
 
 uint8_t* AstcTexture::createVkBufferAndMapMemory(size_t bufferSize) {
     VkResult res;
+    mBufferSize = bufferSize;  // Save the buffer size, for statistics purpose only
+    bytes_used += bufferSize;
 
     if (mDecompBuffer || mDecompBufferMemory) {
         WARN(
@@ -144,6 +147,7 @@ uint8_t* AstcTexture::createVkBufferAndMapMemory(size_t bufferSize) {
 }
 
 void AstcTexture::destroyVkBuffer() {
+    bytes_used -= mBufferSize;
     if (mVk && mDevice) {
         mVk->vkDestroyBuffer(mDevice, mDecompBuffer, nullptr);
         mVk->vkFreeMemory(mDevice, mDecompBufferMemory, nullptr);
@@ -242,9 +246,9 @@ void AstcTexture::on_vkCmdCopyBufferToImage(VkCommandBuffer commandBuffer, uint8
     if (total_pixels >= kProcessedPixelsLogInterval && total_time > 0) {
         pixels_processed.store(0);
         ms_elapsed.store(0);
-        INFO("ASTC CPU decompression: %.2f Mpix in %.2f seconds (%.2f Mpix/s)",
+        INFO("ASTC CPU decompression: %.2f Mpix in %.2f seconds (%.2f Mpix/s). Total mem: %.2f MB",
              total_pixels / 1'000'000.0, total_time / 1000.0,
-             (float)total_pixels / total_time / 1000.0);
+             (float)total_pixels / total_time / 1000.0, bytes_used / 1000000.0);
     }
 }
 
