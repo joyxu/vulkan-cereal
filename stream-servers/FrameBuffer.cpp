@@ -1631,8 +1631,8 @@ HandleType FrameBuffer::createColorBufferWithHandleLocked(
             }
         }
     } else {
+        ERR("Failed to create color buffer %d", handle);
         handle = 0;
-        ERR("Create color buffer failed.\n");
     }
     return handle;
 }
