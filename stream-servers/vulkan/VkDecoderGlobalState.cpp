@@ -3680,8 +3680,11 @@ class VkDecoderGlobalState::Impl {
             uint32_t handleType;
             struct VulkanInfo vulkanInfo = {
                     .memoryIndex = info->memoryIndex,
-                    .physicalDeviceIndex = m_emu->physicalDeviceIndex,
             };
+            memcpy(vulkanInfo.deviceUUID, m_emu->deviceInfo.idProps.deviceUUID,
+                   sizeof(vulkanInfo.deviceUUID));
+            memcpy(vulkanInfo.driverUUID, m_emu->deviceInfo.idProps.driverUUID,
+                   sizeof(vulkanInfo.driverUUID));
 
 #ifdef __unix__
             VkMemoryGetFdInfoKHR getFd = {
