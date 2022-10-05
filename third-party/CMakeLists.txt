@@ -32,6 +32,7 @@ add_subdirectory(googletest)
 set(PROJECT_TO_FETCH)
 
 if(NOT TARGET aemu_common)
+    set(AEMU_COMMON_BUILD_CONFIG "gfxstream" CACHE STRING "")
     if(DEPENDENCY_RESOLUTION STREQUAL "AOSP")
         set(AEMU_COMMON_PATH ${PROJECT_SOURCE_DIR}/../../../hardware/google/aemu)
         if(EXISTS ${AEMU_COMMON_PATH})
