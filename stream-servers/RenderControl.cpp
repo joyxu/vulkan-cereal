@@ -32,7 +32,7 @@
 #include "RenderThreadInfo.h"
 #include "RenderThreadInfoGl.h"
 #include "SyncThread.h"
-#include "base/Tracing.h"
+#include "aemu/base/Tracing.h"
 #include "host-common/dma_device.h"
 #include "host-common/feature_control.h"
 #include "host-common/misc.h"

@@ -19,7 +19,7 @@
 
 #include "IOStream.h"
 #include "VkDecoder.h"
-#include "base/containers/EntityManager.h"
+#include "aemu/base/containers/EntityManager.h"
 
 #define DEBUG_RECONSTRUCTION 0
 

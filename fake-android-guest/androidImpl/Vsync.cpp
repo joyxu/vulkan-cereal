@@ -13,10 +13,10 @@
 // limitations under the License.
 #include "Vsync.h"
 
-#include "base/synchronization/ConditionVariable.h"
-#include "base/synchronization/Lock.h"
-#include "base/system/System.h"
-#include "base/threads/FunctorThread.h"
+#include "aemu/base/synchronization/ConditionVariable.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/system/System.h"
+#include "aemu/base/threads/FunctorThread.h"
 
 #include <atomic>
 #include <memory>

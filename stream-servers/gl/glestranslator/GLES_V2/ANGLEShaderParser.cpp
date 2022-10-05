@@ -15,7 +15,7 @@
 #include "ANGLEShaderParser.h"
 #include "ShaderTranslator.h"
 
-#include "base/synchronization/Lock.h"
+#include "aemu/base/synchronization/Lock.h"
 
 #include <map>
 #include <string>

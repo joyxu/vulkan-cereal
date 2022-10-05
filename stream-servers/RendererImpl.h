@@ -17,10 +17,10 @@
 
 #include "RenderWindow.h"
 
-#include "base/Compiler.h"
-#include "base/synchronization/Lock.h"
-#include "base/synchronization/MessageChannel.h"
-#include "base/threads/FunctorThread.h"
+#include "aemu/base/Compiler.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/synchronization/MessageChannel.h"
+#include "aemu/base/threads/FunctorThread.h"
 #include "snapshot/common.h"
 
 #include "RenderThread.h"

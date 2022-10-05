@@ -15,7 +15,7 @@
 
 #include "render-utils/RenderLib.h"
 
-#include "base/Compiler.h"
+#include "aemu/base/Compiler.h"
 #include "host-common/vm_operations.h"
 #include "host-common/misc.h"
 

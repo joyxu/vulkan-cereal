@@ -17,8 +17,8 @@
 #include <GLcommon/ObjectNameSpace.h>
 #include <GLcommon/GLEScontext.h>
 
-#include "base/synchronization/Lock.h"
-#include "base/containers/Lookup.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/containers/Lookup.h"
 #include "GLcommon/FramebufferData.h"
 
 #include "host-common/logging.h"

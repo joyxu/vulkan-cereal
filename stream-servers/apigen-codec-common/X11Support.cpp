@@ -1,6 +1,6 @@
 #include "X11Support.h"
 
-#include "base/SharedLibrary.h"
+#include "aemu/base/SharedLibrary.h"
 
 #define DEFINE_DUMMY_IMPL(rettype, funcname, args) \
     static rettype dummy_##funcname args { \

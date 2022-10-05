@@ -14,8 +14,8 @@
 
 #include "RenderWindow.h"
 
-#include "base/threads/Thread.h"
-#include "base/synchronization/MessageChannel.h"
+#include "aemu/base/threads/Thread.h"
+#include "aemu/base/synchronization/MessageChannel.h"
 #include "host-common/logging.h"
 #include "FrameBuffer.h"
 #include "RendererImpl.h"

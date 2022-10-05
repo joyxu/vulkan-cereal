@@ -15,11 +15,11 @@
 */
 #pragma once
 
-#include "base/containers/Lookup.h"
-#include "base/files/Stream.h"
-#include "base/files/StreamSerializing.h"
-#include "base/synchronization/Lock.h"
-#include "base/Compiler.h"
+#include "aemu/base/containers/Lookup.h"
+#include "aemu/base/files/Stream.h"
+#include "aemu/base/files/StreamSerializing.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/Compiler.h"
 
 #include <algorithm>
 #include <cstdint>

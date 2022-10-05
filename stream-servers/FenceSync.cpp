@@ -24,10 +24,10 @@
 #include "RenderThreadInfo.h"
 #include "StalePtrRegistry.h"
 
-#include "base/containers/Lookup.h"
-#include "base/containers/StaticMap.h"
-#include "base/files/StreamSerializing.h"
-#include "base/synchronization/Lock.h"
+#include "aemu/base/containers/Lookup.h"
+#include "aemu/base/containers/StaticMap.h"
+#include "aemu/base/files/StreamSerializing.h"
+#include "aemu/base/synchronization/Lock.h"
 
 using android::base::AutoLock;
 using android::base::Lock;

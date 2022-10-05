@@ -17,7 +17,7 @@
 #include <optional>
 #include <string>
 
-#include "base/files/Stream.h"
+#include "aemu/base/files/Stream.h"
 #include "gl/gles1_dec/GLESv1Decoder.h"
 #include "gl/gles2_dec/GLESv2Decoder.h"
 #include "Handle.h"

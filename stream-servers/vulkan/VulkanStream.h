@@ -19,9 +19,9 @@
 #include <vector>
 
 #include "VulkanHandleMapping.h"
-#include "base/BumpPool.h"
-#include "base/files/Stream.h"
-#include "base/files/StreamSerializing.h"
+#include "aemu/base/BumpPool.h"
+#include "aemu/base/files/Stream.h"
+#include "aemu/base/files/StreamSerializing.h"
 #include "common/goldfish_vk_private_defs.h"
 
 #define E(fmt, ...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)

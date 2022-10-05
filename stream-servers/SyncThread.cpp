@@ -17,9 +17,9 @@
 #include "SyncThread.h"
 
 #include "OpenGLESDispatch/OpenGLDispatchLoader.h"
-#include "base/Metrics.h"
-#include "base/system/System.h"
-#include "base/threads/Thread.h"
+#include "aemu/base/Metrics.h"
+#include "aemu/base/system/System.h"
+#include "aemu/base/threads/Thread.h"
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/crash_reporter.h"
 #include "host-common/logging.h"

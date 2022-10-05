@@ -19,10 +19,10 @@
 #include "VulkanDispatch.h"
 #include "host-common/feature_control.h"
 
-#include "base/ArraySize.h"
-#include "base/GLObjectCounter.h"
-#include "base/files/PathUtils.h"
-#include "base/system/System.h"
+#include "aemu/base/ArraySize.h"
+#include "aemu/base/GLObjectCounter.h"
+#include "aemu/base/files/PathUtils.h"
+#include "aemu/base/system/System.h"
 #include "base/testing/TestSystem.h"
 #include "host-common/GraphicsAgentFactory.h"
 #include "host-common/testing/MockGraphicsAgentFactory.h"
@@ -35,7 +35,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#include "base/system/Win32UnicodeString.h"
+#include "aemu/base/system/Win32UnicodeString.h"
 using android::base::Win32UnicodeString;
 #else
 #include <dlfcn.h>

@@ -17,7 +17,7 @@
 #ifndef SHADER_PARSER_H
 #define SHADER_PARSER_H
 
-#include "base/synchronization/Lock.h"
+#include "aemu/base/synchronization/Lock.h"
 #include "ANGLEShaderParser.h"
 #include "GLESv2Context.h"
 #include <string>

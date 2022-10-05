@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "base/containers/HybridComponentManager.h"
-#include "base/synchronization/Lock.h"
+#include "aemu/base/containers/HybridComponentManager.h"
+#include "aemu/base/synchronization/Lock.h"
 #include "snapshot/common.h"
 #include "GLcommon/GLBackgroundLoader.h"
 #include "GLcommon/NamedObject.h"
