@@ -32,11 +32,11 @@ cc_library_static {
         "-Wno-unreachable-code-loop-increment",
     ],
     srcs: [
-        "AstcCpuDecompressorNoOp.cpp",
         "BorrowedImageVk.cpp",
         "CompositorVk.cpp",
         "DebugUtilsHelper.cpp",
         "DisplayVk.cpp",
+        "DisplaySurfaceVk.cpp",
         "SwapChainStateVk.cpp",
         "VkAndroidNativeBuffer.cpp",
         "VkCommonOperations.cpp",

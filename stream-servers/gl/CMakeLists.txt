@@ -10,6 +10,8 @@ add_subdirectory(glestranslator)
 
 add_library(gfxstream-gl-server
             CompositorGl.cpp
+            DisplayGl.cpp
+            DisplaySurfaceGl.cpp
             EmulatedEglConfig.cpp
             GLESVersionDetector.cpp
             RenderContext.cpp

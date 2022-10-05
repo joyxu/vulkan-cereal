@@ -15,7 +15,7 @@
 
 #include <memory>
 
-#include "common/goldfish_vk_dispatch.h"
+#include "vulkan/cereal/common/goldfish_vk_dispatch.h"
 #include "vulkan/vulkan.h"
 
 namespace goldfish_vk {

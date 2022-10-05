@@ -21,7 +21,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "AstcCpuDecompressor.h"
+#include "compressedTextureFormats/AstcCpuDecompressor.h"
 #include "DecompressionShaders.h"
 #include "FrameBuffer.h"
 #include "VkAndroidNativeBuffer.h"
@@ -3676,7 +3676,6 @@ class VkDecoderGlobalState::Impl {
         if (feature_is_enabled(kFeature_ExternalBlob)) {
             VkResult result;
             auto device = unbox_VkDevice(boxed_device);
-            auto deviceDispatch = dispatch_VkDevice(boxed_device);
             DescriptorType handle;
             uint32_t handleType;
             struct VulkanInfo vulkanInfo = {

@@ -171,6 +171,7 @@ int EmulatedEglConfigList::chooseConfig(const EGLint* attribs,
     bool wantSwapPreserved = false;
     int surfaceTypeIdx = 0;
     int numAttribs = 0;
+    std::vector<EGLint> newAttribs;
     while (attribs[numAttribs] != EGL_NONE) {
         if (attribs[numAttribs] == EGL_SURFACE_TYPE) {
             hasSurfaceType = true;
@@ -194,8 +195,10 @@ int EmulatedEglConfigList::chooseConfig(const EGLint* attribs,
         numAttribs += 2;
     }
 
-    std::vector<EGLint> newAttribs(numAttribs);
-    memcpy(&newAttribs[0], attribs, numAttribs * sizeof(EGLint));
+    if (numAttribs) {
+        newAttribs.resize(numAttribs);
+        memcpy(&newAttribs[0], attribs, numAttribs * sizeof(EGLint));
+    }
 
     int apiLevel;
     emugl::getAvdInfo(NULL, &apiLevel);
