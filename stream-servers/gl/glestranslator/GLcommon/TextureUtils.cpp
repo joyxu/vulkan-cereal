@@ -22,10 +22,10 @@
 #include <memory>
 
 #include "base/AlignedBuf.h"
-
-#include <astc-codec/astc-codec.h>
+#include "compressedTextureFormats/AstcCpuDecompressor.h"
 
 using android::AlignedBuf;
+using goldfish_vk::AstcCpuDecompressor;
 
 #define GL_R16 0x822A
 #define GL_RG16 0x822C
@@ -35,34 +35,34 @@ using android::AlignedBuf;
 static constexpr size_t kASTCFormatsCount = 28;
 
 #define ASTC_FORMATS_LIST(EXPAND_MACRO) \
-    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_4x4_KHR, astc_codec::FootprintType::k4x4, false) \
-    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_5x4_KHR, astc_codec::FootprintType::k5x4, false) \
-    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_5x5_KHR, astc_codec::FootprintType::k5x5, false) \
-    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_6x5_KHR, astc_codec::FootprintType::k6x5, false) \
-    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_6x6_KHR, astc_codec::FootprintType::k6x6, false) \
-    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_8x5_KHR, astc_codec::FootprintType::k8x5, false) \
-    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_8x6_KHR, astc_codec::FootprintType::k8x6, false) \
-    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_8x8_KHR, astc_codec::FootprintType::k8x8, false) \
-    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_10x5_KHR, astc_codec::FootprintType::k10x5, false) \
-    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_10x6_KHR, astc_codec::FootprintType::k10x6, false) \
-    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_10x8_KHR, astc_codec::FootprintType::k10x8, false) \
-    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_10x10_KHR, astc_codec::FootprintType::k10x10, false) \
-    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_12x10_KHR, astc_codec::FootprintType::k12x10, false) \
-    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_12x12_KHR, astc_codec::FootprintType::k12x12, false) \
-    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR, astc_codec::FootprintType::k4x4, true) \
-    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR, astc_codec::FootprintType::k5x4, true) \
-    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR, astc_codec::FootprintType::k5x5, true) \
-    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR, astc_codec::FootprintType::k6x5, true) \
-    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR, astc_codec::FootprintType::k6x6, true) \
-    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR, astc_codec::FootprintType::k8x5, true) \
-    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR, astc_codec::FootprintType::k8x6, true) \
-    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR, astc_codec::FootprintType::k8x8, true) \
-    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR, astc_codec::FootprintType::k10x5, true) \
-    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR, astc_codec::FootprintType::k10x6, true) \
-    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR, astc_codec::FootprintType::k10x8, true) \
-    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR, astc_codec::FootprintType::k10x10, true) \
-    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR, astc_codec::FootprintType::k12x10, true) \
-    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR, astc_codec::FootprintType::k12x12, true) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_4x4_KHR, 4, 4, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_5x4_KHR, 5, 4, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_5x5_KHR, 5, 5, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_6x5_KHR, 6, 5, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_6x6_KHR, 6, 6, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_8x5_KHR, 8, 5, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_8x6_KHR, 8, 6, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_8x8_KHR, 8, 8, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_10x5_KHR, 10, 5, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_10x6_KHR, 10, 6, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_10x8_KHR, 10, 8, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_10x10_KHR, 10, 10, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_12x10_KHR, 12, 10, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_12x12_KHR, 12, 12, false) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR, 4, 4, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR, 5, 4, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR, 5, 5, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR, 6, 5, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR, 6, 6, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR, 8, 5, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR, 8, 6, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR, 8, 8, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR, 10, 5, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR, 10, 6, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR, 10, 8, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR, 10, 10, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR, 12, 10, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR, 12, 12, true) \
 
 int getCompressedFormats(int majorVersion, int* formats) {
     static constexpr size_t kCount = MAX_SUPPORTED_PALETTE + MAX_ETC_SUPPORTED + kASTCFormatsCount;
@@ -104,7 +104,7 @@ int getCompressedFormats(int majorVersion, int* formats) {
         formats[i++] = GL_COMPRESSED_R11_EAC;
 
         // ASTC
-#define ASTC_FORMAT(typeName, footprintType, srgbValue) \
+#define ASTC_FORMAT(typeName, blockWidth, blockHeight, srgbValue) \
         formats[i++] = typeName;
 
         ASTC_FORMATS_LIST(ASTC_FORMAT)
@@ -151,13 +151,11 @@ ETC2ImageFormat getEtcFormat(GLenum internalformat) {
     return etcFormat;
 }
 
-void getAstcFormatInfo(GLenum internalformat,
-                       astc_codec::FootprintType* footprint,
-                       bool* srgb) {
+void getAstcFormatInfo(GLenum internalformat, uint32_t* width, uint32_t* height, bool* srgb) {
     switch (internalformat) {
-#define ASTC_FORMAT(typeName, footprintType, srgbValue) \
+#define ASTC_FORMAT(typeName, blockWidth, blockHeight, srgbValue) \
         case typeName: \
-            *footprint = footprintType; *srgb = srgbValue; break; \
+            *width = blockWidth; *height = blockHeight; *srgb = srgbValue; break; \
 
         ASTC_FORMATS_LIST(ASTC_FORMAT)
 #undef ASTC_FORMAT
@@ -167,22 +165,26 @@ void getAstcFormatInfo(GLenum internalformat,
     }
 }
 
-void getAstcFormats(const GLint** formats, size_t* formatsCount) {
-    static constexpr GLint kATSCFormats[] = {
-#define ASTC_FORMAT(typeName, footprintType, srgbValue) \
-        typeName,
-
-        ASTC_FORMATS_LIST(ASTC_FORMAT)
-#undef ASTC_FORMAT
-    };
-
-    *formats = kATSCFormats;
-    *formatsCount = sizeof(kATSCFormats) / sizeof(kATSCFormats[0]);
+// Helper function to decompress an ASTC image.
+bool astcDecompress(const uint8_t* astcData, size_t astcDataSize, uint32_t width, uint32_t height,
+                    uint32_t blockWidth, uint32_t blockHeight, uint8_t* outBuffer,
+                    size_t outBufferSize) {
+    if (outBufferSize < width * height * 4) {
+        WARN("ASTC output buffer too small: %d bytes for %d x %d", outBufferSize, width, height);
+        return false;
+    }
+    int32_t status = AstcCpuDecompressor::get().decompress(width, height, blockWidth, blockHeight,
+                                                           astcData, astcDataSize, outBuffer);
+    if (status != 0) {
+        WARN("astc decompression failed: %s", AstcCpuDecompressor::get().getStatusString(status));
+        return false;
+    }
+    return true;
 }
 
 bool isAstcFormat(GLenum internalformat) {
     switch (internalformat) {
-#define ASTC_FORMAT(typeName, footprintType, srgbValue) \
+#define ASTC_FORMAT(typeName, blockWidth, blockHeight, srgbValue) \
         case typeName:
 
         ASTC_FORMATS_LIST(ASTC_FORMAT)
@@ -505,9 +507,10 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
                 data = new char[imageSize];
             }
         }
-        astc_codec::FootprintType footprint;
+        uint32_t blockWidth = 0;
+        uint32_t blockHeight = 0;
         bool srgb;
-        getAstcFormatInfo(internalformat, &footprint, &srgb);
+        getAstcFormatInfo(internalformat, &blockWidth, &blockHeight, &srgb);
 
         const int32_t align = unpackAlignment - 1;
         const int32_t stride = ((width * 4) + align) & ~align;
@@ -515,10 +518,9 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
 
         AlignedBuf<uint8_t, 64> alignedUncompressedData(size);
 
-        const bool result = astc_codec::ASTCDecompressToRGBA(
+        const bool result = astcDecompress(
                 reinterpret_cast<const uint8_t*>(data), imageSize, width,
-                height, footprint, alignedUncompressedData.data(), size,
-                stride);
+                height, blockWidth, blockHeight, alignedUncompressedData.data(), size);
         SET_ERROR_IF(!result, GL_INVALID_VALUE);
 
         glTexImage2DPtr(target, level, srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8, width,
@@ -846,7 +848,7 @@ void forEachEtc2Format(std::function<void(GLint format)> f) {
 
 void forEachAstcFormat(std::function<void(GLint format)> f) {
 
-#define CALL_ON_ASTC_FORMAT(typeName, footprintType, srgbValue) \
+#define CALL_ON_ASTC_FORMAT(typeName, blockWidth, blockHeight, srgbValue) \
     f(typeName);
 
     ASTC_FORMATS_LIST(CALL_ON_ASTC_FORMAT)

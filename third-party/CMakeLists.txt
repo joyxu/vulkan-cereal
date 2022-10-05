@@ -1,8 +1,5 @@
 add_subdirectory(angle)
 
-# TODO(gregschlom) Remove this in favor of astc-encoder
-add_subdirectory(astc-codec)
-
 # Configure and add `astc-encoder`, if needed
 if (ASTC_CPU_DECODING)
     set(DECOMPRESSOR ON)   # Disable compression code
