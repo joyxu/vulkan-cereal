@@ -43,7 +43,6 @@ cc_library_shared {
         "gfxstream_vulkan_server",
         "gfxstream_renderControl_dec",
         "gfxstream_dispatch",
-        "gfxstream_astc_codec",
         "gfxstream_lz4",
         "gfxstream_glm",
         "gfxstream_compressedTextures",

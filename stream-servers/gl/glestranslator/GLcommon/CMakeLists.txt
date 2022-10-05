@@ -32,7 +32,7 @@ target_link_libraries(
     gfxstream-base.headers
     gfxstream-host-common.headers
     gfxstream-snapshot.headers
-    astc-codec)
+    gfxstream-compressedTextures)
 if (NOT MSVC)
     target_compile_options(GLcommon PRIVATE -fvisibility=hidden)
 endif()

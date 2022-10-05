@@ -16,12 +16,8 @@ cc_library_static {
         "-Wno-unused-parameter",
         "-Wno-unused-function",
     ],
-    header_libs: [
-        "gfxstream_astc_codec_headers",
-    ],
     static_libs: [
         "gfxstream_base",
-        "gfxstream_astc_codec",
     ],
     srcs: [
         "etc.cpp",
