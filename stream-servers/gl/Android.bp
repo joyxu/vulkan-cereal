@@ -13,8 +13,6 @@ cc_library_static {
     defaults: [ "gfxstream_defaults" ],
     srcs: [
         "CompositorGl.cpp",
-        "DisplayGl.cpp",
-        "DisplaySurfaceGl.cpp",
         "EmulatedEglConfig.cpp",
         "GLESVersionDetector.cpp",
         "RenderContext.cpp",

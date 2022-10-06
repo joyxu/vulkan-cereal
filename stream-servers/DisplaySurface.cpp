@@ -31,9 +31,9 @@ DisplaySurface::DisplaySurface(uint32_t width,
       mImpl(std::move(impl)) {}
 
 DisplaySurface::~DisplaySurface() {
-    if (!mBoundUsers.empty()) {
+    if (mBoundDisplay) {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "DisplaySurface destroyed while there are still users!";
+            << "DisplaySurface destroyed while still bound to a Display!";
     }
 }
 
@@ -53,12 +53,14 @@ void DisplaySurface::updateSize(uint32_t newWidth, uint32_t newHeight) {
     mHeight = newHeight;
 }
 
-void DisplaySurface::registerUser(DisplaySurfaceUser* user) {
-    mBoundUsers.insert(user);
+void DisplaySurface::registerBoundDisplay(Display* display) {
+    mBoundDisplay = display;
 }
 
-void DisplaySurface::unregisterUser(DisplaySurfaceUser* user) {
-    mBoundUsers.erase(user);
+void DisplaySurface::unregisterBoundDisplay(Display* display) {
+    if (display == mBoundDisplay) {
+        mBoundDisplay = nullptr;
+    }
 }
 
 }  // namespace gfxstream
