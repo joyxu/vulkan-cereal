@@ -1633,9 +1633,10 @@ public:
         const auto& entry = it->second;
         if (entry.descriptorInfo && entry.descriptorInfo->vulkanInfoOpt) {
             vulkan_info->memory_index = (*entry.descriptorInfo->vulkanInfoOpt).memoryIndex;
-            vulkan_info->physical_device_index =
-                (*entry.descriptorInfo->vulkanInfoOpt).physicalDeviceIndex;
-
+            memcpy(vulkan_info->device_uuid, (*entry.descriptorInfo->vulkanInfoOpt).deviceUUID,
+                   sizeof(vulkan_info->device_uuid));
+            memcpy(vulkan_info->driver_uuid, (*entry.descriptorInfo->vulkanInfoOpt).driverUUID,
+                   sizeof(vulkan_info->driver_uuid));
             return 0;
         }
 

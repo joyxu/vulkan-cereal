@@ -155,10 +155,9 @@ VG_EXPORT int stream_renderer_platform_destroy_shared_egl_context(void*);
 VG_EXPORT int stream_renderer_resource_map_info(uint32_t res_handle, uint32_t *map_info);
 
 struct stream_renderer_vulkan_info {
-    // This may be removed eventually [TODO(idanr): investigate)]
     uint32_t memory_index;
-    // This may be changed to device UUID instead [TODO(idanr): investigate)]
-    uint32_t physical_device_index;
+    uint8_t device_uuid[16];
+    uint8_t driver_uuid[16];
 };
 
 VG_EXPORT int stream_renderer_vulkan_info(uint32_t res_handle,
