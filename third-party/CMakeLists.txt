@@ -1,8 +1,5 @@
 add_subdirectory(angle)
 
-# TODO(gregschlom) Remove this in favor of astc-encoder
-add_subdirectory(astc-codec)
-
 # Configure and add `astc-encoder`, if needed
 if (ASTC_CPU_DECODING)
     set(DECOMPRESSOR ON)   # Disable compression code
@@ -32,6 +29,7 @@ add_subdirectory(googletest)
 set(PROJECT_TO_FETCH)
 
 if(NOT TARGET aemu_common)
+    set(AEMU_COMMON_BUILD_CONFIG "gfxstream" CACHE STRING "")
     if(DEPENDENCY_RESOLUTION STREQUAL "AOSP")
         set(AEMU_COMMON_PATH ${PROJECT_SOURCE_DIR}/../../../hardware/google/aemu)
         if(EXISTS ${AEMU_COMMON_PATH})

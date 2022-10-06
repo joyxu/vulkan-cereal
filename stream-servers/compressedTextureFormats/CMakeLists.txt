@@ -9,21 +9,32 @@ add_library(
     ${astc-cpu-decompressor-sources}
     etc.cpp)
 target_include_directories(
-    gfxstream-compressedTextures PUBLIC ../
-    ${GFXSTREAM_REPO_ROOT}/vulkan
-    ${GFXSTREAM_REPO_ROOT}/vulkan/cereal
-    PRIVATE
-    ${GFXSTREAM_REPO_ROOT}
-    ${GFXSTREAM_REPO_ROOT}/include
-    ${GFXSTREAM_REPO_ROOT}/stream-servers
-    ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan
-)
-
+    gfxstream-compressedTextures PUBLIC ../)
 
 target_link_libraries(gfxstream-compressedTextures PRIVATE
-    gfxstream-base.headers
-    gfxstream_vulkan_headers)
+    gfxstream-base.headers)
 
 if(ASTC_CPU_DECODING)
     target_link_libraries(gfxstream-compressedTextures PRIVATE astcdec-avx2-static)
 endif()
+
+
+add_executable(
+    gfxstream-compressedTextures_unittests
+    AstcCpuDecompressor_unittest.cpp)
+
+target_include_directories(
+    gfxstream-compressedTextures_unittests
+    PRIVATE
+    ${GFXSTREAM_REPO_ROOT}/include)
+
+target_link_libraries(
+    gfxstream-compressedTextures_unittests
+    PRIVATE
+    gfxstream-base.headers
+    gfxstream-compressedTextures
+    ${GFXSTREAM_BASE_LIB}
+    gtest_main
+    gmock_main)
+
+gtest_discover_tests(gfxstream-compressedTextures_unittests)

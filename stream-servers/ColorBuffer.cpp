@@ -1199,12 +1199,6 @@ std::unique_ptr<BorrowedImageInfo> ColorBuffer::getBorrowedImageInfo() {
     info->width = m_width;
     info->height = m_height;
     info->texture = m_tex;
-    info->onCommandsIssued = [this]() {
-        RecursiveScopedContextBind contextBind(m_helper);
-        if (!contextBind.isOk()) {
-            return;
-        }
-        setSync();
-    };
+    info->onCommandsIssued = [this]() { setSync(); };
     return info;
 }

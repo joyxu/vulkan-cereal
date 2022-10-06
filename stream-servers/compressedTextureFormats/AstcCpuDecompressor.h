@@ -14,34 +14,42 @@
 #pragma once
 
 #include <memory>
-
-#include "vulkan/cereal/common/goldfish_vk_dispatch.h"
-#include "vulkan/vulkan.h"
+#include <string>
 
 namespace goldfish_vk {
 
-// This class is responsible for handling ASTC texture decompression on the CPU, if the GPU
-// doesn't support ASTC textures.
+// This class is responsible for decompressing ASTC textures on the CPU.
+// This class is thread-safe and all its methods can be called by any thread.
 class AstcCpuDecompressor {
    public:
+    // Returns the global singleton instance of this class.
+    static AstcCpuDecompressor& get();
+
     virtual ~AstcCpuDecompressor() = default;
 
-    virtual bool initialized() const = 0;  // Whether initialize() was successful.
-    virtual bool successful() const = 0;   // Whether we successfully decompressed the image.
+    // Whether the ASTC decompressor is available. Reasons why it may not be available include:
+    //   - It wasn't compiled on this platform.
+    //   - The CPU doesn't support AVX2 instructions.
+    // If this returns false, decompress() will fail.
+    virtual bool available() const = 0;
 
-    virtual void initialize(VulkanDispatch* vk, VkDevice device, VkPhysicalDevice physicalDevice,
-                            VkExtent3D imgSize, uint32_t blockWidth, uint32_t blockHeight) = 0;
+    // Decompress an ASTC texture.
+    //
+    // imgWidth, imgHeight: width and height of the texture, in texels.
+    // blockWidth, blockHeight: ASTC encoding block size.
+    // astData: pointer to the ASTC data to decompress
+    // astcDataLength: size of astData
+    // output: where to white the decompressed output. This buffer must be able to hold at least
+    //         imgWidth * imgHeight * 4 bytes.
+    //
+    // Returns 0 on success, or a non-zero status code on error. Use getStatusString() to convert
+    // this status code to an error string.
+    virtual int32_t decompress(uint32_t imgWidth, uint32_t imgHeight, uint32_t blockWidth,
+                               uint32_t blockHeight, const uint8_t* astcData,
+                               size_t astcDataLength, uint8_t* output) = 0;
 
-    // Releases the resources used by this class.
-    // The object can be reused by calling initialize() again.
-    virtual void release() = 0;
-
-    virtual void on_vkCmdCopyBufferToImage(VkCommandBuffer commandBuffer, uint8_t* srcAstcData,
-                                           size_t astcDataSize, VkImage dstImage,
-                                           VkImageLayout dstImageLayout, uint32_t regionCount,
-                                           const VkBufferImageCopy* pRegions) = 0;
+    // Returns an error string for a given status code. Will always return non-null.
+    virtual const char* getStatusString(int32_t statusCode) const = 0;
 };
-
-std::unique_ptr<AstcCpuDecompressor> CreateAstcCpuDecompressor();
 
 }  // namespace goldfish_vk
