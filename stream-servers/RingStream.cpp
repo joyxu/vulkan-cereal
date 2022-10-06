@@ -13,7 +13,7 @@
 // limitations under the License.
 #include "RingStream.h"
 
-#include "base/system/System.h"
+#include "aemu/base/system/System.h"
 
 #define EMUGL_DEBUG_LEVEL  0
 

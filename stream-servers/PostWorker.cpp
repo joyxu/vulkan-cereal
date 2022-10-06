@@ -23,7 +23,7 @@
 #include "Debug.h"
 #include "FrameBuffer.h"
 #include "RenderThreadInfo.h"
-#include "base/Tracing.h"
+#include "aemu/base/Tracing.h"
 #include "gl/DisplayGl.h"
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"

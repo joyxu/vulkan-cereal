@@ -16,6 +16,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstring>
 #include <optional>
 #include <vector>
 

@@ -15,7 +15,7 @@
 */
 #include <GLcommon/GLutils.h>
 
-#include "base/synchronization/Lock.h"
+#include "aemu/base/synchronization/Lock.h"
 
 #include <GLES/gl.h>
 #include <GLES2/gl2.h>

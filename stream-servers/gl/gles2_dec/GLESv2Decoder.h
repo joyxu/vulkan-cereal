@@ -19,7 +19,7 @@
 
 #include "gles2_dec.h"
 #include "GLDecoderContextData.h"
-#include "base/SharedLibrary.h"
+#include "aemu/base/SharedLibrary.h"
 
 #include "GLSnapshot.h"
 

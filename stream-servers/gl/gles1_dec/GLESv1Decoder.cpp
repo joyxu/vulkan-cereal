@@ -15,7 +15,7 @@
 */
 #include "GLESv1Decoder.h"
 
-#include "base/synchronization/Lock.h"
+#include "aemu/base/synchronization/Lock.h"
 
 #include "OpenGLESDispatch/GLESv1Dispatch.h"
 

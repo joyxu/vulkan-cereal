@@ -15,12 +15,12 @@
 */
 #pragma once
 
-#include "base/files/MemStream.h"
-#include "base/Optional.h"
+#include "aemu/base/files/MemStream.h"
+#include "aemu/base/Optional.h"
 #include "host-common/address_space_graphics_types.h"
-#include "base/synchronization/ConditionVariable.h"
-#include "base/synchronization/Lock.h"
-#include "base/threads/Thread.h"
+#include "aemu/base/synchronization/ConditionVariable.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/threads/Thread.h"
 
 #include <atomic>
 #include <memory>

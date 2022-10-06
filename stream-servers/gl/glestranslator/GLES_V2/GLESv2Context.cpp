@@ -20,8 +20,8 @@
 #include "SamplerData.h"
 #include "ShaderParser.h"
 #include "TransformFeedbackData.h"
-#include "base/synchronization/Lock.h"
-#include "base/files/StreamSerializing.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/files/StreamSerializing.h"
 
 #include "host-common/crash_reporter.h"
 

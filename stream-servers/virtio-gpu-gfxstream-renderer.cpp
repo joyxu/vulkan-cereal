@@ -18,11 +18,11 @@
 #include <unordered_map>
 
 #include "VirtioGpuTimelines.h"
-#include "base/AlignedBuf.h"
-#include "base/synchronization/Lock.h"
-#include "base/memory/SharedMemory.h"
-#include "base/ManagedDescriptor.hpp"
-#include "base/Tracing.h"
+#include "aemu/base/AlignedBuf.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/memory/SharedMemory.h"
+#include "aemu/base/ManagedDescriptor.hpp"
+#include "aemu/base/Tracing.h"
 #include "host-common/AddressSpaceService.h"
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/HostmemIdMapping.h"

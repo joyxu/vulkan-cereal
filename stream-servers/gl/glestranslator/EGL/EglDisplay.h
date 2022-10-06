@@ -19,8 +19,8 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
-#include "base/synchronization/Lock.h"
-#include "base/files/Stream.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/files/Stream.h"
 #include "EglConfig.h"
 #include "EglContext.h"
 #include "EglOsApi.h"
