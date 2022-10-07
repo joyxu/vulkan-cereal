@@ -14,6 +14,7 @@
 #pragma once
 
 #include "compressedTextureFormats/AstcCpuDecompressor.h"
+#include "stream-servers/vulkan/VkDecoderContext.h"
 #include "vulkan/cereal/common/goldfish_vk_dispatch.h"
 #include "vulkan/vulkan.h"
 
@@ -37,7 +38,8 @@ class AstcTexture {
     void on_vkCmdCopyBufferToImage(VkCommandBuffer commandBuffer, uint8_t* srcAstcData,
                                    size_t astcDataSize, VkImage dstImage,
                                    VkImageLayout dstImageLayout, uint32_t regionCount,
-                                   const VkBufferImageCopy* pRegions);
+                                   const VkBufferImageCopy* pRegions,
+                                   const VkDecoderContext& context);
 
    private:
     uint8_t* createVkBufferAndMapMemory(size_t bufferSize);
