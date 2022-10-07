@@ -82,6 +82,8 @@ struct BufferRef {
     BufferPtr buffer;
 };
 
+struct ProcessResources {};
+
 typedef std::unordered_map<HandleType, std::pair<WindowSurfacePtr, HandleType>>
     WindowSurfaceMap;
 typedef std::unordered_set<HandleType> WindowSurfaceSet;
@@ -293,6 +295,12 @@ class FrameBuffer {
     // returned by createBuffer().
     void closeBuffer(HandleType p_colorbuffer);
 
+    // The caller mustn't refer to this puid before this function returns, i.e. the creation of the
+    // host process pipe must be blocked until this function returns.
+    void createGraphicsProcessResources(uint64_t puid);
+    // The process resource is returned so that we can destroy it on a separate thread.
+    std::unique_ptr<ProcessResources> removeGraphicsProcessResources(uint64_t puid);
+    // TODO(kaiyili): retire cleanupProcGLObjects in favor of removeGraphicsProcessResources.
     void cleanupProcGLObjects(uint64_t puid);
 
     // Equivalent for eglMakeCurrent() for the current display.
@@ -796,12 +804,14 @@ class FrameBuffer {
 
     // The host associates color buffers with guest processes for memory
     // cleanup. Guest processes are identified with a host generated unique ID.
+    // TODO(kaiyili): move all those resources to the ProcessResources struct.
     ProcOwnedWindowSurfaces m_procOwnedWindowSurfaces;
     ProcOwnedColorBuffers m_procOwnedColorBuffers;
     ProcOwnedEGLImages m_procOwnedEGLImages;
     ProcOwnedRenderContexts m_procOwnedRenderContext;
     ProcOwnedCleanupCallbacks m_procOwnedCleanupCallbacks;
     ProcOwnedSequenceNumbers m_procOwnedSequenceNumbers;
+    std::unordered_map<uint64_t, std::unique_ptr<ProcessResources>> m_procOwnedResources;
 
     // Flag set when emulator is shutting down.
     bool m_shuttingDown = false;

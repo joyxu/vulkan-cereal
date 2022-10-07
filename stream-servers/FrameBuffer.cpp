@@ -2113,6 +2113,29 @@ void FrameBuffer::eraseDelayedCloseColorBufferLocked(
     }
 }
 
+void FrameBuffer::createGraphicsProcessResources(uint64_t puid) {
+    AutoLock mutex(m_lock);
+    bool inserted =
+        m_procOwnedResources.try_emplace(puid, std::make_unique<ProcessResources>()).second;
+    if (!inserted) {
+        WARN("Failed to create process resource for puid %" PRIu64 ".", puid);
+    }
+}
+
+std::unique_ptr<ProcessResources> FrameBuffer::removeGraphicsProcessResources(uint64_t puid) {
+    std::unordered_map<uint64_t, std::unique_ptr<ProcessResources>>::node_type node;
+    {
+        AutoLock mutex(m_lock);
+        node = m_procOwnedResources.extract(puid);
+    }
+    if (node.empty()) {
+        WARN("Failed to find process resource for puid %" PRIu64 ".", puid);
+        return nullptr;
+    }
+    std::unique_ptr<ProcessResources> res = std::move(node.mapped());
+    return res;
+}
+
 void FrameBuffer::cleanupProcGLObjects(uint64_t puid) {
     bool renderThreadWithThisPuidExists = false;
 
