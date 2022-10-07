@@ -7419,7 +7419,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                             (unsigned long long)pRegions);
                 }
                 m_state->on_vkCmdCopyBufferToImage(&m_pool, commandBuffer, srcBuffer, dstImage,
-                                                   dstImageLayout, regionCount, pRegions);
+                                                   dstImageLayout, regionCount, pRegions, context);
                 vkStream->unsetHandleMapping();
                 vkReadStream->setReadPos((uintptr_t)(*readStreamPtrPtr) -
                                          (uintptr_t)snapshotTraceBegin);
