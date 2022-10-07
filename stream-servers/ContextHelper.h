@@ -25,6 +25,7 @@ class ContextHelper {
     virtual ~ContextHelper() = default;
     virtual bool setupContext() = 0;
     virtual void teardownContext() = 0;
+    virtual TextureDraw* getTextureDraw() const = 0;
     virtual bool isBound() const = 0;
 };
 
