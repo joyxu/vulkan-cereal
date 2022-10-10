@@ -14,36 +14,25 @@
 
 #pragma once
 
-#include <atomic>
-
 #include <EGL/egl.h>
 #include <GLES/gl.h>
 #include <GLES/glext.h>
 #include <GLES3/gl3.h>
 
 #include "Compositor.h"
-#include "DisplaySurfaceUser.h"
 #include "TextureDraw.h"
 
-class CompositorGl : public Compositor, public gfxstream::DisplaySurfaceUser {
+class CompositorGl : public Compositor {
   public:
     CompositorGl(TextureDraw* textureDraw);
     virtual ~CompositorGl();
 
-    // If false, this display will use the existing bound context when performing compositions.
-    void setUseBoundSurfaceContext(bool use) { mUseBoundSurfaceContext = use; }
+    void bindToWindow();
 
     CompositionFinishedWaitable compose(const CompositionRequest& compositionRequest) override;
 
-  protected:
-    void bindToSurfaceImpl(gfxstream::DisplaySurface* surface) override;
-    void unbindFromSurfaceImpl() override;
-
   private:
     GLuint m_composeFbo = 0;
- 
     // Owned by FrameBuffer.
     TextureDraw* m_textureDraw = nullptr;
-
-    std::atomic_bool mUseBoundSurfaceContext{true};
 };

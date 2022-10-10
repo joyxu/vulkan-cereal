@@ -17,7 +17,7 @@
 #include "GfxStreamBackend.h"
 #include "host-common/testing/MockGraphicsAgentFactory.h"
 #include "OSWindow.h"
-#include "base/system/System.h"
+#include "aemu/base/system/System.h"
 
 class GfxStreamBackendTest : public ::testing::Test {
 private:

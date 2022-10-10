@@ -13,7 +13,7 @@
 // limitations under the License.
 #pragma once
 
-#include "base/containers/BufferQueue.h"
+#include "aemu/base/containers/BufferQueue.h"
 #include "render-utils/RenderChannel.h"
 #include "RendererImpl.h"
 

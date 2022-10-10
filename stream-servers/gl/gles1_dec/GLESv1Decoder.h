@@ -19,7 +19,7 @@
 #include "gles1_dec.h"
 
 #include "GLDecoderContextData.h"
-#include "base/SharedLibrary.h"
+#include "aemu/base/SharedLibrary.h"
 
 typedef void (gles1_APIENTRY *glColorPointerWithDataSize_server_proc_t) (GLint, GLenum, GLsizei, const GLvoid*, GLsizei);
 typedef void (gles1_APIENTRY *glNormalPointerWithDataSize_server_proc_t) (GLenum, GLsizei, const GLvoid*, GLsizei);

@@ -14,12 +14,12 @@
 
 #include "SampleApplication.h"
 
-#include "base/GLObjectCounter.h"
-#include "base/synchronization/ConditionVariable.h"
-#include "base/synchronization/Lock.h"
-#include "base/system/System.h"
+#include "aemu/base/GLObjectCounter.h"
+#include "aemu/base/synchronization/ConditionVariable.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/system/System.h"
+#include "aemu/base/threads/FunctorThread.h"
 #include "base/testing/TestSystem.h"
-#include "base/threads/FunctorThread.h"
 #include "host-common/GraphicsAgentFactory.h"
 #include "host-common/multi_display_agent.h"
 #include "host-common/MultiDisplay.h"

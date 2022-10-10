@@ -17,9 +17,9 @@
 
 #include "render_api.h"
 
-#include "base/synchronization/MessageChannel.h"
-#include "base/threads/FunctorThread.h"
-#include "base/threads/Thread.h"
+#include "aemu/base/synchronization/MessageChannel.h"
+#include "aemu/base/threads/FunctorThread.h"
+#include "aemu/base/threads/Thread.h"
 
 class RenderWindowChannel;
 struct RenderWindowMessage;

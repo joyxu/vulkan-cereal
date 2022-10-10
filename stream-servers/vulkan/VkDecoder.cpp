@@ -37,10 +37,10 @@
 #include "VkDecoderSnapshot.h"
 #include "VulkanDispatch.h"
 #include "VulkanStream.h"
-#include "base/BumpPool.h"
-#include "base/Metrics.h"
-#include "base/Tracing.h"
-#include "base/system/System.h"
+#include "aemu/base/BumpPool.h"
+#include "aemu/base/Metrics.h"
+#include "aemu/base/Tracing.h"
+#include "aemu/base/system/System.h"
 #include "common/goldfish_vk_marshaling.h"
 #include "common/goldfish_vk_private_defs.h"
 #include "common/goldfish_vk_reserved_marshaling.h"
@@ -7419,7 +7419,7 @@ size_t VkDecoder::Impl::decode(void* buf, size_t len, IOStream* ioStream, uint32
                             (unsigned long long)pRegions);
                 }
                 m_state->on_vkCmdCopyBufferToImage(&m_pool, commandBuffer, srcBuffer, dstImage,
-                                                   dstImageLayout, regionCount, pRegions);
+                                                   dstImageLayout, regionCount, pRegions, context);
                 vkStream->unsetHandleMapping();
                 vkReadStream->setReadPos((uintptr_t)(*readStreamPtrPtr) -
                                          (uintptr_t)snapshotTraceBegin);

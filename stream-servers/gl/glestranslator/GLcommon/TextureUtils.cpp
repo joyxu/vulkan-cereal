@@ -21,7 +21,7 @@
 #include <cmath>
 #include <memory>
 
-#include "base/AlignedBuf.h"
+#include "aemu/base/AlignedBuf.h"
 #include "compressedTextureFormats/AstcCpuDecompressor.h"
 
 using android::AlignedBuf;

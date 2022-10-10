@@ -22,7 +22,7 @@
 #include "Hwc2.h"
 #include "OpenGLESDispatch/GLESv2Dispatch.h"
 #include "RenderContext.h"
-#include "base/Compiler.h"
+#include "aemu/base/Compiler.h"
 
 class FrameBuffer;
 class OSWindow;

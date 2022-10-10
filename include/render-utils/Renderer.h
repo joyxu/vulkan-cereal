@@ -13,8 +13,8 @@
 // limitations under the License.
 #pragma once
 
-#include "base/files/Stream.h"
-#include "base/ring_buffer.h"
+#include "aemu/base/files/Stream.h"
+#include "aemu/base/ring_buffer.h"
 #include "host-common/address_space_graphics_types.h"
 #include "render-utils/RenderChannel.h"
 #include "render-utils/render_api_platform_types.h"

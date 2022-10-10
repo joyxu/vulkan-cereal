@@ -14,7 +14,7 @@
 
 #include "ShaderCache.h"
 
-#include "base/MruCache.h"
+#include "aemu/base/MruCache.h"
 #include <string.h>
 #include <cstdio>
 

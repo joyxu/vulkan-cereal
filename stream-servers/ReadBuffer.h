@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 #pragma once
-#include "base/files/Stream.h"
+#include "aemu/base/files/Stream.h"
 #include "IOStream.h"
 
 namespace emugl {

@@ -16,10 +16,10 @@
 
 #include "GLcommon/SaveableTexture.h"
 
-#include "base/ArraySize.h"
-#include "base/containers/SmallVector.h"
-#include "base/files/StreamSerializing.h"
-#include "base/system/System.h"
+#include "aemu/base/ArraySize.h"
+#include "aemu/base/containers/SmallVector.h"
+#include "aemu/base/files/StreamSerializing.h"
+#include "aemu/base/system/System.h"
 
 #include "GLcommon/GLEScontext.h"
 #include "GLcommon/GLutils.h"

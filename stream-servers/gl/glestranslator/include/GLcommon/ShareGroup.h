@@ -16,8 +16,8 @@
 #ifndef _OBJECT_NAME_MANAGER_H
 #define _OBJECT_NAME_MANAGER_H
 
-#include "base/synchronization/Lock.h"
-#include "base/files/Stream.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/files/Stream.h"
 #include "GLcommon/NamedObject.h"
 #include "GLcommon/ObjectData.h"
 

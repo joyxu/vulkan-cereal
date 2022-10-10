@@ -23,27 +23,27 @@ namespace gfxstream {
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
 
-DisplaySurfaceUser::~DisplaySurfaceUser() {
+Display::~Display() {
     if (mBoundSurface != nullptr) {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "Failed to unbind a DisplaySurface before DisplaySurfaceUser destruction.";
+            << "Failed to unbind a DisplaySurface before Display destruction.";
     }
 }
 
-void DisplaySurfaceUser::bindToSurface(DisplaySurface* surface) {
+void Display::bindToSurface(DisplaySurface* surface) {
     if (mBoundSurface != nullptr) {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
             << "Attempting to bind a DisplaySurface while another is already bound.";
     }
 
     this->bindToSurfaceImpl(surface);
-    surface->registerUser(this);
+    surface->registerBoundDisplay(this);
     mBoundSurface = surface;
 }
 
-void DisplaySurfaceUser::unbindFromSurface() {
+void Display::unbindFromSurface() {
     this->unbindFromSurfaceImpl();
-    mBoundSurface->unregisterUser(this);
+    mBoundSurface->unregisterBoundDisplay(this);
     mBoundSurface = nullptr;
 }
 

@@ -657,7 +657,7 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
                 }
                 this->on_vkCmdCopyBufferToImage(pool, (VkCommandBuffer)(boxed_dispatchHandle),
                                                 srcBuffer, dstImage, dstImageLayout, regionCount,
-                                                pRegions);
+                                                pRegions, context);
                 android::base::endTrace();
                 break;
             }

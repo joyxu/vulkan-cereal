@@ -25,11 +25,12 @@
 
 #include "BorrowedImage.h"
 #include "ContextHelper.h"
+#include "DisplayVk.h"
 #include "FrameworkFormats.h"
 #include "Handle.h"
 #include "Hwc2.h"
-#include "base/ManagedDescriptor.hpp"
-#include "base/files/Stream.h"
+#include "aemu/base/ManagedDescriptor.hpp"
+#include "aemu/base/files/Stream.h"
 #include "snapshot/LazySnapshotObj.h"
 
 // From ANGLE "src/common/angleutils.h"
@@ -94,7 +95,6 @@ class ColorBuffer :
                                FrameworkFormat p_frameworkFormat,
                                HandleType hndl,
                                ContextHelper* helper,
-                               TextureDraw* textureDraw,
                                bool fastBlitSupported,
                                bool vulkanOnly = false);
 
@@ -202,7 +202,6 @@ class ColorBuffer :
     static ColorBuffer* onLoad(android::base::Stream* stream,
                                EGLDisplay p_display,
                                ContextHelper* helper,
-                               TextureDraw* textureDraw,
                                bool fastBlitSupported);
 
     HandleType getHndl() const;
@@ -238,8 +237,7 @@ class ColorBuffer :
     void restore();
 
 private:
-    ColorBuffer(EGLDisplay display, HandleType hndl, ContextHelper* helper,
-                TextureDraw* textureDraw);
+    ColorBuffer(EGLDisplay display, HandleType hndl, ContextHelper* helper);
     // Helper function to get contents.
     std::vector<uint8_t> getContents();
     // Helper function to clear current EGL image.
@@ -278,7 +276,6 @@ private:
 
     EGLDisplay m_display = nullptr;
     ContextHelper* m_helper = nullptr;
-    TextureDraw* m_textureDraw = nullptr;
     TextureResize* m_resizer = nullptr;
     FrameworkFormat m_frameworkFormat;
     GLuint m_yuv_conversion_fbo = 0;  // FBO to offscreen-convert YUV to RGB

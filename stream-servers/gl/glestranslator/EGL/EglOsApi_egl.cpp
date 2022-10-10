@@ -16,8 +16,8 @@
 
 #include "EglOsApi.h"
 
-#include "base/system/System.h"
-#include "base/SharedLibrary.h"
+#include "aemu/base/system/System.h"
+#include "aemu/base/SharedLibrary.h"
 #include "host-common/logging.h"
 #include "host-common/misc.h"
 #include "GLcommon/GLLibrary.h"

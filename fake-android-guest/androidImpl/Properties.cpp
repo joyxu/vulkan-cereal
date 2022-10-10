@@ -15,7 +15,7 @@
 
 #include "AndroidHostCommon.h"
 
-#include "base/synchronization/Lock.h"
+#include "aemu/base/synchronization/Lock.h"
 
 #include <string>
 #include <unordered_map>

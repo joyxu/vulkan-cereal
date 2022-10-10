@@ -18,8 +18,8 @@
 
 #include "OpenGLESDispatch/EGLDispatch.h"
 
-#include "base/system/System.h"
-#include "base/misc/StringUtils.h"
+#include "aemu/base/system/System.h"
+#include "aemu/base/misc/StringUtils.h"
 #include "host-common/feature_control.h"
 #include "host-common/misc.h"
 

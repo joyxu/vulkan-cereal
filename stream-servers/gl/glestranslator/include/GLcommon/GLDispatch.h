@@ -20,7 +20,7 @@
 #include <GLES2/gl2.h>
 #include <GLES3/gl3.h>
 
-#include "base/synchronization/Lock.h"
+#include "aemu/base/synchronization/Lock.h"
 #include "host-common/logging.h"
 
 #include "OpenGLESDispatch/gldefs.h"
