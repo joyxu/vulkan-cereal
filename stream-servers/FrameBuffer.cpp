@@ -1009,9 +1009,9 @@ FrameBuffer::FrameBuffer(int p_width, int p_height, bool useSubWindow)
 FrameBuffer::~FrameBuffer() {
     finalize();
 
-    if (m_postThread.isStarted()) {
-        m_postThread.enqueue({ PostCmd::Exit, });
-    }
+    m_postThread.enqueue({
+        PostCmd::Exit,
+    });
 
     delete m_textureDraw;
     delete m_configs;
@@ -1139,7 +1139,8 @@ std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
     bool postOnlyOnMainThread = false;
 #endif
 
-    if (!m_postThread.isStarted()) {
+    bool expectedPostThreadStarted = false;
+    if (m_postThreadStarted.compare_exchange_strong(expectedPostThreadStarted, true)) {
         if (postOnlyOnMainThread) {
             EGLContext prevContext = s_egl.eglGetCurrentContext();
             EGLSurface prevReadSurf = s_egl.eglGetCurrentSurface(EGL_READ);
@@ -1229,7 +1230,8 @@ void FrameBuffer::setPostCallback(
         m_onPost[displayId].height = h;
         m_onPost[displayId].img = new unsigned char[4 * w * h];
         m_onPost[displayId].readBgra = useBgraReadback;
-        if (!m_readbackThread.isStarted()) {
+        bool expectedReadbackThreadStarted = false;
+        if (m_readbackThreadStarted.compare_exchange_strong(expectedReadbackThreadStarted, true)) {
             m_readbackThread.start();
             m_readbackThread.enqueue({ ReadbackCmd::Init });
         }
