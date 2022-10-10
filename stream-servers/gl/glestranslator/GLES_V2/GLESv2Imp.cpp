@@ -26,7 +26,7 @@
 #include <GLES3/gl3.h>
 #include <GLES3/gl31.h>
 
-#include "base/system/System.h"
+#include "aemu/base/system/System.h"
 #include "host-common/logging.h"
 
 #include "GLESv2Context.h"
@@ -54,7 +54,7 @@
 
 
 #ifdef _MSC_VER
-#include "base/msvc.h"
+#include "aemu/base/msvc.h"
 #else
 #include <sys/time.h>
 #endif

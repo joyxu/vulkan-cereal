@@ -18,11 +18,11 @@
 #include <unordered_map>
 
 #include "VirtioGpuTimelines.h"
-#include "base/AlignedBuf.h"
-#include "base/synchronization/Lock.h"
-#include "base/memory/SharedMemory.h"
-#include "base/ManagedDescriptor.hpp"
-#include "base/Tracing.h"
+#include "aemu/base/AlignedBuf.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/memory/SharedMemory.h"
+#include "aemu/base/ManagedDescriptor.hpp"
+#include "aemu/base/Tracing.h"
 #include "host-common/AddressSpaceService.h"
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/HostmemIdMapping.h"
@@ -1633,9 +1633,10 @@ public:
         const auto& entry = it->second;
         if (entry.descriptorInfo && entry.descriptorInfo->vulkanInfoOpt) {
             vulkan_info->memory_index = (*entry.descriptorInfo->vulkanInfoOpt).memoryIndex;
-            vulkan_info->physical_device_index =
-                (*entry.descriptorInfo->vulkanInfoOpt).physicalDeviceIndex;
-
+            memcpy(vulkan_info->device_uuid, (*entry.descriptorInfo->vulkanInfoOpt).deviceUUID,
+                   sizeof(vulkan_info->device_uuid));
+            memcpy(vulkan_info->driver_uuid, (*entry.descriptorInfo->vulkanInfoOpt).driverUUID,
+                   sizeof(vulkan_info->driver_uuid));
             return 0;
         }
 

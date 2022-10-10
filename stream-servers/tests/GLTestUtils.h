@@ -13,7 +13,7 @@
 // limitations under the License.
 #pragma once
 
-#include "base/AlignedBuf.h"
+#include "aemu/base/AlignedBuf.h"
 
 #include "render-utils/render_api_platform_types.h"
 

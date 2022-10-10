@@ -14,13 +14,30 @@
 
 #pragma once
 
-#include "DisplaySurfaceUser.h"
-
 namespace gfxstream {
 
-class Display : public DisplaySurfaceUser {
+class Display;
+class DisplaySurface;
+
+class Display {
   public:
-    // TODO(b/233939967): move post()/viewport()/clear() interface here.
+    virtual ~Display();
+
+  public:
+    void bindToSurface(DisplaySurface* surface);
+
+    void unbindFromSurface();
+
+  protected:
+    virtual void bindToSurfaceImpl(DisplaySurface* surface) = 0;
+
+    virtual void unbindFromSurfaceImpl() = 0;
+
+    const DisplaySurface* getBoundSurface() const { return mBoundSurface; }
+
+  private:
+    friend class DisplaySurface;
+    DisplaySurface* mBoundSurface = nullptr;
 };
 
 }  // namespace gfxstream

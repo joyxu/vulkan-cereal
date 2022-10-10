@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 #include "ApiGen.h"
-#include "base/EnumFlags.h"
+#include "aemu/base/EnumFlags.h"
 #include "EntryPoint.h"
 #include <stdio.h>
 #include <stdlib.h>

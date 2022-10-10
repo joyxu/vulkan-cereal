@@ -20,15 +20,17 @@
 #include <chrono>
 
 #include "ColorBuffer.h"
+#include "CompositorGl.h"
 #include "Debug.h"
 #include "FrameBuffer.h"
+#include "OpenGLESDispatch/DispatchTables.h"
+#include "OpenGLESDispatch/EGLDispatch.h"
+#include "OpenGLESDispatch/GLESv2Dispatch.h"
 #include "RenderThreadInfo.h"
-#include "base/Tracing.h"
-#include "gl/DisplayGl.h"
+#include "aemu/base/Tracing.h"
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"
 #include "host-common/misc.h"
-#include "vulkan/DisplayVk.h"
 #include "vulkan/VkCommonOperations.h"
 
 using emugl::ABORT_REASON_OTHER;
@@ -55,172 +57,137 @@ static void sDefaultRunOnUiThread(UiUpdateFunc f, void* data, bool wait) {
     (void)wait;
 }
 
-namespace {
-
-hwc_transform_t getTransformFromRotation(int rotation) {
-    switch (static_cast<int>(rotation / 90)) {
-        case 1:
-            return HWC_TRANSFORM_ROT_270;
-        case 2:
-            return HWC_TRANSFORM_ROT_180;
-        case 3:
-            return HWC_TRANSFORM_ROT_90;
-        default:
-            return HWC_TRANSFORM_NONE;
-    }
-}
-
-}  // namespace
-
-PostWorker::PostWorker(bool mainThreadPostingOnly, Compositor* compositor,
-                       DisplayGl* displayGl, DisplayVk* displayVk)
+PostWorker::PostWorker(PostWorker::BindSubwinCallback&& cb, bool mainThreadPostingOnly,
+                       Compositor* compositor, DisplayVk* displayVk)
     : mFb(FrameBuffer::getFB()),
+      mBindSubwin(cb),
       m_mainThreadPostingOnly(mainThreadPostingOnly),
       m_runOnUiThread(m_mainThreadPostingOnly ? emugl::get_emugl_window_operations().runOnUiThread
                                               : sDefaultRunOnUiThread),
       m_compositor(compositor),
-      m_displayGl(displayGl),
       m_displayVk(displayVk) {}
 
+void PostWorker::fillMultiDisplayPostStruct(ComposeLayer* l,
+                                            hwc_rect_t displayArea,
+                                            hwc_frect_t cropArea,
+                                            hwc_transform_t transform) {
+    l->composeMode = HWC2_COMPOSITION_DEVICE;
+    l->blendMode = HWC2_BLEND_MODE_NONE;
+    l->transform = transform;
+    l->alpha = 1.0;
+    l->displayFrame = displayArea;
+    l->crop = cropArea;
+}
+
 std::shared_future<void> PostWorker::postImpl(ColorBuffer* cb) {
+    std::shared_future<void> completedFuture =
+        std::async(std::launch::deferred, [] {}).share();
+    completedFuture.wait();
+    // bind the subwindow eglSurface
+    if (!m_mainThreadPostingOnly && m_needsToRebindWindow) {
+        m_needsToRebindWindow = !mBindSubwin();
+        if (m_needsToRebindWindow) {
+            // Do not proceed if fail to bind to the window.
+            return completedFuture;
+        }
+    }
+
     if (m_displayVk) {
         const auto imageInfo = mFb->borrowColorBufferForDisplay(cb->getHndl());
         return m_displayVk->post(imageInfo.get());
     }
 
-    if (!m_displayGl) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "PostWorker missing DisplayGl.";
-    }
+    float dpr = mFb->getDpr();
+    int windowWidth = mFb->windowWidth();
+    int windowHeight = mFb->windowHeight();
+    float px = mFb->getPx();
+    float py = mFb->getPy();
+    int zRot = mFb->getZrot();
+    hwc_transform_t rotation = (hwc_transform_t)0;
 
-    DisplayGl::Post post = {};
+    // Find the x and y values at the origin when "fully scrolled."
+    // Multiply by 2 because the texture goes from -1 to 1, not 0 to 1.
+    // Multiply the windowing coordinates by DPR because they ignore
+    // DPR, but the viewport includes DPR.
+    float fx = 2.f * (m_viewportWidth  - windowWidth  * dpr) / (float)m_viewportWidth;
+    float fy = 2.f * (m_viewportHeight - windowHeight * dpr) / (float)m_viewportHeight;
 
-    ComposeLayer postLayerOptions = {
-        .composeMode = HWC2_COMPOSITION_DEVICE,
-        .blendMode = HWC2_BLEND_MODE_NONE,
-        .transform = HWC_TRANSFORM_NONE,
-    };
+    // finally, compute translation values
+    float dx = px * fx;
+    float dy = py * fy;
 
-    const auto& multiDisplay = emugl::get_emugl_multi_display_operations();
-    if (multiDisplay.isMultiDisplayEnabled()) {
-        uint32_t combinedDisplayW = 0;
-        uint32_t combinedDisplayH = 0;
-        multiDisplay.getCombinedDisplaySize(&combinedDisplayW, &combinedDisplayH);
-
-        post.frameWidth = combinedDisplayW;
-        post.frameHeight = combinedDisplayH;
-
-        int32_t previousDisplayId = -1;
-        uint32_t currentDisplayId;
-        int32_t currentDisplayOffsetX;
-        int32_t currentDisplayOffsetY;
-        uint32_t currentDisplayW;
-        uint32_t currentDisplayH;
-        uint32_t currentDisplayColorBufferHandle;
-        while (multiDisplay.getNextMultiDisplay(previousDisplayId,
-                                                &currentDisplayId,
-                                                &currentDisplayOffsetX,
-                                                &currentDisplayOffsetY,
-                                                &currentDisplayW,
-                                                &currentDisplayH,
-                                                /*dpi=*/nullptr,
-                                                /*flags=*/nullptr,
-                                                &currentDisplayColorBufferHandle)) {
-            previousDisplayId = currentDisplayId;
-
-            if (currentDisplayW == 0 ||
-                currentDisplayH == 0 ||
-                currentDisplayColorBufferHandle == 0) {
+    if (emugl::get_emugl_multi_display_operations().isMultiDisplayEnabled()) {
+        uint32_t combinedW, combinedH;
+        emugl::get_emugl_multi_display_operations().getCombinedDisplaySize(&combinedW, &combinedH);
+        mFb->getTextureDraw()->prepareForDrawLayer();
+        int32_t start_id = -1, x, y;
+        uint32_t id, w, h, c;
+        while(emugl::get_emugl_multi_display_operations().getNextMultiDisplay(start_id, &id,
+                                                                              &x, &y, &w, &h,
+                                                                              nullptr, nullptr,
+                                                                              &c)) {
+            if ((id != 0) && (w == 0 || h == 0 || c == 0)) {
+                start_id = id;
                 continue;
             }
-
-            ColorBuffer* cb = mFb->findColorBuffer(currentDisplayColorBufferHandle).get();
-            if (!cb) {
+            ColorBuffer* multiDisplayCb = id == 0 ? cb : mFb->findColorBuffer(c).get();
+            if (multiDisplayCb == nullptr) {
+                start_id = id;
                 continue;
             }
-
-            postLayerOptions.displayFrame = {
-                .left = static_cast<int>(currentDisplayOffsetX),
-                .top = static_cast<int>(currentDisplayOffsetY),
-                .right = static_cast<int>(currentDisplayOffsetX + currentDisplayW),
-                .bottom = static_cast<int>(currentDisplayOffsetY + currentDisplayH),
-            };
-            postLayerOptions.crop = {
-                .left = 0.0f,
-                .top = static_cast<float>(cb->getHeight()),
-                .right = static_cast<float>(cb->getWidth()),
-                .bottom = 0.0f,
-            };
-
-            post.layers.push_back(DisplayGl::PostLayer{
-                .colorBuffer = cb,
-                .layerOptions = postLayerOptions,
-            });
+            ComposeLayer l;
+            hwc_rect_t displayArea = { .left = (int)x,
+                                       .top = (int)y,
+                                       .right = (int)(x + w),
+                                       .bottom = (int)(y + h) };
+            hwc_frect_t cropArea = { .left = 0.0,
+                                     .top = (float)multiDisplayCb->getHeight(),
+                                     .right = (float)multiDisplayCb->getWidth(),
+                                     .bottom = 0.0 };
+            fillMultiDisplayPostStruct(&l, displayArea, cropArea, rotation);
+            multiDisplayCb->postLayer(l, combinedW, combinedH);
+            start_id = id;
         }
-    } else if (emugl::get_emugl_window_operations().isFolded()) {
-        const float dpr = mFb->getDpr();
+        mFb->getTextureDraw()->cleanupForDrawLayer();
+    }
+    else if (emugl::get_emugl_window_operations().isFolded()) {
+        mFb->getTextureDraw()->prepareForDrawLayer();
+        ComposeLayer l;
+        int x, y, w, h;
+        emugl::get_emugl_window_operations().getFoldedArea(&x, &y, &w, &h);
+        hwc_rect_t displayArea = { .left = 0,
+                                   .top = 0,
+                                   .right = windowWidth,
+                                   .bottom = windowHeight };
+        hwc_frect_t cropArea = { .left = (float)x,
+                                 .top = (float)(y + h),
+                                 .right = (float)(x + w),
+                                 .bottom = (float)y };
+        switch ((int)zRot/90) {
+            case 1:
+                rotation = HWC_TRANSFORM_ROT_270;
+                break;
+            case 2:
+                rotation = HWC_TRANSFORM_ROT_180;
+                break;
+            case 3:
+                rotation = HWC_TRANSFORM_ROT_90;
+                break;
+            default: ;
+        }
 
-        post.frameWidth = m_viewportWidth;
-        post.frameHeight = m_viewportHeight;
-
-        int displayOffsetX;
-        int displayOffsetY;
-        int displayW;
-        int displayH;
-        emugl::get_emugl_window_operations().getFoldedArea(&displayOffsetX,
-                                                           &displayOffsetY,
-                                                           &displayW,
-                                                           &displayH);
-
-        postLayerOptions.displayFrame = {
-            .left = 0,
-            .top = 0,
-            .right = mFb->windowWidth(),
-            .bottom = mFb->windowHeight(),
-        };
-        postLayerOptions.crop = {
-            .left = static_cast<float>(displayOffsetX),
-            .top = static_cast<float>(displayOffsetY + displayH),
-            .right = static_cast<float>(displayOffsetX + displayW),
-            .bottom = static_cast<float>(displayOffsetY),
-        };
-        postLayerOptions.transform = getTransformFromRotation(mFb->getZrot());
-
-        post.layers.push_back(DisplayGl::PostLayer{
-            .colorBuffer = cb,
-            .layerOptions = postLayerOptions,
-        });
-    } else {
-        float dpr = mFb->getDpr();
-        int windowWidth = mFb->windowWidth();
-        int windowHeight = mFb->windowHeight();
-        float px = mFb->getPx();
-        float py = mFb->getPy();
-        int zRot = mFb->getZrot();
-        hwc_transform_t rotation = (hwc_transform_t)0;
-
-        // Find the x and y values at the origin when "fully scrolled."
-        // Multiply by 2 because the texture goes from -1 to 1, not 0 to 1.
-        // Multiply the windowing coordinates by DPR because they ignore
-        // DPR, but the viewport includes DPR.
-        float fx = 2.f * (m_viewportWidth  - windowWidth  * dpr) / (float)m_viewportWidth;
-        float fy = 2.f * (m_viewportHeight - windowHeight * dpr) / (float)m_viewportHeight;
-
-        // finally, compute translation values
-        float dx = px * fx;
-        float dy = py * fy;
-
-        post.layers.push_back(DisplayGl::PostLayer{
-            .colorBuffer = cb,
-            .overlayOptions = DisplayGl::PostLayer::OverlayOptions{
-                .rotation = static_cast<float>(zRot),
-                .dx = dx,
-                .dy = dy,
-            },
-        });
+        fillMultiDisplayPostStruct(&l, displayArea, cropArea, rotation);
+        cb->postLayer(l, m_viewportWidth/dpr, m_viewportHeight/dpr);
+        mFb->getTextureDraw()->cleanupForDrawLayer();
+    }
+    else {
+        // render the color buffer to the window and apply the overlay
+        GLuint tex = cb->getViewportScaledTexture();
+        cb->postWithOverlay(tex, zRot, dx, dy);
     }
 
-    return m_displayGl->post(post);
+    s_egl.eglSwapBuffers(mFb->getDisplay(), mFb->getWindowSurface());
+    return completedFuture;
 }
 
 // Called whenever the subwindow needs a refresh (FrameBuffer::setupSubWindow).
@@ -228,19 +195,27 @@ std::shared_future<void> PostWorker::postImpl(ColorBuffer* cb) {
 // when the refresh is a display change, for instance)
 // and resets the posting viewport.
 void PostWorker::viewportImpl(int width, int height) {
+    if (!m_mainThreadPostingOnly) {
+        // For GLES, we rebind the subwindow eglSurface unconditionally: this
+        // could be from a display change, but we want to avoid binding
+        // VkSurfaceKHR too frequently, because that's too expensive.
+        if (!m_displayVk || m_needsToRebindWindow) {
+            m_needsToRebindWindow = !mBindSubwin();
+            if (m_needsToRebindWindow) {
+                // Do not proceed if fail to bind to the window.
+                return;
+            }
+        }
+    }
+
     if (m_displayVk) {
         return;
     }
 
-    const float dpr = mFb->getDpr();
+    float dpr = mFb->getDpr();
     m_viewportWidth = width * dpr;
     m_viewportHeight = height * dpr;
-
-    if (!m_displayGl) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "PostWorker missing DisplayGl.";
-    }
-    m_displayGl->viewport(m_viewportWidth, m_viewportHeight);
+    s_gles2.glViewport(0, 0, m_viewportWidth, m_viewportHeight);
 }
 
 // Called when the subwindow refreshes, but there is no
@@ -252,17 +227,29 @@ void PostWorker::clearImpl() {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
             << "PostWorker with Vulkan doesn't support clear";
     }
-
-    if (!m_displayGl) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "PostWorker missing DisplayGl.";
-    }
-    m_displayGl->clear();
+#ifndef __linux__
+    s_gles2.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
+                    GL_STENCIL_BUFFER_BIT);
+    s_egl.eglSwapBuffers(mFb->getDisplay(), mFb->getWindowSurface());
+#endif
 }
 
 std::shared_future<void> PostWorker::composeImpl(const FlatComposeRequest& composeRequest) {
     if (!isComposeTargetReady(composeRequest.targetHandle)) {
         ERR("The last composition on the target buffer hasn't completed.");
+    }
+
+    std::shared_future<void> completedFuture =
+        std::async(std::launch::deferred, [] {}).share();
+    completedFuture.wait();
+
+    // bind the subwindow eglSurface
+    if (!m_mainThreadPostingOnly && m_needsToRebindWindow) {
+        m_needsToRebindWindow = !mBindSubwin();
+        if (m_needsToRebindWindow) {
+            // Do not proceed if fail to bind to the window.
+            return completedFuture;
+        }
     }
 
     Compositor::CompositionRequest compositorRequest = {};
@@ -312,7 +299,12 @@ void PostWorker::block(std::promise<void> scheduledSignal, std::future<void> con
     }));
 }
 
-PostWorker::~PostWorker() {}
+PostWorker::~PostWorker() {
+    if (mFb->getDisplay() != EGL_NO_DISPLAY) {
+        s_egl.eglMakeCurrent(mFb->getDisplay(), EGL_NO_SURFACE, EGL_NO_SURFACE,
+                             EGL_NO_CONTEXT);
+    }
+}
 
 void PostWorker::post(ColorBuffer* cb, std::unique_ptr<Post::CompletionCallback> postCallback) {
     auto packagedPostCallback = std::shared_ptr<Post::CompletionCallback>(std::move(postCallback));

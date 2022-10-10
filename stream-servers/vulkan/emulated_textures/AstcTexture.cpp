@@ -16,9 +16,11 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstring>
 #include <optional>
 #include <vector>
 
+#include "aemu/base/HealthMonitor.h"
 #include "host-common/logging.h"
 #include "stream-servers/vulkan/vk_util.h"
 
@@ -159,7 +161,10 @@ void AstcTexture::destroyVkBuffer() {
 void AstcTexture::on_vkCmdCopyBufferToImage(VkCommandBuffer commandBuffer, uint8_t* srcAstcData,
                                             size_t astcDataSize, VkImage dstImage,
                                             VkImageLayout dstImageLayout, uint32_t regionCount,
-                                            const VkBufferImageCopy* pRegions) {
+                                            const VkBufferImageCopy* pRegions,
+                                            const VkDecoderContext& context) {
+    auto watchdog =
+        WATCHDOG_BUILDER(*context.healthMonitor, "AstcTexture::on_vkCmdCopyBufferToImage").build();
     auto start_time = std::chrono::steady_clock::now();
     mSuccess = false;
     size_t decompSize = 0;  // How many bytes we need to hold the decompressed data

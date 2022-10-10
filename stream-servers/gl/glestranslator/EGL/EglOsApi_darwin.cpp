@@ -17,8 +17,8 @@
 
 #include "MacNative.h"
 
-#include "base/containers/Lookup.h"
-#include "base/SharedLibrary.h"
+#include "aemu/base/containers/Lookup.h"
+#include "aemu/base/SharedLibrary.h"
 
 #include "host-common/logging.h"
 #include "GLcommon/GLLibrary.h"

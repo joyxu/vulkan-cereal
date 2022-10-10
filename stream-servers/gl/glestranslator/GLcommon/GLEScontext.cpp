@@ -16,9 +16,9 @@
 
 #include <GLcommon/GLEScontext.h>
 
-#include "base/synchronization/Lock.h"
-#include "base/containers/Lookup.h"
-#include "base/files/StreamSerializing.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/containers/Lookup.h"
+#include "aemu/base/files/StreamSerializing.h"
 #include "host-common/feature_control.h"
 #include "host-common/logging.h"
 

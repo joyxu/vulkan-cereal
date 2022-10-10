@@ -30,17 +30,17 @@
 #include "VkFormatUtils.h"
 #include "VulkanDispatch.h"
 #include "VulkanStream.h"
-#include "base/ArraySize.h"
-#include "base/synchronization/ConditionVariable.h"
-#include "base/containers/EntityManager.h"
-#include "base/containers/HybridEntityManager.h"
-#include "base/synchronization/Lock.h"
-#include "base/containers/Lookup.h"
-#include "base/ManagedDescriptor.hpp"
-#include "base/Optional.h"
-#include "base/files/Stream.h"
-#include "base/system/System.h"
-#include "base/Tracing.h"
+#include "aemu/base/ArraySize.h"
+#include "aemu/base/synchronization/ConditionVariable.h"
+#include "aemu/base/containers/EntityManager.h"
+#include "aemu/base/containers/HybridEntityManager.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/containers/Lookup.h"
+#include "aemu/base/ManagedDescriptor.hpp"
+#include "aemu/base/Optional.h"
+#include "aemu/base/files/Stream.h"
+#include "aemu/base/system/System.h"
+#include "aemu/base/Tracing.h"
 #include "common/goldfish_vk_deepcopy.h"
 #include "common/goldfish_vk_dispatch.h"
 #include "common/goldfish_vk_marshaling.h"
@@ -2745,7 +2745,8 @@ class VkDecoderGlobalState::Impl {
     void on_vkCmdCopyBufferToImage(android::base::BumpPool* pool,
                                    VkCommandBuffer boxed_commandBuffer, VkBuffer srcBuffer,
                                    VkImage dstImage, VkImageLayout dstImageLayout,
-                                   uint32_t regionCount, const VkBufferImageCopy* pRegions) {
+                                   uint32_t regionCount, const VkBufferImageCopy* pRegions,
+                                   const VkDecoderContext& context) {
         auto commandBuffer = unbox_VkCommandBuffer(boxed_commandBuffer);
         auto vk = dispatch_VkCommandBuffer(boxed_commandBuffer);
 
@@ -2810,7 +2811,7 @@ class VkDecoderGlobalState::Impl {
             uint8_t* astcData = (uint8_t*)(memoryInfo->ptr) + bufferInfo->memoryOffset;
             cmp.astcTexture->on_vkCmdCopyBufferToImage(commandBuffer, astcData, bufferInfo->size,
                                                        dstImage, dstImageLayout, regionCount,
-                                                       pRegions);
+                                                       pRegions, context);
         }
     }
 
@@ -3681,8 +3682,11 @@ class VkDecoderGlobalState::Impl {
             uint32_t handleType;
             struct VulkanInfo vulkanInfo = {
                     .memoryIndex = info->memoryIndex,
-                    .physicalDeviceIndex = m_emu->physicalDeviceIndex,
             };
+            memcpy(vulkanInfo.deviceUUID, m_emu->deviceInfo.idProps.deviceUUID,
+                   sizeof(vulkanInfo.deviceUUID));
+            memcpy(vulkanInfo.driverUUID, m_emu->deviceInfo.idProps.driverUUID,
+                   sizeof(vulkanInfo.driverUUID));
 
 #ifdef __unix__
             VkMemoryGetFdInfoKHR getFd = {
@@ -7601,14 +7605,12 @@ void VkDecoderGlobalState::on_vkDestroyPipeline(android::base::BumpPool* pool,
     mImpl->on_vkDestroyPipeline(pool, boxed_device, pipeline, pAllocator);
 }
 
-void VkDecoderGlobalState::on_vkCmdCopyBufferToImage(android::base::BumpPool* pool,
-                                                     VkCommandBuffer commandBuffer,
-                                                     VkBuffer srcBuffer, VkImage dstImage,
-                                                     VkImageLayout dstImageLayout,
-                                                     uint32_t regionCount,
-                                                     const VkBufferImageCopy* pRegions) {
+void VkDecoderGlobalState::on_vkCmdCopyBufferToImage(
+    android::base::BumpPool* pool, VkCommandBuffer commandBuffer, VkBuffer srcBuffer,
+    VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount,
+    const VkBufferImageCopy* pRegions, const VkDecoderContext& context) {
     mImpl->on_vkCmdCopyBufferToImage(pool, commandBuffer, srcBuffer, dstImage, dstImageLayout,
-                                     regionCount, pRegions);
+                                     regionCount, pRegions, context);
 }
 
 void VkDecoderGlobalState::on_vkCmdCopyImage(android::base::BumpPool* pool,

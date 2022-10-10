@@ -41,7 +41,7 @@
 #include <vector>
 
 #include "VulkanDispatch.h"
-#include "base/synchronization/Lock.h"
+#include "aemu/base/synchronization/Lock.h"
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"
 #include "vulkan/cereal/common/vk_struct_id.h"

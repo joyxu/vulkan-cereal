@@ -23,7 +23,7 @@
 #include <unordered_map>
 #include <variant>
 
-#include "base/synchronization/Lock.h"
+#include "aemu/base/synchronization/Lock.h"
 #include "virtio-gpu-gfxstream-renderer.h"
 #include "render-utils/virtio_gpu_ops.h"
 

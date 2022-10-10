@@ -24,10 +24,10 @@
 #include "VkQsriTimeline.h"
 #include "VulkanDispatch.h"
 #include "VulkanHandleMapping.h"
-#include "base/AsyncResult.h"
-#include "base/GfxApiLogger.h"
-#include "base/HealthMonitor.h"
-#include "base/synchronization/Lock.h"
+#include "aemu/base/AsyncResult.h"
+#include "aemu/base/GfxApiLogger.h"
+#include "aemu/base/HealthMonitor.h"
+#include "aemu/base/synchronization/Lock.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 #include "cereal/common/goldfish_vk_transform.h"
 #include "host-common/GfxstreamFatalError.h"
@@ -294,7 +294,8 @@ class VkDecoderGlobalState {
     void on_vkCmdCopyBufferToImage(android::base::BumpPool* pool, VkCommandBuffer commandBuffer,
                                    VkBuffer srcBuffer, VkImage dstImage,
                                    VkImageLayout dstImageLayout, uint32_t regionCount,
-                                   const VkBufferImageCopy* pRegions);
+                                   const VkBufferImageCopy* pRegions,
+                                   const VkDecoderContext& context);
 
     void on_vkCmdCopyImage(android::base::BumpPool* pool, VkCommandBuffer commandBuffer,
                            VkImage srcImage, VkImageLayout srcImageLayout, VkImage dstImage,

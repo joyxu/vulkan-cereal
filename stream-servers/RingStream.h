@@ -16,7 +16,7 @@
 #include "IOStream.h"
 #include "render-utils/RenderChannel.h"
 
-#include "base/ring_buffer.h"
+#include "aemu/base/ring_buffer.h"
 #include "host-common/address_space_graphics_types.h"
 
 #include <functional>

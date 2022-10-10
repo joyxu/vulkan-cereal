@@ -15,10 +15,10 @@
 
 #include "VulkanHandleMapping.h"
 #include "VulkanHandles.h"
-#include "base/containers/EntityManager.h"
-#include "base/GfxApiLogger.h"
-#include "base/HealthMonitor.h"
-#include "base/files/Stream.h"
+#include "aemu/base/containers/EntityManager.h"
+#include "aemu/base/GfxApiLogger.h"
+#include "aemu/base/HealthMonitor.h"
+#include "aemu/base/files/Stream.h"
 #include "common/goldfish_vk_marshaling.h"
 
 // A class that captures all important data structures for

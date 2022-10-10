@@ -21,7 +21,7 @@
 #include "EglContext.h"
 #include "EglOsApi.h"
 
-#include "base/synchronization/Lock.h"
+#include "aemu/base/synchronization/Lock.h"
 
 #include <GLcommon/TranslatorIfaces.h>
 

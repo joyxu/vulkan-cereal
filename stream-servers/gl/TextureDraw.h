@@ -19,7 +19,7 @@
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
 #include "Hwc2.h"
-#include "base/synchronization/Lock.h"
+#include "aemu/base/synchronization/Lock.h"
 
 #include <vector>
 

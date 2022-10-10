@@ -13,10 +13,10 @@
 // limitations under the License.
 #pragma once
 
-#include "base/EnumFlags.h"
-#include "base/containers/SmallVector.h"
-#include "base/files/Stream.h"
-#include "base/containers/BufferQueue.h"
+#include "aemu/base/EnumFlags.h"
+#include "aemu/base/containers/SmallVector.h"
+#include "aemu/base/files/Stream.h"
+#include "aemu/base/containers/BufferQueue.h"
 
 #include <functional>
 #include <memory>

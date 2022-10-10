@@ -15,8 +15,8 @@
 */
 #include "EglOsApi.h"
 
-#include "base/synchronization/Lock.h"
-#include "base/SharedLibrary.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/SharedLibrary.h"
 
 #include "CoreProfileConfigs.h"
 #include "host-common/logging.h"
