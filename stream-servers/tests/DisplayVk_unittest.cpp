@@ -10,8 +10,6 @@
 #include "tests/VkTestUtils.h"
 #include "vulkan/VulkanDispatch.h"
 
-using gfxstream::DisplaySurface;
-
 class DisplayVkTest : public ::testing::Test {
    protected:
     using RenderTexture = emugl::RenderTextureVk;
@@ -43,11 +41,7 @@ class DisplayVkTest : public ::testing::Test {
             *k_vk, m_vkPhysicalDevice, m_swapChainQueueFamilyIndex, m_compositorQueueFamilyIndex,
             m_vkDevice, m_compositorVkQueue, m_compositorVkQueueLock, m_swapChainVkQueue,
             m_swapChainVkQueueLock);
-        m_displaySurface = std::make_unique<gfxstream::DisplaySurface>(
-            k_width, k_height,
-            DisplaySurfaceVk::create(*k_vk, m_vkInstance, m_window->getNativeWindow()));
-        ASSERT_NE(m_displaySurface, nullptr);
-        m_displayVk->bindToSurface(m_displaySurface.get());
+        m_displayVk->bindToSurface(m_vkSurface, k_width, k_height);
     }
 
     void TearDown() override {
@@ -97,7 +91,6 @@ class DisplayVkTest : public ::testing::Test {
     std::shared_ptr<android::base::Lock> m_swapChainVkQueueLock;
     VkCommandPool m_vkCommandPool = VK_NULL_HANDLE;
     std::unique_ptr<DisplayVk> m_displayVk = nullptr;
-    std::unique_ptr<DisplaySurface> m_displaySurface = nullptr;
 
    private:
     void createInstance() {
@@ -220,7 +213,7 @@ TEST_F(DisplayVkTest, PostWithoutSurfaceShouldntCrash) {
     std::vector<uint32_t> pixels(textureWidth * textureHeight, 0);
     ASSERT_TRUE(texture->write(pixels));
     const auto imageInfo = createBorrowedImageInfo(texture);
-    displayVk.post(imageInfo.get());
+    ASSERT_TRUE(std::get<0>(displayVk.post(imageInfo.get())));
 }
 
 TEST_F(DisplayVkTest, SimplePost) {
@@ -242,7 +235,8 @@ TEST_F(DisplayVkTest, SimplePost) {
     std::vector<std::shared_future<void>> waitForGpuFutures;
     for (uint32_t i = 0; i < 10; i++) {
         const auto imageInfo = createBorrowedImageInfo(texture);
-        auto waitForGpuFuture = m_displayVk->post(imageInfo.get());
+        auto [success, waitForGpuFuture] = m_displayVk->post(imageInfo.get());
+        ASSERT_TRUE(success);
         waitForGpuFutures.emplace_back(std::move(waitForGpuFuture));
     }
     for (auto &waitForGpuFuture : waitForGpuFutures) {
@@ -269,11 +263,12 @@ TEST_F(DisplayVkTest, PostTwoColorBuffers) {
     for (uint32_t i = 0; i < 10; i++) {
         const auto redImageInfo = createBorrowedImageInfo(redTexture);
         const auto greenImageInfo = createBorrowedImageInfo(greenTexture);
-        auto waitForRedGpuFuture = m_displayVk->post(redImageInfo.get());
-        waitForGpuFutures.emplace_back(std::move(waitForRedGpuFuture));
-
-        auto waitForGreenGpuFuture = m_displayVk->post(greenImageInfo.get());
-        waitForGpuFutures.emplace_back(std::move(waitForGreenGpuFuture));
+        auto [success, waitForGpuFuture] = m_displayVk->post(redImageInfo.get());
+        ASSERT_TRUE(success);
+        waitForGpuFutures.emplace_back(std::move(waitForGpuFuture));
+        std::tie(success, waitForGpuFuture) = m_displayVk->post(greenImageInfo.get());
+        ASSERT_TRUE(success);
+        waitForGpuFutures.emplace_back(std::move(waitForGpuFuture));
     }
     for (auto &waitForGpuFuture : waitForGpuFutures) {
         waitForGpuFuture.wait();
