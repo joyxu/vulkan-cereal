@@ -1262,8 +1262,6 @@ static int rcDestroySyncKHR(uint64_t handle) {
 static void rcSetPuid(uint64_t puid) {
     RenderThreadInfo *tInfo = RenderThreadInfo::get();
     tInfo->m_puid = puid;
-    FrameBuffer *fb = FrameBuffer::getFB();
-    fb->registerProcessSequenceNumberForPuid(puid);
 }
 
 static int rcCompose(uint32_t bufferSize, void* buffer) {

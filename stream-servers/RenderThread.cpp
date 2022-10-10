@@ -350,7 +350,7 @@ intptr_t RenderThread::main() {
     GfxApiLogger gfxLogger;
     auto& metricsLogger = FrameBuffer::getFB()->getMetricsLogger();
 
-    uint32_t* seqnoPtr = nullptr;
+    const ProcessResources* processResources = nullptr;
 
     while (true) {
         // Let's make sure we read enough data for at least some processing.
@@ -437,8 +437,8 @@ intptr_t RenderThread::main() {
                                 .setAnnotations(std::move(renderThreadData))
                                 .build();
 
-            if (!seqnoPtr && tInfo.m_puid) {
-                seqnoPtr = FrameBuffer::getFB()->getProcessSequenceNumberPtr(tInfo.m_puid);
+            if (!processResources && tInfo.m_puid) {
+                processResources = FrameBuffer::getFB()->getProcessResources(tInfo.m_puid);
             }
 
             progress = false;
@@ -458,7 +458,8 @@ intptr_t RenderThread::main() {
                     .metricsLogger = &metricsLogger,
                 };
                 last = tInfo.m_vkInfo->m_vkDec.decode(readBuf.buf(), readBuf.validData(), ioStream,
-                                                      seqnoPtr, context);
+                                                      processResources->getSequenceNumberPtr(),
+                                                      context);
                 if (last > 0) {
                     readBuf.consume(last);
                     progress = true;

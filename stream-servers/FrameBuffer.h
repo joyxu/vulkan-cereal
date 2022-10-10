@@ -82,7 +82,22 @@ struct BufferRef {
     BufferPtr buffer;
 };
 
-struct ProcessResources {};
+class ProcessResources {
+   public:
+    // We only allow ProcessResources to be created on the heap, because the pointer to
+    // mSequenceNumber shouldn't change until ProcessResources is destroyed.
+    static std::unique_ptr<ProcessResources> create() {
+        return std::unique_ptr<ProcessResources>(new ProcessResources());
+    }
+    DISALLOW_COPY_ASSIGN_AND_MOVE(ProcessResources);
+
+    ~ProcessResources() = default;
+    uint32_t* getSequenceNumberPtr() const { return &mSequenceNumber; }
+
+   private:
+    ProcessResources() : mSequenceNumber(0) {}
+    mutable uint32_t mSequenceNumber;
+};
 
 typedef std::unordered_map<HandleType, std::pair<WindowSurfacePtr, HandleType>>
     WindowSurfaceMap;
@@ -106,8 +121,6 @@ typedef std::unordered_map<uint64_t, EGLImageSet> ProcOwnedEGLImages;
 
 typedef std::unordered_map<void*, std::function<void()>> CallbackMap;
 typedef std::unordered_map<uint64_t, CallbackMap> ProcOwnedCleanupCallbacks;
-
-typedef std::unordered_map<uint64_t, uint32_t*> ProcOwnedSequenceNumbers;
 
 // A structure used to list the capabilities of the underlying EGL
 // implementation that the FrameBuffer instance depends on.
@@ -589,8 +602,7 @@ class FrameBuffer {
                                         std::function<void()> callback);
     void unregisterProcessCleanupCallback(void* key);
 
-    void registerProcessSequenceNumberForPuid(uint64_t puid);
-    uint32_t* getProcessSequenceNumberPtr(uint64_t puid);
+    const ProcessResources* getProcessResources(uint64_t puid);
 
     int createDisplay(uint32_t *displayId);
     int createDisplay(uint32_t displayId);
@@ -810,7 +822,6 @@ class FrameBuffer {
     ProcOwnedEGLImages m_procOwnedEGLImages;
     ProcOwnedRenderContexts m_procOwnedRenderContext;
     ProcOwnedCleanupCallbacks m_procOwnedCleanupCallbacks;
-    ProcOwnedSequenceNumbers m_procOwnedSequenceNumbers;
     std::unordered_map<uint64_t, std::unique_ptr<ProcessResources>> m_procOwnedResources;
 
     // Flag set when emulator is shutting down.
