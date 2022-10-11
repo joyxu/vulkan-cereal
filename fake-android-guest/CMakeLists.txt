@@ -21,14 +21,14 @@ add_library(
     androidImpl/Unicode.cpp)
 target_include_directories(cutils PRIVATE ${GFXSTREAM_REPO_ROOT} ${GFXSTREAM_REPO_ROOT}/include .)
 target_include_directories(cutils PUBLIC .)
-target_link_libraries(cutils PUBLIC gfxstream-base.headers)
+target_link_libraries(cutils PUBLIC aemu-base.headers)
 target_link_libraries(cutils PRIVATE log gfxstream_vulkan_headers)
 target_compile_options(cutils PRIVATE -fvisibility=default -Wno-invalid-constexpr -Wno-macro-redefined)
 target_compile_definitions(cutils PRIVATE -D__ANDROID_API__=28)
 
 add_library(grallocusage SHARED libgrallocusage/GrallocUsageConversion.cpp)
 target_include_directories(grallocusage PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(grallocusage PUBLIC gfxstream-base.headers)
+target_link_libraries(grallocusage PUBLIC aemu-base.headers)
 target_compile_definitions(grallocusage PRIVATE -D__ANDROID_API__=28)
 
 # The gui library
@@ -47,7 +47,7 @@ add_library(gui
     androidImpl/SurfaceFlinger.cpp
     androidImpl/Vsync.cpp
     sync/sync.cpp)
-target_link_libraries(gui PUBLIC gfxstream-base.headers)
+target_link_libraries(gui PUBLIC aemu-base.headers)
 target_include_directories(gui PUBLIC ${GFXSTREAM_REPO_ROOT}/fake-android-guest)
 target_compile_options(gui PRIVATE -fvisibility=default)
 target_compile_definitions(gui PRIVATE -D__ANDROID_API__=28)
@@ -78,7 +78,7 @@ target_compile_options(vulkan_android PRIVATE -fvisibility=hidden
                                               -fstrict-aliasing)
 target_link_libraries(vulkan_android PRIVATE grallocusage)
 target_link_libraries(vulkan_android
-                      PUBLIC gfxstream-base.headers log gui cutils utils gfxstream_vulkan_headers)
+                      PUBLIC aemu-base.headers log gui cutils utils gfxstream_vulkan_headers)
 
 # android_add_test(
 #   TARGET vulkanhal_unittests SRC # cmake-format: sortable

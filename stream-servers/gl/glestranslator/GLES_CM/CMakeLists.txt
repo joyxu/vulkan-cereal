@@ -9,8 +9,8 @@ target_compile_options(GLES_CM_translator_static PRIVATE -Wno-macro-redefined)
 target_link_libraries(
     GLES_CM_translator_static PRIVATE
     apigen-codec-common
-    gfxstream-base.headers
-    gfxstream-host-common.headers
+    aemu-base.headers
+    aemu-host-common.headers
     gfxstream-snapshot.headers)
 target_include_directories(
     GLES_CM_translator_static PRIVATE
