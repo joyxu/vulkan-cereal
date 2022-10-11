@@ -786,6 +786,7 @@ class FrameBuffer {
     std::map<uint32_t, onPost> m_onPost;
     std::unique_ptr<ReadbackWorker> m_readbackWorker;
     android::base::WorkerThread<Readback> m_readbackThread;
+    std::atomic_bool m_readbackThreadStarted = false;
 
     std::string m_graphicsAdapterVendor;
     std::string m_graphicsAdapterName;
@@ -820,6 +821,7 @@ class FrameBuffer {
     bool m_noDelayCloseColorBufferEnabled = false;
 
     std::unique_ptr<PostWorker> m_postWorker = {};
+    std::atomic_bool m_postThreadStarted = false;
     android::base::WorkerThread<Post> m_postThread;
     android::base::WorkerProcessingResult postWorkerFunc(Post& post);
     std::future<void> sendPostWorkerCmd(Post post);
