@@ -98,6 +98,7 @@ VkResult SwapChainStateVk::initSwapChainStateVk(const VkSwapchainCreateInfoKHR& 
     VK_CHECK(res);
     uint32_t imageCount = 0;
     VK_CHECK(m_vk.vkGetSwapchainImagesKHR(m_vkDevice, m_vkSwapChain, &imageCount, nullptr));
+    m_vkImageExtent = swapChainCi.imageExtent;
     m_vkImages.resize(imageCount);
     VK_CHECK(
         m_vk.vkGetSwapchainImagesKHR(m_vkDevice, m_vkSwapChain, &imageCount, m_vkImages.data()));
@@ -296,6 +297,8 @@ std::optional<SwapchainCreateInfoWrapper> SwapChainStateVk::createSwapChainCi(
 }
 
 VkFormat SwapChainStateVk::getFormat() { return k_vkFormat; }
+
+VkExtent2D SwapChainStateVk::getImageExtent() const { return m_vkImageExtent; }
 
 const std::vector<VkImage>& SwapChainStateVk::getVkImages() const { return m_vkImages; }
 

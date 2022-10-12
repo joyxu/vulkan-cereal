@@ -61,8 +61,7 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch& vk, VkPhysicalDevice vkP
       m_swapChainVkQueue(swapChainVkqueue),
       m_swapChainVkQueueLock(swapChainVkQueueLock),
       m_vkCommandPool(VK_NULL_HANDLE),
-      m_swapChainStateVk(nullptr),
-      m_surfaceState(nullptr) {
+      m_swapChainStateVk(nullptr) {
     // TODO(kaiyili): validate the capabilites of the passed in Vulkan
     // components.
     VkCommandPoolCreateInfo commandPoolCi = {
@@ -79,12 +78,8 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch& vk, VkPhysicalDevice vkP
 }
 
 DisplayVk::~DisplayVk() {
-    drainQueues();
+    destroySwapchain();
     m_imageBorrowResources.clear();
-    m_freePostResources.clear();
-    m_postResourceFutures.clear();
-    m_surfaceState.reset();
-    m_swapChainStateVk.reset();
     m_vk.vkDestroyCommandPool(m_vkDevice, m_vkCommandPool, nullptr);
 }
 
@@ -102,20 +97,41 @@ void DisplayVk::drainQueues() {
     }
 }
 
-bool DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t height) {
+void DisplayVk::bindToSurfaceImpl(gfxstream::DisplaySurface* surface) {
+    m_needToRecreateSwapChain = true;
+}
+
+void DisplayVk::unbindFromSurfaceImpl() {
+    destroySwapchain();
+}
+
+void DisplayVk::destroySwapchain() {
     drainQueues();
     m_freePostResources.clear();
     m_postResourceFutures.clear();
     m_swapChainStateVk.reset();
+    m_needToRecreateSwapChain = true;
+}
 
-    if (!SwapChainStateVk::validateQueueFamilyProperties(m_vk, m_vkPhysicalDevice, surface,
+bool DisplayVk::recreateSwapchain() {
+    destroySwapchain();
+
+    const auto* surface = getBoundSurface();
+    if (!surface) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "DisplayVk can't create VkSwapchainKHR without a VkSurfaceKHR";
+    }
+    const auto* surfaceVk = static_cast<const DisplaySurfaceVk*>(surface->getImpl());
+
+    if (!SwapChainStateVk::validateQueueFamilyProperties(m_vk, m_vkPhysicalDevice,
+                                                         surfaceVk->getSurface(),
                                                          m_swapChainQueueFamilyIndex)) {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
             << "DisplayVk can't create VkSwapchainKHR with given VkDevice and VkSurfaceKHR.";
     }
     auto swapChainCi = SwapChainStateVk::createSwapChainCi(
-        m_vk, surface, m_vkPhysicalDevice, width, height,
-        {m_swapChainQueueFamilyIndex, m_compositorQueueFamilyIndex});
+        m_vk, surfaceVk->getSurface(), m_vkPhysicalDevice, surface->getWidth(),
+        surface->getHeight(), {m_swapChainQueueFamilyIndex, m_compositorQueueFamilyIndex});
     if (!swapChainCi) {
         return false;
     }
@@ -138,15 +154,51 @@ bool DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t hei
     }
 
     m_inFlightFrameIndex = 0;
-
-    auto surfaceState = std::make_unique<SurfaceState>();
-    surfaceState->m_height = height;
-    surfaceState->m_width = width;
-    m_surfaceState = std::move(surfaceState);
+    m_needToRecreateSwapChain = false;
     return true;
 }
 
-std::tuple<bool, std::shared_future<void>> DisplayVk::post(
+DisplayVk::PostResult DisplayVk::post(const BorrowedImageInfo* sourceImageInfo) {
+    auto completedFuture = std::async(std::launch::deferred, [] {}).share();
+    completedFuture.wait();
+
+    const auto* surface = getBoundSurface();
+    if (!surface) {
+        return PostResult{
+            .success = true,
+            .postCompletedWaitable = completedFuture,
+        };
+    }
+
+    if (m_needToRecreateSwapChain) {
+        INFO("Recreating swapchain...");
+
+        constexpr const int kMaxRecreateSwapchainRetries = 8;
+        int retriesRemaining = kMaxRecreateSwapchainRetries;
+        while (retriesRemaining >= 0 && !recreateSwapchain()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            --retriesRemaining;
+            INFO("Swapchain recreation failed, retrying...");
+        }
+
+        if (retriesRemaining < 0) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Failed to create Swapchain."
+                << " w:" << surface->getWidth()
+                << " h:" << surface->getHeight();
+        }
+
+        INFO("Recreating swapchain completed.");
+    }
+
+    auto result = postImpl(sourceImageInfo);
+    if (!result.success) {
+        m_needToRecreateSwapChain = true;
+    }
+    return result;
+}
+
+DisplayVk::PostResult DisplayVk::postImpl(
     const BorrowedImageInfo* sourceImageInfo) {
     auto completedFuture = std::async(std::launch::deferred, [] {}).share();
     completedFuture.wait();
@@ -289,14 +341,15 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
                     m_compositorQueueFamilyIndex, *sourceImageInfoVk, *imageBorrowResources[0],
                     *imageBorrowResources[1]);
 
-    if (!m_swapChainStateVk || !m_surfaceState) {
+    const auto* surface = getBoundSurface();
+    if (!m_swapChainStateVk || !surface) {
         DISPLAY_VK_ERROR("Haven't bound to a surface, can't post ColorBuffer.");
-        return std::make_tuple(true, std::move(completedFuture));
+        return PostResult{true, std::move(completedFuture)};
     }
 
     if (!canPost(sourceImageInfoVk->imageCreateInfo)) {
         DISPLAY_VK_ERROR("Can't post ColorBuffer.");
-        return std::make_tuple(true, std::move(completedFuture));
+        return PostResult{true, std::move(completedFuture)};
     }
 
     for (auto& postResourceFutureOpt : m_postResourceFutures) {
@@ -334,7 +387,7 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
         m_vk.vkAcquireNextImageKHR(m_vkDevice, m_swapChainStateVk->getSwapChain(), UINT64_MAX,
                                    imageReadySem, VK_NULL_HANDLE, &imageIndex);
     if (shouldRecreateSwapchain(acquireRes)) {
-        return std::make_tuple(false, std::shared_future<void>());
+        return PostResult{false, std::shared_future<void>()};
     }
     VK_CHECK(acquireRes);
 
@@ -375,6 +428,11 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
                               VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1,
                               &acquireSwapchainImageBarrier);
 
+    // Note: The extent used during swapchain creation must be used here and not the
+    // current surface's extent as the swapchain may not have been updated after the
+    // surface resized. The blit must not try to write outside of the extent of the
+    // existing swapchain images.
+    const VkExtent2D swapchainImageExtent = m_swapChainStateVk->getImageExtent();
     const VkImageBlit region = {
         .srcSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                            .mipLevel = 0,
@@ -388,8 +446,8 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
                            .baseArrayLayer = 0,
                            .layerCount = 1},
         .dstOffsets = {{0, 0, 0},
-                       {static_cast<int32_t>(m_surfaceState->m_width),
-                        static_cast<int32_t>(m_surfaceState->m_height), 1}},
+                       {static_cast<int32_t>(swapchainImageExtent.width),
+                        static_cast<int32_t>(swapchainImageExtent.height), 1}},
     };
     VkFormat displayBufferFormat = sourceImageInfoVk->imageCreateInfo.format;
     VkImageTiling displayBufferTiling = sourceImageInfoVk->imageCreateInfo.tiling;
@@ -489,17 +547,17 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::post(
     }
     if (shouldRecreateSwapchain(presentRes)) {
         postResourceFuture.wait();
-        return std::make_tuple(false, std::shared_future<void>());
+        return PostResult{false, std::shared_future<void>()};
     }
     VK_CHECK(presentRes);
-    return std::make_tuple(true, std::async(std::launch::deferred, [postResourceFuture] {
-                                     // We can't directly wait for the VkFence here, because we
-                                     // share the VkFences on different frames, but we don't share
-                                     // the future on different frames. If we directly wait for the
-                                     // VkFence here, we may wait for a different frame if a new
-                                     // frame starts to be drawn before this future is waited.
-                                     postResourceFuture.wait();
-                                 }).share());
+    return PostResult{true, std::async(std::launch::deferred, [postResourceFuture] {
+                                // We can't directly wait for the VkFence here, because we
+                                // share the VkFences on different frames, but we don't share
+                                // the future on different frames. If we directly wait for the
+                                // VkFence here, we may wait for a different frame if a new
+                                // frame starts to be drawn before this future is waited.
+                                postResourceFuture.wait();
+                            }).share()};
 }
 
 VkFormatFeatureFlags DisplayVk::getFormatFeatures(VkFormat format, VkImageTiling tiling) {
