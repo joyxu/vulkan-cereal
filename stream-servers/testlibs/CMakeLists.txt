@@ -18,7 +18,7 @@ add_library(
 target_link_libraries(
     OSWindow
     PRIVATE
-    gfxstream-base.headers)
+    aemu-base.headers)
 target_include_directories(
     OSWindow
     PUBLIC

@@ -26,7 +26,7 @@ target_include_directories(
 target_link_libraries(
     gfxstream-compressedTextures_unittests
     PRIVATE
-    gfxstream-base.headers
+    aemu-base.headers
     gfxstream-compressedTextures
     ${GFXSTREAM_BASE_LIB}
     gtest_main

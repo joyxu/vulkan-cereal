@@ -20,7 +20,7 @@ add_library(gfxstream-gl-server
 target_link_libraries(
         gfxstream-gl-server
         PUBLIC
-        gfxstream-base.headers
+        aemu-base.headers
         gfxstream_vulkan_headers
         gles1_dec
         gles2_dec
