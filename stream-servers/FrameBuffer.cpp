@@ -49,6 +49,7 @@
 #include "host-common/logging.h"
 #include "host-common/misc.h"
 #include "host-common/vm_operations.h"
+#include "vulkan/DisplayVk.h"
 #include "vulkan/VkCommonOperations.h"
 #include "vulkan/VkDecoderGlobalState.h"
 
@@ -80,33 +81,6 @@ static void GL_APIENTRY GlDebugCallback(GLenum source,
                                         const void *userParam) {
     GL_LOG("message:%s", message);
 }
-
-// Implementation of a ColorBuffer::Helper instance that redirects calls
-// to a FrameBuffer instance.
-class FrameBufferContextHelper : public ContextHelper {
-   public:
-    FrameBufferContextHelper(FrameBuffer* fb) : mFb(fb) {}
-
-    virtual bool setupContext() override {
-        mIsBound = mFb->bind_locked();
-        return mIsBound;
-    }
-
-    virtual void teardownContext() override {
-        mFb->unbind_locked();
-        mIsBound = false;
-    }
-
-    virtual TextureDraw* getTextureDraw() const override {
-        return mFb->getTextureDraw();
-    }
-
-    virtual bool isBound() const override { return mIsBound; }
-
-   private:
-    FrameBuffer* mFb;
-    bool mIsBound = false;
-};
 
 }  // namespace
 
@@ -309,6 +283,15 @@ void FrameBuffer::finalize() {
         // will get cleaned when the process exits.
         if (m_useSubWindow) {
             m_postWorker.reset();
+            if (m_displayVk) {
+                m_displayVk->unbindFromSurface();
+            }
+            if (m_displayGl) {
+                m_displayGl->unbindFromSurface();
+            }
+            if (m_compositorGl) {
+                m_compositorGl->unbindFromSurface();
+            }
             removeSubWindow_locked();
         }
         return;
@@ -327,23 +310,24 @@ void FrameBuffer::finalize() {
     }
     m_windows.clear();
     m_contexts.clear();
+
+    if (m_displayVk) {
+        m_displayVk->unbindFromSurface();
+    }
+    if (m_displayGl) {
+        m_displayGl->unbindFromSurface();
+    }
+    if (m_compositorGl) {
+        m_compositorGl->unbindFromSurface();
+    }
+
     if (m_eglDisplay != EGL_NO_DISPLAY) {
         s_egl.eglMakeCurrent(m_eglDisplay, NULL, NULL, NULL);
+        m_pbufferSurface.reset();
+        m_fakeWindowSurface.reset();
         if (m_eglContext != EGL_NO_CONTEXT) {
             s_egl.eglDestroyContext(m_eglDisplay, m_eglContext);
             m_eglContext = EGL_NO_CONTEXT;
-        }
-        if (m_pbufContext != EGL_NO_CONTEXT) {
-            s_egl.eglDestroyContext(m_eglDisplay, m_pbufContext);
-            m_pbufContext = EGL_NO_CONTEXT;
-        }
-        if (m_pbufSurface != EGL_NO_SURFACE) {
-            s_egl.eglDestroySurface(m_eglDisplay, m_pbufSurface);
-            m_pbufSurface = EGL_NO_SURFACE;
-        }
-        if (m_eglSurface != EGL_NO_SURFACE) {
-            s_egl.eglDestroySurface(m_eglDisplay, m_eglSurface);
-            m_eglSurface = EGL_NO_SURFACE;
         }
         m_eglDisplay = EGL_NO_DISPLAY;
     }
@@ -371,7 +355,7 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         return false;
     }
 
-    std::unique_ptr<RecursiveScopedContextBind> eglColorBufferBind;
+    std::unique_ptr<RecursiveScopedContextBind> contextBind;
 
     std::unique_ptr<emugl::RenderDocWithMultipleVkInstances> renderDocMultipleVkInstances = nullptr;
     if (!android::base::getEnvironmentVariable("ANDROID_EMU_RENDERDOC").empty()) {
@@ -612,38 +596,45 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     // on Mac platform when switching binded drawable for a context however
     // it is more efficient on other platforms as well.
     //
-    fb->m_pbufContext =
-            s_egl.eglCreateContext(fb->m_eglDisplay, fb->m_eglConfig,
-                                   fb->m_eglContext, getGlesMaxContextAttribs());
-    if (fb->m_pbufContext == EGL_NO_CONTEXT) {
-        ERR("Failed to create Pbuffer Context 0x%x", s_egl.eglGetError());
+    auto pbufferSurfaceGl = DisplaySurfaceGl::createPbufferSurface(fb->m_eglDisplay,
+                                                                   fb->m_eglConfig,
+                                                                   fb->m_eglContext,
+                                                                   getGlesMaxContextAttribs(),
+                                                                   /*width=*/1,
+                                                                   /*height=*/1);
+    if (!pbufferSurfaceGl) {
+        ERR("Failed to create pbuffer display surface.");
         return false;
     }
+    fb->m_pbufferSurface = std::make_unique<gfxstream::DisplaySurface>(
+        /*width=*/1,
+        /*height=*/1,
+        std::move(pbufferSurfaceGl));
 
-    GL_LOG("context creation successful");
-
-    //
-    // create a 1x1 pbuffer surface which will be used for binding
-    // the FB context.
-    // The FB output will go to a subwindow, if one exist.
-    //
-    static const EGLint pbufAttribs[] = {EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE};
-
-    fb->m_pbufSurface = s_egl.eglCreatePbufferSurface(
-            fb->m_eglDisplay, fb->m_eglConfig, pbufAttribs);
-    if (fb->m_pbufSurface == EGL_NO_SURFACE) {
-        ERR("Failed to create pbuf surface for FB 0x%x", s_egl.eglGetError());
+    auto fakeWindowSurfaceGl = DisplaySurfaceGl::createPbufferSurface(fb->m_eglDisplay,
+                                                                      fb->m_eglConfig,
+                                                                      fb->m_eglContext,
+                                                                      getGlesMaxContextAttribs(),
+                                                                      fb->m_framebufferWidth,
+                                                                      fb->m_framebufferHeight);
+    if (!fakeWindowSurfaceGl) {
+        ERR("Failed to create fake window display surface.");
         return false;
     }
+    fb->m_fakeWindowSurface = std::make_unique<gfxstream::DisplaySurface>(
+        fb->m_framebufferWidth,
+        fb->m_framebufferHeight,
+        std::move(fakeWindowSurfaceGl));
 
-    GL_LOG("attempting to make context current");
-    // Make the context current
-    eglColorBufferBind = std::make_unique<RecursiveScopedContextBind>(fb->m_colorBufferHelper);
-    if (!eglColorBufferBind->isOk()) {
-        ERR("Failed to make current");
+
+    GL_LOG("Attempting to make pbuffer context and surface current");
+    contextBind = std::make_unique<RecursiveScopedContextBind>(
+        fb->getPbufferSurfaceContextHelper());
+    if (!contextBind->isOk()) {
+        ERR("Failed to make pbuffer context and surface current");
         return false;
     }
-    GL_LOG("context-current successful");
+    GL_LOG("Succeeded making pbuffer context and surface current");
 
     //
     // Initilize framebuffer capabilities
@@ -880,6 +871,9 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
         }
     }
 
+    fb->m_displayGl = std::make_unique<DisplayGl>();
+    fb->m_displayGl->bindToSurface(fb->m_fakeWindowSurface.get());
+
     if (fb->m_useVulkanComposition) {
         if (!vkEmu->compositorVk) {
             ERR("Failed to get CompositorVk from VkEmulation.");
@@ -890,6 +884,8 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow,
     } else {
         GL_LOG("Performing composition using CompositorGl.");
         fb->m_compositorGl = std::make_unique<CompositorGl>(fb->m_textureDraw);
+        fb->m_compositorGl->bindToSurface(fb->m_fakeWindowSurface.get());
+
         fb->m_compositor = fb->m_compositorGl.get();
     }
 
@@ -983,7 +979,6 @@ FrameBuffer::FrameBuffer(int p_width, int p_height, bool useSubWindow)
       m_fpsStats(getenv("SHOW_FPS_STATS") != nullptr),
       m_perfStats(!android::base::getEnvironmentVariable("SHOW_PERF_STATS").empty()),
       m_perfThread(new PerfStatThread(&m_perfStats)),
-      m_colorBufferHelper(new FrameBufferContextHelper(this)),
       m_readbackThread(
           [this](FrameBuffer::Readback&& readback) { return sendReadbackWorkerCmd(readback); }),
       m_refCountPipeEnabled(feature_is_enabled(kFeature_RefCountPipe)),
@@ -1015,7 +1010,6 @@ FrameBuffer::~FrameBuffer() {
 
     delete m_textureDraw;
     delete m_configs;
-    delete m_colorBufferHelper;
     delete m_perfThread;
 
     if (s_theFrameBuffer) {
@@ -1141,34 +1135,17 @@ std::future<void> FrameBuffer::sendPostWorkerCmd(Post post) {
 
     bool expectedPostThreadStarted = false;
     if (m_postThreadStarted.compare_exchange_strong(expectedPostThreadStarted, true)) {
-        if (postOnlyOnMainThread) {
-            EGLContext prevContext = s_egl.eglGetCurrentContext();
-            EGLSurface prevReadSurf = s_egl.eglGetCurrentSurface(EGL_READ);
-            EGLSurface prevDrawSurf = s_egl.eglGetCurrentSurface(EGL_DRAW);
-            m_prevContext = prevContext;
-            m_prevReadSurf = prevReadSurf;
-            m_prevDrawSurf = prevDrawSurf;
+        if (m_displayGl) {
+            m_displayGl->setUseBoundSurfaceContext(!postOnlyOnMainThread);
         }
-        m_postWorker.reset(new PostWorker(
-            [this]() {
-                if (m_displayVk) {
-                    return true;
-                }
-                if (m_subWin) {
-                    if (!bindSubwin_locked()) {
-                        return false;
-                    }
-                } else {
-                    if (!bindFakeWindow_locked()) {
-                        return false;
-                    }
-                }
-                if (m_compositorGl) {
-                    m_compositorGl->bindToWindow();
-                }
-                return true;
-            },
-            postOnlyOnMainThread, m_compositor, m_displayVk));
+        if (m_compositorGl) {
+            m_compositorGl->setUseBoundSurfaceContext(!postOnlyOnMainThread);
+        }
+
+        m_postWorker.reset(new PostWorker(postOnlyOnMainThread,
+                                          m_compositor,
+                                          m_displayGl.get(),
+                                          m_displayVk));
         m_postThread.start();
     }
 
@@ -1351,10 +1328,22 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
     //        (long long)System::get()->getProcessTimes().wallClockMs);
 #endif
 
+    // The GL variants are bound by default to an extra "fake" 1x1 surface which
+    // needs to be unbound before the first "real" surface is bound.
+    if (createSubWindow || deleteExisting) {
+        if (m_displayGl) {
+            m_displayGl->unbindFromSurface();
+        }
+        if (m_compositorGl) {
+            m_compositorGl->unbindFromSurface();
+        }
+    }
+
     if (deleteExisting) {
-        m_displayVk->unbindFromSurface();
+        if (m_displayVk) {
+            m_displayVk->unbindFromSurface();
+        }
         m_displaySurface.reset();
-        // TODO: look into reusing the existing native window when possible.
         removeSubWindow_locked();
     }
 
@@ -1392,11 +1381,13 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
                                       reinterpret_cast<RENDERDOC_WindowHandle>(m_subWin));
                 }
             } else {
-                // create EGLSurface from the generated subwindow
-                m_eglSurface = s_egl.eglCreateWindowSurface(
-                        m_eglDisplay, m_eglConfig, m_subWin, NULL);
-
-                if (m_eglSurface == EGL_NO_SURFACE) {
+                // TODO(Bug: b/233939967): move to EmulationGl->createDisplaySurface().
+                auto surfaceGl = DisplaySurfaceGl::createWindowSurface(m_eglDisplay,
+                                                                       m_eglConfig,
+                                                                       m_eglContext,
+                                                                       getGlesMaxContextAttribs(),
+                                                                       m_subWin);
+                if (!surfaceGl) {
                     // NOTE: This can typically happen with software-only renderers
                     // like OSMesa.
                     destroySubWindow(m_subWin);
@@ -1404,8 +1395,17 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
                 } else {
                     m_px = 0;
                     m_py = 0;
-
                     success = true;
+                    m_displaySurface =
+                        std::make_unique<gfxstream::DisplaySurface>(m_windowWidth,
+                                                                    m_windowHeight,
+                                                                    std::move(surfaceGl));
+                    if (m_displayGl) {
+                        m_displayGl->bindToSurface(m_displaySurface.get());
+                    }
+                    if (m_compositorGl) {
+                        m_compositorGl->bindToSurface(m_displaySurface.get());
+                    }
                 }
             }
         }
@@ -1474,11 +1474,9 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
     }
 
     if (success && redrawSubwindow) {
-        bool bindSuccess = bind_locked();
-        assert(bindSuccess);
-        (void)bindSuccess;
+        RecursiveScopedContextBind bind(getPbufferSurfaceContextHelper());
+        assert(bind.isOk());
         s_gles2.glViewport(0, 0, fbw * dpr, fbh * dpr);
-        unbind_locked();
     }
     mutex.unlock();
 
@@ -1519,11 +1517,19 @@ bool FrameBuffer::removeSubWindow_locked() {
     }
     bool removed = false;
     if (m_subWin) {
-        s_egl.eglMakeCurrent(m_eglDisplay, NULL, NULL, NULL);
-        s_egl.eglDestroySurface(m_eglDisplay, m_eglSurface);
+        if (m_displayVk) {
+            m_displayVk->unbindFromSurface();
+        }
+        if (m_displayGl) {
+            m_displayGl->unbindFromSurface();
+        }
+        if (m_compositorGl) {
+            m_compositorGl->unbindFromSurface();
+        }
+
+        m_windowSurface.reset();
         destroySubWindow(m_subWin);
 
-        m_eglSurface = EGL_NO_SURFACE;
         m_subWin = (EGLNativeWindowType)0;
         removed = true;
     }
@@ -1597,7 +1603,8 @@ HandleType FrameBuffer::createColorBufferWithHandleLocked(
 
     ColorBufferPtr cb(ColorBuffer::create(getDisplay(), p_width, p_height,
                                           p_internalFormat, p_frameworkFormat,
-                                          handle, m_colorBufferHelper,
+                                          handle, getPbufferSurfaceContextHelper(),
+                                          m_textureDraw,
                                           m_fastBlitSupported, m_guestUsesAngle));
     if (cb.get() != NULL) {
         assert(m_colorbuffers.count(handle) == 0);
@@ -1684,7 +1691,7 @@ HandleType FrameBuffer::createBufferWithHandleLocked(int p_size,
             << "Buffer already exists with handle " << handle;
     }
 
-    BufferPtr buffer(Buffer::create(p_size, handle, m_colorBufferHelper));
+    BufferPtr buffer(Buffer::create(p_size, handle, getPbufferSurfaceContextHelper()));
 
     if (buffer) {
         m_buffers[handle] = {std::move(buffer)};
@@ -1840,7 +1847,7 @@ void FrameBuffer::drainGlRenderThreadWindowSurfaces() {
     std::vector<HandleType> colorBuffersToCleanup;
 
     AutoLock mutex(m_lock);
-    RecursiveScopedContextBind bind(m_colorBufferHelper);
+    RecursiveScopedContextBind bind(getPbufferSurfaceContextHelper());
     for (const HandleType winHandle : tinfo->m_windowSet) {
         const auto winIt = m_windows.find(winHandle);
         if (winIt != m_windows.end()) {
@@ -1912,7 +1919,7 @@ std::vector<HandleType> FrameBuffer::DestroyWindowSurfaceLocked(HandleType p_sur
     std::vector<HandleType> colorBuffersToCleanUp;
     const auto w = m_windows.find(p_surface);
     if (w != m_windows.end()) {
-        RecursiveScopedContextBind bind(m_colorBufferHelper);
+        RecursiveScopedContextBind bind(getPbufferSurfaceContextHelper());
         if (!m_guestManagedColorBufferLifetime) {
             if (m_refCountPipeEnabled) {
                 if (decColorBufferRefCountLocked(w->second.second)) {
@@ -2183,7 +2190,7 @@ void FrameBuffer::cleanupProcGLObjects(uint64_t puid) {
 std::vector<HandleType> FrameBuffer::cleanupProcGLObjects_locked(uint64_t puid, bool forced) {
     std::vector<HandleType> colorBuffersToCleanup;
     {
-        RecursiveScopedContextBind bind(m_colorBufferHelper);
+        RecursiveScopedContextBind bind(getPbufferSurfaceContextHelper());
         // Clean up window surfaces
         {
             auto procIte = m_procOwnedWindowSurfaces.find(puid);
@@ -2408,7 +2415,7 @@ void FrameBuffer::createYUVTextures(uint32_t type,
                                     uint32_t* output) {
     FrameworkFormat format = static_cast<FrameworkFormat>(type);
     AutoLock mutex(m_lock);
-    RecursiveScopedContextBind bind(m_colorBufferHelper);
+    RecursiveScopedContextBind bind(getPbufferSurfaceContextHelper());
     for (uint32_t i = 0; i < count; ++i) {
         if (format == FRAMEWORK_FORMAT_NV12) {
             YUVConverter::createYUVGLTex(GL_TEXTURE0, width, height,
@@ -2430,7 +2437,7 @@ void FrameBuffer::destroyYUVTextures(uint32_t type,
                                      uint32_t count,
                                      uint32_t* textures) {
     AutoLock mutex(m_lock);
-    RecursiveScopedContextBind bind(m_colorBufferHelper);
+    RecursiveScopedContextBind bind(getPbufferSurfaceContextHelper());
     if (type == FRAMEWORK_FORMAT_NV12) {
         s_gles2.glDeleteTextures(2 * count, textures);
     } else if (type == FRAMEWORK_FORMAT_YUV_420_888) {
@@ -2449,7 +2456,7 @@ void FrameBuffer::updateYUVTextures(uint32_t type,
                                     void* privData,
                                     void* func) {
     AutoLock mutex(m_lock);
-    RecursiveScopedContextBind bind(m_colorBufferHelper);
+    RecursiveScopedContextBind bind(getPbufferSurfaceContextHelper());
 
     yuv_updater_t updater = (yuv_updater_t)func;
     uint32_t gtextures[3] = {0, 0, 0};
@@ -2786,102 +2793,6 @@ EGLBoolean FrameBuffer::destroyClientImage(HandleType image) {
     return true;
 }
 
-//
-// The framebuffer lock should be held when calling this function !
-//
-bool FrameBuffer::bind_locked() {
-    EGLContext prevContext = s_egl.eglGetCurrentContext();
-    EGLSurface prevReadSurf = s_egl.eglGetCurrentSurface(EGL_READ);
-    EGLSurface prevDrawSurf = s_egl.eglGetCurrentSurface(EGL_DRAW);
-
-    if (prevContext != m_pbufContext || prevReadSurf != m_pbufSurface ||
-        prevDrawSurf != m_pbufSurface) {
-        if (!s_egl.eglMakeCurrent(m_eglDisplay, m_pbufSurface, m_pbufSurface,
-                                  m_pbufContext)) {
-            if (!m_shuttingDown)
-                ERR("eglMakeCurrent failed");
-            return false;
-        }
-    } else {
-        ERR("Nested %s call detected, should never happen\n", __func__);
-    }
-
-    m_prevContext = prevContext;
-    m_prevReadSurf = prevReadSurf;
-    m_prevDrawSurf = prevDrawSurf;
-    return true;
-}
-
-bool FrameBuffer::bindSubwin_locked() {
-    EGLContext prevContext = s_egl.eglGetCurrentContext();
-    EGLSurface prevReadSurf = s_egl.eglGetCurrentSurface(EGL_READ);
-    EGLSurface prevDrawSurf = s_egl.eglGetCurrentSurface(EGL_DRAW);
-
-    if (prevContext != m_eglContext || prevReadSurf != m_eglSurface ||
-        prevDrawSurf != m_eglSurface) {
-        if (!s_egl.eglMakeCurrent(m_eglDisplay, m_eglSurface, m_eglSurface,
-                                  m_eglContext)) {
-            ERR("eglMakeCurrent failed in binding subwindow!");
-            return false;
-        }
-    }
-
-    //
-    // initialize GL state in eglContext if not yet initilaized
-    //
-    if (!m_eglContextInitialized) {
-        m_eglContextInitialized = true;
-    }
-
-    m_prevContext = prevContext;
-    m_prevReadSurf = prevReadSurf;
-    m_prevDrawSurf = prevDrawSurf;
-    return true;
-}
-
-bool FrameBuffer::bindFakeWindow_locked() {
-    if (m_eglFakeWindowSurface == EGL_NO_SURFACE) {
-        // initialize here
-        m_eglFakeWindowContext = s_egl.eglCreateContext(
-                m_eglDisplay, m_eglConfig, m_eglContext,
-                getGlesMaxContextAttribs());
-
-        static const EGLint kFakeWindowPbufAttribs[] = {
-                EGL_WIDTH,          m_framebufferWidth, EGL_HEIGHT,
-                m_framebufferWidth, EGL_NONE,
-        };
-
-        m_eglFakeWindowSurface = s_egl.eglCreatePbufferSurface(
-                m_eglDisplay, m_eglConfig, kFakeWindowPbufAttribs);
-    }
-
-    if (!s_egl.eglMakeCurrent(m_eglDisplay, m_eglFakeWindowSurface,
-                              m_eglFakeWindowSurface, m_eglFakeWindowContext)) {
-        ERR("eglMakeCurrent failed in binding fake window!");
-        return false;
-    }
-    return true;
-}
-
-bool FrameBuffer::unbind_locked() {
-    EGLContext curContext = s_egl.eglGetCurrentContext();
-    EGLSurface curReadSurf = s_egl.eglGetCurrentSurface(EGL_READ);
-    EGLSurface curDrawSurf = s_egl.eglGetCurrentSurface(EGL_DRAW);
-
-    if (m_prevContext != curContext || m_prevReadSurf != curReadSurf ||
-        m_prevDrawSurf != curDrawSurf) {
-        if (!s_egl.eglMakeCurrent(m_eglDisplay, m_prevDrawSurf, m_prevReadSurf,
-                                  m_prevContext)) {
-            return false;
-        }
-    }
-
-    m_prevContext = EGL_NO_CONTEXT;
-    m_prevReadSurf = EGL_NO_SURFACE;
-    m_prevDrawSurf = EGL_NO_SURFACE;
-    return true;
-}
-
 void FrameBuffer::createTrivialContext(HandleType shared,
                                        HandleType* contextOut,
                                        HandleType* surfOut) {
@@ -2911,7 +2822,7 @@ void FrameBuffer::createSharedTrivialContext(EGLContext* contextOut,
         EGL_NONE };
 
     *contextOut = s_egl.eglCreateContext(
-            m_eglDisplay, config->getHostEglConfig(), m_pbufContext, contextAttribs);
+            m_eglDisplay, config->getHostEglConfig(), getGlobalEGLContext(), contextAttribs);
 
     const EGLint pbufAttribs[] = {
         EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE };
@@ -3284,14 +3195,14 @@ bool FrameBuffer::compose(uint32_t bufferSize, void* buffer, bool needPost) {
 
         switch (composeDevice->version) {
             case 1: {
-                RecursiveScopedContextBind scopedBind(m_colorBufferHelper);
+                RecursiveScopedContextBind scopedBind(getPbufferSurfaceContextHelper());
                 post(composeDevice->targetHandle, false);
                 break;
             }
             case 2: {
                 ComposeDevice_v2* composeDeviceV2 = (ComposeDevice_v2*)buffer;
                 if (composeDeviceV2->displayId == 0) {
-                    RecursiveScopedContextBind scopedBind(m_colorBufferHelper);
+                    RecursiveScopedContextBind scopedBind(getPbufferSurfaceContextHelper());
                     post(composeDeviceV2->targetHandle, false);
                 }
                 break;
@@ -3357,7 +3268,7 @@ void FrameBuffer::onSave(Stream* stream,
     //     m_prevDrawSurf
     AutoLock mutex(m_lock);
     // set up a context because some snapshot commands try using GL
-    RecursiveScopedContextBind scopedBind(m_colorBufferHelper);
+    RecursiveScopedContextBind scopedBind(getPbufferSurfaceContextHelper());
     // eglPreSaveContext labels all guest context textures to be saved
     // (textures created by the host are not saved!)
     // eglSaveAllImages labels all EGLImages (both host and guest) to be saved
@@ -3376,7 +3287,7 @@ void FrameBuffer::onSave(Stream* stream,
     stream->putFloat(m_dpr);
 
     stream->putBe32(m_useSubWindow);
-    stream->putBe32(m_eglContextInitialized);
+    stream->putBe32(/*Obsolete m_eglContextInitialized =*/1);
 
     stream->putBe32(m_fpsStats);
     stream->putBe32(m_statsNumFrames);
@@ -3431,13 +3342,10 @@ void FrameBuffer::onSave(Stream* stream,
             s_egl.eglPostSaveContext(m_eglDisplay, ctx.second->getEGLContext(),
                     stream);
         }
-        // We need to run the post save step for m_eglContext and m_pbufContext
+        // We need to run the post save step for m_eglContext
         // to mark their texture handles dirty
         if (m_eglContext != EGL_NO_CONTEXT) {
             s_egl.eglPostSaveContext(m_eglDisplay, m_eglContext, stream);
-        }
-        if (m_pbufContext != EGL_NO_CONTEXT) {
-            s_egl.eglPostSaveContext(m_eglDisplay, m_pbufContext, stream);
         }
     }
 
@@ -3450,7 +3358,7 @@ bool FrameBuffer::onLoad(Stream* stream,
     {
         sweepColorBuffersLocked();
 
-        RecursiveScopedContextBind scopedBind(m_colorBufferHelper);
+        RecursiveScopedContextBind scopedBind(getPbufferSurfaceContextHelper());
         bool cleanupComplete = false;
         {
             AutoLock colorBufferMapLock(m_colorBufferMapLock);
@@ -3553,7 +3461,7 @@ bool FrameBuffer::onLoad(Stream* stream,
     // TODO: resize the window
     //
     m_useSubWindow = stream->getBe32();
-    m_eglContextInitialized = stream->getBe32();
+    /*Obsolete m_eglContextInitialized =*/stream->getBe32();
 
     m_fpsStats = stream->getBe32();
     m_statsNumFrames = stream->getBe32();
@@ -3572,8 +3480,8 @@ bool FrameBuffer::onLoad(Stream* stream,
         m_guestManagedColorBufferLifetime = stream->getByte();
         loadCollection(
             stream, &m_colorbuffers, [this, now](Stream* stream) -> ColorBufferMap::value_type {
-                ColorBufferPtr cb(ColorBuffer::onLoad(stream, m_eglDisplay, m_colorBufferHelper,
-                                                      m_fastBlitSupported));
+                ColorBufferPtr cb(ColorBuffer::onLoad(stream, m_eglDisplay, getPbufferSurfaceContextHelper(),
+                                                      m_textureDraw, m_fastBlitSupported));
                 const HandleType handle = cb->getHndl();
                 const unsigned refCount = stream->getBe32();
                 const bool opened = stream->getByte();
@@ -3607,7 +3515,7 @@ bool FrameBuffer::onLoad(Stream* stream,
     registerTriggerWait();
 
     {
-        RecursiveScopedContextBind scopedBind(m_colorBufferHelper);
+        RecursiveScopedContextBind scopedBind(getPbufferSurfaceContextHelper());
         AutoLock colorBufferMapLock(m_colorBufferMapLock);
         for (auto& it : m_colorbuffers) {
             if (it.second.cb) {
@@ -3908,4 +3816,39 @@ std::unique_ptr<BorrowedImageInfo> FrameBuffer::borrowColorBufferForDisplay(
         return nullptr;
     }
     return colorBufferPtr->getBorrowedImageInfo();
+}
+
+EGLSurface FrameBuffer::getWindowSurface() const {
+    if (!m_windowSurface) {
+        return EGL_NO_SURFACE;
+    }
+
+    const auto* displaySurfaceGl =
+        reinterpret_cast<const DisplaySurfaceGl*>(m_windowSurface->getImpl());
+
+    return displaySurfaceGl->getSurface();
+}
+
+EGLContext FrameBuffer::getGlobalEGLContext() const {
+    if (!m_pbufferSurface) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "FrameBuffer pbuffer surface not available.";
+    }
+
+    const auto* displaySurfaceGl =
+        reinterpret_cast<const DisplaySurfaceGl*>(m_pbufferSurface->getImpl());
+
+    return displaySurfaceGl->getContextForShareContext();
+}
+
+ContextHelper* FrameBuffer::getPbufferSurfaceContextHelper() const {
+    if (!m_pbufferSurface) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "FrameBuffer pbuffer surface not available.";
+    }
+
+    const auto* displaySurfaceGl =
+        reinterpret_cast<const DisplaySurfaceGl*>(m_pbufferSurface->getImpl());
+
+    return displaySurfaceGl->getContextHelper();
 }

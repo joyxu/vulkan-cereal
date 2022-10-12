@@ -33,7 +33,6 @@
 #include "Compositor.h"
 #include "Display.h"
 #include "DisplaySurface.h"
-#include "DisplayVk.h"
 #include "Hwc2.h"
 #include "PostCommands.h"
 #include "PostWorker.h"
@@ -49,6 +48,7 @@
 #include "aemu/base/threads/Thread.h"
 #include "aemu/base/threads/WorkerThread.h"
 #include "gl/CompositorGl.h"
+#include "gl/DisplaySurfaceGl.h"
 #include "gl/EmulatedEglConfig.h"
 #include "gl/GLESVersionDetector.h"
 #include "gl/RenderContext.h"
@@ -63,6 +63,8 @@
 using android::base::CreateMetricsLogger;
 using emugl::HealthMonitor;
 using emugl::MetricsLogger;
+
+class DisplayVk;
 
 struct ColorBufferRef {
     ColorBufferPtr cb;
@@ -483,9 +485,10 @@ class FrameBuffer {
 
     // Return the host EGLDisplay used by this instance.
     EGLDisplay getDisplay() const { return m_eglDisplay; }
-    EGLSurface getWindowSurface() const { return m_eglSurface; }
+    EGLSurface getWindowSurface() const;
     EGLContext getContext() const { return m_eglContext; }
     EGLConfig getConfig() const { return m_eglConfig; }
+    ContextHelper* getPbufferSurfaceContextHelper() const;
 
     // Change the rotation of the displayed GPU sub-window.
     void setDisplayRotation(float zRot) {
@@ -524,10 +527,6 @@ class FrameBuffer {
     // not. Reference:
     // https://www.khronos.org/registry/egl/extensions/KHR/EGL_KHR_image_base.txt
     EGLBoolean destroyClientImage(HandleType image);
-
-    // Used internally.
-    bool bind_locked();
-    bool unbind_locked();
 
     void lockContextStructureRead() { m_contextStructureLock.lockRead(); }
     void unlockContextStructureRead() { m_contextStructureLock.unlockRead(); }
@@ -594,7 +593,6 @@ class FrameBuffer {
                        int displayId, int desiredWidth, int desiredHeight,
                        int desiredRotation);
     void onLastColorBufferRef(uint32_t handle);
-    ContextHelper* getColorBufferHelper() { return m_colorBufferHelper; }
     ColorBufferPtr findColorBuffer(HandleType p_colorbuffer);
     BufferPtr findBuffer(HandleType p_buffer);
 
@@ -632,7 +630,7 @@ class FrameBuffer {
     static const uint32_t s_invalidIdMultiDisplay = 0xFFFFFFAB;
     static const uint32_t s_maxNumMultiDisplay = 11;
 
-    EGLContext getGlobalEGLContext() { return m_pbufContext; }
+    EGLContext getGlobalEGLContext() const;
     HandleType getLastPostedColorBuffer() { return m_lastPostedColorBuffer; }
     void waitForGpu(uint64_t eglsync);
     void waitForGpuVulkan(uint64_t deviceHandle, uint64_t fenceHandle);
@@ -662,8 +660,6 @@ class FrameBuffer {
     // the object handle maps.
     HandleType genHandle_locked();
 
-    bool bindSubwin_locked();
-    bool bindFakeWindow_locked();
     bool removeSubWindow_locked();
     // Returns the set of ColorBuffers destroyed (for further cleanup)
     std::vector<HandleType> cleanupProcGLObjects_locked(uint64_t puid,
@@ -707,7 +703,6 @@ class FrameBuffer {
     float m_dpr = 0;
 
     bool m_useSubWindow = false;
-    bool m_eglContextInitialized = false;
 
     bool m_fpsStats = false;
     bool m_perfStats = false;
@@ -745,19 +740,16 @@ class FrameBuffer {
     using ColorBufferDelayedClose = std::vector<ColorBufferCloseInfo>;
     ColorBufferDelayedClose m_colorBufferDelayedCloseList;
 
-    ContextHelper* m_colorBufferHelper = nullptr;
-
-    EGLSurface m_eglSurface = EGL_NO_SURFACE;
     EGLContext m_eglContext = EGL_NO_CONTEXT;
-    EGLSurface m_pbufSurface = EGL_NO_SURFACE;
-    EGLContext m_pbufContext = EGL_NO_CONTEXT;
 
-    EGLSurface m_eglFakeWindowSurface = EGL_NO_SURFACE;
-    EGLContext m_eglFakeWindowContext = EGL_NO_CONTEXT;
+    // TODO(b/233939967): move to EmulationGl
+    // Used for ColorBuffer ops.
+    std::unique_ptr<gfxstream::DisplaySurface> m_pbufferSurface;
+    // TODO(b/233939967): move to EmulationGl
+    // Used for Composition and Display ops.
+    std::unique_ptr<gfxstream::DisplaySurface> m_windowSurface;
+    std::unique_ptr<gfxstream::DisplaySurface> m_fakeWindowSurface;
 
-    EGLContext m_prevContext = EGL_NO_CONTEXT;
-    EGLSurface m_prevReadSurf = EGL_NO_SURFACE;
-    EGLSurface m_prevDrawSurf = EGL_NO_SURFACE;
     EGLNativeWindowType m_subWin = {};
     TextureDraw* m_textureDraw = nullptr;
     EGLConfig m_eglConfig = nullptr;
@@ -864,6 +856,8 @@ class FrameBuffer {
     std::unique_ptr<CompositorGl> m_compositorGl;
     bool m_useVulkanComposition = false;
 
+    // TODO(b/233939967): move to EmulationGl.
+    std::unique_ptr<DisplayGl> m_displayGl;
     // The implementation for Vulkan native swapchain. Only initialized when useVulkan is set when
     // calling FrameBuffer::initialize(). DisplayVk is actually owned by VkEmulation.
     DisplayVk *m_displayVk = nullptr;
