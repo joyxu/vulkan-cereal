@@ -61,7 +61,8 @@ DisplayVk::DisplayVk(const goldfish_vk::VulkanDispatch& vk, VkPhysicalDevice vkP
       m_swapChainVkQueue(swapChainVkqueue),
       m_swapChainVkQueueLock(swapChainVkQueueLock),
       m_vkCommandPool(VK_NULL_HANDLE),
-      m_swapChainStateVk(nullptr) {
+      m_swapChainStateVk(nullptr),
+      m_surfaceState(nullptr) {
     // TODO(kaiyili): validate the capabilites of the passed in Vulkan
     // components.
     VkCommandPoolCreateInfo commandPoolCi = {
@@ -82,6 +83,7 @@ DisplayVk::~DisplayVk() {
     m_imageBorrowResources.clear();
     m_freePostResources.clear();
     m_postResourceFutures.clear();
+    m_surfaceState.reset();
     m_swapChainStateVk.reset();
     m_vk.vkDestroyCommandPool(m_vkDevice, m_vkCommandPool, nullptr);
 }
@@ -100,40 +102,20 @@ void DisplayVk::drainQueues() {
     }
 }
 
-void DisplayVk::bindToSurfaceImpl(gfxstream::DisplaySurface* surface) {
-    m_needToRecreateSwapChain = true;
-}
-
-void DisplayVk::unbindFromSurfaceImpl() {
-    drainQueues();
-    m_freePostResources.clear();
-    m_postResourceFutures.clear();
-    m_swapChainStateVk.reset();
-    m_needToRecreateSwapChain = true;
-}
-
-bool DisplayVk::recreateSwapchain() {
+bool DisplayVk::bindToSurface(VkSurfaceKHR surface, uint32_t width, uint32_t height) {
     drainQueues();
     m_freePostResources.clear();
     m_postResourceFutures.clear();
     m_swapChainStateVk.reset();
 
-    const auto* surface = getBoundSurface();
-    if (!surface) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "DisplayVk can't create VkSwapchainKHR without a VkSurfaceKHR";
-    }
-    const auto* surfaceVk = static_cast<const DisplaySurfaceVk*>(surface->getImpl());
-
-    if (!SwapChainStateVk::validateQueueFamilyProperties(m_vk, m_vkPhysicalDevice,
-                                                         surfaceVk->getSurface(),
+    if (!SwapChainStateVk::validateQueueFamilyProperties(m_vk, m_vkPhysicalDevice, surface,
                                                          m_swapChainQueueFamilyIndex)) {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
             << "DisplayVk can't create VkSwapchainKHR with given VkDevice and VkSurfaceKHR.";
     }
     auto swapChainCi = SwapChainStateVk::createSwapChainCi(
-        m_vk, surfaceVk->getSurface(), m_vkPhysicalDevice, surface->getWidth(),
-        surface->getHeight(), {m_swapChainQueueFamilyIndex, m_compositorQueueFamilyIndex});
+        m_vk, surface, m_vkPhysicalDevice, width, height,
+        {m_swapChainQueueFamilyIndex, m_compositorQueueFamilyIndex});
     if (!swapChainCi) {
         return false;
     }
@@ -156,55 +138,15 @@ bool DisplayVk::recreateSwapchain() {
     }
 
     m_inFlightFrameIndex = 0;
-    m_needToRecreateSwapChain = false;
+
+    auto surfaceState = std::make_unique<SurfaceState>();
+    surfaceState->m_height = height;
+    surfaceState->m_width = width;
+    m_surfaceState = std::move(surfaceState);
     return true;
 }
 
-std::shared_future<void> DisplayVk::post(const BorrowedImageInfo* sourceImageInfo) {
-    auto completedFuture = std::async(std::launch::deferred, [] {}).share();
-    completedFuture.wait();
-
-    const auto* surface = getBoundSurface();
-    if (!surface) {
-        return completedFuture;
-    }
-
-    constexpr const int kMaxPostRetries = 8;
-    for (int i = 0; i < kMaxPostRetries; i++) {
-        if (m_needToRecreateSwapChain) {
-            INFO("Recreating swapchain...");
-
-            constexpr const int kMaxRecreateSwapchainRetries = 8;
-            int retriesRemaining = kMaxRecreateSwapchainRetries;
-            while (retriesRemaining >= 0 && !recreateSwapchain()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                --retriesRemaining;
-                INFO("Swapchain recreation failed, retrying...");
-            }
-
-            if (retriesRemaining < 0) {
-                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-                    << "Failed to create Swapchain."
-                    << " w:" << surface->getWidth()
-                    << " h:" << surface->getHeight();
-            }
-
-            INFO("Recreating swapchain completed.");
-        }
-
-        bool success;
-        std::shared_future<void> waitable;
-        std::tie(success, waitable) = postImpl(sourceImageInfo);
-        if (success) {
-            return waitable;
-        }
-        m_needToRecreateSwapChain = true;
-    }
-
-    return completedFuture;
-}
-
-std::tuple<bool, std::shared_future<void>> DisplayVk::postImpl(
+std::tuple<bool, std::shared_future<void>> DisplayVk::post(
     const BorrowedImageInfo* sourceImageInfo) {
     auto completedFuture = std::async(std::launch::deferred, [] {}).share();
     completedFuture.wait();
@@ -347,8 +289,7 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::postImpl(
                     m_compositorQueueFamilyIndex, *sourceImageInfoVk, *imageBorrowResources[0],
                     *imageBorrowResources[1]);
 
-    const auto* surface = getBoundSurface();
-    if (!m_swapChainStateVk || !surface) {
+    if (!m_swapChainStateVk || !m_surfaceState) {
         DISPLAY_VK_ERROR("Haven't bound to a surface, can't post ColorBuffer.");
         return std::make_tuple(true, std::move(completedFuture));
     }
@@ -447,8 +388,8 @@ std::tuple<bool, std::shared_future<void>> DisplayVk::postImpl(
                            .baseArrayLayer = 0,
                            .layerCount = 1},
         .dstOffsets = {{0, 0, 0},
-                       {static_cast<int32_t>(surface->getWidth()),
-                        static_cast<int32_t>(surface->getHeight()), 1}},
+                       {static_cast<int32_t>(m_surfaceState->m_width),
+                        static_cast<int32_t>(m_surfaceState->m_height), 1}},
     };
     VkFormat displayBufferFormat = sourceImageInfoVk->imageCreateInfo.format;
     VkImageTiling displayBufferTiling = sourceImageInfoVk->imageCreateInfo.tiling;
