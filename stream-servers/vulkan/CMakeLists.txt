@@ -26,7 +26,7 @@ target_link_libraries(gfxstream-vulkan-server PUBLIC
         gfxstream-compressedTextures
         emulated_textures
         apigen-codec-common
-        gfxstream-base.headers
+        aemu-base.headers
         gfxstream-snapshot.headers
         gfxstream_vulkan_headers)
 

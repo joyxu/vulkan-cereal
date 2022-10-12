@@ -125,7 +125,7 @@ if (ENABLE_VKCEREAL_TESTS)
         PRIVATE
         OSWindow
         gfxstream_backend
-        gfxstream-host-common-testing-support
+        aemu-host-common-testing-support
         ${GFXSTREAM_BASE_LIB}
         gtest_main)
     gtest_discover_tests(gfxstream_backend_unittests)
@@ -159,7 +159,7 @@ target_include_directories(
 target_link_libraries(
     stream-server-testing-support
     PUBLIC
-    gfxstream-base-testing-support
+    aemu-base-testing-support
     gfxstream_backend_static
     gfxstream_stb
     OSWindow
@@ -171,7 +171,7 @@ add_library(
     tests/X11TestingSupport.cpp)
 target_link_libraries(
     x11_testing_support
-    gfxstream-base.headers)
+    aemu-base.headers)
 endif()
 
 if (ENABLE_VKCEREAL_TESTS)
@@ -188,8 +188,8 @@ if (ENABLE_VKCEREAL_TESTS)
         PRIVATE
         gfxstream_backend_static
         stream-server-testing-support
-        gfxstream-base-testing-support
-        gfxstream-host-common-testing-support
+        aemu-base-testing-support
+        aemu-host-common-testing-support
         gtest_main)
     if (LINUX)
         target_link_libraries(
@@ -221,8 +221,8 @@ if (ENABLE_VKCEREAL_TESTS)
         PRIVATE
         gfxstream_backend_static
         stream-server-testing-support
-        gfxstream-base-testing-support
-        gfxstream-host-common-testing-support
+        aemu-base-testing-support
+        aemu-host-common-testing-support
         gtest_main)
     gtest_discover_tests(OpenglRender_snapshot_unittests)
 
@@ -244,8 +244,8 @@ if (ENABLE_VKCEREAL_TESTS)
         PRIVATE
         gfxstream_backend_static
         stream-server-testing-support
-        gfxstream-base-testing-support
-        gfxstream-host-common-testing-support
+        aemu-base-testing-support
+        aemu-host-common-testing-support
         gtest
         gtest_main
         gmock)

@@ -38,7 +38,7 @@ else()
 endif()
 
 target_link_libraries(EGL_translator_static PUBLIC GLcommon apigen-codec-common)
-target_link_libraries(EGL_translator_static PRIVATE gfxstream-base.headers logging-base)
+target_link_libraries(EGL_translator_static PRIVATE aemu-base.headers logging-base)
 target_link_libraries(EGL_translator_static PUBLIC GLES_CM_translator_static GLES_V2_translator_static)
 if (NOT MSVC)
     target_compile_options(EGL_translator_static PRIVATE -fvisibility=hidden)
