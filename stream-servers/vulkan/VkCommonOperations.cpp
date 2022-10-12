@@ -1225,24 +1225,6 @@ void teardownGlobalVkEmulation() {
     sVkEmulation = nullptr;
 }
 
-std::unique_ptr<gfxstream::DisplaySurface> createDisplaySurface(FBNativeWindowType window,
-                                                                uint32_t width,
-                                                                uint32_t height) {
-    if (!sVkEmulation || !sVkEmulation->live) {
-        return nullptr;
-    }
-
-    auto surfaceVk = DisplaySurfaceVk::create(*sVkEmulation->ivk,
-                                              sVkEmulation->instance,
-                                              window);
-    if (!surfaceVk) {
-        VK_COMMON_ERROR("Failed to create DisplaySurfaceVk.");
-        return nullptr;
-    }
-
-    return std::make_unique<gfxstream::DisplaySurface>(width, height, std::move(surfaceVk));
-}
-
 // Precondition: sVkEmulation has valid device support info
 bool allocExternalMemory(VulkanDispatch* vk, VkEmulation::ExternalMemoryInfo* info,
                          bool actuallyExternal, Optional<uint64_t> deviceAlignment) {
