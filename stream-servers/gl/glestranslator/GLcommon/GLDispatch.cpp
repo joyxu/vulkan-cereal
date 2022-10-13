@@ -221,6 +221,19 @@ void GLDispatch::dispatchFuncs(GLESVersion version, GlLibrary* glLib, EGLGetProc
         LIST_GLES31_ONLY_FUNCTIONS(LOAD_GLEXT_FUNC_DEBUG_LOG_WRAPPER)
     }
 
+    const char* kAngleName = "ANGLE";
+    if (0 == strncmp(reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
+                     kAngleName, strlen(kAngleName))) {
+        // ANGLE loads a bad glGetTexImage. (No it is not the dummy.)
+        // Overwrite it.
+        void* _glGetTexImageANGLE =
+                (void*)getGLFuncAddress("glGetTexImageANGLE", glLib);
+        if (_glGetTexImageANGLE) {
+            glGetTexImage = (__typeof__(
+                    glGetTexImage))_glGetTexImageANGLE;
+        }
+    }
+
     m_isLoaded = true;
     m_version = version;
 }

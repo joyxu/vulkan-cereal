@@ -78,6 +78,7 @@ public:
     // Just initialize, draw, and swap buffers once.
     void drawOnce();
 
+    bool isSwANGLE();
 private:
     void drawWorkerWithCompose(ColorBufferQueue& app2sfQueue, ColorBufferQueue& sf2appQueue);
     void drawWorker(ColorBufferQueue& app2sfQueue, ColorBufferQueue& sf2appQueue,
