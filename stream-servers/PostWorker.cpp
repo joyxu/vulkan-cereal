@@ -93,23 +93,17 @@ std::shared_future<void> PostWorker::postImpl(ColorBuffer* cb) {
     }
 
     if (m_displayVk) {
-        const auto imageInfo = mFb->borrowColorBufferForDisplay(cb->getHndl());
-        bool success;
-        Compositor::CompositionFinishedWaitable waitForGpu;
-        std::tie(success, waitForGpu) = m_displayVk->post(imageInfo.get());
-        if (!success) {
-            // Create swapChain and retry
-            if (mBindSubwin()) {
-                const auto imageInfo = mFb->borrowColorBufferForDisplay(cb->getHndl());
-                std::tie(success, waitForGpu) = m_displayVk->post(imageInfo.get());
+        constexpr const int kMaxPostRetries = 2;
+        for (int i = 0; i < kMaxPostRetries; i++) {
+            const auto imageInfo = mFb->borrowColorBufferForDisplay(cb->getHndl());
+            auto result = m_displayVk->post(imageInfo.get());
+            if (result.success) {
+                return result.postCompletedWaitable;
             }
-            if (!success) {
-                m_needsToRebindWindow = true;
-                return completedFuture;
-            }
-            m_needsToRebindWindow = false;
         }
-        return waitForGpu;
+
+        ERR("Failed to post ColorBuffer after %d retries.", kMaxPostRetries);
+        return completedFuture;
     }
 
     float dpr = mFb->getDpr();

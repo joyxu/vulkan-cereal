@@ -49,6 +49,7 @@ class SwapChainStateVk {
 
     ~SwapChainStateVk();
     VkFormat getFormat();
+    VkExtent2D getImageExtent() const;
     const std::vector<VkImage>& getVkImages() const;
     const std::vector<VkImageView>& getVkImageViews() const;
     VkSwapchainKHR getSwapChain() const;
@@ -63,6 +64,7 @@ class SwapChainStateVk {
     const goldfish_vk::VulkanDispatch& m_vk;
     VkDevice m_vkDevice;
     VkSwapchainKHR m_vkSwapChain;
+    VkExtent2D m_vkImageExtent;
     std::vector<VkImage> m_vkImages;
     std::vector<VkImageView> m_vkImageViews;
 };
