@@ -330,6 +330,7 @@ void SyncThread::initSyncEGLContext() {
             .mDescription = "init sync EGL context",
         };
     });
+    mWorkerThreadPool.waitAllItems();
 }
 
 void SyncThread::doSyncWait(FenceSync* fenceSync, std::function<void()> onComplete) {
