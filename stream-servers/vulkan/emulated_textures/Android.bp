@@ -12,5 +12,6 @@ cc_library_static {
     defaults: [ "gfxstream_defaults" ],
     srcs: [
         "AstcTexture.cpp",
+        "CompressedImageInfo.cpp",
     ],
 }
