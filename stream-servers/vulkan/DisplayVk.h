@@ -30,7 +30,7 @@ class DisplayVk : public gfxstream::Display {
               VkQueue swapChainVkQueue, std::shared_ptr<android::base::Lock> swapChainVkQueueLock);
     ~DisplayVk();
 
-    std::shared_future<void> post(const BorrowedImageInfo* info);
+    PostResult post(const BorrowedImageInfo* info);
 
     void drainQueues();
 
@@ -39,14 +39,15 @@ class DisplayVk : public gfxstream::Display {
     void unbindFromSurfaceImpl() override;
 
    private:
+    void destroySwapchain();
     bool recreateSwapchain();
 
-    // The first component of the returned tuple is false when the swapchain is no longer valid and
-    // bindToSurface() needs to be called again. When the first component is true, the second
-    // component of the returned tuple is a/ future that will complete when the GPU side of work
+    // The success component of the result is false when the swapchain is no longer valid and
+    // bindToSurface() needs to be called again. When the success component is true, the waitable
+    // component of the returned result is a future that will complete when the GPU side of work
     // completes. The caller is responsible to guarantee the synchronization and the layout of
     // ColorBufferCompositionInfo::m_vkImage is VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
-    std::tuple<bool, std::shared_future<void>> postImpl(const BorrowedImageInfo* info);
+    PostResult postImpl(const BorrowedImageInfo* info);
 
     VkFormatFeatureFlags getFormatFeatures(VkFormat, VkImageTiling);
     bool canPost(const VkImageCreateInfo&);

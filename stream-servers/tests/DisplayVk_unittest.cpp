@@ -242,8 +242,9 @@ TEST_F(DisplayVkTest, SimplePost) {
     std::vector<std::shared_future<void>> waitForGpuFutures;
     for (uint32_t i = 0; i < 10; i++) {
         const auto imageInfo = createBorrowedImageInfo(texture);
-        auto waitForGpuFuture = m_displayVk->post(imageInfo.get());
-        waitForGpuFutures.emplace_back(std::move(waitForGpuFuture));
+        auto postResult = m_displayVk->post(imageInfo.get());
+        ASSERT_TRUE(postResult.success);
+        waitForGpuFutures.emplace_back(std::move(postResult.postCompletedWaitable));
     }
     for (auto &waitForGpuFuture : waitForGpuFutures) {
         waitForGpuFuture.wait();
@@ -269,11 +270,13 @@ TEST_F(DisplayVkTest, PostTwoColorBuffers) {
     for (uint32_t i = 0; i < 10; i++) {
         const auto redImageInfo = createBorrowedImageInfo(redTexture);
         const auto greenImageInfo = createBorrowedImageInfo(greenTexture);
-        auto waitForRedGpuFuture = m_displayVk->post(redImageInfo.get());
-        waitForGpuFutures.emplace_back(std::move(waitForRedGpuFuture));
+        auto redPostResult = m_displayVk->post(redImageInfo.get());
+        ASSERT_TRUE(redPostResult.success);
+        waitForGpuFutures.emplace_back(std::move(redPostResult.postCompletedWaitable));
 
-        auto waitForGreenGpuFuture = m_displayVk->post(greenImageInfo.get());
-        waitForGpuFutures.emplace_back(std::move(waitForGreenGpuFuture));
+        auto greenPostResult = m_displayVk->post(greenImageInfo.get());
+        ASSERT_TRUE(greenPostResult.success);
+        waitForGpuFutures.emplace_back(std::move(greenPostResult.postCompletedWaitable));
     }
     for (auto &waitForGpuFuture : waitForGpuFutures) {
         waitForGpuFuture.wait();

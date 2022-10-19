@@ -49,7 +49,7 @@ uint32_t DisplaySurface::getHeight() const {
 
 void DisplaySurface::updateSize(uint32_t newWidth, uint32_t newHeight) {
     std::lock_guard<std::mutex> lock(mParamsMutex);
-    mWidth = newHeight;
+    mWidth = newWidth;
     mHeight = newHeight;
 }
 

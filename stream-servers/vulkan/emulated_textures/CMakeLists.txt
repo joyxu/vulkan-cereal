@@ -4,7 +4,7 @@ add_library(emulated_textures
 
 target_link_libraries(emulated_textures PUBLIC
         OpenglRender_vulkan_cereal
-        gfxstream-base.headers
+        aemu-base.headers
         gfxstream_vulkan_headers)
 
 target_include_directories(emulated_textures

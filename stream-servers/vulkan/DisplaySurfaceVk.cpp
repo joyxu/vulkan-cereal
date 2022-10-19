@@ -16,6 +16,7 @@
 
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"
+#include "vk_util.h"
 
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
@@ -31,7 +32,7 @@ std::unique_ptr<DisplaySurfaceVk> DisplaySurfaceVk::create(
         .pNext = nullptr,
         .flags = 0,
         .hinstance = GetModuleHandle(nullptr),
-        .hwnd = windowHandle,
+        .hwnd = window,
     };
     VK_CHECK(vk.vkCreateWin32SurfaceKHR(instance, &surfaceCi, nullptr, &surface));
 #else

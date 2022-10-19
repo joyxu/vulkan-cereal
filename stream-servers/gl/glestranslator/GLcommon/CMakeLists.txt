@@ -29,8 +29,8 @@ target_include_directories(
     ${GFXSTREAM_REPO_ROOT}/third-party/angle/include)
 target_link_libraries(
     GLcommon PUBLIC
-    gfxstream-base.headers
-    gfxstream-host-common.headers
+    aemu-base.headers
+    aemu-host-common.headers
     gfxstream-snapshot.headers
     gfxstream-compressedTextures)
 if (NOT MSVC)

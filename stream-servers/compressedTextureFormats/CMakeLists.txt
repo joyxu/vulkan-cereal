@@ -8,11 +8,6 @@ add_library(
     gfxstream-compressedTextures
     ${astc-cpu-decompressor-sources}
     etc.cpp)
-target_include_directories(
-    gfxstream-compressedTextures PUBLIC ../)
-
-target_link_libraries(gfxstream-compressedTextures PRIVATE
-    gfxstream-base.headers)
 
 if(ASTC_CPU_DECODING)
     target_link_libraries(gfxstream-compressedTextures PRIVATE astcdec-avx2-static)
@@ -31,7 +26,7 @@ target_include_directories(
 target_link_libraries(
     gfxstream-compressedTextures_unittests
     PRIVATE
-    gfxstream-base.headers
+    aemu-base.headers
     gfxstream-compressedTextures
     ${GFXSTREAM_BASE_LIB}
     gtest_main

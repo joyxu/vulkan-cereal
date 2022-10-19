@@ -1964,7 +1964,7 @@ bool readColorBufferToGl(uint32_t colorBufferHandle) {
 
     std::vector<uint8_t> bytes(bytesNeeded);
 
-    result = readColorBufferToBytes(
+    result = readColorBufferToBytesLocked(
         colorBufferHandle, 0, 0, colorBufferInfo->imageCreateInfoShallow.extent.width,
         colorBufferInfo->imageCreateInfoShallow.extent.height, bytes.data());
     if (!result) {

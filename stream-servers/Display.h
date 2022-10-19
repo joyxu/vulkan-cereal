@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <future>
+
 namespace gfxstream {
 
 class Display;
@@ -22,6 +24,11 @@ class DisplaySurface;
 class Display {
   public:
     virtual ~Display();
+
+    struct PostResult {
+        bool success = false;
+        std::shared_future<void> postCompletedWaitable;
+    };
 
   public:
     void bindToSurface(DisplaySurface* surface);

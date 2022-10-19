@@ -27,8 +27,8 @@ option(BUILD_STANDALONE "Build with standalone implementations of base/host-comm
 if (BUILD_STANDALONE)
     # These libraries may be changed in non-standalone builds to inject another implementation of
     # these APIs.
-    set(GFXSTREAM_BASE_LIB gfxstream-base)
-    set(GFXSTREAM_HOST_COMMON_LIB gfxstream-host-common)
+    set(GFXSTREAM_BASE_LIB aemu-base)
+    set(GFXSTREAM_HOST_COMMON_LIB aemu-host-common)
 endif()
 
 if (WIN32)

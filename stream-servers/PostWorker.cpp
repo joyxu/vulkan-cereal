@@ -93,8 +93,17 @@ std::shared_future<void> PostWorker::postImpl(ColorBuffer* cb) {
     }
 
     if (m_displayVk) {
-        const auto imageInfo = mFb->borrowColorBufferForDisplay(cb->getHndl());
-        return m_displayVk->post(imageInfo.get());
+        constexpr const int kMaxPostRetries = 2;
+        for (int i = 0; i < kMaxPostRetries; i++) {
+            const auto imageInfo = mFb->borrowColorBufferForDisplay(cb->getHndl());
+            auto result = m_displayVk->post(imageInfo.get());
+            if (result.success) {
+                return result.postCompletedWaitable;
+            }
+        }
+
+        ERR("Failed to post ColorBuffer after %d retries.", kMaxPostRetries);
+        return completedFuture;
     }
 
     float dpr = mFb->getDpr();

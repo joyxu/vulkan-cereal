@@ -464,7 +464,7 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
             etc_get_encoded_data_size(etcFormat, width, height);
         SET_ERROR_IF((compressedSize != imageSize), GL_INVALID_VALUE);
         std::unique_ptr<ScopedFetchUnpackData> unpackData;
-        bool emulateCompressedData = false;
+        std::unique_ptr<char[]> emulatedData;
         if (needUnpackBuffer) {
             unpackData.reset(new ScopedFetchUnpackData(ctx,
                     reinterpret_cast<GLintptr>(data), compressedSize));
@@ -472,8 +472,8 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
             SET_ERROR_IF(!data, GL_INVALID_OPERATION);
         } else {
             if (!data) {
-                emulateCompressedData = true;
-                data = new char[compressedSize];
+                emulatedData.reset(new char[compressedSize]);
+                data = emulatedData.get();
             }
         }
 
@@ -490,12 +490,9 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
 
         glTexImage2DPtr(target, level, convertedInternalFormat,
                         width, height, border, format, type, pOut.get());
-        if (emulateCompressedData) {
-            delete [] (char*)data;
-        }
     } else if (isAstcFormat(internalformat)) {
         std::unique_ptr<ScopedFetchUnpackData> unpackData;
-        bool emulateCompressedData = false;
+        std::unique_ptr<char[]> emulatedData;
         if (needUnpackBuffer) {
             unpackData.reset(
                 new ScopedFetchUnpackData(ctx, reinterpret_cast<GLintptr>(data), imageSize));
@@ -503,8 +500,8 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
             SET_ERROR_IF(!data, GL_INVALID_OPERATION);
         } else {
             if (!data) {
-                emulateCompressedData = true;
-                data = new char[imageSize];
+                emulatedData.reset(new char[imageSize]);
+                data = emulatedData.get();
             }
         }
         uint32_t blockWidth = 0;
@@ -526,10 +523,6 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
         glTexImage2DPtr(target, level, srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8, width,
                         height, border, GL_RGBA, GL_UNSIGNED_BYTE,
                         alignedUncompressedData.data());
-        if (emulateCompressedData) {
-            delete[](char*) data;
-        }
-
     } else if (isPaletteFormat(internalformat)) {
         // TODO: fix the case when GL_PIXEL_UNPACK_BUFFER is bound
         SET_ERROR_IF(
@@ -588,7 +581,7 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
         GLsizei compressedSize = rgtc_get_encoded_image_size(rgtcFormat, width, height);
         SET_ERROR_IF((compressedSize != imageSize), GL_INVALID_VALUE);
         std::unique_ptr<ScopedFetchUnpackData> unpackData;
-        bool emulateCompressedData = false;
+        std::unique_ptr<char[]> emulatedData;
         if (needUnpackBuffer) {
             unpackData.reset(
                 new ScopedFetchUnpackData(ctx, reinterpret_cast<GLintptr>(data), compressedSize));
@@ -596,8 +589,8 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
             SET_ERROR_IF(!data, GL_INVALID_OPERATION);
         } else {
             if (!data) {
-                emulateCompressedData = true;
-                data = new char[compressedSize];
+                emulatedData.reset(new char[compressedSize]);
+                data = emulatedData.get();
             }
         }
         const int32_t align = unpackAlignment - 1;
@@ -610,9 +603,6 @@ void doCompressedTexImage2D(GLEScontext* ctx, GLenum target, GLint level,
         SET_ERROR_IF(res != 0, GL_INVALID_VALUE);
         glTexImage2DPtr(target, level, convertedInternalFormat, width, height, border, format, type,
                         pOut.get());
-        if (emulateCompressedData) {
-            delete[](char*) data;
-        }
     } else {
         SET_ERROR_IF(1, GL_INVALID_ENUM);
     }
