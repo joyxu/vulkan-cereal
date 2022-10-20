@@ -63,6 +63,7 @@ public:
             struct {
                 WorkerProcessingResult operator()(CleanProcessResources resources) {
                     FrameBuffer::getFB()->cleanupProcGLObjects(resources.puid);
+                    // resources.resource are destroyed automatically when going out of the scope.
                     return WorkerProcessingResult::Continue;
                 }
                 WorkerProcessingResult operator()(Exit) {
@@ -78,8 +79,11 @@ public:
         mCleanupWorker.enqueue(Exit{});
     }
 
-    void cleanup(uint64_t processId) {
-        mCleanupWorker.enqueue(CleanProcessResources{.puid = processId});
+    void cleanup(uint64_t processId, std::unique_ptr<ProcessResources> resource) {
+        mCleanupWorker.enqueue(CleanProcessResources{
+            .puid = processId,
+            .resource = std::move(resource),
+        });
     }
 
     void stop() {
@@ -93,6 +97,7 @@ public:
 private:
     struct CleanProcessResources {
         uint64_t puid;
+        std::unique_ptr<ProcessResources> resource;
     };
     struct Exit {};
     using Cmd = std::variant<CleanProcessResources, Exit>;
@@ -500,8 +505,14 @@ void RendererImpl::setScreenMask(int width, int height, const unsigned char* rgb
     mRenderWindow->setScreenMask(width, height, rgbaData);
 }
 
+void RendererImpl::onGuestGraphicsProcessCreate(uint64_t puid) {
+    FrameBuffer::getFB()->createGraphicsProcessResources(puid);
+}
+
 void RendererImpl::cleanupProcGLObjects(uint64_t puid) {
-    mCleanupThread->cleanup(puid);
+    std::unique_ptr<ProcessResources> resource =
+        FrameBuffer::getFB()->removeGraphicsProcessResources(puid);
+    mCleanupThread->cleanup(puid, std::move(resource));
 }
 
 static struct AndroidVirtioGpuOps sVirtioGpuOps = {
