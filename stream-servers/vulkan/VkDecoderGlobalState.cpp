@@ -406,9 +406,14 @@ class VkDecoderGlobalState::Impl {
         std::vector<const char*> finalExts = filteredInstanceExtensionNames(
             pCreateInfo->enabledExtensionCount, pCreateInfo->ppEnabledExtensionNames);
 
-        INFO("Creating Vulkan instance for app: %s engine: %s",
-             pCreateInfo->pApplicationInfo->pApplicationName,
-             pCreateInfo->pApplicationInfo->pEngineName);
+        if (pCreateInfo->pApplicationInfo) {
+            if (pCreateInfo->pApplicationInfo->pApplicationName)
+                INFO("Creating Vulkan instance for app: %s",
+                     pCreateInfo->pApplicationInfo->pApplicationName);
+            if (pCreateInfo->pApplicationInfo->pEngineName)
+                INFO("Creating Vulkan instance for engine: %s",
+                     pCreateInfo->pApplicationInfo->pEngineName);
+        }
 
         // Create higher version instance whenever it is possible.
         uint32_t apiVersion = VK_MAKE_VERSION(1, 0, 0);
