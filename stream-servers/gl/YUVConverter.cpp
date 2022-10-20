@@ -503,7 +503,7 @@ void main(void) {
     // For textures with extra padding for alignment (e.g. YV12 pads to 16),
     // scale the coordinates to only sample from the non-padded area.
     yTexCoords.x *= uYWidthCutoff;
-    uvTexCoords.y *= uCWidthCutoff;
+    uvTexCoords.x *= uCWidthCutoff;
 
     highp vec3 yuv;
 )";
