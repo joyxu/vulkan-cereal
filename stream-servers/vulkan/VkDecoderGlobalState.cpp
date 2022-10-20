@@ -4850,15 +4850,13 @@ class VkDecoderGlobalState::Impl {
     }
 
     void on_vkDestroySamplerYcbcrConversion(android::base::BumpPool* pool, VkDevice boxed_device,
-                                            VkSamplerYcbcrConversion boxed_ycbcrConversion,
+                                            VkSamplerYcbcrConversion ycbcrConversion,
                                             const VkAllocationCallbacks* pAllocator) {
         if (m_emu->enableYcbcrEmulation && !m_emu->deviceInfo.supportsSamplerYcbcrConversion) {
             return;
         }
         auto device = unbox_VkDevice(boxed_device);
         auto vk = dispatch_VkDevice(boxed_device);
-        VkSamplerYcbcrConversion ycbcrConversion =
-            unbox_VkSamplerYcbcrConversion(boxed_ycbcrConversion);
         vk->vkDestroySamplerYcbcrConversion(device, ycbcrConversion, pAllocator);
         return;
     }
