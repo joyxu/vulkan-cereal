@@ -374,28 +374,39 @@ static inline size_t virgl_format_to_total_xfer_len(
     uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
     if (virgl_format_is_yuv(format)) {
         uint32_t bpp = format == VIRGL_FORMAT_P010 ? 2 : 1;
+
         uint32_t yWidth = totalWidth;
         uint32_t yHeight = totalHeight;
-        uint32_t yStride = yWidth * bpp;
-        uint32_t ySize = yStride * yHeight;
+        uint32_t yStridePixels;
+        if (format == VIRGL_FORMAT_NV12) {
+            yStridePixels = yWidth;
+        } else if (format == VIRGL_FORMAT_P010) {
+            yStridePixels = yWidth;
+        } else if (format == VIRGL_FORMAT_YV12) {
+            yStridePixels = align_up_power_of_2(yWidth, 32);
+        } else {
+            VGP_FATAL() << "Unknown yuv virgl format: 0x" << std::hex << format;
+        }
+        uint32_t yStrideBytes = yStridePixels * bpp;
+        uint32_t ySize = yStrideBytes * yHeight;
 
-        uint32_t uvWidth;
+        uint32_t uvStridePixels;
         uint32_t uvPlaneCount;
         if (format == VIRGL_FORMAT_NV12) {
-            uvWidth = totalWidth;
+            uvStridePixels = yStridePixels;
             uvPlaneCount = 1;
         } else if (format == VIRGL_FORMAT_P010) {
-            uvWidth = totalWidth;
+            uvStridePixels = yStridePixels;
             uvPlaneCount = 1;
         } else if (format == VIRGL_FORMAT_YV12) {
-            uvWidth = totalWidth / 2;
+            uvStridePixels = yStridePixels / 2;
             uvPlaneCount = 2;
         } else {
             VGP_FATAL() << "Unknown yuv virgl format: 0x" << std::hex << format;
         }
+        uint32_t uvStrideBytes = uvStridePixels * bpp;
         uint32_t uvHeight = totalHeight / 2;
-        uint32_t uvStride = uvWidth * bpp;
-        uint32_t uvSize = uvStride * uvHeight * uvPlaneCount;
+        uint32_t uvSize = uvStrideBytes * uvHeight * uvPlaneCount;
 
         uint32_t dataSize = ySize + uvSize;
         return dataSize;
