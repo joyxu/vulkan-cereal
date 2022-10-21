@@ -86,7 +86,8 @@ private:
     void createYUVGLFullscreenQuad();
 
     // For dealing with n-pixel-aligned buffers
-    void updateCutoffs(float width, float ywidth, float halfwidth, float cwidth);
+    void updateCutoffs(float yWidth, float yStridePixels,
+                       float uvWidth, float uvStridePixels);
 
     int mWidth = 0;
     int mHeight = 0;
@@ -101,7 +102,7 @@ private:
     GLuint mTextureU = 0;
     GLuint mTextureV = 0;
     GLint mUniformLocYWidthCutoff = -1;
-    GLint mUniformLocCWidthCutoff = -1;
+    GLint mUniformLocUVWidthCutoff = -1;
     GLint mUniformLocSamplerY = -1;
     GLint mUniformLocSamplerU = -1;
     GLint mUniformLocSamplerV = -1;
@@ -109,7 +110,7 @@ private:
     GLint mAttributeLocTexCoord = -1;
 
     float mYWidthCutoff = 1.0;
-    float mCWidthCutoff = 1.0;
+    float mUVWidthCutoff = 1.0;
     bool mHasGlsl3Support = false;
 
     // YUVConverter can end up being used

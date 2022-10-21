@@ -301,80 +301,136 @@ inline uint32_t alignToPower2(uint32_t val, uint32_t align) {
 // Inputs:
 // |yv12|: the YUV-formatted buffer
 // Outputs:
-// |yOffset|: offset into |yv12| of the start of the Y component
-// |uOffset|: offset into |yv12| of the start of the U component
-// |vOffset|: offset into |yv12| of the start of the V component
+// |yOffsetBytes|: offset into |yv12| of the start of the Y component
+// |uOffsetBytes|: offset into |yv12| of the start of the U component
+// |vOffsetBytes|: offset into |yv12| of the start of the V component
 static void getYUVOffsets(int width,
                           int height,
                           FrameworkFormat format,
-                          uint32_t* yOffset,
-                          uint32_t* uOffset,
-                          uint32_t* vOffset,
                           uint32_t* yWidth,
-                          uint32_t* cWidth) {
-    uint32_t yStride, cStride, cHeight, cSize;
+                          uint32_t* yHeight,
+                          uint32_t* yOffsetBytes,
+                          uint32_t* yStridePixels,
+                          uint32_t* yStrideBytes,
+                          uint32_t* uWidth,
+                          uint32_t* uHeight,
+                          uint32_t* uOffsetBytes,
+                          uint32_t* uStridePixels,
+                          uint32_t* uStrideBytes,
+                          uint32_t* vWidth,
+                          uint32_t* vHeight,
+                          uint32_t* vOffsetBytes,
+                          uint32_t* vStridePixels,
+                          uint32_t* vStrideBytes) {
     switch (format) {
-    case FRAMEWORK_FORMAT_YV12:
-        // Luma stride is 32 bytes aligned.
-        yStride = alignToPower2(width, 32);
-        // Chroma stride is 16 bytes aligned.
-        cStride = alignToPower2(yStride / 2, 16);
-        cHeight = height / 2;
-        cSize = cStride * cHeight;
-        *yOffset = 0;
-        *vOffset = yStride * height;
-        *uOffset = (*vOffset) + cSize;
-        *yWidth = yStride;
-        *cWidth = cStride;
-        break;
-    case FRAMEWORK_FORMAT_YUV_420_888:
-        if (feature_is_enabled(kFeature_YUV420888toNV21)) {
-            yStride = width;
-            cStride = yStride / 2;
-            cHeight = height / 2;
-            *yOffset = 0;
-            *vOffset = yStride * height;
-            *uOffset = (*vOffset) + 1;
-            *yWidth = yStride;
-            *cWidth = cStride;
-        } else {
-            yStride = width;
-            cStride = yStride / 2;
-            cHeight = height / 2;
-            cSize = cStride * cHeight;
-            *yOffset = 0;
-            *uOffset = yStride * height;
-            *vOffset = (*uOffset) + cSize;
-            *yWidth = yStride;
-            *cWidth = cStride;
+        case FRAMEWORK_FORMAT_YV12: {
+            *yWidth = width;
+            *yHeight = height;
+            *yOffsetBytes = 0;
+            // Luma stride is 32 bytes aligned.
+            *yStridePixels = alignToPower2(width, 32);
+            *yStrideBytes = *yStridePixels;
+
+            // Chroma stride is 16 bytes aligned.
+            *vWidth = width / 2;
+            *vHeight = height / 2;
+            *vOffsetBytes = (*yStrideBytes) * (*yHeight);
+            *vStridePixels = (*yStridePixels) / 2;
+            *vStrideBytes = (*vStridePixels);
+
+            *uWidth = width / 2;
+            *uHeight = height / 2;
+            *uOffsetBytes = (*vOffsetBytes) + ((*vStrideBytes) * (*vHeight));
+            *uStridePixels = (*yStridePixels) / 2;
+            *uStrideBytes = *uStridePixels;
+            break;
         }
-        break;
-    case FRAMEWORK_FORMAT_NV12:
-        yStride = width;
-        cStride = yStride / 2;
-        cHeight = height / 2;
-        cSize = cStride * cHeight;
-        *yOffset = 0;
-        *uOffset = yStride * height;
-        *vOffset = (*uOffset) + 1;
-        *yWidth = yStride;
-        *cWidth = cStride;
-        break;
-    case FRAMEWORK_FORMAT_P010:
-        *yWidth = width;
-        *cWidth = width / 2;
-        yStride = width * /*bytes per pixel=*/2;
-        cStride = *cWidth * /*bytes per pixel=*/2;
-        cHeight = height / 2;
-        cSize = cStride * cHeight;
-        *yOffset = 0;
-        *uOffset = yStride * height;
-        *vOffset = (*uOffset) + 2;
-        break;
-    case FRAMEWORK_FORMAT_GL_COMPATIBLE:
-        FATAL("Input not a YUV format! (FRAMEWORK_FORMAT_GL_COMPATIBLE)");
-    default:
-        FATAL("Unknown format: 0x%x", format);
+        case FRAMEWORK_FORMAT_YUV_420_888: {
+            if (feature_is_enabled(kFeature_YUV420888toNV21)) {
+                *yWidth = width;
+                *yHeight = height;
+                *yOffsetBytes = 0;
+                *yStridePixels = width;
+                *yStrideBytes = *yStridePixels;
+
+                *vWidth = width / 2;
+                *vHeight = height / 2;
+                *vOffsetBytes = (*yStrideBytes) * (*yHeight);
+                *vStridePixels = (*yStridePixels) / 2;
+                *vStrideBytes = (*vStridePixels);
+
+                *uWidth = width / 2;
+                *uHeight = height / 2;
+                *uOffsetBytes = (*vOffsetBytes) + 1;
+                *uStridePixels = (*yStridePixels) / 2;
+                *uStrideBytes = *uStridePixels;
+            } else {
+                *yWidth = width;
+                *yHeight = height;
+                *yOffsetBytes = 0;
+                *yStridePixels = width;
+                *yStrideBytes = *yStridePixels;
+
+                *uWidth = width / 2;
+                *uHeight = height / 2;
+                *uOffsetBytes = (*yStrideBytes) * (*yHeight);
+                *uStridePixels = (*yStridePixels) / 2;
+                *uStrideBytes = *uStridePixels;
+
+                *vWidth = width / 2;
+                *vHeight = height / 2;
+                *vOffsetBytes = (*uOffsetBytes) + ((*uStrideBytes) * (*uHeight));
+                *vStridePixels = (*yStridePixels) / 2;
+                *vStrideBytes = (*vStridePixels);
+            }
+            break;
+        }
+        case FRAMEWORK_FORMAT_NV12: {
+            *yWidth = width;
+            *yHeight = height;
+            *yOffsetBytes = 0;
+            *yStridePixels = width;
+            *yStrideBytes = *yStridePixels;
+
+            *uWidth = width / 2;
+            *uHeight = height / 2;
+            *uOffsetBytes = (*yStrideBytes) * (*yHeight);
+            *uStridePixels = (*yStridePixels) / 2;
+            *uStrideBytes = *uStridePixels;
+
+            *vWidth = width / 2;
+            *vHeight = height / 2;
+            *vOffsetBytes = (*uOffsetBytes) + 1;
+            *vStridePixels = (*yStridePixels) / 2;
+            *vStrideBytes = (*vStridePixels);
+            break;
+        }
+        case FRAMEWORK_FORMAT_P010: {
+            *yWidth = width;
+            *yHeight = height;
+            *yOffsetBytes = 0;
+            *yStridePixels = width;
+            *yStrideBytes = (*yStridePixels) * /*bytes per pixel=*/2;
+
+            *uWidth = width / 2;
+            *uHeight = height / 2;
+            *uOffsetBytes = (*yStrideBytes) * (*yHeight);
+            *uStridePixels = (*uWidth);
+            *uStrideBytes = *uStridePixels  * /*bytes per pixel=*/2;
+
+            *vWidth = width / 2;
+            *vHeight = height / 2;
+            *vOffsetBytes = (*uOffsetBytes) + 2;
+            *vStridePixels = (*vWidth);
+            *vStrideBytes = (*vStridePixels)  * /*bytes per pixel=*/2;
+            break;
+        }
+        case FRAMEWORK_FORMAT_GL_COMPATIBLE: {
+            FATAL("Input not a YUV format! (FRAMEWORK_FORMAT_GL_COMPATIBLE)");
+        }
+        default: {
+            FATAL("Unknown format: 0x%x", format);
+        }
     }
 }
 
@@ -481,7 +537,7 @@ precision highp float;
 varying highp vec2 vTexCoord;
 
 uniform highp float uYWidthCutoff;
-uniform highp float uCWidthCutoff;
+uniform highp float uUVWidthCutoff;
     )";
 
     static const char kSamplerUniforms[] = R"(
@@ -503,7 +559,7 @@ void main(void) {
     // For textures with extra padding for alignment (e.g. YV12 pads to 16),
     // scale the coordinates to only sample from the non-padded area.
     yTexCoords.x *= uYWidthCutoff;
-    uvTexCoords.y *= uCWidthCutoff;
+    uvTexCoords.x *= uUVWidthCutoff;
 
     highp vec3 yuv;
 )";
@@ -636,7 +692,7 @@ void main(void) {
     }
 
     mUniformLocYWidthCutoff = s_gles2.glGetUniformLocation(mProgram, "uYWidthCutoff");
-    mUniformLocCWidthCutoff = s_gles2.glGetUniformLocation(mProgram, "uCWidthCutoff");
+    mUniformLocUVWidthCutoff = s_gles2.glGetUniformLocation(mProgram, "uUVWidthCutoff");
     mUniformLocSamplerY = s_gles2.glGetUniformLocation(mProgram, "uSamplerY");
     mUniformLocSamplerU = s_gles2.glGetUniformLocation(mProgram, "uSamplerU");
     mUniformLocSamplerV = s_gles2.glGetUniformLocation(mProgram, "uSamplerV");
@@ -668,7 +724,7 @@ void YUVConverter::createYUVGLFullscreenQuad() {
 
 static void doYUVConversionDraw(GLuint program,
                                 GLint uniformLocYWidthCutoff,
-                                GLint uniformLocCWidthCutoff,
+                                GLint uniformLocUVWidthCutoff,
                                 GLint uniformLocYSampler,
                                 GLint uniformLocUSampler,
                                 GLint uniformLocVSampler,
@@ -677,7 +733,7 @@ static void doYUVConversionDraw(GLuint program,
                                 GLuint quadVertexBuffer,
                                 GLuint quadIndexBuffer,
                                 float uYWidthCutoff,
-                                float uCWidthCutoff) {
+                                float uUVWidthCutoff) {
     const GLsizei kVertexAttribStride = 5 * sizeof(GL_FLOAT);
     const GLvoid* kVertexAttribPosOffset = (GLvoid*)0;
     const GLvoid* kVertexAttribCoordOffset = (GLvoid*)(3 * sizeof(GL_FLOAT));
@@ -685,7 +741,7 @@ static void doYUVConversionDraw(GLuint program,
     s_gles2.glUseProgram(program);
 
     s_gles2.glUniform1f(uniformLocYWidthCutoff, uYWidthCutoff);
-    s_gles2.glUniform1f(uniformLocCWidthCutoff, uCWidthCutoff);
+    s_gles2.glUniform1f(uniformLocUVWidthCutoff, uUVWidthCutoff);
 
     s_gles2.glUniform1i(uniformLocYSampler, 0);
     s_gles2.glUniform1i(uniformLocUSampler, 1);
@@ -720,26 +776,29 @@ YUVConverter::YUVConverter(int width, int height, FrameworkFormat format)
 void YUVConverter::init(int width, int height, FrameworkFormat format) {
     YUV_DEBUG_LOG("w:%d h:%d format:%d", width, height, format);
 
-    uint32_t yOffset, uOffset, vOffset, ywidth, cwidth, cheight;
-    getYUVOffsets(width, height, mFormat, &yOffset, &uOffset, &vOffset, &ywidth, &cwidth);
-    cheight = height / 2;
-
+    uint32_t yWidth, yHeight, yOffsetBytes, yStridePixels, yStrideBytes;
+    uint32_t uWidth, uHeight, uOffsetBytes, uStridePixels, uStrideBytes;
+    uint32_t vWidth, vHeight, vOffsetBytes, vStridePixels, vStrideBytes;
+    getYUVOffsets(width, height, mFormat,
+                  &yWidth, &yHeight, &yOffsetBytes, &yStridePixels, &yStrideBytes,
+                  &uWidth, &uHeight, &uOffsetBytes, &uStridePixels, &uStrideBytes,
+                  &vWidth, &vHeight, &vOffsetBytes, &vStridePixels, &vStrideBytes);
     mWidth = width;
     mHeight = height;
     if (!mTextureY) {
-        createYUVGLTex(GL_TEXTURE0, ywidth, height, mFormat, YUVPlane::Y, &mTextureY);
+        createYUVGLTex(GL_TEXTURE0, yStridePixels, yHeight, mFormat, YUVPlane::Y, &mTextureY);
     }
     if (isInterleaved(mFormat)) {
         if (!mTextureU) {
-            createYUVGLTex(GL_TEXTURE1, cwidth, cheight, mFormat, YUVPlane::UV, &mTextureU);
+            createYUVGLTex(GL_TEXTURE1, uStridePixels, uHeight, mFormat, YUVPlane::UV, &mTextureU);
             mTextureV = mTextureU;
         }
     } else {
         if (!mTextureU) {
-            createYUVGLTex(GL_TEXTURE1, cwidth, cheight, mFormat, YUVPlane::U, &mTextureU);
+            createYUVGLTex(GL_TEXTURE1, uStridePixels, uHeight, mFormat, YUVPlane::U, &mTextureU);
         }
         if (!mTextureV) {
-            createYUVGLTex(GL_TEXTURE2, cwidth, cheight, mFormat, YUVPlane::V, &mTextureV);
+            createYUVGLTex(GL_TEXTURE2, vStridePixels, vHeight, mFormat, YUVPlane::V, &mTextureV);
         }
     }
 
@@ -773,24 +832,30 @@ void YUVConverter::restoreGLState() {
 
 uint32_t YUVConverter::getDataSize() {
     uint32_t align = (mFormat == FRAMEWORK_FORMAT_YV12) ? 16 : 1;
-    uint32_t yStride = (mWidth + (align - 1)) & ~(align - 1);
-    uint32_t uvStride = (yStride / 2 + (align - 1)) & ~(align - 1);
+    uint32_t yStrideBytes = (mWidth + (align - 1)) & ~(align - 1);
+    uint32_t uvStride = (yStrideBytes / 2 + (align - 1)) & ~(align - 1);
     uint32_t uvHeight = mHeight / 2;
-    uint32_t dataSize = yStride * mHeight + 2 * (uvHeight * uvStride);
+    uint32_t dataSize = yStrideBytes * mHeight + 2 * (uvHeight * uvStride);
+    YUV_DEBUG_LOG("w:%d h:%d format:%d has data size:%d", mWidth, mHeight, mFormat, dataSize);
     return dataSize;
 }
 
 void YUVConverter::readPixels(uint8_t* pixels, uint32_t pixels_size) {
     YUV_DEBUG_LOG("w:%d h:%d format:%d pixels:%p pixels-size:%d", mWidth, mHeight, mFormat, pixels, pixels_size);
 
-    uint32_t yOffset, uOffset, vOffset, ywidth, cwidth;
-    getYUVOffsets(mWidth, mHeight, mFormat, &yOffset, &uOffset, &vOffset, &ywidth, &cwidth);
+    uint32_t yWidth, yHeight, yOffsetBytes, yStridePixels, yStrideBytes;
+    uint32_t uWidth, uHeight, uOffsetBytes, uStridePixels, uStrideBytes;
+    uint32_t vWidth, vHeight, vOffsetBytes, vStridePixels, vStrideBytes;
+    getYUVOffsets(mWidth, mHeight, mFormat,
+                  &yWidth, &yHeight, &yOffsetBytes, &yStridePixels, &yStrideBytes,
+                  &uWidth, &uHeight, &uOffsetBytes, &uStridePixels, &uStrideBytes,
+                  &vWidth, &vHeight, &vOffsetBytes, &vStridePixels, &vStrideBytes);
 
     if (isInterleaved(mFormat)) {
-        readYUVTex(mTextureV, mFormat, YUVPlane::UV, pixels + std::min(uOffset, vOffset));
+        readYUVTex(mTextureV, mFormat, YUVPlane::UV, pixels + std::min(uOffsetBytes, vOffsetBytes));
     } else {
-        readYUVTex(mTextureU, mFormat, YUVPlane::U, pixels + uOffset);
-        readYUVTex(mTextureV, mFormat, YUVPlane::V, pixels + vOffset);
+        readYUVTex(mTextureU, mFormat, YUVPlane::U, pixels + uOffsetBytes);
+        readYUVTex(mTextureV, mFormat, YUVPlane::V, pixels + vOffsetBytes);
     }
 
     if (mFormat == FRAMEWORK_FORMAT_NV12 && mColorBufferFormat == FRAMEWORK_FORMAT_YUV_420_888) {
@@ -798,7 +863,7 @@ void YUVConverter::readPixels(uint8_t* pixels, uint32_t pixels_size) {
     }
 
     // Read the Y plane last because so that we can use it as a scratch space.
-    readYUVTex(mTextureY, mFormat, YUVPlane::Y, pixels + yOffset);
+    readYUVTex(mTextureY, mFormat, YUVPlane::Y, pixels + yOffsetBytes);
 }
 
 void YUVConverter::swapTextures(uint32_t type, uint32_t* textures) {
@@ -834,19 +899,38 @@ void YUVConverter::drawConvert(int x, int y, int width, int height, const char* 
         return;
     }
 
+    uint32_t yWidth, yHeight, yOffsetBytes, yStridePixels, yStrideBytes;
+    uint32_t uWidth, uHeight, uOffsetBytes, uStridePixels, uStrideBytes;
+    uint32_t vWidth, vHeight, vOffsetBytes, vStridePixels, vStrideBytes;
+    getYUVOffsets(width, height, mFormat,
+                  &yWidth, &yHeight, &yOffsetBytes, &yStridePixels, &yStrideBytes,
+                  &uWidth, &uHeight, &uOffsetBytes, &uStridePixels, &uStrideBytes,
+                  &vWidth, &vHeight, &vOffsetBytes, &vStridePixels, &vStrideBytes);
+
+    YUV_DEBUG_LOG("Updating YUV textures for drawConvert() "
+                  "x:%d y:%d width:%d height:%d "
+                  "yWidth:%d yHeight:%d yOffsetBytes:%d yStridePixels:%d yStrideBytes:%d "
+                  "uWidth:%d uHeight:%d uOffsetBytes:%d uStridePixels:%d uStrideBytes:%d "
+                  "vWidth:%d vHeight:%d vOffsetBytes:%d vStridePixels:%d vStrideBytes:%d ",
+                  x, y, width, height,
+                  yWidth, yHeight, yOffsetBytes, yStridePixels, yStrideBytes,
+                  uWidth, uHeight, uOffsetBytes, uStridePixels, uStrideBytes,
+                  vWidth, vHeight, vOffsetBytes, vStridePixels, vStrideBytes);
+
     s_gles2.glViewport(x, y, width, height);
-    uint32_t yOffset, uOffset, vOffset, ywidth, cwidth, cheight;
-    getYUVOffsets(width, height, mFormat, &yOffset, &uOffset, &vOffset, &ywidth, &cwidth);
-    cheight = height / 2;
-    updateCutoffs(width, ywidth, width / 2, cwidth);
+
+    updateCutoffs(static_cast<float>(yWidth),
+                  static_cast<float>(yStridePixels),
+                  static_cast<float>(uWidth),
+                  static_cast<float>(uStridePixels));
 
     if (pixels) {
-        subUpdateYUVGLTex(GL_TEXTURE0, mTextureY, x, y, ywidth, height, mFormat, YUVPlane::Y, pixels + yOffset);
+        subUpdateYUVGLTex(GL_TEXTURE0, mTextureY, x, y, yStridePixels, yHeight, mFormat, YUVPlane::Y, pixels + yOffsetBytes);
         if (isInterleaved(mFormat)) {
-            subUpdateYUVGLTex(GL_TEXTURE1, mTextureU, x, y, cwidth, cheight, mFormat, YUVPlane::UV, pixels + std::min(uOffset, vOffset));
+            subUpdateYUVGLTex(GL_TEXTURE1, mTextureU, x, y, uStridePixels, uHeight, mFormat, YUVPlane::UV, pixels + std::min(uOffsetBytes, vOffsetBytes));
         } else {
-            subUpdateYUVGLTex(GL_TEXTURE1, mTextureU, x, y, cwidth, cheight, mFormat, YUVPlane::U, pixels + uOffset);
-            subUpdateYUVGLTex(GL_TEXTURE2, mTextureV, x, y, cwidth, cheight, mFormat, YUVPlane::V, pixels + vOffset);
+            subUpdateYUVGLTex(GL_TEXTURE1, mTextureU, x, y, uStridePixels, uHeight, mFormat, YUVPlane::U, pixels + uOffsetBytes);
+            subUpdateYUVGLTex(GL_TEXTURE2, mTextureV, x, y, vStridePixels, vHeight, mFormat, YUVPlane::V, pixels + vOffsetBytes);
         }
     } else {
         // special case: draw from texture, only support NV12 for now
@@ -864,7 +948,7 @@ void YUVConverter::drawConvert(int x, int y, int width, int height, const char* 
 
     doYUVConversionDraw(mProgram,
                         mUniformLocYWidthCutoff,
-                        mUniformLocCWidthCutoff,
+                        mUniformLocUVWidthCutoff,
                         mUniformLocSamplerY,
                         mUniformLocSamplerU,
                         mUniformLocSamplerV,
@@ -873,23 +957,23 @@ void YUVConverter::drawConvert(int x, int y, int width, int height, const char* 
                         mQuadVertexBuffer,
                         mQuadIndexBuffer,
                         mYWidthCutoff,
-                        mCWidthCutoff);
+                        mUVWidthCutoff);
 
     restoreGLState();
 }
 
-void YUVConverter::updateCutoffs(float width, float ywidth,
-                                 float halfwidth, float cwidth) {
+void YUVConverter::updateCutoffs(float yWidth, float yStridePixels,
+                                 float uvWidth, float uvStridePixels) {
     switch (mFormat) {
     case FRAMEWORK_FORMAT_YV12:
-        mYWidthCutoff = ((float)width) / ((float)ywidth);
-        mCWidthCutoff = ((float)halfwidth) / ((float)cwidth);
+        mYWidthCutoff = yWidth / yStridePixels;
+        mUVWidthCutoff = uvWidth / uvStridePixels;
         break;
     case FRAMEWORK_FORMAT_NV12:
     case FRAMEWORK_FORMAT_P010:
     case FRAMEWORK_FORMAT_YUV_420_888:
         mYWidthCutoff = 1.0f;
-        mCWidthCutoff = 1.0f;
+        mUVWidthCutoff = 1.0f;
         break;
     case FRAMEWORK_FORMAT_GL_COMPATIBLE:
         FATAL("Input not a YUV format!");
