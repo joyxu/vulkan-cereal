@@ -23,7 +23,7 @@
 #include "aemu/base/GLObjectCounter.h"
 #include "aemu/base/files/PathUtils.h"
 #include "aemu/base/system/System.h"
-#include "base/testing/TestSystem.h"
+#include "aemu/base/testing/TestSystem.h"
 #include "host-common/GraphicsAgentFactory.h"
 #include "host-common/testing/MockGraphicsAgentFactory.h"
 
