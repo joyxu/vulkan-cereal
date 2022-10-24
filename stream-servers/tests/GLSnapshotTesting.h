@@ -16,7 +16,7 @@
 
 #include "aemu/base/files/PathUtils.h"
 #include "aemu/base/system/System.h"
-#include "base/testing/TestSystem.h"
+#include "aemu/base/testing/TestSystem.h"
 
 #include "OpenGLTestContext.h"
 

@@ -60,15 +60,14 @@ target_link_libraries(
         gfxstream_backend_static
         PUBLIC
         GLES_CM_translator_static
-        ${GFXSTREAM_BASE_LIB}
         OpenGLESDispatch
         renderControl_dec
         gfxstream-gl-server
         gfxstream-vulkan-server
         gfxstream-snapshot
         apigen-codec-common
-        perfetto-tracing-only
-        ${GFXSTREAM_HOST_COMMON_LIB})
+        ${GFXSTREAM_HOST_COMMON_LIB}
+        ${GFXSTREAM_BASE_LIB})
 
 target_include_directories(
         gfxstream_backend_static
@@ -159,6 +158,7 @@ target_include_directories(
 target_link_libraries(
     stream-server-testing-support
     PUBLIC
+    aemu-host-common-testing-support
     aemu-base-testing-support
     gfxstream_backend_static
     gfxstream_stb
@@ -186,10 +186,10 @@ if (ENABLE_VKCEREAL_TESTS)
     target_link_libraries(
         OpenglRender_unittests
         PRIVATE
-        gfxstream_backend_static
         stream-server-testing-support
-        aemu-base-testing-support
         aemu-host-common-testing-support
+        aemu-base-testing-support
+        gfxstream_backend_static
         gtest_main)
     if (LINUX)
         target_link_libraries(
@@ -219,10 +219,10 @@ if (ENABLE_VKCEREAL_TESTS)
     target_link_libraries(
         OpenglRender_snapshot_unittests
         PRIVATE
-        gfxstream_backend_static
         stream-server-testing-support
-        aemu-base-testing-support
         aemu-host-common-testing-support
+        aemu-base-testing-support
+        gfxstream_backend_static
         gtest_main)
     gtest_discover_tests(OpenglRender_snapshot_unittests)
 
@@ -242,10 +242,10 @@ if (ENABLE_VKCEREAL_TESTS)
     target_link_libraries(
         Vulkan_unittests
         PRIVATE
-        gfxstream_backend_static
         stream-server-testing-support
-        aemu-base-testing-support
         aemu-host-common-testing-support
+        aemu-base-testing-support
+        gfxstream_backend_static
         gtest
         gtest_main
         gmock)

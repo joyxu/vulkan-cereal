@@ -36,7 +36,76 @@ if(NOT TARGET aemu_common)
             add_subdirectory(${AEMU_COMMON_PATH} aemu_common)
         endif()
     elseif(DEPENDENCY_RESOLUTION STREQUAL "SYSTEM")
-        message(FATAL_ERROR "aemu_common not yet implemented for DEPENDENCY_RESOLUTION=SYSTEM")
+        find_package(PkgConfig REQUIRED)
+        set(AEMU_PC_FILES
+            aemu_base
+            logging_base
+            aemu_host_common
+            aemu_base_testing_support
+            aemu_host_common_testing_support
+            gfxstream_snapshot)
+        foreach(PC_FILE IN LISTS AEMU_PC_FILES)
+            pkg_search_module(${PC_FILE} REQUIRED IMPORTED_TARGET GLOBAL ${PC_FILE}>=0.0.0)
+#           string(REPLACE "_" "-" LIB_NAME "${PC_FILE}")
+#           add_library(${LIB_NAME} ALIAS PkgConfig::${PC_FILE})
+        endforeach()
+
+        add_library(aemu-base.headers INTERFACE)
+        target_include_directories(aemu-base.headers INTERFACE ${aemu_base_INCLUDE_DIRS})
+
+        add_library(aemu-host-common.headers INTERFACE)
+        target_include_directories(aemu-host-common.headers INTERFACE ${aemu_host_common_INCLUDE_DIRS})
+        target_link_libraries(aemu-host-common.headers INTERFACE renderdoc gfxstream_vulkan_headers)
+
+        add_library(gfxstream-snapshot.headers INTERFACE)
+        target_include_directories(gfxstream-snapshot.headers INTERFACE ${gfxstream_snapshot_INCLUDE_DIRS})
+        add_library(gfxstream-snapshot ALIAS PkgConfig::gfxstream_snapshot)
+
+        add_library(logging-base INTERFACE)
+        target_link_libraries(logging-base INTERFACE PkgConfig::logging_base)
+
+        if (WIN32)
+            set(aemu-base-platform-deps Shlwapi)
+        else()
+            set(aemu-base-platform-deps dl rt)
+        endif()
+        add_library(aemu-base INTERFACE)
+        target_link_libraries(
+            aemu-base
+            INTERFACE
+            PkgConfig::aemu_base
+            logging-base
+            lz4
+            perfetto-tracing-only
+            ${aemu-base-platform-deps})
+
+        add_library(aemu-host-common INTERFACE)
+        target_link_libraries(aemu-host-common INTERFACE PkgConfig::aemu_host_common aemu-base)
+
+        add_library(aemu-base-testing-support INTERFACE)
+        target_link_libraries(
+            aemu-base-testing-support
+            INTERFACE
+            PkgConfig::aemu_base_testing_support
+            aemu-base
+            gmock
+            gtest)
+
+        add_library(aemu-host-common-testing-support INTERFACE)
+        target_link_libraries(
+            aemu-host-common-testing-support
+            INTERFACE
+            PkgConfig::aemu_host_common_testing_support
+            PkgConfig::aemu_host_common
+            PkgConfig::aemu_base
+            PkgConfig::logging_base
+            lz4
+            perfetto-tracing-only
+            gmock
+            gtest)
+        add_library(aemu_common INTERFACE)
+        target_link_libraries(aemu_common INTERFACE aemu-base aemu-host-common)
+        target_include_directories(aemu_common INTERFACE aemu-base.headers aemu-host-common.headers)
     elseif(DEPENDENCY_RESOLUTION STREQUAL "DOWNLOAD")
         FetchContent_Declare(
             aemu_common

@@ -16,7 +16,7 @@
 
 #include "OpenGLESDispatch/OpenGLDispatchLoader.h"
 
-#include "base/testing/TestSystem.h"
+#include "aemu/base/testing/TestSystem.h"
 
 namespace emugl {
 
