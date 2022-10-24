@@ -16,7 +16,7 @@
 #include "aemu/base/files/StdioStream.h"
 #include "aemu/base/GLObjectCounter.h"
 #include "aemu/base/system/System.h"
-#include "base/testing/TestSystem.h"
+#include "aemu/base/testing/TestSystem.h"
 #include "host-common/GraphicsAgentFactory.h"
 #include "host-common/multi_display_agent.h"
 #include "host-common/testing/MockGraphicsAgentFactory.h"

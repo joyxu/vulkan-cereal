@@ -17,7 +17,6 @@
 #include "aemu/base/files/PathUtils.h"
 #include "aemu/base/files/StdioStream.h"
 #include "aemu/base/system/System.h"
-#include "base/testing/TestSystem.h"
 #include "snapshot/TextureLoader.h"
 #include "snapshot/TextureSaver.h"
 

@@ -17,7 +17,7 @@
 
 #include "VkDecoderGlobalState.cpp"
 
-#include "base/testing/TestUtils.h"
+#include "aemu/base/testing/TestUtils.h"
 
 namespace goldfish_vk {
 namespace {
