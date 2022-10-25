@@ -29,7 +29,7 @@
 #include "aemu/base/ManagedDescriptor.hpp"
 #include "aemu/base/Optional.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
-#include "host-common/RenderDoc.h"
+#include "utils/RenderDoc.h"
 
 namespace goldfish_vk {
 

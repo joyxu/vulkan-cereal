@@ -28,6 +28,7 @@ target_link_libraries(gfxstream-vulkan-server PUBLIC
         apigen-codec-common
         aemu-base.headers
         gfxstream-snapshot.headers
+        gfxstream_utils.headers
         gfxstream_vulkan_headers)
 
 if (WIN32)

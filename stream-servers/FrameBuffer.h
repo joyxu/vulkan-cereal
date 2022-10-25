@@ -53,11 +53,11 @@
 #include "gl/GLESVersionDetector.h"
 #include "gl/RenderContext.h"
 #include "gl/TextureDraw.h"
-#include "host-common/RenderDoc.h"
 #include "render_api.h"
 #include "render-utils/Renderer.h"
 #include "render-utils/virtio_gpu_ops.h"
 #include "snapshot/common.h"
+#include "utils/RenderDoc.h"
 #include "vulkan/vk_util.h"
 
 using android::base::CreateMetricsLogger;
