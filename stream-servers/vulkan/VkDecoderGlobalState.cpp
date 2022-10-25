@@ -209,7 +209,7 @@ class BoxedHandleManager {
     T* get(uint64_t h) { return (T*)store.get_const(h); }
 
     uint64_t getBoxedFromUnboxedLocked(uint64_t unboxed) {
-        auto res = android::base::find(reverseMap, unboxed);
+        auto* res = android::base::find(reverseMap, unboxed);
         if (!res) return 0;
         return *res;
     }
@@ -534,7 +534,7 @@ class VkDecoderGlobalState::Impl {
             std::vector<VkDevice> devicesToDestroy;
 
             for (auto it : mDeviceToPhysicalDevice) {
-                auto otherInstance = android::base::find(mPhysicalDeviceToInstance, it.second);
+                auto* otherInstance = android::base::find(mPhysicalDeviceToInstance, it.second);
                 if (!otherInstance) continue;
                 if (instance == *otherInstance) {
                     devicesToDestroy.push_back(it.first);
@@ -565,7 +565,7 @@ class VkDecoderGlobalState::Impl {
             }
         }
 
-        auto instInfo = android::base::find(mInstanceInfo, instance);
+        auto* instInfo = android::base::find(mInstanceInfo, instance);
         delete_VkInstance(instInfo->boxed);
         mInstanceInfo.erase(instance);
     }
@@ -718,11 +718,11 @@ class VkDecoderGlobalState::Impl {
 
         std::lock_guard<std::recursive_mutex> lock(mLock);
 
-        auto physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
+        auto* physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
         if (!physdevInfo) return;
 
         auto instance = mPhysicalDeviceToInstance[physicalDevice];
-        auto instanceInfo = android::base::find(mInstanceInfo, instance);
+        auto* instanceInfo = android::base::find(mInstanceInfo, instance);
         if (!instanceInfo) return;
 
         if (instanceInfo->apiVersion >= VK_MAKE_VERSION(1, 1, 0) &&
@@ -825,7 +825,7 @@ class VkDecoderGlobalState::Impl {
         }
         std::lock_guard<std::recursive_mutex> lock(mLock);
 
-        auto physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
+        auto* physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
         if (!physdevInfo) {
             return VK_ERROR_OUT_OF_HOST_MEMORY;
         }
@@ -833,7 +833,7 @@ class VkDecoderGlobalState::Impl {
         VkResult res = VK_ERROR_INITIALIZATION_FAILED;
 
         auto instance = mPhysicalDeviceToInstance[physicalDevice];
-        auto instanceInfo = android::base::find(mInstanceInfo, instance);
+        auto* instanceInfo = android::base::find(mInstanceInfo, instance);
         if (!instanceInfo) {
             return res;
         }
@@ -910,11 +910,11 @@ class VkDecoderGlobalState::Impl {
 
         std::lock_guard<std::recursive_mutex> lock(mLock);
 
-        auto physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
+        auto* physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
         if (!physdevInfo) return;
 
         auto instance = mPhysicalDeviceToInstance[physicalDevice];
-        auto instanceInfo = android::base::find(mInstanceInfo, instance);
+        auto* instanceInfo = android::base::find(mInstanceInfo, instance);
         if (!instanceInfo) return;
 
         if (instanceInfo->apiVersion >= VK_MAKE_VERSION(1, 1, 0) &&
@@ -976,11 +976,11 @@ class VkDecoderGlobalState::Impl {
 
         std::lock_guard<std::recursive_mutex> lock(mLock);
 
-        auto physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
+        auto* physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
         if (!physdevInfo) return;
 
         auto instance = mPhysicalDeviceToInstance[physicalDevice];
-        auto instanceInfo = android::base::find(mInstanceInfo, instance);
+        auto* instanceInfo = android::base::find(mInstanceInfo, instance);
         if (!instanceInfo) return;
 
         if (instanceInfo->apiVersion >= VK_MAKE_VERSION(1, 1, 0) &&
@@ -1046,11 +1046,11 @@ class VkDecoderGlobalState::Impl {
         auto physicalDevice = unbox_VkPhysicalDevice(boxed_physicalDevice);
         auto vk = dispatch_VkPhysicalDevice(boxed_physicalDevice);
 
-        auto physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
+        auto* physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
         if (!physdevInfo) return;
 
         auto instance = mPhysicalDeviceToInstance[physicalDevice];
-        auto instanceInfo = android::base::find(mInstanceInfo, instance);
+        auto* instanceInfo = android::base::find(mInstanceInfo, instance);
         if (!instanceInfo) return;
 
         if (instanceInfo->apiVersion >= VK_MAKE_VERSION(1, 1, 0) &&
@@ -1333,20 +1333,18 @@ class VkDecoderGlobalState::Impl {
 
         *pQueue = VK_NULL_HANDLE;
 
-        auto deviceInfo = android::base::find(mDeviceInfo, device);
+        auto* deviceInfo = android::base::find(mDeviceInfo, device);
         if (!deviceInfo) return;
 
         const auto& queues = deviceInfo->queues;
 
-        const auto queueList = android::base::find(queues, queueFamilyIndex);
-
+        const auto* queueList = android::base::find(queues, queueFamilyIndex);
         if (!queueList) return;
         if (queueIndex >= queueList->size()) return;
 
         VkQueue unboxedQueue = (*queueList)[queueIndex];
 
-        auto queueInfo = android::base::find(mQueueInfo, unboxedQueue);
-
+        auto* queueInfo = android::base::find(mQueueInfo, unboxedQueue);
         if (!queueInfo) return;
 
         *pQueue = (VkQueue)queueInfo->boxed;
@@ -1986,8 +1984,8 @@ class VkDecoderGlobalState::Impl {
 #ifdef _WIN32
         std::lock_guard<std::recursive_mutex> lock(mLock);
 
-        auto infoPtr = android::base::find(mSemaphoreInfo,
-                                           mExternalSemaphoresById[pImportSemaphoreFdInfo->fd]);
+        auto* infoPtr = android::base::find(mSemaphoreInfo,
+                                            mExternalSemaphoresById[pImportSemaphoreFdInfo->fd]);
 
         if (!infoPtr) {
             return VK_ERROR_INVALID_EXTERNAL_HANDLE;
@@ -2171,8 +2169,7 @@ class VkDecoderGlobalState::Impl {
 
     void cleanupDescriptorPoolAllocedSetsLocked(VkDescriptorPool descriptorPool,
                                                 bool isDestroy = false) {
-        auto info = android::base::find(mDescriptorPoolInfo, descriptorPool);
-
+        auto* info = android::base::find(mDescriptorPoolInfo, descriptorPool);
         if (!info) return;
 
         for (auto it : info->allocedSetsToBoxed) {
@@ -2237,9 +2234,15 @@ class VkDecoderGlobalState::Impl {
 
     void initDescriptorSetInfoLocked(VkDescriptorPool pool, VkDescriptorSetLayout setLayout,
                                      uint64_t boxedDescriptorSet, VkDescriptorSet descriptorSet) {
-        auto poolInfo = android::base::find(mDescriptorPoolInfo, pool);
+        auto* poolInfo = android::base::find(mDescriptorPoolInfo, pool);
+        if (!poolInfo) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Cannot find poolInfo";
+        }
 
-        auto setLayoutInfo = android::base::find(mDescriptorSetLayoutInfo, setLayout);
+        auto* setLayoutInfo = android::base::find(mDescriptorSetLayoutInfo, setLayout);
+        if (!setLayoutInfo) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "Cannot find setLayout";
+        }
 
         auto& setInfo = mDescriptorSetInfo[descriptorSet];
 
@@ -2264,7 +2267,8 @@ class VkDecoderGlobalState::Impl {
         auto res = vk->vkAllocateDescriptorSets(device, pAllocateInfo, pDescriptorSets);
 
         if (res == VK_SUCCESS) {
-            auto poolInfo = android::base::find(mDescriptorPoolInfo, pAllocateInfo->descriptorPool);
+            auto* poolInfo =
+                android::base::find(mDescriptorPoolInfo, pAllocateInfo->descriptorPool);
             if (!poolInfo) return res;
 
             for (uint32_t i = 0; i < pAllocateInfo->descriptorSetCount; ++i) {
@@ -2292,19 +2296,15 @@ class VkDecoderGlobalState::Impl {
             std::lock_guard<std::recursive_mutex> lock(mLock);
 
             for (uint32_t i = 0; i < descriptorSetCount; ++i) {
-                auto setInfo = android::base::find(mDescriptorSetInfo, pDescriptorSets[i]);
-
+                auto* setInfo = android::base::find(mDescriptorSetInfo, pDescriptorSets[i]);
                 if (!setInfo) continue;
-
-                auto poolInfo = android::base::find(mDescriptorPoolInfo, setInfo->pool);
-
+                auto* poolInfo = android::base::find(mDescriptorPoolInfo, setInfo->pool);
                 if (!poolInfo) continue;
 
                 removeDescriptorSetAllocationLocked(*poolInfo, setInfo->bindings);
 
                 auto descSetAllocedEntry =
                     android::base::find(poolInfo->allocedSetsToBoxed, pDescriptorSets[i]);
-
                 if (!descSetAllocedEntry) continue;
 
                 auto handleInfo = sBoxedHandleManager.get((uint64_t)*descSetAllocedEntry);
@@ -2714,8 +2714,7 @@ class VkDecoderGlobalState::Impl {
         std::lock_guard<std::recursive_mutex> lock(mLock);
 
         auto physicalDevice = mDeviceToPhysicalDevice[device];
-        auto physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
-
+        auto* physdevInfo = android::base::find(mPhysdevInfo, physicalDevice);
         if (!physdevInfo) {
             // If this fails, we crash, as we assume that the memory properties
             // map should have the info.
@@ -3012,8 +3011,7 @@ class VkDecoderGlobalState::Impl {
             // "while GLDirectMem is not enabled!\n");
         }
 
-        auto info = android::base::find(mMapInfo, memory);
-
+        auto* info = android::base::find(mMapInfo, memory);
         if (!info) return false;
 
         info->guestPhysAddr = physAddr;
@@ -3041,8 +3039,7 @@ class VkDecoderGlobalState::Impl {
 
         AutoLock occupiedGpasLock(mOccupiedGpasLock);
 
-        auto existingMemoryInfo = android::base::find(mOccupiedGpas, gpa);
-
+        auto* existingMemoryInfo = android::base::find(mOccupiedGpas, gpa);
         if (existingMemoryInfo) {
             fprintf(stderr, "%s: WARNING: already mapped gpa 0x%llx, replacing", __func__,
                     (unsigned long long)gpa);
@@ -3086,8 +3083,7 @@ class VkDecoderGlobalState::Impl {
                     (unsigned long long)gpa);
         }
 
-        auto existingMemoryInfo = android::base::find(mOccupiedGpas, gpa);
-
+        auto* existingMemoryInfo = android::base::find(mOccupiedGpas, gpa);
         if (!existingMemoryInfo) return;
 
         get_emugl_vm_operations().unmapUserBackedRam(existingMemoryInfo->gpa,
@@ -3162,20 +3158,17 @@ class VkDecoderGlobalState::Impl {
         {
             std::lock_guard<std::recursive_mutex> lock(mLock);
 
-            auto physdev = android::base::find(mDeviceToPhysicalDevice, device);
-
+            auto* physdev = android::base::find(mDeviceToPhysicalDevice, device);
             if (!physdev) {
-                // User app gave an invalid VkDevice,
-                // but we don't really want to crash here.
+                // User app gave an invalid VkDevice, but we don't really want to crash here.
                 // We should allow invalid apps.
                 return VK_ERROR_DEVICE_LOST;
             }
 
-            auto physdevInfo = android::base::find(mPhysdevInfo, *physdev);
-
+            auto* physdevInfo = android::base::find(mPhysdevInfo, *physdev);
             if (!physdevInfo) {
-                // If this fails, we crash, as we assume that the memory properties
-                // map should have the info.
+                // If this fails, we crash, as we assume that the memory properties map should have
+                // the info.
                 fprintf(stderr, "Error: Could not get memory properties for VkPhysicalDevice\n");
             }
 
@@ -3359,12 +3352,8 @@ class VkDecoderGlobalState::Impl {
 
     void freeMemoryLocked(VulkanDispatch* vk, VkDevice device, VkDeviceMemory memory,
                           const VkAllocationCallbacks* pAllocator) {
-        auto info = android::base::find(mMapInfo, memory);
-
-        if (!info) {
-            // Invalid usage.
-            return;
-        }
+        auto* info = android::base::find(mMapInfo, memory);
+        if (!info) return;  // Invalid usage.
 
 #ifdef __APPLE__
         if (info->mtlTexture) {
@@ -3424,19 +3413,10 @@ class VkDecoderGlobalState::Impl {
     }
     VkResult on_vkMapMemoryLocked(VkDevice, VkDeviceMemory memory, VkDeviceSize offset,
                                   VkDeviceSize size, VkMemoryMapFlags flags, void** ppData) {
-        auto info = android::base::find(mMapInfo, memory);
-
-        if (!info) {
-            // Invalid usage.
-            return VK_ERROR_MEMORY_MAP_FAILED;
-        }
-
-        if (!info->ptr) {
-            return VK_ERROR_MEMORY_MAP_FAILED;
-        }
+        auto* info = android::base::find(mMapInfo, memory);
+        if (!info || !info->ptr) return VK_ERROR_MEMORY_MAP_FAILED;  // Invalid usage.
 
         *ppData = (void*)((uint8_t*)info->ptr + offset);
-
         return VK_SUCCESS;
     }
 
@@ -3448,12 +3428,8 @@ class VkDecoderGlobalState::Impl {
     uint8_t* getMappedHostPointer(VkDeviceMemory memory) {
         std::lock_guard<std::recursive_mutex> lock(mLock);
 
-        auto info = android::base::find(mMapInfo, memory);
-
-        if (!info) {
-            // Invalid usage.
-            return nullptr;
-        }
+        auto* info = android::base::find(mMapInfo, memory);
+        if (!info) return nullptr;
 
         return (uint8_t*)(info->ptr);
     }
@@ -3461,12 +3437,8 @@ class VkDecoderGlobalState::Impl {
     VkDeviceSize getDeviceMemorySize(VkDeviceMemory memory) {
         std::lock_guard<std::recursive_mutex> lock(mLock);
 
-        auto info = android::base::find(mMapInfo, memory);
-
-        if (!info) {
-            // Invalid usage.
-            return 0;
-        }
+        auto* info = android::base::find(mMapInfo, memory);
+        if (!info) return 0;
 
         return info->size;
     }
@@ -3502,7 +3474,7 @@ class VkDecoderGlobalState::Impl {
     }
 
     bool hasInstanceExtension(VkInstance instance, const std::string& name) {
-        auto info = android::base::find(mInstanceInfo, instance);
+        auto* info = android::base::find(mInstanceInfo, instance);
         if (!info) return false;
 
         for (const auto& enabledName : info->enabledExtensionNames) {
@@ -3513,7 +3485,7 @@ class VkDecoderGlobalState::Impl {
     }
 
     bool hasDeviceExtension(VkDevice device, const std::string& name) {
-        auto info = android::base::find(mDeviceInfo, device);
+        auto* info = android::base::find(mDeviceInfo, device);
         if (!info) return false;
 
         for (const auto& enabledName : info->enabledExtensionNames) {
@@ -3572,7 +3544,7 @@ class VkDecoderGlobalState::Impl {
 
         std::lock_guard<std::recursive_mutex> lock(mLock);
 
-        auto imageInfo = android::base::find(mImageInfo, image);
+        auto* imageInfo = android::base::find(mImageInfo, image);
         if (!imageInfo) {
             return VK_ERROR_INITIALIZATION_FAILED;
         }
@@ -3602,11 +3574,8 @@ class VkDecoderGlobalState::Impl {
 
         std::lock_guard<std::recursive_mutex> lock(mLock);
 
-        auto queueInfo = android::base::find(mQueueInfo, queue);
-
-        if (!queueInfo) {
-            return VK_ERROR_INITIALIZATION_FAILED;
-        }
+        auto* queueInfo = android::base::find(mQueueInfo, queue);
+        if (!queueInfo) return VK_ERROR_INITIALIZATION_FAILED;
 
         if (mRenderDocWithMultipleVkInstances) {
             VkPhysicalDevice vkPhysicalDevice = mDeviceToPhysicalDevice.at(queueInfo->device);
@@ -3614,7 +3583,7 @@ class VkDecoderGlobalState::Impl {
             mRenderDocWithMultipleVkInstances->onFrameDelimiter(vkInstance);
         }
 
-        auto imageInfo = android::base::find(mImageInfo, image);
+        auto* imageInfo = android::base::find(mImageInfo, image);
         auto anbInfo = imageInfo->anbInfo;
 
         if (anbInfo->useVulkanNativeImage) {
@@ -3646,8 +3615,6 @@ class VkDecoderGlobalState::Impl {
 
         std::lock_guard<std::recursive_mutex> lock(mLock);
 
-        auto info = android::base::find(mMapInfo, memory);
-
         if (mLogging) {
             fprintf(stderr, "%s: deviceMemory: 0x%llx pAddress: 0x%llx\n", __func__,
                     (unsigned long long)memory, (unsigned long long)(*pAddress));
@@ -3657,6 +3624,7 @@ class VkDecoderGlobalState::Impl {
             return VK_ERROR_OUT_OF_HOST_MEMORY;
         }
 
+        auto* info = android::base::find(mMapInfo, memory);
         if (!info) return VK_ERROR_INITIALIZATION_FAILED;
 
         *pAddress = (uint64_t)(uintptr_t)info->ptr;
@@ -3671,8 +3639,7 @@ class VkDecoderGlobalState::Impl {
         std::lock_guard<std::recursive_mutex> lock(mLock);
         struct MemEntry entry = {0};
 
-        auto info = android::base::find(mMapInfo, memory);
-
+        auto* info = android::base::find(mMapInfo, memory);
         if (!info) return VK_ERROR_OUT_OF_HOST_MEMORY;
 
         if (feature_is_enabled(kFeature_ExternalBlob)) {
@@ -3887,7 +3854,7 @@ class VkDecoderGlobalState::Impl {
             std::lock_guard<std::recursive_mutex> lock(mLock);
 
             {
-                auto queueInfo = android::base::find(mQueueInfo, queue);
+                auto* queueInfo = android::base::find(mQueueInfo, queue);
                 if (queueInfo) {
                     sBoxedHandleManager.processDelayedRemovesGlobalStateLocked(queueInfo->device);
                 }
@@ -3900,7 +3867,7 @@ class VkDecoderGlobalState::Impl {
                 }
             }
 
-            auto queueInfo = android::base::find(mQueueInfo, queue);
+            auto* queueInfo = android::base::find(mQueueInfo, queue);
             if (!queueInfo) return VK_SUCCESS;
             ql = queueInfo->lock;
         }
@@ -3933,7 +3900,7 @@ class VkDecoderGlobalState::Impl {
         Lock* ql;
         {
             std::lock_guard<std::recursive_mutex> lock(mLock);
-            auto queueInfo = android::base::find(mQueueInfo, queue);
+            auto* queueInfo = android::base::find(mQueueInfo, queue);
             if (!queueInfo) return VK_SUCCESS;
             ql = queueInfo->lock;
         }
@@ -4106,8 +4073,7 @@ class VkDecoderGlobalState::Impl {
         auto vk = dispatch_VkDevice(boxed_device);
 
         std::lock_guard<std::recursive_mutex> lock(mLock);
-        auto info = android::base::find(mDescriptorUpdateTemplateInfo, descriptorUpdateTemplate);
-
+        auto* info = android::base::find(mDescriptorUpdateTemplateInfo, descriptorUpdateTemplate);
         if (!info) return;
 
         memcpy(info->data.data() + info->imageInfoStart, pImageInfos,
@@ -4699,7 +4665,7 @@ class VkDecoderGlobalState::Impl {
                                                             VkDescriptorSetLayout setLayout,
                                                             uint64_t poolId, uint32_t pendingAlloc,
                                                             bool* didAlloc) {
-        auto poolInfo = android::base::find(mDescriptorPoolInfo, pool);
+        auto* poolInfo = android::base::find(mDescriptorPoolInfo, pool);
         if (!poolInfo) {
             GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
                 << "descriptor pool " << pool << " not found ";
@@ -4758,7 +4724,7 @@ class VkDecoderGlobalState::Impl {
         auto queue = unbox_VkQueue(boxed_queue);
         auto vk = dispatch_VkQueue(boxed_queue);
 
-        auto queueInfo = android::base::find(mQueueInfo, queue);
+        auto* queueInfo = android::base::find(mQueueInfo, queue);
         if (queueInfo) {
             device = queueInfo->device;
         } else {
@@ -5420,10 +5386,10 @@ class VkDecoderGlobalState::Impl {
     }
 
     VkPhysicalDeviceMemoryProperties* memPropsOfDeviceLocked(VkDevice device) {
-        auto physdev = android::base::find(mDeviceToPhysicalDevice, device);
+        auto* physdev = android::base::find(mDeviceToPhysicalDevice, device);
         if (!physdev) return nullptr;
 
-        auto physdevInfo = android::base::find(mPhysdevInfo, *physdev);
+        auto* physdevInfo = android::base::find(mPhysdevInfo, *physdev);
         if (!physdevInfo) return nullptr;
 
         return &physdevInfo->memoryProperties;
@@ -5431,7 +5397,7 @@ class VkDecoderGlobalState::Impl {
 
     bool getDefaultQueueForDeviceLocked(VkDevice device, VkQueue* queue, uint32_t* queueFamilyIndex,
                                         Lock** queueLock) {
-        auto deviceInfo = android::base::find(mDeviceInfo, device);
+        auto* deviceInfo = android::base::find(mDeviceInfo, device);
         if (!deviceInfo) return false;
 
         auto zeroIt = deviceInfo->queues.find(0);
@@ -6478,7 +6444,7 @@ class VkDecoderGlobalState::Impl {
         std::vector<VulkanDispatch*> devicesToDestroyDispatches;
 
         for (auto it : mDeviceToPhysicalDevice) {
-            auto otherInstance = android::base::find(mPhysicalDeviceToInstance, it.second);
+            auto* otherInstance = android::base::find(mPhysicalDeviceToInstance, it.second);
             if (!otherInstance) continue;
 
             if (instance == *otherInstance) {
@@ -7012,7 +6978,7 @@ class VkDecoderGlobalState::Impl {
     }
 
     VkResult validateDescriptorSetAllocLocked(const VkDescriptorSetAllocateInfo* pAllocateInfo) {
-        auto poolInfo = android::base::find(mDescriptorPoolInfo, pAllocateInfo->descriptorPool);
+        auto* poolInfo = android::base::find(mDescriptorPoolInfo, pAllocateInfo->descriptorPool);
         if (!poolInfo) return VK_ERROR_INITIALIZATION_FAILED;
 
         // Check the number of sets available.
