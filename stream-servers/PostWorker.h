@@ -15,35 +15,32 @@
  */
 #pragma once
 
-#include <EGL/egl.h>
-#include <GLES/gl.h>
-#include <GLES3/gl3.h>
-#include <vulkan/vulkan.h>
-
 #include <functional>
 #include <future>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 #include "Compositor.h"
-#include "DisplayVk.h"
+#include "ContextHelper.h"
 #include "Hwc2.h"
 #include "PostCommands.h"
 #include "aemu/base/Compiler.h"
 #include "aemu/base/synchronization/Lock.h"
 #include "aemu/base/synchronization/MessageChannel.h"
+#include "gl/DisplayGl.h"
 #include "host-common/window_agent.h"
 
 class ColorBuffer;
+class DisplayGl;
+class DisplayVk;
 class FrameBuffer;
 struct RenderThreadInfo;
 
 class PostWorker {
    public:
-    using BindSubwinCallback = std::function<bool(void)>;
-
-    PostWorker(BindSubwinCallback&& cb, bool mainThreadPostingOnly, Compositor* compositor,
-               DisplayVk* display);
+    PostWorker(bool mainThreadPostingOnly, Compositor* compositor,
+               DisplayGl* displayGl, DisplayVk* displayVk);
     ~PostWorker();
 
     // post: posts the next color buffer.
@@ -80,10 +77,6 @@ class PostWorker {
     std::shared_future<void> composeImpl(const FlatComposeRequest& composeRequest);
     void clearImpl();
 
-    void fillMultiDisplayPostStruct(ComposeLayer* l, hwc_rect_t displayArea,
-                                    hwc_frect_t cropArea,
-                                    hwc_transform_t transform);
-
     // If m_mainThreadPostingOnly is true, schedule the task to UI thread by
     // using m_runOnUiThread. Otherwise, execute the task on the current thread.
     void runTask(std::packaged_task<void()>);
@@ -95,15 +88,15 @@ class PostWorker {
 
     Compositor* m_compositor = nullptr;
 
-    std::function<bool(void)> mBindSubwin;
-
-    bool m_needsToRebindWindow = true;
     int m_viewportWidth = 0;
     int m_viewportHeight = 0;
 
     bool m_mainThreadPostingOnly = false;
     UiThreadRunner m_runOnUiThread = 0;
 
+    // TODO(b/233939967): conslidate DisplayGl and DisplayVk into
+    // `Display* const m_display`.
+    DisplayGl* const m_displayGl;
     // The implementation for Vulkan native swapchain. Only initialized when
     // useVulkan is set when calling FrameBuffer::initialize(). PostWorker
     // doesn't take the ownership of this DisplayVk object.

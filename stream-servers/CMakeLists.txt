@@ -21,8 +21,8 @@ set(stream-server-core-sources
     ChannelStream.cpp
     ColorBuffer.cpp
     Debug.cpp
-    Display.cpp
     DisplaySurface.cpp
+    DisplaySurfaceUser.cpp
     FenceSync.cpp
     Hwc2.cpp
     PostWorker.cpp
