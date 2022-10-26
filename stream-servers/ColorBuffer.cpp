@@ -216,6 +216,7 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
                                  FrameworkFormat p_frameworkFormat,
                                  HandleType hndl,
                                  ContextHelper* helper,
+                                 TextureDraw* textureDraw,
                                  bool fastBlitSupported,
                                  bool vulkanOnly) {
     GLenum texFormat = 0;
@@ -235,7 +236,7 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
             * p_height;
 
     // This constructor is private, so std::make_unique can't be used.
-    std::unique_ptr<ColorBuffer> cb{new ColorBuffer(p_display, hndl, helper)};
+    std::unique_ptr<ColorBuffer> cb{new ColorBuffer(p_display, hndl, helper, textureDraw)};
     cb->m_width = p_width;
     cb->m_height = p_height;
     cb->m_internalFormat = p_internalFormat;
@@ -330,8 +331,9 @@ ColorBuffer* ColorBuffer::create(EGLDisplay p_display,
     return cb.release();
 }
 
-ColorBuffer::ColorBuffer(EGLDisplay display, HandleType hndl, ContextHelper* helper)
-    : m_display(display), m_helper(helper), mHndl(hndl) {}
+ColorBuffer::ColorBuffer(EGLDisplay display, HandleType hndl, ContextHelper* helper,
+                         TextureDraw* textureDraw)
+    : m_display(display), m_helper(helper), m_textureDraw(textureDraw), mHndl(hndl) {}
 
 ColorBuffer::~ColorBuffer() {
     if (m_vulkanOnly) {
@@ -799,7 +801,7 @@ bool ColorBuffer::blitFromCurrentReadBuffer() {
         s_gles2.glViewport(0, 0, m_width, m_height);
 
         // render m_blitTex
-        m_helper->getTextureDraw()->draw(m_blitTex, 0., 0, 0);
+        m_textureDraw->draw(m_blitTex, 0., 0, 0);
 
         // Restore previous viewport.
         s_gles2.glViewport(vport[0], vport[1], vport[2], vport[3]);
@@ -886,13 +888,13 @@ void ColorBuffer::waitSync(bool debug) {
 bool ColorBuffer::post(GLuint tex, float rotation, float dx, float dy) {
     // NOTE: Do not call m_helper->setupContext() here!
     waitSync();
-    return m_helper->getTextureDraw()->draw(tex, rotation, dx, dy);
+    return m_textureDraw->draw(tex, rotation, dx, dy);
 }
 
 bool ColorBuffer::postWithOverlay(GLuint tex, float rotation, float dx, float dy) {
     // NOTE: Do not call m_helper->setupContext() here!
     waitSync();
-    return m_helper->getTextureDraw()->drawWithOverlay(tex, rotation, dx, dy);
+    return m_textureDraw->drawWithOverlay(tex, rotation, dx, dy);
 }
 
 void ColorBuffer::readback(unsigned char* img, bool readbackBgra) {
@@ -953,6 +955,7 @@ void ColorBuffer::onSave(android::base::Stream* stream) {
 ColorBuffer* ColorBuffer::onLoad(android::base::Stream* stream,
                                  EGLDisplay p_display,
                                  ContextHelper* helper,
+                                 TextureDraw* textureDraw,
                                  bool fastBlitSupported) {
     HandleType hndl = static_cast<HandleType>(stream->getBe32());
     GLuint width = static_cast<GLuint>(stream->getBe32());
@@ -966,9 +969,9 @@ ColorBuffer* ColorBuffer::onLoad(android::base::Stream* stream,
 
     if (!eglImage) {
         return create(p_display, width, height, internalFormat, frameworkFormat,
-                      hndl, helper, fastBlitSupported);
+                      hndl, helper, textureDraw, fastBlitSupported);
     }
-    ColorBuffer* cb = new ColorBuffer(p_display, hndl, helper);
+    ColorBuffer* cb = new ColorBuffer(p_display, hndl, helper, textureDraw);
     cb->mNeedRestore = true;
     cb->m_eglImage = eglImage;
     cb->m_blitEGLImage = blitEGLImage;
@@ -1012,7 +1015,7 @@ GLuint ColorBuffer::getTexture() {
 void ColorBuffer::postLayer(const ComposeLayer& l, int frameWidth, int frameHeight) {
     if (m_inUse) fprintf(stderr, "%s: cb in use\n", __func__);
     waitSync();
-    m_helper->getTextureDraw()->drawLayer(l, frameWidth, frameHeight, m_width, m_height, m_tex);
+    m_textureDraw->drawLayer(l, frameWidth, frameHeight, m_width, m_height, m_tex);
 }
 
 bool ColorBuffer::importMemory(ManagedDescriptor externalDescriptor, uint64_t size, bool dedicated,
