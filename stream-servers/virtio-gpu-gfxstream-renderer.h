@@ -5,6 +5,7 @@
  * implement an actual virtio goldfish pipe, but this hijacking of virgl  is
  * done in order to avoid any guest kernel changes. */
 
+#include <assert.h>
 #include <stddef.h>
 
 #include "virgl_hw.h"
@@ -166,6 +167,87 @@ struct stream_renderer_vulkan_info {
 VG_EXPORT int stream_renderer_vulkan_info(uint32_t res_handle,
                                           struct stream_renderer_vulkan_info *vulkan_info);
 
+// Parameters - data passed to initialize the renderer, with the goal of avoiding FFI breakages.
+// To change the data a parameter is passing safely, you should create a new parameter and
+// deprecate the old one. The old parameter may be removed after sufficient time.
+
+// Reserved.
+#define STREAM_RENDERER_PARAM_NULL 0
+
+// User data, for custom use by renderer. An example is VirglCookie which includes a fence
+// handler and render server descriptor.
+#define STREAM_RENDERER_PARAM_USER_DATA 1
+
+// Bitwise flags for the renderer.
+#define STREAM_RENDERER_PARAM_RENDERER_FLAGS 2
+
+// Reserved to replace write_fence / write_context_fence.
+#define STREAM_RENDERER_PARAM_FENCE_CALLBACK 3
+
+// Callback for writing a fence.
+#define STREAM_RENDERER_PARAM_WRITE_FENCE_CALLBACK 4
+typedef void (*stream_renderer_param_write_fence_callback)(void* user_data, uint32_t fence);
+
+// Callback for writing a fence with context.
+#define STREAM_RENDERER_PARAM_WRITE_CONTEXT_FENCE_CALLBACK 5
+typedef void (*stream_renderer_param_write_context_fence_callback)(void* user_data, uint64_t fence,
+                                                                   uint32_t ctx_id,
+                                                                   uint8_t ring_idx);
+
+// Window 0's width.
+#define STREAM_RENDERER_PARAM_WIN0_WIDTH 6
+
+// Window 0's height.
+#define STREAM_RENDERER_PARAM_WIN0_HEIGHT 7
+
+// External callbacks for tracking metrics.
+// Separating each function to a parameter allows new functions to be added later.
+#define STREAM_RENDERER_PARAM_METRICS_CALLBACK_ADD_INSTANT_EVENT 1024
+typedef void (*stream_renderer_param_metrics_callback_add_instant_event)(int64_t event_code);
+
+#define STREAM_RENDERER_PARAM_METRICS_CALLBACK_ADD_INSTANT_EVENT_WITH_DESCRIPTOR 1025
+typedef void (*stream_renderer_param_metrics_callback_add_instant_event_with_descriptor)(
+    int64_t event_code, int64_t descriptor);
+
+#define STREAM_RENDERER_PARAM_METRICS_CALLBACK_ADD_INSTANT_EVENT_WITH_METRIC 1026
+typedef void (*stream_renderer_param_metrics_callback_add_instant_event_with_metric)(
+    int64_t event_code, int64_t metric_value);
+
+#define STREAM_RENDERER_PARAM_METRICS_CALLBACK_ADD_VULKAN_OUT_OF_MEMORY_EVENT 1027
+typedef void (*stream_renderer_param_metrics_callback_add_vulkan_out_of_memory_event)(
+    int64_t result_code, uint32_t op_code, const char* function, uint32_t line,
+    uint64_t allocation_size, bool is_host_side_result, bool is_allocation);
+
+#define STREAM_RENDERER_PARAM_METRICS_CALLBACK_SET_ANNOTATION 1028
+typedef void (*stream_renderer_param_metrics_callback_set_annotation)(const char* key,
+                                                                      const char* value);
+
+#define STREAM_RENDERER_PARAM_METRICS_CALLBACK_ABORT 1029
+typedef void (*stream_renderer_param_metrics_callback_abort)();
+
+// An entry in the stream renderer parameters list.
+struct stream_renderer_param {
+    // The key should be one of STREAM_RENDERER_PARAM_*
+    uint64_t key;
+    // The value can be either a uint64_t or cast to a pointer to a struct, depending on if the
+    // parameter needs to pass data bigger than a single uint64_t.
+    uint64_t value;
+};
+
+static_assert(sizeof(stream_renderer_param) == 16, "stream_renderer_param must be 16 bytes");
+static_assert(offsetof(stream_renderer_param, key) == 0,
+              "stream_renderer_param.key must be at offset 0");
+static_assert(offsetof(stream_renderer_param, value) == 8,
+              "stream_renderer_param.value must be at offset 8");
+
+// Entry point for the stream renderer.
+// Pass a list of parameters to configure the renderer. The available ones are listed above. If a
+// parameter is not supported, the renderer will ignore it and warn in stderr.
+// Return value of 0 indicates success, otherwise an error code is returned.
+VG_EXPORT int stream_renderer_init(
+    struct stream_renderer_param* stream_renderer_params,
+    uint64_t num_params);
+
 struct gfxstream_callbacks {
     /* Metrics callbacks */
     void (*add_instant_event)(int64_t event_code);
@@ -179,6 +261,7 @@ struct gfxstream_callbacks {
     void (*abort)();
 };
 
+// Deprecated, use stream_renderer_init instead.
 VG_EXPORT void gfxstream_backend_init(
     uint32_t display_width,
     uint32_t display_height,
