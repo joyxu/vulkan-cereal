@@ -419,6 +419,7 @@ void ProgramData::restore(ObjectLocalName localName,
             const GLchar* src = (const GLchar *)s.linkedSource.c_str();
             std::string parsedSrc;
             if (!isGles2Gles()) {
+#ifdef USE_ANGLE_SHADER_PARSER
                 std::string infoLog;
                 ANGLEShaderParser::translate(
                             isCoreProfile(),
@@ -428,6 +429,7 @@ void ProgramData::restore(ObjectLocalName localName,
                             &parsedSrc,
                             &s.linkInfo);
                 src = parsedSrc.c_str();
+#endif
             }
             dispatcher.glShaderSource(tmpShaders[i], 1, &src, NULL);
             dispatcher.glCompileShader(tmpShaders[i]);
@@ -665,12 +667,14 @@ ProgramData::getTranslatedName(const std::string& userVarName) const {
         return userVarName;
     }
     // TODO: translate uniform array names
+#ifdef USE_ANGLE_SHADER_PARSER
     for (int i = 0; i < NUM_SHADER_TYPE; i++) {
         if (const auto name = android::base::find(
                 attachedShaders[i].linkInfo.nameMap, userVarName)) {
             return *name;
         }
     }
+#endif
     return userVarName;
 }
 
@@ -679,6 +683,8 @@ ProgramData::getDetranslatedName(const std::string& driverName) const {
     if (isGles2Gles()) {
         return driverName;
     }
+
+#ifdef USE_ANGLE_SHADER_PARSER
     // TODO: detranslate uniform array names
     for (int i = 0; i < NUM_SHADER_TYPE; i++) {
         if (const auto name = android::base::find(
@@ -686,6 +692,7 @@ ProgramData::getDetranslatedName(const std::string& driverName) const {
             return *name;
         }
     }
+#endif
     return driverName;
 }
 
@@ -730,6 +737,8 @@ void ProgramData::linkedAttribLocation(const std::string& var, GLuint loc) {
 void ProgramData::appendValidationErrMsg(std::ostringstream& ss) {
     validationInfoLog += "Error: " + ss.str() + "\n";
 }
+
+#ifdef USE_ANGLE_SHADER_PARSER
 static bool sCheckUndecl(ProgramData* pData,
                          const ANGLEShaderParser::ShaderLinkInfo& fragLinkInfo,
                          const ANGLEShaderParser::ShaderLinkInfo& vertLinkInfo);
@@ -742,19 +751,23 @@ static bool sCheckVariables(ProgramData* pData,
                             const ANGLEShaderParser::ShaderLinkInfo& b);
 static void sInitializeUniformLocs(ProgramData* pData,
                                    const std::vector<ST_ShaderVariable>& uniforms);
+#endif
 
 bool ProgramData::validateLink(ShaderParser* frag, ShaderParser* vert) {
+    bool res = true;
+
+#ifdef USE_ANGLE_SHADER_PARSER
     const ANGLEShaderParser::ShaderLinkInfo& fragLinkInfo =
         frag->getShaderLinkInfo();
     const ANGLEShaderParser::ShaderLinkInfo& vertLinkInfo =
         vert->getShaderLinkInfo();
 
-    bool res = true;
 
     res = res && sCheckUndecl(this, fragLinkInfo, vertLinkInfo);
     res = res && sCheckLimits(this, ANGLEShaderParser::kResources,
                               fragLinkInfo, vertLinkInfo);
     res = res && sCheckVariables(this, fragLinkInfo, vertLinkInfo);
+#endif
 
     return res;
 }
@@ -772,24 +785,31 @@ void ProgramData::setLinkStatus(GLint status) {
     status = 1;
 #endif
     if (status && HostLinkStatus) {
-        std::vector<ST_ShaderVariable> allUniforms;
         bool is310 = false;
+
+#ifdef USE_ANGLE_SHADER_PARSER
+	std::vector<ST_ShaderVariable> allUniforms;
+#endif
         for (auto& s : attachedShaders) {
             if (s.localName) {
                 assert(s.shader);
                 s.linkedSource = s.shader->getOriginalSrc();
+#ifdef USE_ANGLE_SHADER_PARSER
                 s.linkInfo = s.shader->getShaderLinkInfo();
                 is310 = is310 || (s.linkInfo.esslVersion == 310);
                 for (const auto& var: s.linkInfo.uniforms) {
                     allUniforms.push_back(var);
                 }
+#endif
             }
         }
 
         if (is310 || isGles2Gles()) {
             mUseDirectDriverUniformInfo = true;
         } else {
+#ifdef USE_ANGLE_SHADER_PARSER
             sInitializeUniformLocs(this, allUniforms);
+#endif
         }
         for (const auto &attribLoc : boundAttribLocs) {
             // overwrite
@@ -833,6 +853,8 @@ static const char* sQualifierString(ValidationQualifier q) {
     }
     return kUnknownQualifier;
 }
+
+#ifdef USE_ANGLE_SHADER_PARSER
 
 static bool sVarCheck(ProgramData* pData,
                       ValidationQualifier qualifier,
@@ -1106,6 +1128,8 @@ static void sInitializeUniformLocs(ProgramData* pData,
         sRecursiveLocInitalize(pData, var.name, var);
     }
 }
+
+#endif
 
 void ProgramData::initGuestUniformLocForKey(const std::string& key) {
     // fprintf(stderr, "%s: for %s\n", __func__, key.str().c_str());

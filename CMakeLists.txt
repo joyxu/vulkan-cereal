@@ -122,6 +122,11 @@ include(android.cmake)
 
 set(EXTRA_SUBDIR_TEST_INCLUDE_FILES)
 
+
+if(DEPENDENCY_RESOLUTION STREQUAL "AOSP")
+    add_compile_definitions(USE_ANGLE_SHADER_PARSER)
+endif ()
+
 # Third party dependencies
 add_subdirectory(third-party)
 

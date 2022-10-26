@@ -1160,6 +1160,7 @@ GL_APICALL GLuint GL_APIENTRY glCreateShader(GLenum type){
         auto glesMajorVersion = ctx->getMajorVersion();
         auto glesMinorVersion = ctx->getMinorVersion();
 
+#ifdef USE_ANGLE_SHADER_PARSER
         ANGLEShaderParser::BuiltinResourcesEditCallback editCallback =
             [&gl, glesMajorVersion,
              glesMinorVersion](ST_BuiltInResources& res) {
@@ -1281,6 +1282,7 @@ GL_APICALL GLuint GL_APIENTRY glCreateShader(GLenum type){
         ANGLEShaderParser::globalInitialize(
                 isGles2Gles(),
                 editCallback);
+#endif
     }
 
     RET_AND_SET_ERROR_IF(!GLESv2Validate::shaderType(ctx, type), GL_INVALID_ENUM, 0);

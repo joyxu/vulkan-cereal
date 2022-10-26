@@ -26,8 +26,6 @@ cc_library_shared {
         "-Wno-unreachable-code-loop-increment",
     ],
     static_libs: [
-        "gfxstream_angle_common",
-        "gfxstream_angle_shader_translator",
         "gfxstream_base",
         "gfxstream_host_common",
         "gfxstream_apigen_codec_common",

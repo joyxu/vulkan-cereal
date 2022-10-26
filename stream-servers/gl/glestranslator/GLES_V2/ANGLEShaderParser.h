@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifdef USE_ANGLE_SHADER_PARSER
 #pragma once
 
 #include <functional>
@@ -20,6 +21,7 @@
 #include <vector>
 
 #include <GLES2/gl2.h>
+
 
 #include "ShaderTranslator.h"
 
@@ -65,3 +67,5 @@ bool translate(bool hostUsesCoreProfile,
                ShaderLinkInfo* outShaderLinkInfo);
 
 } // namespace ANGLEShaderParser
+
+#endif
