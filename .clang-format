@@ -7,8 +7,6 @@ IncludeCategories:
 FixNamespaceComments: true
 PointerAlignment: Left
 DerivePointerAlignment: false
-AllowShortBlocksOnASingleLine: Empty
-ReflowComments: False
 
 # Ensure proper formatting of macros such as GOLDFISH_VK_LIST_DISPATCHABLE_HANDLE_TYPES
 StatementMacros: ["f"]
