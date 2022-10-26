@@ -54,6 +54,7 @@ cc_library_headers {
         "stream-servers/gl",
         "stream-servers/gl/glestranslator/include",
         "stream-servers/vulkan",
+        "utils/include",
     ],
     header_libs: [
         "aemu_common_headers",

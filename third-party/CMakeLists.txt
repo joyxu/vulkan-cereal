@@ -46,8 +46,6 @@ if(NOT TARGET aemu_common)
             gfxstream_snapshot)
         foreach(PC_FILE IN LISTS AEMU_PC_FILES)
             pkg_search_module(${PC_FILE} REQUIRED IMPORTED_TARGET GLOBAL ${PC_FILE}>=0.0.0)
-#           string(REPLACE "_" "-" LIB_NAME "${PC_FILE}")
-#           add_library(${LIB_NAME} ALIAS PkgConfig::${PC_FILE})
         endforeach()
 
         add_library(aemu-base.headers INTERFACE)
