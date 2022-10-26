@@ -127,6 +127,7 @@ add_subdirectory(third-party)
 
 # Backends######################################################################
 
+add_subdirectory(utils)
 add_subdirectory(stream-servers)
 
 # Protocols and associated code generators######################################
