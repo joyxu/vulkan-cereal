@@ -2897,13 +2897,21 @@ class VkDecoderGlobalState::Impl {
             }
             uint32_t baseMipLevel = srcBarrier.subresourceRange.baseMipLevel;
             uint32_t levelCount = srcBarrier.subresourceRange.levelCount;
+            if (levelCount == VK_REMAINING_MIP_LEVELS) {
+                levelCount = imageInfo->cmpInfo.mipLevels - baseMipLevel;
+            }
+            uint32_t layerCount = srcBarrier.subresourceRange.layerCount;
+            if (layerCount == VK_REMAINING_ARRAY_LAYERS) {
+                layerCount =
+                    imageInfo->cmpInfo.layerCount - srcBarrier.subresourceRange.baseArrayLayer;
+            }
+
             VkImageMemoryBarrier decompBarrier = srcBarrier;
             decompBarrier.image = imageInfo->cmpInfo.decompImg;
             VkImageMemoryBarrier sizeCompBarrierTemplate = srcBarrier;
             sizeCompBarrierTemplate.subresourceRange.baseMipLevel = 0;
             sizeCompBarrierTemplate.subresourceRange.levelCount = 1;
-            std::vector<VkImageMemoryBarrier> sizeCompBarriers(
-                srcBarrier.subresourceRange.levelCount, sizeCompBarrierTemplate);
+            std::vector<VkImageMemoryBarrier> sizeCompBarriers(levelCount, sizeCompBarrierTemplate);
             for (uint32_t j = 0; j < levelCount; j++) {
                 sizeCompBarriers[j].image = imageInfo->cmpInfo.sizeCompImgs[baseMipLevel + j];
             }
@@ -2911,10 +2919,8 @@ class VkDecoderGlobalState::Impl {
             // TODO: should we use image layout or access bit?
             if (srcBarrier.oldLayout == 0 ||
                 (srcBarrier.newLayout != VK_IMAGE_LAYOUT_GENERAL &&
-                 srcBarrier.newLayout !=
-                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL /* for samplers */ &&
-                 srcBarrier.newLayout !=
-                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL /* for blit */)) {
+                 srcBarrier.newLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL /* for samplers */
+                 && srcBarrier.newLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL /* for blit */)) {
                 // TODO: might only need to push one of them?
                 persistentImageBarriers.push_back(decompBarrier);
                 persistentImageBarriers.insert(persistentImageBarriers.end(),
@@ -2957,11 +2963,10 @@ class VkDecoderGlobalState::Impl {
             imageInfo->cmpInfo.cmdDecompress(
                 vk, commandBuffer, dstStageMask, decompBarrier.newLayout,
                 decompBarrier.dstAccessMask, baseMipLevel, levelCount,
-                srcBarrier.subresourceRange.baseArrayLayer, srcBarrier.subresourceRange.layerCount);
+                srcBarrier.subresourceRange.baseArrayLayer, layerCount);
             needRebind = true;
 
-            for (uint32_t j = 0; j < currImageBarriers.size(); j++) {
-                VkImageMemoryBarrier& barrier = currImageBarriers[j];
+            for (auto& barrier : currImageBarriers) {
                 barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
                 barrier.dstAccessMask = srcBarrier.dstAccessMask;
                 barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -2991,7 +2996,7 @@ class VkDecoderGlobalState::Impl {
             // Recover pipeline bindings
             vk->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
                                   cmdBufferInfo->computePipeline);
-            if (cmdBufferInfo->descriptorSets.size() > 0) {
+            if (!cmdBufferInfo->descriptorSets.empty()) {
                 vk->vkCmdBindDescriptorSets(
                     commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, cmdBufferInfo->descriptorLayout,
                     cmdBufferInfo->firstSet, cmdBufferInfo->descriptorSets.size(),
