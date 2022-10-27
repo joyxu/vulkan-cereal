@@ -610,7 +610,8 @@ std::optional<std::tuple<VkBuffer, VkDeviceMemory>> CompositorVk::createBuffer(
         .memoryTypeIndex = maybeMemoryTypeIndex.value(),
     };
     VkDeviceMemory resMemory;
-    VK_CHECK(m_vk.vkAllocateMemory(m_vkDevice, &memAllocInfo, nullptr, &resMemory));
+    VK_CHECK_MEMALLOC(m_vk.vkAllocateMemory(m_vkDevice, &memAllocInfo, nullptr, &resMemory),
+                    memAllocInfo);
     VK_CHECK(m_vk.vkBindBufferMemory(m_vkDevice, resBuffer, resMemory, 0));
     return std::make_tuple(resBuffer, resMemory);
 }

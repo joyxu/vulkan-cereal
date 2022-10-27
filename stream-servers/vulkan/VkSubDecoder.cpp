@@ -76,6 +76,7 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
                     pool, (VkCommandBuffer)(boxed_dispatchHandle), pBeginInfo, gfx_logger);
                 if ((vkBeginCommandBuffer_VkResult_return) == VK_ERROR_DEVICE_LOST)
                     this->on_DeviceLost();
+                this->on_CheckOutOfMemory(vkBeginCommandBuffer_VkResult_return, opcode, context);
                 android::base::endTrace();
                 break;
             }
@@ -86,6 +87,7 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
                     pool, (VkCommandBuffer)(boxed_dispatchHandle), gfx_logger);
                 if ((vkEndCommandBuffer_VkResult_return) == VK_ERROR_DEVICE_LOST)
                     this->on_DeviceLost();
+                this->on_CheckOutOfMemory(vkEndCommandBuffer_VkResult_return, opcode, context);
                 android::base::endTrace();
                 break;
             }
@@ -100,6 +102,7 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
                     pool, (VkCommandBuffer)(boxed_dispatchHandle), flags);
                 if ((vkResetCommandBuffer_VkResult_return) == VK_ERROR_DEVICE_LOST)
                     this->on_DeviceLost();
+                this->on_CheckOutOfMemory(vkResetCommandBuffer_VkResult_return, opcode, context);
                 android::base::endTrace();
                 break;
             }
@@ -3434,6 +3437,8 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
                     (VkCommandBuffer)dispatchHandle, pMarkerInfo);
                 if ((vkCmdSetPerformanceMarkerINTEL_VkResult_return) == VK_ERROR_DEVICE_LOST)
                     this->on_DeviceLost();
+                this->on_CheckOutOfMemory(vkCmdSetPerformanceMarkerINTEL_VkResult_return, opcode,
+                                          context);
                 android::base::endTrace();
                 break;
             }
@@ -3455,6 +3460,8 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
                                                              pMarkerInfo);
                 if ((vkCmdSetPerformanceStreamMarkerINTEL_VkResult_return) == VK_ERROR_DEVICE_LOST)
                     this->on_DeviceLost();
+                this->on_CheckOutOfMemory(vkCmdSetPerformanceStreamMarkerINTEL_VkResult_return,
+                                          opcode, context);
                 android::base::endTrace();
                 break;
             }
@@ -3476,6 +3483,8 @@ size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* b
                                                          pOverrideInfo);
                 if ((vkCmdSetPerformanceOverrideINTEL_VkResult_return) == VK_ERROR_DEVICE_LOST)
                     this->on_DeviceLost();
+                this->on_CheckOutOfMemory(vkCmdSetPerformanceOverrideINTEL_VkResult_return, opcode,
+                                          context);
                 android::base::endTrace();
                 break;
             }

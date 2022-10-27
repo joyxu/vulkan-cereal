@@ -40,12 +40,13 @@
 #include <type_traits>
 #include <vector>
 
+#include "VkDecoderContext.h"
 #include "VulkanDispatch.h"
 #include "aemu/base/synchronization/Lock.h"
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"
-#include "vulkan/cereal/common/vk_struct_id.h"
 #include "vk_fn_info.h"
+#include "vulkan/cereal/common/vk_struct_id.h"
 
 struct vk_struct_common {
     VkStructureType sType;
@@ -273,16 +274,34 @@ void vk_struct_chain_remove(S* unwanted, T* vk_struct) {
     }
 }
 
-#define VK_CHECK(x)                                                     \
-    do {                                                                \
-        VkResult err = x;                                               \
-        if (err != VK_SUCCESS) {                                        \
-            if (err == VK_ERROR_DEVICE_LOST) {                          \
-                ::vk_util::getVkCheckCallbacks().callIfExists(          \
-                    &::vk_util::VkCheckCallbacks::onVkErrorDeviceLost); \
-            }                                                           \
-            GFXSTREAM_ABORT(::emugl::FatalError(err));                  \
-        }                                                               \
+#define VK_CHECK(x)                                                                               \
+    do {                                                                                          \
+        VkResult err = x;                                                                         \
+        if (err != VK_SUCCESS) {                                                                  \
+            if (err == VK_ERROR_DEVICE_LOST) {                                                    \
+                ::vk_util::getVkCheckCallbacks().callIfExists(                                    \
+                    &::vk_util::VkCheckCallbacks::onVkErrorDeviceLost);                           \
+            }                                                                                     \
+            if (err == VK_ERROR_OUT_OF_HOST_MEMORY || err == VK_ERROR_OUT_OF_DEVICE_MEMORY ||     \
+                err == VK_ERROR_OUT_OF_POOL_MEMORY) {                                             \
+                ::vk_util::getVkCheckCallbacks().callIfExists(                                    \
+                    &::vk_util::VkCheckCallbacks::onVkErrorOutOfMemory, err, __func__, __LINE__); \
+            }                                                                                     \
+            GFXSTREAM_ABORT(::emugl::FatalError(err));                                            \
+        }                                                                                         \
+    } while (0)
+
+#define VK_CHECK_MEMALLOC(x, allocateInfo)                                                           \
+    do {                                                                                           \
+        VkResult err = x;                                                                          \
+        if (err != VK_SUCCESS) {                                                                   \
+            if (err == VK_ERROR_OUT_OF_HOST_MEMORY || err == VK_ERROR_OUT_OF_DEVICE_MEMORY) {      \
+                ::vk_util::getVkCheckCallbacks().callIfExists(                                     \
+                    &::vk_util::VkCheckCallbacks::onVkErrorOutOfMemoryOnAllocation, err, __func__, \
+                    __LINE__, allocateInfo.allocationSize);                                        \
+            }                                                                                      \
+            GFXSTREAM_ABORT(::emugl::FatalError(err));                                             \
+        }                                                                                          \
     } while (0)
 
 typedef void* MTLTextureRef;
@@ -309,6 +328,8 @@ inline VkResult waitForVkQueueIdleWithRetry(const VulkanDispatch& vk, VkQueue qu
 
 typedef struct {
     std::function<void()> onVkErrorDeviceLost;
+    std::function<void(VkResult, const char*, int)> onVkErrorOutOfMemory;
+    std::function<void(VkResult, const char*, int, uint64_t)> onVkErrorOutOfMemoryOnAllocation;
 } VkCheckCallbacks;
 
 template <class T>
@@ -319,7 +340,7 @@ class CallbacksWrapper {
     template <class U, class... Args>
     void callIfExists(U function, Args&&... args) const {
         if (mCallbacks && (*mCallbacks.*function)) {
-            (*mCallbacks.*function)(std::forward(args)...);
+            (*mCallbacks.*function)(std::forward<Args>(args)...);
         }
     }
 
