@@ -654,6 +654,9 @@ class FrameBuffer {
         return *m_logger;
     }
 
+    void logVulkanOutOfMemory(VkResult result, const char* function, int line,
+                              std::optional<uint64_t> allocationSize = std::nullopt);
+
    private:
     FrameBuffer(int p_width, int p_height, bool useSubWindow);
     // Requires the caller to hold the m_colorBufferMapLock until the new handle is inserted into of

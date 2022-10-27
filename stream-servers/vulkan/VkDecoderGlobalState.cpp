@@ -25,22 +25,22 @@
 #include "FrameBuffer.h"
 #include "VkAndroidNativeBuffer.h"
 #include "VkCommonOperations.h"
-#include "VkDecoderSnapshot.h"
 #include "VkDecoderContext.h"
+#include "VkDecoderSnapshot.h"
 #include "VkFormatUtils.h"
 #include "VulkanDispatch.h"
 #include "VulkanStream.h"
 #include "aemu/base/ArraySize.h"
-#include "aemu/base/synchronization/ConditionVariable.h"
-#include "aemu/base/containers/EntityManager.h"
-#include "aemu/base/containers/HybridEntityManager.h"
-#include "aemu/base/synchronization/Lock.h"
-#include "aemu/base/containers/Lookup.h"
 #include "aemu/base/ManagedDescriptor.hpp"
 #include "aemu/base/Optional.h"
-#include "aemu/base/files/Stream.h"
-#include "aemu/base/system/System.h"
 #include "aemu/base/Tracing.h"
+#include "aemu/base/containers/EntityManager.h"
+#include "aemu/base/containers/HybridEntityManager.h"
+#include "aemu/base/containers/Lookup.h"
+#include "aemu/base/files/Stream.h"
+#include "aemu/base/synchronization/ConditionVariable.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/system/System.h"
 #include "common/goldfish_vk_deepcopy.h"
 #include "common/goldfish_vk_dispatch.h"
 #include "common/goldfish_vk_marshaling.h"
@@ -70,11 +70,12 @@
 using android::base::arraySize;
 using android::base::AutoLock;
 using android::base::ConditionVariable;
+using android::base::DescriptorType;
 using android::base::Lock;
 using android::base::ManagedDescriptor;
 using android::base::MetricEventBadPacketLength;
 using android::base::MetricEventDuplicateSequenceNum;
-using android::base::DescriptorType;
+using android::base::MetricEventVulkanOutOfMemory;
 using android::base::Optional;
 using android::base::StaticLock;
 using android::emulation::HostmemIdMapping;
@@ -4836,6 +4837,18 @@ class VkDecoderGlobalState::Impl {
 
     void DeviceLostHandler() {}
 
+    void on_CheckOutOfMemory(VkResult result, uint32_t opCode, const VkDecoderContext& context,
+                        std::optional<uint64_t> allocationSize = std::nullopt) {
+        if (result == VK_ERROR_OUT_OF_HOST_MEMORY ||
+            result == VK_ERROR_OUT_OF_DEVICE_MEMORY ||
+            result == VK_ERROR_OUT_OF_POOL_MEMORY) {
+            context.metricsLogger->logMetricEvent(
+                MetricEventVulkanOutOfMemory{.vkResultCode = result,
+                                             .opCode = std::make_optional(opCode),
+                                             .allocationSize = allocationSize});
+            }
+    }
+
     VkResult waitForFence(VkFence boxed_fence, uint64_t timeout) {
         VkFence fence;
         VkDevice device;
@@ -8107,6 +8120,12 @@ void VkDecoderGlobalState::on_vkDestroySamplerYcbcrConversionKHR(
 void VkDecoderGlobalState::on_DeviceLost() { mImpl->on_DeviceLost(); }
 
 void VkDecoderGlobalState::DeviceLostHandler() { mImpl->DeviceLostHandler(); }
+
+void VkDecoderGlobalState::on_CheckOutOfMemory(VkResult result, uint32_t opCode,
+                                          const VkDecoderContext& context,
+                                          std::optional<uint64_t> allocationSize) {
+    mImpl->on_CheckOutOfMemory(result, opCode, context, allocationSize);
+}
 
 VkResult VkDecoderGlobalState::waitForFence(VkFence boxed_fence, uint64_t timeout) {
     return mImpl->waitForFence(boxed_fence, timeout);

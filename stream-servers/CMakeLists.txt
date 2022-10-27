@@ -87,6 +87,21 @@ endif()
 
 if(NOT TARGET gfxstream_backend.init-product-override)
     add_library(gfxstream_backend.init-product-override OBJECT GfxStreamBackendInitOverride.cpp)
+    target_include_directories(
+        gfxstream_backend.init-product-override
+        PRIVATE
+        ${GFXSTREAM_REPO_ROOT}
+        ${GFXSTREAM_REPO_ROOT}/include
+        ${GFXSTREAM_REPO_ROOT}/stream-servers
+        ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan
+        ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan/cereal
+        ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
+        ${GFXSTREAM_REPO_ROOT}/third-party/glm/include)
+    target_link_libraries(
+        gfxstream_backend.init-product-override
+        PRIVATE
+        gfxstream_vulkan_headers
+        aemu-base.headers)
 endif()
 
 # gfxstream_backend.dll
