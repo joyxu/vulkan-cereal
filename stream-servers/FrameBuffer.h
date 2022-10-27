@@ -29,7 +29,6 @@
 #include <GLES2/gl2ext.h>
 #include <stdint.h>
 
-#include "Buffer.h"
 #include "Compositor.h"
 #include "Display.h"
 #include "DisplaySurface.h"
@@ -46,6 +45,7 @@
 #include "aemu/base/files/Stream.h"
 #include "aemu/base/threads/Thread.h"
 #include "aemu/base/threads/WorkerThread.h"
+#include "gl/BufferGl.h"
 #include "gl/ColorBufferGl.h"
 #include "gl/CompositorGl.h"
 #include "gl/DisplaySurfaceGl.h"

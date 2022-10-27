@@ -10,6 +10,7 @@ add_subdirectory(glestranslator)
 add_subdirectory(glsnapshot)
 
 add_library(gfxstream-gl-server
+            BufferGl.cpp
             ColorBufferGl.cpp
             CompositorGl.cpp
             DisplayGl.cpp
