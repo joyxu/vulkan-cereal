@@ -18,6 +18,8 @@
 #include "stream-servers/vulkan/DecompressionShaders.h"
 #include "stream-servers/vulkan/VkFormatUtils.h"
 
+#include <cstring>
+
 namespace goldfish_vk {
 
 namespace {
