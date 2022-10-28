@@ -18,5 +18,10 @@ target_link_libraries(
     GLcommon
     apigen-codec-common
     aemu-base.headers
-    aemu-host-common.headers
-    angle_shader_translator)
+    aemu-host-common.headers)
+
+if(DEPENDENCY_RESOLUTION STREQUAL "AOSP")
+    target_link_libraries(
+       GLES_V2_translator_static PRIVATE
+       angle_shader_translator)
+endif ()

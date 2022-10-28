@@ -60,8 +60,10 @@ public:
     void detachProgram(GLuint program);
     bool hasAttachedPrograms() const;
 
+#ifdef USE_ANGLE_SHADER_PARSER
     const ANGLEShaderParser::ShaderLinkInfo& getShaderLinkInfo() const { return m_shaderLinkInfo; }
     ANGLEShaderParser::ShaderLinkInfo* shaderLinkInfoPtr() { return &m_shaderLinkInfo; }
+#endif
 
     virtual GenNameInfo getGenNameInfo() const override;
     const char* getCompiledSrc() const { return m_compiledSrc.c_str(); }
@@ -81,7 +83,9 @@ private:
     bool        m_compileStatus = false;
     bool        m_deleteStatus = false;
     bool        m_valid = true;
+#ifdef USE_ANGLE_SHADER_PARSER
     ANGLEShaderParser::ShaderLinkInfo m_shaderLinkInfo;
+#endif
     bool        m_coreProfile = false;
 };
 #endif

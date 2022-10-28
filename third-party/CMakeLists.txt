@@ -1,4 +1,6 @@
-add_subdirectory(angle)
+if(DEPENDENCY_RESOLUTION STREQUAL "AOSP")
+    add_subdirectory(angle)
+endif ()
 
 # Configure and add `astc-encoder`, if needed
 if (ASTC_CPU_DECODING)

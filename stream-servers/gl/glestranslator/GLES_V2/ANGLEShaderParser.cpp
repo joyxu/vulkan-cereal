@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifdef USE_ANGLE_SHADER_PARSER
+
 #include "ANGLEShaderParser.h"
 #include "ShaderTranslator.h"
 
@@ -351,3 +353,5 @@ bool translate(bool hostUsesCoreProfile,
 }
 
 } // namespace ANGLEShaderParser
+
+#endif
