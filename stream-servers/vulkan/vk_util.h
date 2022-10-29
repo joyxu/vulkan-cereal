@@ -323,6 +323,8 @@ class CallbacksWrapper {
         }
     }
 
+    T* get() const { return mCallbacks.get(); }
+
    private:
     std::unique_ptr<T> mCallbacks;
 };
