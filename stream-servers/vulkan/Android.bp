@@ -53,9 +53,11 @@ cc_library_static {
     ],
     // http://b/178667698 - clang-tidy crashes with VulkanStream.cpp
     // https://android-review.googlesource.com/c/device/generic/vulkan-cereal/+/1560695/
+    // http://b/255937616 - clang-tidy can take long with VkDecoder.cpp
     tidy_disabled_srcs: [
         "VulkanStream.cpp",
         "VkDecoderGlobalState.cpp", // took more than 400 seconds
+        "VkDecoder.cpp",
     ],
 }
 
