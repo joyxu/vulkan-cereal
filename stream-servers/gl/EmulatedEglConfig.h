@@ -124,6 +124,9 @@ class EmulatedEglConfigList {
         }
     }
 
+    std::vector<EmulatedEglConfig>::const_iterator begin() const { return mConfigs.begin(); }
+    std::vector<EmulatedEglConfig>::const_iterator end() const { return mConfigs.end(); }
+
     // Use |attribs| a list of EGL attribute name/values terminated by
     // EGL_NONE, to select a set of matching EmulatedEglConfig instances.
     //

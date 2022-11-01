@@ -548,9 +548,12 @@ void RenderWindow::setTranslation(float px, float py) {
 }
 
 void RenderWindow::setScreenMask(int width, int height, const unsigned char* rgbaData) {
-    FrameBuffer* fb = FrameBuffer::getFB();
-    if (fb) {
-        fb->getTextureDraw()->setScreenMask(width, height, rgbaData);
+    if (FrameBuffer* fb = FrameBuffer::getFB()) {
+        if (fb->hasEmulationGl()) {
+            fb->getTextureDraw()->setScreenMask(width, height, rgbaData);
+        } else {
+            ERR("RenderWindow::setScreenMask() not supported without GL emulation.");
+        }
     }
 }
 

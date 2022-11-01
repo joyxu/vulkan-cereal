@@ -262,8 +262,7 @@ static EGLint rcGetEGLVersion(EGLint* major, EGLint* minor)
     if (!fb) {
         return EGL_FALSE;
     }
-    *major = (EGLint)fb->getCaps().eglMajor;
-    *minor = (EGLint)fb->getCaps().eglMinor;
+    fb->getEmulationGl().getEglVersion(major, minor);
 
     return EGL_TRUE;
 }
@@ -281,7 +280,7 @@ static EGLint rcQueryEGLString(EGLenum name, void* buffer, EGLint bufferSize)
     }
 
     std::string eglStr(str);
-    if ((FrameBuffer::getMaxGLESVersion() >= GLES_DISPATCH_MAX_VERSION_3_0) &&
+    if ((fb->getMaxGLESVersion() >= GLES_DISPATCH_MAX_VERSION_3_0) &&
         feature_is_enabled(kFeature_GLESDynamicVersion) &&
         eglStr.find("EGL_KHR_create_context") == std::string::npos) {
         eglStr += "EGL_KHR_create_context ";
@@ -447,7 +446,7 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
     // We add the maximum supported GL protocol number into GL_EXTENSIONS
 
     // filter extensions by name to match guest-side support
-    GLESDispatchMaxVersion maxVersion = FrameBuffer::getMaxGLESVersion();
+    GLESDispatchMaxVersion maxVersion = FrameBuffer::getFB()->getMaxGLESVersion();
     if (name == GL_EXTENSIONS) {
         glStr = filterExtensionsBasedOnMaxVersion(maxVersion, glStr);
     }
@@ -662,7 +661,6 @@ static EGLint rcGetGLString(EGLenum name, void* buffer, EGLint bufferSize) {
 
     if (name == GL_VERSION) {
         if (feature_is_enabled(kFeature_GLESDynamicVersion)) {
-            GLESDispatchMaxVersion maxVersion = FrameBuffer::getMaxGLESVersion();
             switch (maxVersion) {
             // Underlying GLES implmentation's max version string
             // is allowed to be higher than the version of the request
