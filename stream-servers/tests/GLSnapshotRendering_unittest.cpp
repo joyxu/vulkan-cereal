@@ -98,6 +98,9 @@ TYPED_TEST(SnapshotGlRenderingSampleTest, SnapshotDrawOnce) {
 }
 
 TYPED_TEST(SnapshotGlRenderingSampleTest, SnapshotDrawLoop) {
+    if (this->mApp->isSwANGLE()) {
+        GTEST_SKIP() << "b/254523418 Fails on SwANGLE.";
+    }
     this->mApp->drawLoop();
 }
 
