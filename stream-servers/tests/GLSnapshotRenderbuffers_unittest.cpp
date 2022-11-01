@@ -113,6 +113,15 @@ protected:
 };
 
 TEST_F(SnapshotGlRenderbufferTest, CreateAndBind) {
+    const char* kAngleName = "ANGLE";
+    const char* kSwiftshaderName = "SwiftShader";
+    const char* kRendererString
+            = reinterpret_cast<const char*>(gl->glGetString(GL_RENDERER));
+    if (strncmp(kRendererString, kAngleName, strlen(kAngleName))
+            && strncmp(kRendererString, kSwiftshaderName,
+                    strlen(kSwiftshaderName))) {
+        GTEST_SKIP() << "b/247873185 SwANGLE has wrong default format.";
+    }
     doCheckedSnapshot();
 }
 
