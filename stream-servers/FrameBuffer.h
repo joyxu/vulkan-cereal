@@ -16,17 +16,18 @@
 #ifndef _LIBRENDER_FRAMEBUFFER_H
 #define _LIBRENDER_FRAMEBUFFER_H
 
-#include <EGL/egl.h>
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#include <stdint.h>
-
+#include <array>
 #include <functional>
 #include <map>
 #include <memory>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
+
+#include <EGL/egl.h>
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+#include <stdint.h>
 
 #include "Buffer.h"
 #include "ColorBuffer.h"
@@ -50,6 +51,7 @@
 #include "gl/CompositorGl.h"
 #include "gl/DisplaySurfaceGl.h"
 #include "gl/EmulatedEglConfig.h"
+#include "gl/EmulationGl.h"
 #include "gl/GLESVersionDetector.h"
 #include "gl/RenderContext.h"
 #include "gl/TextureDraw.h"
@@ -124,21 +126,6 @@ typedef std::unordered_map<uint64_t, EGLImageSet> ProcOwnedEGLImages;
 typedef std::unordered_map<void*, std::function<void()>> CallbackMap;
 typedef std::unordered_map<uint64_t, CallbackMap> ProcOwnedCleanupCallbacks;
 
-// A structure used to list the capabilities of the underlying EGL
-// implementation that the FrameBuffer instance depends on.
-// |has_eglimage_texture_2d| is true iff the EGL_KHR_gl_texture_2D_image
-// extension is supported.
-// |has_eglimage_renderbuffer| is true iff the EGL_KHR_gl_renderbuffer_image
-// extension is supported.
-// |eglMajor| and |eglMinor| are the major and minor version numbers of
-// the underlying EGL implementation.
-struct FrameBufferCaps {
-    bool has_eglimage_texture_2d;
-    bool has_eglimage_renderbuffer;
-    EGLint eglMajor;
-    EGLint eglMinor;
-};
-
 // The FrameBuffer class holds the global state of the emulation library on
 // top of the underlying EGL/GLES implementation. It should probably be
 // named "Display" instead of "FrameBuffer".
@@ -196,9 +183,6 @@ class FrameBuffer {
     // object in getFB() and
     static void waitUntilInitialized();
 
-    // Return the capabilities of the underlying display.
-    const FrameBufferCaps& getCaps() const { return m_caps; }
-
     // Return the emulated GPU display width in pixels.
     int getWidth() const { return m_framebufferWidth; }
 
@@ -206,7 +190,7 @@ class FrameBuffer {
     int getHeight() const { return m_framebufferHeight; }
 
     // Return the list of configs available from this display.
-    const EmulatedEglConfigList* getConfigs() const { return m_configs; }
+    const EmulatedEglConfigList* getConfigs() const;
 
     // Set a callback that will be called each time the emulated GPU content
     // is updated. This can be relatively slow with host-based GPU emulation,
@@ -483,11 +467,14 @@ class FrameBuffer {
     // be re-displayed for any reason.
     bool repost(bool needLockAndBind = true);
 
+    gfxstream::EmulationGl& getEmulationGl();
+    bool hasEmulationGl() const { return m_emulationGl != nullptr; }
+
     // Return the host EGLDisplay used by this instance.
-    EGLDisplay getDisplay() const { return m_eglDisplay; }
+    EGLDisplay getDisplay() const;
     EGLSurface getWindowSurface() const;
-    EGLContext getContext() const { return m_eglContext; }
-    EGLConfig getConfig() const { return m_eglConfig; }
+    EGLContext getContext() const;
+    EGLConfig getConfig() const;
     ContextHelper* getPbufferSurfaceContextHelper() const;
 
     // Change the rotation of the displayed GPU sub-window.
@@ -517,7 +504,7 @@ class FrameBuffer {
 
     // Return a TextureDraw instance that can be used with this surfaces
     // and windows created by this instance.
-    TextureDraw* getTextureDraw() const { return m_textureDraw; }
+    TextureDraw* getTextureDraw() const;
 
     // Create an eglImage and return its handle.  Reference:
     // https://www.khronos.org/registry/egl/extensions/KHR/EGL_KHR_image_base.txt
@@ -562,8 +549,7 @@ class FrameBuffer {
     void lock();
     void unlock();
 
-    static void setMaxGLESVersion(GLESDispatchMaxVersion version);
-    static GLESDispatchMaxVersion getMaxGLESVersion();
+    GLESDispatchMaxVersion getMaxGLESVersion();
 
     float getDpr() const { return m_dpr; }
     int windowWidth() const { return m_windowWidth; }
@@ -572,16 +558,15 @@ class FrameBuffer {
     float getPy() const { return m_py; }
     int getZrot() const { return m_zRot; }
 
-    bool isFastBlitSupported() const { return m_fastBlitSupported; }
+    bool isFastBlitSupported() const;
+    void disableFastBlitForTesting();
+
     bool isVulkanInteropSupported() const { return m_vulkanInteropSupported; }
     bool isVulkanEnabled() const { return m_vulkanEnabled; }
     bool importMemoryToColorBuffer(android::base::ManagedDescriptor descriptor, uint64_t size,
                                    bool dedicated, bool vulkanOnly, uint32_t colorBufferHandle,
                                    VkImage, const VkImageCreateInfo&);
     void setColorBufferInUse(uint32_t colorBufferHandle, bool inUse);
-
-    // Used during tests to disable fast blit.
-    void disableFastBlit();
 
     // Fill GLES usage protobuf
     void fillGLESUsages(android_studio::EmulatorGLESUsages*);
@@ -716,10 +701,7 @@ class FrameBuffer {
     android::base::Lock m_lock;
     android::base::ReadWriteLock m_contextStructureLock;
     android::base::Lock m_colorBufferMapLock;
-    EmulatedEglConfigList* m_configs = nullptr;
     FBNativeWindowType m_nativeWindow = 0;
-    FrameBufferCaps m_caps = {};
-    EGLDisplay m_eglDisplay = EGL_NO_DISPLAY;
     RenderContextMap m_contexts;
     WindowSurfaceMap m_windows;
     ColorBufferMap m_colorbuffers;
@@ -743,19 +725,7 @@ class FrameBuffer {
     using ColorBufferDelayedClose = std::vector<ColorBufferCloseInfo>;
     ColorBufferDelayedClose m_colorBufferDelayedCloseList;
 
-    EGLContext m_eglContext = EGL_NO_CONTEXT;
-
-    // TODO(b/233939967): move to EmulationGl
-    // Used for ColorBuffer ops.
-    std::unique_ptr<gfxstream::DisplaySurface> m_pbufferSurface;
-    // TODO(b/233939967): move to EmulationGl
-    // Used for Composition and Display ops.
-    std::unique_ptr<gfxstream::DisplaySurface> m_windowSurface;
-    std::unique_ptr<gfxstream::DisplaySurface> m_fakeWindowSurface;
-
     EGLNativeWindowType m_subWin = {};
-    TextureDraw* m_textureDraw = nullptr;
-    EGLConfig m_eglConfig = nullptr;
     HandleType m_lastPostedColorBuffer = 0;
     float m_zRot = 0;
     float m_px = 0;
@@ -780,7 +750,6 @@ class FrameBuffer {
     };
     android::base::WorkerProcessingResult sendReadbackWorkerCmd(
         const Readback& readback);
-    bool m_asyncReadbackSupported = true;
     bool m_guestPostedAFrame = false;
 
     struct onPost {
@@ -842,7 +811,6 @@ class FrameBuffer {
     android::base::WorkerProcessingResult postWorkerFunc(Post& post);
     std::future<void> sendPostWorkerCmd(Post post);
 
-    bool m_fastBlitSupported = false;
     bool m_vulkanInteropSupported = false;
     bool m_vulkanEnabled = false;
     bool m_guestUsesAngle = false;
@@ -853,14 +821,12 @@ class FrameBuffer {
     android::base::MessageChannel<HandleType, 1024>
         mOutstandingColorBufferDestroys;
 
+    std::unique_ptr<gfxstream::EmulationGl> m_emulationGl;
+    DisplayGl* m_displayGl = nullptr;
+
     Compositor* m_compositor = nullptr;
-    // FrameBuffer owns the CompositorGl if used as there is no GlEmulation
-    // equivalent to VkEmulation,
-    std::unique_ptr<CompositorGl> m_compositorGl;
     bool m_useVulkanComposition = false;
 
-    // TODO(b/233939967): move to EmulationGl.
-    std::unique_ptr<DisplayGl> m_displayGl;
     // The implementation for Vulkan native swapchain. Only initialized when useVulkan is set when
     // calling FrameBuffer::initialize(). DisplayVk is actually owned by VkEmulation.
     DisplayVk *m_displayVk = nullptr;
@@ -869,13 +835,18 @@ class FrameBuffer {
 
     // TODO(b/233939967): Refactor to create DisplayGl and DisplaySurfaceGl
     // and remove usage of non-generic DisplayVk.
-    // Display* m_display;
+    gfxstream::Display* m_display;
     std::unique_ptr<gfxstream::DisplaySurface> m_displaySurface;
+
+    // CompositorGl.
+    // TODO: update RenderDoc to be a DisplaySurfaceUser.
+    std::vector<gfxstream::DisplaySurfaceUser*> m_displaySurfaceUsers;
+
 
     // UUIDs of physical devices for Vulkan and GLES, respectively.  In most
     // cases, this determines whether we can support zero-copy interop.
-    uint8_t m_vulkanUUID[VK_UUID_SIZE];
-    uint8_t m_glesUUID[GL_UUID_SIZE_EXT];
+    using VkUuid = std::array<uint8_t, VK_UUID_SIZE>;
+    VkUuid m_vulkanUUID{};
     static_assert(VK_UUID_SIZE == GL_UUID_SIZE_EXT);
 
     // Tracks platform EGL contexts that have been handed out to other users,

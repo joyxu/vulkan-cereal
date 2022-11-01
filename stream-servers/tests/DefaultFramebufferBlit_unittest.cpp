@@ -50,7 +50,7 @@ public:
         if (!param.fastBlit) {
             // Disable fast blit and then recreate the color buffer to apply the
             // change.
-            mFb->disableFastBlit();
+            mFb->disableFastBlitForTesting();
 
             mFb->closeColorBuffer(mColorBuffer);
             mColorBuffer = mFb->createColorBuffer(
