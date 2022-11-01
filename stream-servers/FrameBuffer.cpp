@@ -351,10 +351,13 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow, bool egl2
         }
     }
 
-    fb->m_emulationGl = gfxstream::EmulationGl::create(width, height, egl2egl, useSubWindow);
-    if (!fb->m_emulationGl) {
-        ERR("Failed to initialize GL emulation.");
-        return false;
+    // Do not initialize GL emulation if the guest is using ANGLE.
+    if (!feature_is_enabled(kFeature_GuestUsesAngle)) {
+        fb->m_emulationGl = gfxstream::EmulationGl::create(width, height, egl2egl, useSubWindow);
+        if (!fb->m_emulationGl) {
+            ERR("Failed to initialize GL emulation.");
+            return false;
+        }
     }
 
     fb->m_guestUsesAngle =
@@ -1046,7 +1049,7 @@ bool FrameBuffer::setupSubWindow(FBNativeWindowType p_window,
         }
     }
 
-    if (success && redrawSubwindow) {
+    if (m_emulationGl && success && redrawSubwindow) {
         RecursiveScopedContextBind bind(getPbufferSurfaceContextHelper());
         assert(bind.isOk());
         s_gles2.glViewport(0, 0, fbw * dpr, fbh * dpr);
@@ -1768,7 +1771,10 @@ void FrameBuffer::cleanupProcGLObjects(uint64_t puid) {
 std::vector<HandleType> FrameBuffer::cleanupProcGLObjects_locked(uint64_t puid, bool forced) {
     std::vector<HandleType> colorBuffersToCleanup;
     {
-        RecursiveScopedContextBind bind(getPbufferSurfaceContextHelper());
+        std::unique_ptr<RecursiveScopedContextBind> bind = nullptr;
+        if (m_emulationGl) {
+            bind = std::make_unique<RecursiveScopedContextBind>(getPbufferSurfaceContextHelper());
+        }
         // Clean up window surfaces
         {
             auto procIte = m_procOwnedWindowSurfaces.find(puid);
@@ -3272,6 +3278,11 @@ void FrameBuffer::waitForGpu(uint64_t eglsync) {
 
 void FrameBuffer::waitForGpuVulkan(uint64_t deviceHandle, uint64_t fenceHandle) {
     (void)deviceHandle;
+    if (!m_emulationGl) {
+        // Guest ANGLE should always use the asyncWaitForGpuVulkanWithCb call. FenceSync is a
+        // wrapper over EGLSyncKHR and should not be used for pure Vulkan environment.
+        return;
+    }
 
     // Note: this will always be nullptr.
     FenceSync* fenceSync = FenceSync::getFromHandle(fenceHandle);
