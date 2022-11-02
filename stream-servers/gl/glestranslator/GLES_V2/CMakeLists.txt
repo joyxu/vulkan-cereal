@@ -20,7 +20,7 @@ target_link_libraries(
     aemu-base.headers
     aemu-host-common.headers)
 
-if(DEPENDENCY_RESOLUTION STREQUAL "AOSP")
+if(USE_ANGLE_SHADER_PARSER)
     target_link_libraries(
        GLES_V2_translator_static PRIVATE
        angle_shader_translator)

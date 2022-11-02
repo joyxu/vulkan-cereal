@@ -5,12 +5,13 @@ add_library(
 target_link_libraries(
     renderControl_dec
     PUBLIC
-    apigen-codec-common)
+    apigen-codec-common
+    PRIVATE
+    gfxstream_egl_headers)
 target_include_directories(
     renderControl_dec
     PRIVATE
     ${GFXSTREAM_REPO_ROOT}
     ${GFXSTREAM_REPO_ROOT}/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers
-    ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
-    ${GFXSTREAM_REPO_ROOT}/third-party/angle/include)
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common)

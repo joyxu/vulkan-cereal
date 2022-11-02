@@ -64,6 +64,7 @@ target_link_libraries(
         renderControl_dec
         gfxstream-gl-server
         gfxstream-vulkan-server
+        gfxstream_egl_headers
         gfxstream-snapshot
         apigen-codec-common
         ${GFXSTREAM_HOST_COMMON_LIB}
@@ -78,7 +79,6 @@ target_include_directories(
         ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
         ${GFXSTREAM_REPO_ROOT}/stream-servers/gl
         ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan
-        ${GFXSTREAM_REPO_ROOT}/third-party/angle/include
         ${GFXSTREAM_REPO_ROOT}/third-party/glm/include)
 
 if (WIN32)
