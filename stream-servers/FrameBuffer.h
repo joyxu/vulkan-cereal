@@ -51,9 +51,9 @@
 #include "gl/CompositorGl.h"
 #include "gl/DisplaySurfaceGl.h"
 #include "gl/EmulatedEglConfig.h"
+#include "gl/EmulatedEglContext.h"
 #include "gl/EmulationGl.h"
 #include "gl/GLESVersionDetector.h"
-#include "gl/RenderContext.h"
 #include "gl/TextureDraw.h"
 #include "render_api.h"
 #include "render-utils/Renderer.h"
@@ -108,9 +108,9 @@ typedef std::unordered_map<HandleType, std::pair<WindowSurfacePtr, HandleType>>
 typedef std::unordered_set<HandleType> WindowSurfaceSet;
 typedef std::unordered_map<uint64_t, WindowSurfaceSet> ProcOwnedWindowSurfaces;
 
-typedef std::unordered_map<HandleType, RenderContextPtr> RenderContextMap;
-typedef std::unordered_set<HandleType> RenderContextSet;
-typedef std::unordered_map<uint64_t, RenderContextSet> ProcOwnedRenderContexts;
+typedef std::unordered_map<HandleType, EmulatedEglContextPtr> EmulatedEglContextMap;
+typedef std::unordered_set<HandleType> EmulatedEglContextSet;
+typedef std::unordered_map<uint64_t, EmulatedEglContextSet> ProcOwnedEmulatedEglContexts;
 
 typedef std::unordered_map<HandleType, ColorBufferRef> ColorBufferMap;
 typedef std::unordered_multiset<HandleType> ColorBufferSet;
@@ -209,13 +209,13 @@ class FrameBuffer {
         *version = m_graphicsApiVersion.c_str();
     }
 
-    // Create a new RenderContext instance for this display instance.
+    // Create a new EmulatedEglContext instance for this display instance.
     // |p_config| is the index of one of the configs returned by getConfigs().
     // |p_share| is either EGL_NO_CONTEXT or the handle of a shared context.
     // |version| specifies the GLES version as a GLESApi enum.
     // Return a new handle value, which will be 0 in case of error.
-    HandleType createRenderContext(int p_config, HandleType p_share,
-                                   GLESApi version = GLESApi_CM);
+    HandleType createEmulatedEglContext(int p_config, HandleType p_share,
+                                        GLESApi version = GLESApi_CM);
 
     // Create a new WindowSurface instance from this display instance.
     // |p_config| is the index of one of the configs returned by getConfigs().
@@ -269,9 +269,9 @@ class FrameBuffer {
     // host buffers when a guest application crashes, for example.
     void drainGlRenderThreadWindowSurfaces();
 
-    // Destroy a given RenderContext instance. |p_context| is its handle
-    // value as returned by createRenderContext().
-    void DestroyRenderContext(HandleType p_context);
+    // Destroy a given EmulatedEglContext instance. |p_context| is its handle
+    // value as returned by createEmulatedEglContext().
+    void DestroyEmulatedEglContext(HandleType p_context);
 
     // Destroy a given WindowSurface instance. |p_surcace| is its handle
     // value as returned by createWindowSurface().
@@ -311,7 +311,7 @@ class FrameBuffer {
                      HandleType p_readSurface);
 
     // Return a render context pointer from its handle
-    RenderContextPtr getContext_locked(HandleType p_context);
+    EmulatedEglContextPtr getContext_locked(HandleType p_context);
 
     // Return a color buffer pointer from its handle
     WindowSurfacePtr getWindowSurface_locked(HandleType p_windowsurface);
@@ -545,7 +545,7 @@ class FrameBuffer {
     bool onLoad(android::base::Stream* stream,
                 const android::snapshot::ITextureLoaderPtr& textureLoader);
 
-    // lock and unlock handles (RenderContext, ColorBuffer, WindowSurface)
+    // lock and unlock handles (EmulatedEglContext, ColorBuffer, WindowSurface)
     void lock();
     void unlock();
 
@@ -702,7 +702,7 @@ class FrameBuffer {
     android::base::ReadWriteLock m_contextStructureLock;
     android::base::Lock m_colorBufferMapLock;
     FBNativeWindowType m_nativeWindow = 0;
-    RenderContextMap m_contexts;
+    EmulatedEglContextMap m_contexts;
     WindowSurfaceMap m_windows;
     ColorBufferMap m_colorbuffers;
     BufferMap m_buffers;
@@ -784,7 +784,7 @@ class FrameBuffer {
     ProcOwnedWindowSurfaces m_procOwnedWindowSurfaces;
     ProcOwnedColorBuffers m_procOwnedColorBuffers;
     ProcOwnedEGLImages m_procOwnedEGLImages;
-    ProcOwnedRenderContexts m_procOwnedRenderContext;
+    ProcOwnedEmulatedEglContexts m_procOwnedEmulatedEglContext;
     ProcOwnedCleanupCallbacks m_procOwnedCleanupCallbacks;
     std::unordered_map<uint64_t, std::unique_ptr<ProcessResources>> m_procOwnedResources;
 
