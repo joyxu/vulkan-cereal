@@ -26,12 +26,12 @@
 #include "VulkanDispatch.h"
 #include "VulkanHandleMapping.h"
 #include "aemu/base/AsyncResult.h"
-#include "aemu/base/GfxApiLogger.h"
 #include "aemu/base/HealthMonitor.h"
 #include "aemu/base/synchronization/Lock.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 #include "cereal/common/goldfish_vk_transform.h"
 #include "host-common/GfxstreamFatalError.h"
+#include "utils/GfxApiLogger.h"
 #include "vk_util.h"
 
 using android::base::AutoLock;

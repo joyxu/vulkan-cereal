@@ -20,7 +20,7 @@ For more details see:
 
 design: go/bstar-gfx-logging
 g3doc:  http://g3doc/play/g3doc/games/battlestar/kiwivm/graphics-tips.md#gfx-logs
-C++:    http://source/play-internal/battlestar/aosp/device/generic/vulkan-cereal/base/GfxApiLogger.h
+C++:    http://source/play-internal/battlestar/aosp/device/generic/vulkan-cereal/utils/include/utils/GfxApiLogger.h
 
 Usage:
 
