@@ -129,6 +129,8 @@ bool DisplayVk::recreateSwapchain() {
         GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
             << "DisplayVk can't create VkSwapchainKHR with given VkDevice and VkSurfaceKHR.";
     }
+    INFO("Creating swapchain with size %" PRIu32 "x%" PRIu32 ".", surface->getWidth(),
+         surface->getHeight());
     auto swapChainCi = SwapChainStateVk::createSwapChainCi(
         m_vk, surfaceVk->getSurface(), m_vkPhysicalDevice, surface->getWidth(),
         surface->getHeight(), {m_swapChainQueueFamilyIndex, m_compositorQueueFamilyIndex});
@@ -164,6 +166,7 @@ DisplayVk::PostResult DisplayVk::post(const BorrowedImageInfo* sourceImageInfo) 
 
     const auto* surface = getBoundSurface();
     if (!surface) {
+        ERR("Trying to present to non-existing surface!");
         return PostResult{
             .success = true,
             .postCompletedWaitable = completedFuture,
