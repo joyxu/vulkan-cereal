@@ -653,7 +653,7 @@ VkResult syncImageToColorBuffer(VulkanDispatch* vk, uint32_t queueFamilyIndex, V
             VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             0,
             0,
-            VK_ACCESS_HOST_READ_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT,
             VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             VK_QUEUE_FAMILY_IGNORED,
@@ -694,7 +694,7 @@ VkResult syncImageToColorBuffer(VulkanDispatch* vk, uint32_t queueFamilyIndex, V
         VkImageMemoryBarrier backToPresentSrc = {
             VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             0,
-            VK_ACCESS_HOST_READ_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT,
             0,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
