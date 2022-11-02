@@ -108,7 +108,6 @@ endif()
 add_library(
     gfxstream_backend
     SHARED
-    GfxStreamBackend.cpp
     virtio-gpu-gfxstream-renderer.cpp)
 
 target_link_libraries(

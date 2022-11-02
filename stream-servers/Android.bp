@@ -79,7 +79,6 @@ cc_library_shared {
         "FrameBuffer.cpp",
         "GfxStreamAgents.cpp",
         "virtio-gpu-gfxstream-renderer.cpp",
-        "GfxStreamBackend.cpp",
         "GfxStreamBackendInitOverride.cpp",
         "VirtioGpuTimelines.cpp",
     ],
