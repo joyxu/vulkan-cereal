@@ -42,6 +42,10 @@ endif()
 
 option(ASTC_CPU_DECODING "Enable decoding ASTC textures on the CPU" OFF)
 
+# For now the caller of the cmake script is responsible to create the angle_shader_translator
+# target.
+option(USE_ANGLE_SHADER_PARSER "Build with ANGLE shader parser." OFF)
+
 if(UNIX AND NOT APPLE)
     set(LINUX TRUE)
 endif()
@@ -75,6 +79,8 @@ if (APPLE)
     add_compile_definitions(VK_USE_PLATFORM_MACOS_MVK)
 elseif(UNIX)
     # TODO(kaiyili, b/179477624): Add Linux specific Vulkan platform macro definitions
+    # Use X11 version of EGL platform specific definitions.
+    add_compile_definitions(USE_X11)
 elseif(WIN32)
     add_compile_definitions(VK_USE_PLATFORM_WIN32_KHR)
 endif()
@@ -118,14 +124,14 @@ endif()
 
 set(GFXSTREAM_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
+if(USE_ANGLE_SHADER_PARSER)
+    add_compile_definitions(USE_ANGLE_SHADER_PARSER)
+endif()
+
 include(android.cmake)
 
 set(EXTRA_SUBDIR_TEST_INCLUDE_FILES)
 
-
-if(DEPENDENCY_RESOLUTION STREQUAL "AOSP")
-    add_compile_definitions(USE_ANGLE_SHADER_PARSER)
-endif ()
 
 # Third party dependencies
 add_subdirectory(third-party)

@@ -11,12 +11,12 @@ target_link_libraries(
     apigen-codec-common
     aemu-base.headers
     aemu-host-common.headers
-    gfxstream-snapshot.headers)
+    gfxstream-snapshot.headers
+    gfxstream_egl_headers)
 target_include_directories(
     GLES_CM_translator_static PRIVATE
     ${GFXSTREAM_REPO_ROOT}
     ${GFXSTREAM_REPO_ROOT}/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers/
     ${GFXSTREAM_REPO_ROOT}/stream-servers/gl/glestranslator/include
-    ${GFXSTREAM_REPO_ROOT}/third-party/angle/include
     ${GFXSTREAM_REPO_ROOT}/third-party/glm/include)

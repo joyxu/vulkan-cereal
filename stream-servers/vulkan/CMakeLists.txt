@@ -28,8 +28,10 @@ target_link_libraries(gfxstream-vulkan-server PUBLIC
         apigen-codec-common
         aemu-base.headers
         gfxstream-snapshot.headers
-        gfxstream_utils.headers
-        gfxstream_vulkan_headers)
+        gfxstream_utils
+        gfxstream_vulkan_headers
+        PRIVATE
+        gfxstream_egl_headers)
 
 if (WIN32)
 target_compile_definitions(gfxstream-vulkan-server PRIVATE -DVK_USE_PLATFORM_WIN32_KHR)
@@ -52,5 +54,4 @@ target_include_directories(gfxstream-vulkan-server
                            ${GFXSTREAM_REPO_ROOT}/stream-servers
                            ${GFXSTREAM_REPO_ROOT}/stream-servers/vulkan
                            ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
-                           ${GFXSTREAM_REPO_ROOT}/third-party/angle/include
                            ${GFXSTREAM_REPO_ROOT}/third-party/glm/include)

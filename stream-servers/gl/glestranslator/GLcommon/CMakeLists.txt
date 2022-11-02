@@ -25,14 +25,14 @@ target_include_directories(
     ${GFXSTREAM_REPO_ROOT}
     ${GFXSTREAM_REPO_ROOT}/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers
-    ${GFXSTREAM_REPO_ROOT}/stream-servers/gl/glestranslator/include
-    ${GFXSTREAM_REPO_ROOT}/third-party/angle/include)
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/gl/glestranslator/include)
 target_link_libraries(
     GLcommon PUBLIC
     aemu-base.headers
     aemu-host-common.headers
     gfxstream-snapshot.headers
-    gfxstream-compressedTextures)
+    gfxstream-compressedTextures
+    gfxstream_egl_headers)
 if (NOT MSVC)
     target_compile_options(GLcommon PRIVATE -fvisibility=hidden)
 endif()
