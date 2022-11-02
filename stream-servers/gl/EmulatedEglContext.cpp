@@ -13,7 +13,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#include "RenderContext.h"
+#include "EmulatedEglContext.h"
 
 #include <assert.h>
 
@@ -25,20 +25,20 @@
 #include "host-common/logging.h"
 #include "host-common/misc.h"
 
-RenderContext* RenderContext::create(EGLDisplay display,
-                                     EGLConfig config,
-                                     EGLContext sharedContext,
-                                     HandleType hndl,
-                                     GLESApi version) {
+EmulatedEglContext* EmulatedEglContext::create(EGLDisplay display,
+                                               EGLConfig config,
+                                               EGLContext sharedContext,
+                                               HandleType hndl,
+                                               GLESApi version) {
     return createImpl(display, config, sharedContext, hndl, version, nullptr);
 }
 
-RenderContext* RenderContext::createImpl(EGLDisplay display,
-                                     EGLConfig config,
-                                     EGLContext sharedContext,
-                                     HandleType hndl,
-                                     GLESApi version,
-                                     android::base::Stream *stream) {
+EmulatedEglContext* EmulatedEglContext::createImpl(EGLDisplay display,
+                                                   EGLConfig config,
+                                                   EGLContext sharedContext,
+                                                   HandleType hndl,
+                                                   GLESApi version,
+                                                   android::base::Stream *stream) {
     GLESApi clientVersion = version;
     int majorVersion = clientVersion;
     int minorVersion = 0;
@@ -75,27 +75,27 @@ RenderContext* RenderContext::createImpl(EGLDisplay display,
         return NULL;
     }
 
-    return new RenderContext(display, context, hndl, clientVersion, NULL);
+    return new EmulatedEglContext(display, context, hndl, clientVersion, NULL);
 }
 
-RenderContext::RenderContext(EGLDisplay display,
-                             EGLContext context,
-                             HandleType hndl,
-                             GLESApi version,
-                             void* emulatedGLES1Context) :
+EmulatedEglContext::EmulatedEglContext(EGLDisplay display,
+                                       EGLContext context,
+                                       HandleType hndl,
+                                       GLESApi version,
+                                       void* emulatedGLES1Context) :
         mDisplay(display),
         mContext(context),
         mHndl(hndl),
         mVersion(version),
         mContextData() { }
 
-RenderContext::~RenderContext() {
+EmulatedEglContext::~EmulatedEglContext() {
     if (mContext != EGL_NO_CONTEXT) {
         s_egl.eglDestroyContext(mDisplay, mContext);
     }
 }
 
-void RenderContext::onSave(android::base::Stream* stream) {
+void EmulatedEglContext::onSave(android::base::Stream* stream) {
     stream->putBe32(mHndl);
     stream->putBe32(static_cast<uint32_t>(mVersion));
     assert(s_egl.eglCreateContext);
@@ -104,8 +104,8 @@ void RenderContext::onSave(android::base::Stream* stream) {
     }
 }
 
-RenderContext *RenderContext::onLoad(android::base::Stream* stream,
-            EGLDisplay display) {
+EmulatedEglContext *EmulatedEglContext::onLoad(android::base::Stream* stream,
+                                               EGLDisplay display) {
     HandleType hndl = static_cast<HandleType>(stream->getBe32());
     GLESApi version = static_cast<GLESApi>(stream->getBe32());
 
@@ -113,6 +113,6 @@ RenderContext *RenderContext::onLoad(android::base::Stream* stream,
                       stream);
 }
 
-GLESApi RenderContext::clientVersion() const {
+GLESApi EmulatedEglContext::clientVersion() const {
     return mVersion;
 }

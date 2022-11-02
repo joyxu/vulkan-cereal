@@ -21,8 +21,8 @@
 #include "FenceSync.h"
 #include "Hwc2.h"
 #include "OpenGLESDispatch/GLESv2Dispatch.h"
-#include "RenderContext.h"
 #include "aemu/base/Compiler.h"
+#include "gl/EmulatedEglContext.h"
 
 class FrameBuffer;
 class OSWindow;

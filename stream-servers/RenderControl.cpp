@@ -28,7 +28,6 @@
 #include "GLESVersionDetector.h"
 #include "OpenGLESDispatch/DispatchTables.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
-#include "RenderContext.h"
 #include "RenderThreadInfo.h"
 #include "RenderThreadInfoGl.h"
 #include "SyncThread.h"
@@ -778,7 +777,7 @@ static uint32_t rcCreateContext(uint32_t config,
         return 0;
     }
 
-    HandleType ret = fb->createRenderContext(config, share, (GLESApi)glVersion);
+    HandleType ret = fb->createEmulatedEglContext(config, share, (GLESApi)glVersion);
     return ret;
 }
 
@@ -789,7 +788,7 @@ static void rcDestroyContext(uint32_t context)
         return;
     }
 
-    fb->DestroyRenderContext(context);
+    fb->DestroyEmulatedEglContext(context);
 }
 
 static uint32_t rcCreateWindowSurface(uint32_t config,

@@ -1281,9 +1281,9 @@ HandleType FrameBuffer::createBufferWithHandleLocked(int p_size,
     return handle;
 }
 
-HandleType FrameBuffer::createRenderContext(int p_config,
-                                            HandleType p_share,
-                                            GLESApi version) {
+HandleType FrameBuffer::createEmulatedEglContext(int p_config,
+                                                 HandleType p_share,
+                                                 GLESApi version) {
     AutoLock mutex(m_lock);
     android::base::AutoWriteLock contextLock(m_contextStructureLock);
     // Hold the ColorBuffer map lock so that the new handle won't collide with a ColorBuffer handle.
@@ -1295,9 +1295,9 @@ HandleType FrameBuffer::createRenderContext(int p_config,
         return ret;
     }
 
-    RenderContextPtr share;
+    EmulatedEglContextPtr share;
     if (p_share != 0) {
-        RenderContextMap::iterator s(m_contexts.find(p_share));
+        EmulatedEglContextMap::iterator s(m_contexts.find(p_share));
         if (s == m_contexts.end()) {
             return ret;
         }
@@ -1307,7 +1307,7 @@ HandleType FrameBuffer::createRenderContext(int p_config,
             share.get() ? share->getEGLContext() : EGL_NO_CONTEXT;
 
     ret = genHandle_locked();
-    RenderContextPtr rctx(RenderContext::create(
+    EmulatedEglContextPtr rctx(EmulatedEglContext::create(
             getDisplay(), config->getHostEglConfig(), sharedContext, ret, version));
     if (rctx.get() != NULL) {
         m_contexts[ret] = rctx;
@@ -1317,7 +1317,7 @@ HandleType FrameBuffer::createRenderContext(int p_config,
         // Fall back to per-thread management if the system image does not
         // support it.
         if (puid) {
-            m_procOwnedRenderContext[puid].insert(ret);
+            m_procOwnedEmulatedEglContext[puid].insert(ret);
         } else { // legacy path to manage context lifetime by threads
             if (!tinfo->m_glInfo) {
                 GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -1455,7 +1455,7 @@ void FrameBuffer::drainGlRenderThreadWindowSurfaces() {
     }
 }
 
-void FrameBuffer::DestroyRenderContext(HandleType p_context) {
+void FrameBuffer::DestroyEmulatedEglContext(HandleType p_context) {
     AutoLock mutex(m_lock);
     sweepColorBuffersLocked();
 
@@ -1467,8 +1467,8 @@ void FrameBuffer::DestroyRenderContext(HandleType p_context) {
     // Fall back to per-thread management if the system image does not
     // support it.
     if (puid) {
-        auto ite = m_procOwnedRenderContext.find(puid);
-        if (ite != m_procOwnedRenderContext.end()) {
+        auto ite = m_procOwnedEmulatedEglContext.find(puid);
+        if (ite != m_procOwnedEmulatedEglContext.end()) {
             ite->second.erase(p_context);
         }
     } else {
@@ -1833,12 +1833,12 @@ std::vector<HandleType> FrameBuffer::cleanupProcGLObjects_locked(uint64_t puid, 
     // Unbind before cleaning up contexts
     // Cleanup render contexts
     {
-        auto procIte = m_procOwnedRenderContext.find(puid);
-        if (procIte != m_procOwnedRenderContext.end()) {
+        auto procIte = m_procOwnedEmulatedEglContext.find(puid);
+        if (procIte != m_procOwnedEmulatedEglContext.end()) {
             for (auto ctx : procIte->second) {
                 m_contexts.erase(ctx);
             }
-            m_procOwnedRenderContext.erase(procIte);
+            m_procOwnedEmulatedEglContext.erase(procIte);
         }
     }
 
@@ -2236,7 +2236,7 @@ bool FrameBuffer::bindContext(HandleType p_context,
     AutoLock mutex(m_lock);
 
     WindowSurfacePtr draw, read;
-    RenderContextPtr ctx;
+    EmulatedEglContextPtr ctx;
 
     //
     // if this is not an unbind operation - make sure all handles are good
@@ -2321,7 +2321,7 @@ bool FrameBuffer::bindContext(HandleType p_context,
     return true;
 }
 
-RenderContextPtr FrameBuffer::getContext_locked(HandleType p_context) {
+EmulatedEglContextPtr FrameBuffer::getContext_locked(HandleType p_context) {
     return android::base::findOrDefault(m_contexts, p_context);
 }
 
@@ -2335,7 +2335,7 @@ HandleType FrameBuffer::createClientImage(HandleType context,
     EGLContext eglContext = EGL_NO_CONTEXT;
     if (context) {
         AutoLock mutex(m_lock);
-        RenderContextMap::const_iterator rcIt = m_contexts.find(context);
+        EmulatedEglContextMap::const_iterator rcIt = m_contexts.find(context);
         if (rcIt == m_contexts.end()) {
             // bad context handle
             return false;
@@ -2383,7 +2383,7 @@ void FrameBuffer::createTrivialContext(HandleType shared,
     assert(contextOut);
     assert(surfOut);
 
-    *contextOut = createRenderContext(0, shared, GLESApi_2);
+    *contextOut = createEmulatedEglContext(0, shared, GLESApi_2);
     // Zero size is formally allowed here, but SwiftShader doesn't like it and
     // fails.
     *surfOut = createWindowSurface(0, 1, 1);
@@ -2884,7 +2884,7 @@ void FrameBuffer::onSave(Stream* stream,
     // objects).
     // TODO: skip reading from GPU even for texture objects.
     saveCollection(stream, m_contexts,
-                   [](Stream* s, const RenderContextMap::value_type& pair) {
+                   [](Stream* s, const EmulatedEglContextMap::value_type& pair) {
         pair.second->onSave(s);
     });
 
@@ -2913,7 +2913,7 @@ void FrameBuffer::onSave(Stream* stream,
     saveProcOwnedCollection(stream, m_procOwnedWindowSurfaces);
     saveProcOwnedCollection(stream, m_procOwnedColorBuffers);
     saveProcOwnedCollection(stream, m_procOwnedEGLImages);
-    saveProcOwnedCollection(stream, m_procOwnedRenderContext);
+    saveProcOwnedCollection(stream, m_procOwnedEmulatedEglContext);
 
     // Save Vulkan state
     if (feature_is_enabled(kFeature_VulkanSnapshots) &&
@@ -2947,7 +2947,7 @@ bool FrameBuffer::onLoad(Stream* stream,
         {
             AutoLock colorBufferMapLock(m_colorBufferMapLock);
             if (m_procOwnedWindowSurfaces.empty() && m_procOwnedColorBuffers.empty() &&
-                m_procOwnedEGLImages.empty() && m_procOwnedRenderContext.empty() &&
+                m_procOwnedEGLImages.empty() && m_procOwnedEmulatedEglContext.empty() &&
                 m_procOwnedCleanupCallbacks.empty() &&
                 (!m_contexts.empty() || !m_windows.empty() ||
                  m_colorbuffers.size() > m_colorBufferDelayedCloseList.size())) {
@@ -2980,9 +2980,9 @@ bool FrameBuffer::onLoad(Stream* stream,
                 colorBuffersToCleanup.insert(colorBuffersToCleanup.end(),
                     cleanupHandles.begin(), cleanupHandles.end());
             }
-            while (m_procOwnedRenderContext.size()) {
+            while (m_procOwnedEmulatedEglContext.size()) {
                 auto cleanupHandles = cleanupProcGLObjects_locked(
-                        m_procOwnedRenderContext.begin()->first, true);
+                        m_procOwnedEmulatedEglContext.begin()->first, true);
                 colorBuffersToCleanup.insert(colorBuffersToCleanup.end(),
                     cleanupHandles.begin(), cleanupHandles.end());
             }
@@ -3052,8 +3052,8 @@ bool FrameBuffer::onLoad(Stream* stream,
     m_statsStartTime = stream->getBe64();
 
     loadCollection(stream, &m_contexts,
-                   [this](Stream* stream) -> RenderContextMap::value_type {
-        RenderContextPtr ctx(RenderContext::onLoad(stream, getDisplay()));
+                   [this](Stream* stream) -> EmulatedEglContextMap::value_type {
+        EmulatedEglContextPtr ctx(EmulatedEglContext::onLoad(stream, getDisplay()));
         return { ctx ? ctx->getHndl() : 0, ctx };
     });
     assert(!android::base::find(m_contexts, 0));
@@ -3090,7 +3090,7 @@ bool FrameBuffer::onLoad(Stream* stream,
     loadProcOwnedCollection(stream, &m_procOwnedWindowSurfaces);
     loadProcOwnedCollection(stream, &m_procOwnedColorBuffers);
     loadProcOwnedCollection(stream, &m_procOwnedEGLImages);
-    loadProcOwnedCollection(stream, &m_procOwnedRenderContext);
+    loadProcOwnedCollection(stream, &m_procOwnedEmulatedEglContext);
 
     if (s_egl.eglPostLoadAllImages) {
         s_egl.eglPostLoadAllImages(getDisplay(), stream);

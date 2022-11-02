@@ -378,8 +378,8 @@ TEST_F(FrameBufferTest, Configs) {
 }
 
 // Tests creating GL context from FrameBuffer.
-TEST_F(FrameBufferTest, CreateRenderContext) {
-    HandleType handle = mFb->createRenderContext(0, 0, GLESApi_3_0);
+TEST_F(FrameBufferTest, CreateEmulatedEglContext) {
+    HandleType handle = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
     EXPECT_NE(0, handle);
 }
 
@@ -390,8 +390,8 @@ TEST_F(FrameBufferTest, CreateWindowSurface) {
 }
 
 // Tests eglMakeCurrent from FrameBuffer.
-TEST_F(FrameBufferTest, CreateBindRenderContext) {
-    HandleType context = mFb->createRenderContext(0, 0, GLESApi_3_0);
+TEST_F(FrameBufferTest, CreateBindEmulatedEglContext) {
+    HandleType context = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
     HandleType surface = mFb->createWindowSurface(0, mWidth, mHeight);
     EXPECT_TRUE(mFb->bindContext(context, surface, surface));
 }
@@ -408,7 +408,7 @@ TEST_F(FrameBufferTest, BasicBlit) {
 
     HandleType colorBuffer =
         mFb->createColorBuffer(mWidth, mHeight, GL_RGBA, FRAMEWORK_FORMAT_GL_COMPATIBLE);
-    HandleType context = mFb->createRenderContext(0, 0, GLESApi_3_0);
+    HandleType context = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
     HandleType surface = mFb->createWindowSurface(0, mWidth, mHeight);
 
     EXPECT_TRUE(mFb->bindContext(context, surface, surface));
@@ -466,7 +466,7 @@ TEST_F(FrameBufferTest, SnapshotSmokeTest) {
 // color in between save and load. If this fails, it means failure to restore a
 // number of different states from GL contexts.
 TEST_F(FrameBufferTest, SnapshotPreserveColorClear) {
-    HandleType context = mFb->createRenderContext(0, 0, GLESApi_3_0);
+    HandleType context = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
     HandleType surface = mFb->createWindowSurface(0, mWidth, mHeight);
     EXPECT_TRUE(mFb->bindContext(context, surface, surface));
 
@@ -577,7 +577,7 @@ static constexpr uint32_t kDrawCallLimit = 50000;
 TEST_F(FrameBufferTest, DrawCallRate) {
     HandleType colorBuffer =
         mFb->createColorBuffer(mWidth, mHeight, GL_RGBA, FRAMEWORK_FORMAT_GL_COMPATIBLE);
-    HandleType context = mFb->createRenderContext(0, 0, GLESApi_3_0);
+    HandleType context = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
     HandleType surface = mFb->createWindowSurface(0, mWidth, mHeight);
 
     EXPECT_TRUE(mFb->bindContext(context, surface, surface));
@@ -701,7 +701,7 @@ fprintf(stderr, "%s: transform loc %d\n", __func__, transformLoc);
 TEST_F(FrameBufferTest, HostDrawCallRate) {
     HandleType colorBuffer =
         mFb->createColorBuffer(mWidth, mHeight, GL_RGBA, FRAMEWORK_FORMAT_GL_COMPATIBLE);
-    HandleType context = mFb->createRenderContext(0, 0, GLESApi_3_0);
+    HandleType context = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
     HandleType surface = mFb->createWindowSurface(0, mWidth, mHeight);
 
     EXPECT_TRUE(mFb->bindContext(context, surface, surface));
@@ -834,7 +834,7 @@ TEST_F(FrameBufferTest, SetMultiDisplayPosition) {
 TEST_F(FrameBufferTest, ComposeMultiDisplay) {
     LazyLoadedGLESv2Dispatch::get();
 
-    HandleType context = mFb->createRenderContext(0, 0, GLESApi_3_0);
+    HandleType context = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
     HandleType surface = mFb->createWindowSurface(0, mWidth, mHeight);
     EXPECT_TRUE(mFb->bindContext(context, surface, surface));
 
@@ -949,7 +949,7 @@ TEST_F(FrameBufferTest, PixmapImport_Blit) {
 
     EXPECT_TRUE(mFb->platformImportResource(colorBuffer, RESOURCE_TYPE_EGL_NATIVE_PIXMAP, pixmap));
 
-    HandleType context = mFb->createRenderContext(0, 0, GLESApi_3_0);
+    HandleType context = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
     HandleType surface = mFb->createWindowSurface(0, mWidth, mHeight);
 
     EXPECT_TRUE(mFb->bindContext(context, surface, surface));

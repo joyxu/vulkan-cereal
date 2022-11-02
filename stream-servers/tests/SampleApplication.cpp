@@ -266,7 +266,7 @@ SampleApplication::SampleApplication(int windowWidth, int windowHeight, int refr
     mRenderThreadInfo->initGl();
 
     mColorBuffer = mFb->createColorBuffer(mWidth, mHeight, GL_RGBA, FRAMEWORK_FORMAT_GL_COMPATIBLE);
-    mContext = mFb->createRenderContext(0, 0, glVersion);
+    mContext = mFb->createEmulatedEglContext(0, 0, glVersion);
     mSurface = mFb->createWindowSurface(0, mWidth, mHeight);
 
     mFb->bindContext(mContext, mSurface, mSurface);
@@ -362,7 +362,7 @@ void SampleApplication::drawWorker(ColorBufferQueue& app2sfQueue,
                                    ColorBufferQueue& sf2hwcQueue,
                                    ColorBufferQueue& hwc2sfQueue) {
     RenderThreadInfo* tInfo = new RenderThreadInfo;
-    unsigned int sfContext = mFb->createRenderContext(0, 0, GLESApi_3_0);
+    unsigned int sfContext = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
     unsigned int sfSurface = mFb->createWindowSurface(0, mWidth, mHeight);
     mFb->bindContext(sfContext, sfSurface, sfSurface);
 
@@ -484,7 +484,7 @@ void SampleApplication::surfaceFlingerComposerLoop() {
 
     FunctorThread appThread([&]() {
         RenderThreadInfo* tInfo = new RenderThreadInfo;
-        unsigned int appContext = mFb->createRenderContext(0, 0, GLESApi_3_0);
+        unsigned int appContext = mFb->createEmulatedEglContext(0, 0, GLESApi_3_0);
         unsigned int appSurface = mFb->createWindowSurface(0, mWidth, mHeight);
         mFb->bindContext(appContext, appSurface, appSurface);
 

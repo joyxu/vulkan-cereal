@@ -74,7 +74,7 @@ void WindowSurface::setColorBuffer(ColorBufferPtr p_colorBuffer) {
     }
 }
 
-void WindowSurface::bind(RenderContextPtr p_ctx, BindType p_bindType) {
+void WindowSurface::bind(EmulatedEglContextPtr p_ctx, BindType p_bindType) {
     if (p_bindType == BIND_READ) {
         mReadContext = p_ctx;
     } else if (p_bindType == BIND_DRAW) {
