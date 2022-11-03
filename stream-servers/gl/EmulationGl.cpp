@@ -201,19 +201,9 @@ static std::optional<EGLConfig> getEmulationEglConfig(EGLDisplay display, bool a
 
 }  // namespace
 
-std::unique_ptr<EmulationGl> EmulationGl::create(uint32_t width,
-                                                 uint32_t height,
-                                                 bool egl2egl,
+std::unique_ptr<EmulationGl> EmulationGl::create(uint32_t width, uint32_t height,
                                                  bool allowWindowSurface) {
     std::unique_ptr<EmulationGl> emulationGl(new EmulationGl());
-
-    if (s_egl.eglUseOsEglApi) {
-        EGLBoolean useNullBackend = EGL_FALSE;
-        if (egl2egl && feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
-            useNullBackend = EGL_TRUE;
-        }
-        s_egl.eglUseOsEglApi(egl2egl, useNullBackend);
-    }
 
     emulationGl->mEglDisplay = s_egl.eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (emulationGl->mEglDisplay == EGL_NO_DISPLAY) {
