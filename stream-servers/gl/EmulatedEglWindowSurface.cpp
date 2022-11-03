@@ -25,6 +25,8 @@
 #include "aemu/base/containers/Lookup.h"
 #include "host-common/logging.h"
 
+namespace gfxstream {
+
 EmulatedEglWindowSurface::EmulatedEglWindowSurface(EGLDisplay display,
                                                    EGLConfig config,
                                                    HandleType hndl) :
@@ -243,3 +245,5 @@ EmulatedEglWindowSurface * EmulatedEglWindowSurface::onLoad(android::base::Strea
     ret->mDrawContext = android::base::findOrDefault(contexts, drawCtx);
     return ret;
 }
+
+}  // namespace gfxstream

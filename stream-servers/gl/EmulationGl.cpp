@@ -574,4 +574,31 @@ void EmulationGl::setUseBoundSurfaceContextForDisplay(bool use) {
     }
 }
 
+std::unique_ptr<EmulatedEglContext> EmulationGl::createEmulatedEglContext(
+        uint32_t emulatedEglConfigIndex,
+        const EmulatedEglContext* sharedContext,
+        GLESApi api,
+        HandleType handle) {
+    if (!mEmulatedEglConfigs) {
+        ERR("EmulatedEglConfigs unavailable.");
+        return nullptr;
+    }
+
+    const EmulatedEglConfig* emulatedEglConfig = mEmulatedEglConfigs->get(emulatedEglConfigIndex);
+    if (!emulatedEglConfig) {
+        ERR("Failed to find emulated EGL config %d", emulatedEglConfigIndex);
+        return nullptr;
+    }
+
+    EGLConfig config = emulatedEglConfig->getHostEglConfig();
+    EGLContext share = sharedContext ? sharedContext->getEGLContext() : EGL_NO_CONTEXT;
+
+    return EmulatedEglContext::create(mEglDisplay, config, share, handle, api);
+}
+
+std::unique_ptr<EmulatedEglContext> EmulationGl::loadEmulatedEglContext(
+        android::base::Stream* stream) {
+    return EmulatedEglContext::onLoad(stream, mEglDisplay);
+}
+
 }  // namespace gfxstream

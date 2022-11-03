@@ -47,7 +47,8 @@ class ColorBufferQueue;
 class SampleApplication {
 public:
     SampleApplication(int windowWidth = 256, int windowHeight = 256,
-                      int refreshRate = 60, GLESApi glVersion = GLESApi_3_0,
+                      int refreshRate = 60,
+                      gfxstream::GLESApi glVersion = gfxstream::GLESApi_3_0,
                       bool compose = false);
     ~SampleApplication();
 

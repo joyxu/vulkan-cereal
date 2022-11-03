@@ -37,6 +37,9 @@
 using android::base::ManagedDescriptor;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
+using gfxstream::GLESApi;
+using gfxstream::GLESApi_CM;
+using gfxstream::GLESApi_2;
 
 namespace {
 
