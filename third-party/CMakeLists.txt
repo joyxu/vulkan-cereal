@@ -1,7 +1,3 @@
-if(DEPENDENCY_RESOLUTION STREQUAL "AOSP")
-    add_subdirectory(angle)
-endif ()
-
 # Configure and add `astc-encoder`, if needed
 if (ASTC_CPU_DECODING)
     set(DECOMPRESSOR ON)   # Disable compression code
@@ -173,6 +169,33 @@ if(NOT TARGET flatbuffers)
     endif()
 endif()
 
+if(NOT TARGET gfxstream_egl_headers)
+    if(DEPENDENCY_RESOLUTION STREQUAL "AOSP")
+        # ANGLE provides the EGL headers for us.
+        set(ANGLE_PATH ${PROJECT_SOURCE_DIR}/../../../external/angle)
+        if(NOT EXISTS ${ANGLE_PATH})
+            message(FATAL_ERROR "ANGLE is not found.")
+        endif()
+        add_library(gfxstream_egl_headers INTERFACE)
+        target_include_directories(gfxstream_egl_headers INTERFACE ${ANGLE_PATH}/include)
+    elseif(DEPENDENCY_RESOLUTION STREQUAL "SYSTEM")
+        find_package(PkgConfig REQUIRED)
+        pkg_search_module(egl REQUIRED IMPORTED_TARGET GLOBAL egl>=1.5)
+        add_library(gfxstream_egl_headers ALIAS PkgConfig::egl)
+    elseif(DEPENDENCY_RESOLUTION STREQUAL "DOWNLOAD")
+        FetchContent_Declare(
+            egl
+            GIT_REPOSITORY https://github.com/KhronosGroup/EGL-Registry.git
+            GIT_TAG main
+            GIT_REMOTE_UPDATE_STRATEGY CHECKOUT
+            GIT_PROGRESS TRUE
+        )
+        list(APPEND PROJECT_TO_FETCH egl)
+        add_library(gfxstream_egl_headers INTERFACE)
+        target_include_directories(gfxstream_egl_headers INTERFACE ${egl_SOURCE_DIR}/api)
+    endif()
+endif()
+
 if(PROJECT_TO_FETCH)
     FetchContent_MakeAvailable(${PROJECT_TO_FETCH})
 endif()
@@ -185,4 +208,7 @@ if(NOT TARGET gfxstream_vulkan_headers)
 endif()
 if(NOT TARGET flatbuffers)
     message(FATAL_ERROR "The dependency flatbuffers not found.")
+endif()
+if(USE_ANGLE_SHADER_PARSER AND NOT TARGET angle_shader_translator)
+    message(FATAL_ERROR "The dependency angle_shader_translator not found.")
 endif()

@@ -7,12 +7,13 @@ target_link_libraries(
     gles2_dec
     PUBLIC
     apigen-codec-common
-    GLSnapshot)
+    GLSnapshot
+    PRIVATE
+    gfxstream_egl_headers)
 target_include_directories(
     gles2_dec
     PRIVATE
     ${GFXSTREAM_REPO_ROOT}
     ${GFXSTREAM_REPO_ROOT}/include
     ${GFXSTREAM_REPO_ROOT}/stream-servers
-    ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common
-    ${GFXSTREAM_REPO_ROOT}/third-party/angle/include)
+    ${GFXSTREAM_REPO_ROOT}/stream-servers/apigen-codec-common)
