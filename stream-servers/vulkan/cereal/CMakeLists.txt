@@ -22,7 +22,13 @@ target_compile_definitions(OpenglRender_vulkan_cereal PRIVATE -DVK_GOOGLE_gfxstr
 if (WIN32)
     target_compile_definitions(OpenglRender_vulkan_cereal PRIVATE -DVK_USE_PLATFORM_WIN32_KHR)
 endif()
-target_link_libraries(OpenglRender_vulkan_cereal PUBLIC aemu-base.headers gfxstream_vulkan_headers)
+target_link_libraries(
+    OpenglRender_vulkan_cereal
+    PUBLIC
+    aemu-base.headers
+    gfxstream_vulkan_headers
+    PRIVATE
+    gfxstream_utils.headers)
 
 target_include_directories(OpenglRender_vulkan_cereal
                            PUBLIC
