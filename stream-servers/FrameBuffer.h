@@ -38,7 +38,6 @@
 #include "PostCommands.h"
 #include "PostWorker.h"
 #include "ReadbackWorker.h"
-#include "WindowSurface.h"
 #include "aemu/base/AsyncResult.h"
 #include "aemu/base/HealthMonitor.h"
 #include "aemu/base/synchronization/Lock.h"
@@ -52,6 +51,7 @@
 #include "gl/DisplaySurfaceGl.h"
 #include "gl/EmulatedEglConfig.h"
 #include "gl/EmulatedEglContext.h"
+#include "gl/EmulatedEglWindowSurface.h"
 #include "gl/EmulationGl.h"
 #include "gl/GLESVersionDetector.h"
 #include "gl/TextureDraw.h"
@@ -67,20 +67,6 @@ using emugl::HealthMonitor;
 using emugl::MetricsLogger;
 
 class DisplayVk;
-
-struct ColorBufferRef {
-    ColorBufferPtr cb;
-    uint32_t refcount;  // number of client-side references
-
-    // Tracks whether opened at least once. In O+,
-    // color buffers can be created/closed immediately,
-    // but then registered (opened) afterwards.
-    bool opened;
-
-    // Tracks the time when this buffer got a close request while not being
-    // opened yet.
-    uint64_t closedTs;
-};
 
 struct BufferRef {
     BufferPtr buffer;
@@ -103,17 +89,10 @@ class ProcessResources {
     mutable uint32_t mSequenceNumber;
 };
 
-typedef std::unordered_map<HandleType, std::pair<WindowSurfacePtr, HandleType>>
-    WindowSurfaceMap;
-typedef std::unordered_set<HandleType> WindowSurfaceSet;
-typedef std::unordered_map<uint64_t, WindowSurfaceSet> ProcOwnedWindowSurfaces;
+typedef std::unordered_map<uint64_t, EmulatedEglWindowSurfaceSet> ProcOwnedEmulatedEglWindowSurfaces;
 
-typedef std::unordered_map<HandleType, EmulatedEglContextPtr> EmulatedEglContextMap;
-typedef std::unordered_set<HandleType> EmulatedEglContextSet;
 typedef std::unordered_map<uint64_t, EmulatedEglContextSet> ProcOwnedEmulatedEglContexts;
 
-typedef std::unordered_map<HandleType, ColorBufferRef> ColorBufferMap;
-typedef std::unordered_multiset<HandleType> ColorBufferSet;
 typedef std::unordered_map<uint64_t, ColorBufferSet> ProcOwnedColorBuffers;
 
 typedef std::unordered_map<HandleType, BufferRef> BufferMap;
@@ -217,11 +196,11 @@ class FrameBuffer {
     HandleType createEmulatedEglContext(int p_config, HandleType p_share,
                                         GLESApi version = GLESApi_CM);
 
-    // Create a new WindowSurface instance from this display instance.
+    // Create a new EmulatedEglWindowSurface instance from this display instance.
     // |p_config| is the index of one of the configs returned by getConfigs().
     // |p_width| and |p_height| are the window dimensions in pixels.
     // Return a new handle value, or 0 in case of error.
-    HandleType createWindowSurface(int p_config, int p_width, int p_height);
+    HandleType createEmulatedEglWindowSurface(int p_config, int p_width, int p_height);
 
     // Create a new ColorBuffer instance from this display instance.
     // |p_width| and |p_height| are its dimensions in pixels.
@@ -267,17 +246,17 @@ class FrameBuffer {
     // Call this function when a render thread terminates to destroy all
     // remaining window surface it created. Necessary to avoid leaking
     // host buffers when a guest application crashes, for example.
-    void drainGlRenderThreadWindowSurfaces();
+    void drainGlRenderThreadSurfaces();
 
     // Destroy a given EmulatedEglContext instance. |p_context| is its handle
     // value as returned by createEmulatedEglContext().
     void DestroyEmulatedEglContext(HandleType p_context);
 
-    // Destroy a given WindowSurface instance. |p_surcace| is its handle
-    // value as returned by createWindowSurface().
-    void DestroyWindowSurface(HandleType p_surface);
+    // Destroy a given EmulatedEglWindowSurface instance. |p_surcace| is its
+    // handle value as returned by createEmulatedEglWindowSurface().
+    void DestroyEmulatedEglWindowSurface(HandleType p_surface);
     // Returns the set of ColorBuffers destroyed (for further cleanup)
-    std::vector<HandleType> DestroyWindowSurfaceLocked(HandleType p_surface);
+    std::vector<HandleType> DestroyEmulatedEglWindowSurfaceLocked(HandleType p_surface);
 
     // Increment the reference count associated with a given ColorBuffer
     // instance. |p_colorbuffer| is its handle value as returned by
@@ -314,25 +293,26 @@ class FrameBuffer {
     EmulatedEglContextPtr getContext_locked(HandleType p_context);
 
     // Return a color buffer pointer from its handle
-    WindowSurfacePtr getWindowSurface_locked(HandleType p_windowsurface);
+    EmulatedEglWindowSurfacePtr getWindowSurface_locked(HandleType p_windowsurface);
 
-    // Attach a ColorBuffer to a WindowSurface instance.
-    // See the documentation for WindowSurface::setColorBuffer().
-    // |p_surface| is the target WindowSurface's handle value.
+    // Attach a ColorBuffer to a EmulatedEglWindowSurface instance.
+    // See the documentation for EmulatedEglWindowSurface::setColorBuffer().
+    // |p_surface| is the target EmulatedEglWindowSurface's handle value.
     // |p_colorbuffer| is the ColorBuffer handle value.
     // Returns true on success, false otherwise.
-    bool setWindowSurfaceColorBuffer(HandleType p_surface,
-                                     HandleType p_colorbuffer);
+    bool setEmulatedEglWindowSurfaceColorBuffer(HandleType p_surface,
+                                                HandleType p_colorbuffer);
 
-    // Copy the content of a WindowSurface's Pbuffer to its attached
-    // ColorBuffer. See the documentation for WindowSurface::flushColorBuffer()
+    // Copy the content of a EmulatedEglWindowSurface's Pbuffer to its attached
+    // ColorBuffer. See the documentation for
+    // EmulatedEglWindowSurface::flushColorBuffer().
     // |p_surface| is the target WindowSurface's handle value.
     // Returns true on success, false on failure.
-    bool flushWindowSurfaceColorBuffer(HandleType p_surface);
+    bool flushEmulatedEglWindowSurfaceColorBuffer(HandleType p_surface);
 
     // Retrieves the color buffer handle associated with |p_surface|.
     // Returns 0 if there is no such handle.
-    HandleType getWindowSurfaceColorBufferHandle(HandleType p_surface);
+    HandleType getEmulatedEglWindowSurfaceColorBufferHandle(HandleType p_surface);
 
     // Bind the current context's EGL_TEXTURE_2D texture to a ColorBuffer
     // instance's EGLImage. This is intended to implement
@@ -545,7 +525,7 @@ class FrameBuffer {
     bool onLoad(android::base::Stream* stream,
                 const android::snapshot::ITextureLoaderPtr& textureLoader);
 
-    // lock and unlock handles (EmulatedEglContext, ColorBuffer, WindowSurface)
+    // lock and unlock handles (EmulatedEglContext, ColorBuffer, EmulatedEglWindowSurface)
     void lock();
     void unlock();
 
@@ -703,10 +683,10 @@ class FrameBuffer {
     android::base::Lock m_colorBufferMapLock;
     FBNativeWindowType m_nativeWindow = 0;
     EmulatedEglContextMap m_contexts;
-    WindowSurfaceMap m_windows;
+    EmulatedEglWindowSurfaceMap m_windows;
     ColorBufferMap m_colorbuffers;
     BufferMap m_buffers;
-    std::unordered_map<HandleType, HandleType> m_windowSurfaceToColorBuffer;
+    std::unordered_map<HandleType, HandleType> m_EmulatedEglWindowSurfaceToColorBuffer;
 
     // A collection of color buffers that were closed without any usages
     // (|opened| == false).
@@ -781,10 +761,10 @@ class FrameBuffer {
     // The host associates color buffers with guest processes for memory
     // cleanup. Guest processes are identified with a host generated unique ID.
     // TODO(kaiyili): move all those resources to the ProcessResources struct.
-    ProcOwnedWindowSurfaces m_procOwnedWindowSurfaces;
     ProcOwnedColorBuffers m_procOwnedColorBuffers;
     ProcOwnedEGLImages m_procOwnedEGLImages;
-    ProcOwnedEmulatedEglContexts m_procOwnedEmulatedEglContext;
+    ProcOwnedEmulatedEglContexts m_procOwnedEmulatedEglContexts;
+    ProcOwnedEmulatedEglWindowSurfaces m_procOwnedEmulatedEglWindowSurfaces;
     ProcOwnedCleanupCallbacks m_procOwnedCleanupCallbacks;
     std::unordered_map<uint64_t, std::unique_ptr<ProcessResources>> m_procOwnedResources;
 

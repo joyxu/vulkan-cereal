@@ -13,7 +13,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#include "WindowSurface.h"
+#include "EmulatedEglWindowSurface.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -21,30 +21,30 @@
 
 #include <GLES/glext.h>
 
-#include "FrameBuffer.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
+#include "aemu/base/containers/Lookup.h"
 #include "host-common/logging.h"
 
-WindowSurface::WindowSurface(EGLDisplay display,
-                             EGLConfig config,
-                             HandleType hndl) :
+EmulatedEglWindowSurface::EmulatedEglWindowSurface(EGLDisplay display,
+                                                   EGLConfig config,
+                                                   HandleType hndl) :
         mConfig(config),
         mDisplay(display),
         mHndl(hndl) {}
 
-WindowSurface::~WindowSurface() {
+EmulatedEglWindowSurface::~EmulatedEglWindowSurface() {
     if (mSurface) {
         s_egl.eglDestroySurface(mDisplay, mSurface);
     }
 }
 
-WindowSurface *WindowSurface::create(EGLDisplay display,
-                                     EGLConfig config,
-                                     int p_width,
-                                     int p_height,
-                                     HandleType hndl) {
-    // allocate space for the WindowSurface object
-    WindowSurface *win = new WindowSurface(display, config, hndl);
+EmulatedEglWindowSurface *EmulatedEglWindowSurface::create(EGLDisplay display,
+                                                           EGLConfig config,
+                                                           int p_width,
+                                                           int p_height,
+                                                           HandleType hndl) {
+    // allocate space for the EmulatedEglWindowSurface object
+    EmulatedEglWindowSurface *win = new EmulatedEglWindowSurface(display, config, hndl);
     if (!win) {
         return NULL;
     }
@@ -59,8 +59,7 @@ WindowSurface *WindowSurface::create(EGLDisplay display,
     return win;
 }
 
-
-void WindowSurface::setColorBuffer(ColorBufferPtr p_colorBuffer) {
+void EmulatedEglWindowSurface::setColorBuffer(ColorBufferPtr p_colorBuffer) {
     mAttachedColorBuffer = p_colorBuffer;
     if (!p_colorBuffer) return;
 
@@ -74,7 +73,7 @@ void WindowSurface::setColorBuffer(ColorBufferPtr p_colorBuffer) {
     }
 }
 
-void WindowSurface::bind(EmulatedEglContextPtr p_ctx, BindType p_bindType) {
+void EmulatedEglWindowSurface::bind(EmulatedEglContextPtr p_ctx, BindType p_bindType) {
     if (p_bindType == BIND_READ) {
         mReadContext = p_ctx;
     } else if (p_bindType == BIND_DRAW) {
@@ -85,10 +84,10 @@ void WindowSurface::bind(EmulatedEglContextPtr p_ctx, BindType p_bindType) {
     }
 }
 
-GLuint WindowSurface::getWidth() const { return mWidth; }
-GLuint WindowSurface::getHeight() const { return mHeight; }
+GLuint EmulatedEglWindowSurface::getWidth() const { return mWidth; }
+GLuint EmulatedEglWindowSurface::getHeight() const { return mHeight; }
 
-bool WindowSurface::flushColorBuffer() {
+bool EmulatedEglWindowSurface::flushColorBuffer() {
     if (!mAttachedColorBuffer.get()) {
         return true;
     }
@@ -135,7 +134,7 @@ bool WindowSurface::flushColorBuffer() {
     return true;
 }
 
-bool WindowSurface::resize(unsigned int p_width, unsigned int p_height)
+bool EmulatedEglWindowSurface::resize(unsigned int p_width, unsigned int p_height)
 {
     if (mSurface && mWidth == p_width && mHeight == p_height) {
         // no need to resize
@@ -192,7 +191,7 @@ bool WindowSurface::resize(unsigned int p_width, unsigned int p_height)
     return true;
 }
 
-HandleType WindowSurface::getHndl() const {
+HandleType EmulatedEglWindowSurface::getHndl() const {
     return mHndl;
 }
 
@@ -205,7 +204,7 @@ static void saveHndlOrNull(obj_t obj, android::base::Stream* stream) {
     }
 }
 
-void WindowSurface::onSave(android::base::Stream* stream) const {
+void EmulatedEglWindowSurface::onSave(android::base::Stream* stream) const {
     stream->putBe32(getHndl());
     saveHndlOrNull(mAttachedColorBuffer, stream);
     saveHndlOrNull(mReadContext, stream);
@@ -217,11 +216,12 @@ void WindowSurface::onSave(android::base::Stream* stream) const {
     }
 }
 
-WindowSurface * WindowSurface::onLoad(android::base::Stream* stream,
-            EGLDisplay display) {
-    FrameBuffer* fb = FrameBuffer::getFB();
+EmulatedEglWindowSurface * EmulatedEglWindowSurface::onLoad(android::base::Stream* stream,
+                                                            EGLDisplay display,
+                                                            const ColorBufferMap& colorBuffers,
+                                                            const EmulatedEglContextMap& contexts) {
     HandleType hndl = stream->getBe32();
-    HandleType cb = stream->getBe32();
+    HandleType colorBufferHndl = stream->getBe32();
     HandleType readCtx = stream->getBe32();
     HandleType drawCtx = stream->getBe32();
 
@@ -231,12 +231,15 @@ WindowSurface * WindowSurface::onLoad(android::base::Stream* stream,
     if (s_egl.eglLoadConfig) {
         config = s_egl.eglLoadConfig(display, stream);
     }
-    WindowSurface* ret = create(display, config, width, height, hndl);
+    EmulatedEglWindowSurface* ret = create(display, config, width, height, hndl);
     assert(ret);
     // fb is already locked by its caller
-    ret->mAttachedColorBuffer = fb->findColorBuffer(cb);
-    assert(!cb || ret->mAttachedColorBuffer);
-    ret->mReadContext = fb->getContext_locked(readCtx);
-    ret->mDrawContext = fb->getContext_locked(drawCtx);
+    if (colorBufferHndl) {
+        const auto* colorBufferRef = android::base::find(colorBuffers, colorBufferHndl);
+        assert(colorBufferRef);
+        ret->mAttachedColorBuffer = colorBufferRef->cb;
+    }
+    ret->mReadContext = android::base::findOrDefault(contexts, readCtx);
+    ret->mDrawContext = android::base::findOrDefault(contexts, drawCtx);
     return ret;
 }

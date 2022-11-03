@@ -44,7 +44,7 @@ public:
         while (mFrameCount < 5) {
             this->draw();
             mFrameCount++;
-            mFb->flushWindowSurfaceColorBuffer(mSurface);
+            mFb->flushEmulatedEglWindowSurfaceColorBuffer(mSurface);
             if (mUseSubWindow) {
                 mFb->post(mColorBuffer);
                 mWindow->messageLoop();

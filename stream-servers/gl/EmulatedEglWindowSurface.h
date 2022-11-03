@@ -13,10 +13,12 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#ifndef _LIBRENDER_WINDOW_SURFACE_H
-#define _LIBRENDER_WINDOW_SURFACE_H
+
+#pragma once
 
 #include <memory>
+#include <unordered_set>
+#include <unordered_map>
 
 #include <EGL/egl.h>
 #include <GLES/gl.h>
@@ -27,26 +29,27 @@
 
 // A class used to model a guest-side window surface. The implementation
 // uses a host Pbuffer to act as the EGL rendering surface instead.
-class WindowSurface {
-public:
-    // Create a new WindowSurface instance.
+class EmulatedEglWindowSurface {
+  public:
+    // Create a new EmulatedEglWindowSurface instance.
     // |display| is the host EGLDisplay value.
     // |config| is the host EGLConfig value.
     // |width| and |height| are the initial size of the Pbuffer.
-    // Return a new WindowSurface instance on success, or NULL on failure.
-    static WindowSurface* create(EGLDisplay display,
-                                 EGLConfig config,
-                                 int width,
-                                 int height,
-                                 HandleType hndl);
+    // Return a new EmulatedEglWindowSurface instance on success, or NULL on
+    // failure.
+    static EmulatedEglWindowSurface* create(EGLDisplay display,
+                                            EGLConfig config,
+                                            int width,
+                                            int height,
+                                            HandleType hndl);
 
     // Destructor.
-    ~WindowSurface();
+    ~EmulatedEglWindowSurface();
 
-    // Retrieve the host EGLSurface of the WindowSurface's Pbuffer.
+    // Retrieve the host EGLSurface of the EmulatedEglWindowSurface's Pbuffer.
     EGLSurface getEGLSurface() const { return mSurface; }
 
-    // Attach a ColorBuffer to this WindowSurface.
+    // Attach a ColorBuffer to this EmulatedEglWindowSurface.
     // Once attached, calling flushColorBuffer() will copy the Pbuffer's
     // pixels to the color buffer.
     //
@@ -77,7 +80,7 @@ public:
     // passed as a parameter to the function instead. Maybe this is only used
     // to increment reference counts on the smart pointers.
     //
-    // Bind a context to the WindowSurface (huh? Normally you would bind a
+    // Bind a context to the EmulatedEglWindowSurface (huh? Normally you would bind a
     // surface to the context, not the other way around)
     //
     // |p_ctx| is a EmulatedEglContext pointer.
@@ -90,17 +93,19 @@ public:
     GLuint getHeight() const;
 
     void onSave(android::base::Stream* stream) const;
-    static WindowSurface *onLoad(android::base::Stream* stream,
-            EGLDisplay display);
+    static EmulatedEglWindowSurface *onLoad(android::base::Stream* stream,
+                                            EGLDisplay display,
+                                            const ColorBufferMap& colorBuffers,
+                                            const EmulatedEglContextMap& contexts);
     HandleType getHndl() const;
-private:
-    WindowSurface(const WindowSurface& other) = delete;
 
-    WindowSurface(EGLDisplay display, EGLConfig config, HandleType hndl);
+  private:
+    EmulatedEglWindowSurface(const EmulatedEglWindowSurface& other) = delete;
+
+    EmulatedEglWindowSurface(EGLDisplay display, EGLConfig config, HandleType hndl);
 
     bool resize(unsigned int p_width, unsigned int p_height);
 
-private:
     EGLSurface mSurface = EGL_NO_SURFACE;
     ColorBufferPtr mAttachedColorBuffer;
     EmulatedEglContextPtr mReadContext;
@@ -112,6 +117,6 @@ private:
     HandleType mHndl;
 };
 
-typedef std::shared_ptr<WindowSurface> WindowSurfacePtr;
-
-#endif  // _LIBRENDER_WINDOW_SURFACE_H
+typedef std::shared_ptr<EmulatedEglWindowSurface> EmulatedEglWindowSurfacePtr;
+typedef std::unordered_map<HandleType, std::pair<EmulatedEglWindowSurfacePtr, HandleType>> EmulatedEglWindowSurfaceMap;
+typedef std::unordered_set<HandleType> EmulatedEglWindowSurfaceSet;

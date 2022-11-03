@@ -17,6 +17,7 @@ cc_library_static {
         "DisplaySurfaceGl.cpp",
         "EmulatedEglConfig.cpp",
         "EmulatedEglContext.cpp",
+        "EmulatedEglWindowSurface.cpp",
         "EmulationGl.cpp",
         "GLESVersionDetector.cpp",
         "TextureDraw.cpp",

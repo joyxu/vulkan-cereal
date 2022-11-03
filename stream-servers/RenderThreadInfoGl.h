@@ -19,9 +19,9 @@
 
 #include "Handle.h"
 #include "StalePtrRegistry.h"
-#include "WindowSurface.h"
 #include "aemu/base/files/Stream.h"
 #include "gl/EmulatedEglContext.h"
+#include "gl/EmulatedEglWindowSurface.h"
 #include "gl/gles1_dec/GLESv1Decoder.h"
 #include "gl/gles2_dec/GLESv2Decoder.h"
 
@@ -63,8 +63,8 @@ struct RenderThreadInfoGl {
     HandleType currReadSurfHandleFromLoad;
 
     EmulatedEglContextPtr currContext;
-    WindowSurfacePtr currDrawSurf;
-    WindowSurfacePtr currReadSurf;
+    EmulatedEglWindowSurfacePtr currDrawSurf;
+    EmulatedEglWindowSurfacePtr currReadSurf;
 
     // Decoder states.
     GLESv1Decoder                   m_glDec;
