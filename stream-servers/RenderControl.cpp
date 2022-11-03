@@ -23,7 +23,6 @@
 #include <memory>
 
 #include "ChecksumCalculatorThreadInfo.h"
-#include "FenceSync.h"
 #include "FrameBuffer.h"
 #include "GLESVersionDetector.h"
 #include "OpenGLESDispatch/DispatchTables.h"
@@ -46,6 +45,7 @@ using emugl::emugl_sync_device_exists;
 using emugl::emugl_sync_register_trigger_wait;
 using gfxstream::GLESApi;
 using gfxstream::GLESApi_CM;
+using gfxstream::EmulatedEglFenceSync;
 
 #define DEBUG_GRALLOC_SYNC 0
 #define DEBUG_EGL_SYNC 0
@@ -1111,7 +1111,7 @@ static void rcTriggerWait(uint64_t eglsync_ptr,
         SyncThread::get()->triggerWaitVk(reinterpret_cast<VkFence>(eglsync_ptr),
                                          timeline);
     } else {
-        FenceSync* fenceSync = reinterpret_cast<FenceSync*>(eglsync_ptr);
+        EmulatedEglFenceSync* fenceSync = reinterpret_cast<EmulatedEglFenceSync*>(eglsync_ptr);
         EGLSYNC_DPRINT(
                 "eglsync=0x%llx fenceSync=%p thread_ptr=0x%llx "
                 "timeline=0x%llx",
@@ -1127,15 +1127,9 @@ static void rcTriggerWait(uint64_t eglsync_ptr,
 static void rcCreateSyncKHR(EGLenum type,
                             EGLint* attribs,
                             uint32_t num_attribs,
-                            int destroy_when_signaled,
-                            uint64_t* eglsync_out,
-                            uint64_t* syncthread_out) {
-    EGLSYNC_DPRINT("type=0x%x num_attribs=%d",
-            type, num_attribs);
-
-    bool hasNativeFence =
-        type == EGL_SYNC_NATIVE_FENCE_ANDROID;
-
+                            int destroyWhenSignaled,
+                            uint64_t* outSync,
+                            uint64_t* outSyncThread) {
     // Usually we expect rcTriggerWait to be registered
     // at the beginning in rcGetRendererVersion, called
     // on init for all contexts.
@@ -1144,44 +1138,16 @@ static void rcCreateSyncKHR(EGLenum type,
     // rcTriggerWait is registered.
     emugl_sync_register_trigger_wait(rcTriggerWait);
 
-    RenderThreadInfoGl* const tInfo = RenderThreadInfoGl::get();
-    if (!tInfo) {
-        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-            << "Render thread GL not available.";
-    }
-
-    if (!tInfo->currContext) {
-        auto fb = FrameBuffer::getFB();
-        uint32_t create_sync_cxt, create_sync_surf;
-        fb->createTrivialContext(0, // There is no context to share.
-                                 &create_sync_cxt,
-                                 &create_sync_surf);
-        fb->bindContext(create_sync_cxt,
-                        create_sync_surf,
-                        create_sync_surf);
-        // This context is then cleaned up when the render thread exits.
-    }
-
-    FenceSync* fenceSync = new FenceSync(hasNativeFence,
-                                         destroy_when_signaled);
-
-    // This MUST be present, or we get a deadlock effect.
-    s_gles2.glFlush();
-
-    if (syncthread_out) *syncthread_out =
-        reinterpret_cast<uint64_t>(SyncThread::get());
-
-    if (eglsync_out) {
-        uint64_t res = (uint64_t)(uintptr_t)fenceSync;
-        *eglsync_out = res;
-        EGLSYNC_DPRINT("send out eglsync 0x%llx", res);
-    }
+    FrameBuffer::getFB()->createEmulatedEglFenceSync(type,
+                                                     destroyWhenSignaled,
+                                                     outSync,
+                                                     outSyncThread);
 }
 
 // |rcClientWaitSyncKHR| implements |eglClientWaitSyncKHR|
 // on the guest through using the host's existing
 // |eglClientWaitSyncKHR| implementation, which is done
-// through the FenceSync object.
+// through the EmulatedEglFenceSync object.
 static EGLint rcClientWaitSyncKHR(uint64_t handle,
                                   EGLint flags,
                                   uint64_t timeout) {
@@ -1196,7 +1162,7 @@ static EGLint rcClientWaitSyncKHR(uint64_t handle,
     EGLSYNC_DPRINT("handle=0x%lx flags=0x%x timeout=%" PRIu64,
                 handle, flags, timeout);
 
-    FenceSync* fenceSync = FenceSync::getFromHandle(handle);
+    EmulatedEglFenceSync* fenceSync = EmulatedEglFenceSync::getFromHandle(handle);
 
     if (!fenceSync) {
         EGLSYNC_DPRINT("fenceSync null, return condition satisfied");
@@ -1232,7 +1198,7 @@ static void rcWaitSyncKHR(uint64_t handle,
 
     EGLSYNC_DPRINT("handle=0x%lx flags=0x%x", handle, flags);
 
-    FenceSync* fenceSync = FenceSync::getFromHandle(handle);
+    EmulatedEglFenceSync* fenceSync = EmulatedEglFenceSync::getFromHandle(handle);
 
     if (!fenceSync) { return; }
 
@@ -1254,7 +1220,7 @@ static void rcWaitSyncKHR(uint64_t handle,
 }
 
 static int rcDestroySyncKHR(uint64_t handle) {
-    FenceSync* fenceSync = FenceSync::getFromHandle(handle);
+    EmulatedEglFenceSync* fenceSync = EmulatedEglFenceSync::getFromHandle(handle);
     if (!fenceSync) return 0;
     fenceSync->decRef();
     return 0;
@@ -1391,7 +1357,7 @@ static void rcReadColorBufferYUV(uint32_t colorBuffer,
 }
 
 static int rcIsSyncSignaled(uint64_t handle) {
-    FenceSync* fenceSync = FenceSync::getFromHandle(handle);
+    EmulatedEglFenceSync* fenceSync = EmulatedEglFenceSync::getFromHandle(handle);
     if (!fenceSync) return 1; // assume destroyed => signaled
     return fenceSync->isSignaled() ? 1 : 0;
 }
@@ -1529,7 +1495,7 @@ static void rcComposeAsyncWithoutPost(uint32_t bufferSize, void* buffer) {
 }
 
 static void rcDestroySyncKHRAsync(uint64_t handle) {
-    FenceSync* fenceSync = FenceSync::getFromHandle(handle);
+    EmulatedEglFenceSync* fenceSync = EmulatedEglFenceSync::getFromHandle(handle);
     if (!fenceSync) return;
     fenceSync->decRef();
 }

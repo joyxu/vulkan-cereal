@@ -19,7 +19,6 @@
 #include <utility>
 #include <variant>
 
-#include "FenceSync.h"
 #include "FrameBuffer.h"
 #include "RenderChannelImpl.h"
 #include "RenderThread.h"
@@ -337,8 +336,6 @@ void RendererImpl::save(android::base::Stream* stream,
     auto fb = FrameBuffer::getFB();
     assert(fb);
     fb->onSave(stream, textureSaver);
-
-    FenceSync::onSave(stream);
 }
 
 bool RendererImpl::load(android::base::Stream* stream,
@@ -365,9 +362,6 @@ bool RendererImpl::load(android::base::Stream* stream,
     assert(fb);
 
     bool res = true;
-
-    res = fb->onLoad(stream, textureLoader);
-    FenceSync::onLoad(stream);
 
     return res;
 }

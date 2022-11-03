@@ -14,20 +14,21 @@
 * limitations under the License.
 */
 
-#include "FenceSync.h"
+#include "EmulatedEglFenceSync.h"
 
 #include <unordered_set>
 
-#include "FrameBuffer.h"
 #include "OpenGLESDispatch/DispatchTables.h"
 #include "OpenGLESDispatch/EGLDispatch.h"
-#include "RenderThreadInfo.h"
+#include "RenderThreadInfoGl.h"
 #include "StalePtrRegistry.h"
-
 #include "aemu/base/containers/Lookup.h"
 #include "aemu/base/containers/StaticMap.h"
 #include "aemu/base/files/StreamSerializing.h"
 #include "aemu/base/synchronization/Lock.h"
+
+namespace gfxstream {
+namespace {
 
 using android::base::AutoLock;
 using android::base::Lock;
@@ -43,11 +44,11 @@ using android::base::StaticMap;
 // incrementTimelineAndDeleteOldFences(), happens on the SyncThread.
 
 class Timeline {
-public:
+  public:
     Timeline() = default;
 
     static constexpr int kMaxGuestTimelines = 16;
-    void addFence(FenceSync* fence) {
+    void addFence(EmulatedEglFenceSync* fence) {
         mFences.set(fence, mTime.load() + kMaxGuestTimelines);
     }
 
@@ -57,8 +58,8 @@ public:
     }
 
     void sweep() {
-        mFences.eraseIf([time = mTime.load()](FenceSync* fence, int fenceTime) {
-            FenceSync* actual = FenceSync::getFromHandle((uint64_t)(uintptr_t)fence);
+        mFences.eraseIf([time = mTime.load()](EmulatedEglFenceSync* fence, int fenceTime) {
+            EmulatedEglFenceSync* actual = EmulatedEglFenceSync::getFromHandle((uint64_t)(uintptr_t)fence);
             if (!actual) return true;
 
             bool shouldErase = fenceTime <= time;
@@ -72,9 +73,9 @@ public:
         });
     }
 
-private:
+  private:
     std::atomic<int> mTime {0};
-    StaticMap<FenceSync*, int> mFences;
+    StaticMap<EmulatedEglFenceSync*, int> mFences;
 };
 
 static Timeline* sTimeline() {
@@ -82,14 +83,41 @@ static Timeline* sTimeline() {
     return t;
 }
 
+}  // namespace
+
 // static
-void FenceSync::incrementTimelineAndDeleteOldFences() {
+void EmulatedEglFenceSync::incrementTimelineAndDeleteOldFences() {
     sTimeline()->incrementTimelineAndDeleteOldFences();
 }
 
-FenceSync::FenceSync(bool hasNativeFence,
-                     bool destroyWhenSignaled) :
-    mDestroyWhenSignaled(destroyWhenSignaled) {
+// static
+std::unique_ptr<EmulatedEglFenceSync> EmulatedEglFenceSync::create(
+        EGLDisplay display,
+        bool hasNativeFence,
+        bool destroyWhenSignaled) {
+    auto sync = s_egl.eglCreateSyncKHR(display, EGL_SYNC_FENCE_KHR, nullptr);
+    if (sync == EGL_NO_SYNC_KHR) {
+        ERR("Failed to create EGL fence sync: %d", s_egl.eglGetError());
+        return nullptr;
+    }
+
+    // This MUST be present, or we get a deadlock effect.
+    s_gles2.glFlush();
+
+    return std::unique_ptr<EmulatedEglFenceSync>(
+        new EmulatedEglFenceSync(display,
+                                 sync,
+                                 hasNativeFence,
+                                 destroyWhenSignaled));
+}
+
+EmulatedEglFenceSync::EmulatedEglFenceSync(EGLDisplay display,
+                                           EGLSyncKHR sync,
+                                           bool hasNativeFence,
+                                           bool destroyWhenSignaled)
+    : mDestroyWhenSignaled(destroyWhenSignaled),
+      mDisplay(display),
+      mSync(sync) {
 
     addToRegistry();
 
@@ -99,20 +127,15 @@ FenceSync::FenceSync(bool hasNativeFence,
         sTimeline()->addFence(this);
     }
 
-    // assumes that there is a valid + current OpenGL context
-    assert(RenderThreadInfo::get());
-
-    mDisplay = FrameBuffer::getFB()->getDisplay();
-    mSync = s_egl.eglCreateSyncKHR(mDisplay,
-                                   EGL_SYNC_FENCE_KHR,
-                                   NULL);
+    // Assumes that there is a valid + current OpenGL context
+    assert(RenderThreadInfoGl::get());
 }
 
-FenceSync::~FenceSync() {
+EmulatedEglFenceSync::~EmulatedEglFenceSync() {
     removeFromRegistry();
 }
 
-EGLint FenceSync::wait(uint64_t timeout) {
+EGLint EmulatedEglFenceSync::wait(uint64_t timeout) {
     incRef();
     EGLint wait_res =
         s_egl.eglClientWaitSyncKHR(mDisplay, mSync,
@@ -122,11 +145,11 @@ EGLint FenceSync::wait(uint64_t timeout) {
     return wait_res;
 }
 
-void FenceSync::waitAsync() {
+void EmulatedEglFenceSync::waitAsync() {
     s_egl.eglWaitSyncKHR(mDisplay, mSync, 0);
 }
 
-bool FenceSync::isSignaled() {
+bool EmulatedEglFenceSync::isSignaled() {
     EGLint val;
     if (EGL_TRUE ==
             s_egl.eglGetSyncAttribKHR(
@@ -136,11 +159,11 @@ bool FenceSync::isSignaled() {
     return true; // if invalid, treat as signaled
 }
 
-void FenceSync::destroy() {
+void EmulatedEglFenceSync::destroy() {
     s_egl.eglDestroySyncKHR(mDisplay, mSync);
 }
 
-// Snapshots for FenceSync//////////////////////////////////////////////////////
+// Snapshots for EmulatedEglFenceSync//////////////////////////////////////////////////////
 // It's possible, though it does not happen often, that a fence
 // can be created but not yet waited on by the guest, which
 // needs careful handling:
@@ -153,38 +176,40 @@ void FenceSync::destroy() {
 // 2. Make rcCreateSyncKHR/rcDestroySyncKHR implementations return
 // the "signaled" status if referring to previous snapshot fences. It's
 // assumed that the GPU is long done with them.
-// 3. Avoid name collisions where a new FenceSync object is created
-// that has the same uint64_t casting as a FenceSync object from a previous
+// 3. Avoid name collisions where a new EmulatedEglFenceSync object is created
+// that has the same uint64_t casting as a EmulatedEglFenceSync object from a previous
 // snapshot.
 
-// Maintain a StalePtrRegistry<FenceSync>:
-static StalePtrRegistry<FenceSync>* sFenceRegistry() {
-    static StalePtrRegistry<FenceSync>* s = new StalePtrRegistry<FenceSync>;
+// Maintain a StalePtrRegistry<EmulatedEglFenceSync>:
+static StalePtrRegistry<EmulatedEglFenceSync>* sFenceRegistry() {
+    static StalePtrRegistry<EmulatedEglFenceSync>* s = new StalePtrRegistry<EmulatedEglFenceSync>;
     return s;
 }
 
 // static
-void FenceSync::addToRegistry() {
+void EmulatedEglFenceSync::addToRegistry() {
     sFenceRegistry()->addPtr(this);
 }
 
 // static
-void FenceSync::removeFromRegistry() {
+void EmulatedEglFenceSync::removeFromRegistry() {
     sFenceRegistry()->removePtr(this);
 }
 
 // static
-void FenceSync::onSave(android::base::Stream* stream) {
+void EmulatedEglFenceSync::onSave(android::base::Stream* stream) {
     sFenceRegistry()->makeCurrentPtrsStale();
     sFenceRegistry()->onSave(stream);
 }
 
 // static
-void FenceSync::onLoad(android::base::Stream* stream) {
+void EmulatedEglFenceSync::onLoad(android::base::Stream* stream) {
     sFenceRegistry()->onLoad(stream);
 }
 
 // static
-FenceSync* FenceSync::getFromHandle(uint64_t handle) {
+EmulatedEglFenceSync* EmulatedEglFenceSync::getFromHandle(uint64_t handle) {
     return sFenceRegistry()->getPtr(handle);
 }
+
+}  // namespace gfxstream

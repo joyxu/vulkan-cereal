@@ -25,7 +25,6 @@
 #include <string>
 #include <type_traits>
 
-#include "FenceSync.h"
 #include "aemu/base/synchronization/ConditionVariable.h"
 #include "aemu/base/HealthMonitor.h"
 #include "aemu/base/synchronization/Lock.h"
@@ -33,6 +32,7 @@
 #include "aemu/base/Optional.h"
 #include "aemu/base/threads/Thread.h"
 #include "aemu/base/threads/ThreadPool.h"
+#include "gl/EmulatedEglFenceSync.h"
 #include "render-utils/virtio_gpu_ops.h"
 #include "vulkan/VkDecoderGlobalState.h"
 
@@ -52,13 +52,13 @@ class SyncThread : public android::base::Thread {
     SyncThread(bool noGL, HealthMonitor<>& healthMonitor);
     ~SyncThread();
 
-    // |triggerWait|: async wait with a given FenceSync object.
+    // |triggerWait|: async wait with a given EmulatedEglFenceSync object.
     // We use the wait() method to do a eglClientWaitSyncKHR.
     // After wait is over, the timeline will be incremented,
     // which should signal the guest-side fence FD.
     // This method is how the goldfish sync virtual device
     // knows when to increment timelines / signal native fence FD's.
-    void triggerWait(FenceSync* fenceSync, uint64_t timeline);
+    void triggerWait(gfxstream::EmulatedEglFenceSync* fenceSync, uint64_t timeline);
 
     // |triggerWaitVk|: async wait with a given VkFence object.
     // The |vkFence| argument is a *boxed* host Vulkan handle of the fence.
@@ -72,11 +72,12 @@ class SyncThread : public android::base::Thread {
 
     // for use with the virtio-gpu path; is meant to have a current context
     // while waiting.
-    void triggerBlockedWaitNoTimeline(FenceSync* fenceSync);
+    void triggerBlockedWaitNoTimeline(gfxstream::EmulatedEglFenceSync* fenceSync);
 
     // For use with virtio-gpu and async fence completion callback. This is async like triggerWait,
     // but takes a fence completion callback instead of incrementing some timeline directly.
-    void triggerWaitWithCompletionCallback(FenceSync* fenceSync, FenceCompletionCallback);
+    void triggerWaitWithCompletionCallback(gfxstream::EmulatedEglFenceSync* fenceSync,
+                                           FenceCompletionCallback);
     void triggerWaitVkWithCompletionCallback(VkFence fenceHandle, FenceCompletionCallback);
     void triggerWaitVkQsriWithCompletionCallback(VkImage image, FenceCompletionCallback);
     void triggerGeneral(FenceCompletionCallback, std::string description);
@@ -126,7 +127,8 @@ class SyncThread : public android::base::Thread {
     // |doSyncThreadCmd| execute the actual task. These run on the sync thread.
     void doSyncThreadCmd(Command&& command, ThreadPool::WorkerId);
 
-    void doSyncWait(FenceSync* fenceSync, std::function<void()> onComplete);
+    void doSyncWait(gfxstream::EmulatedEglFenceSync* fenceSync,
+                    std::function<void()> onComplete);
     static int doSyncWaitVk(VkFence, std::function<void()> onComplete);
 
     // EGL objects / object handles specific to

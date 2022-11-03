@@ -64,6 +64,7 @@ using emugl::GfxApiLogger;
 using gfxstream::EmulatedEglContext;
 using gfxstream::EmulatedEglContextMap;
 using gfxstream::EmulatedEglContextPtr;
+using gfxstream::EmulatedEglFenceSync;
 using gfxstream::EmulatedEglWindowSurface;
 using gfxstream::EmulatedEglWindowSurfaceMap;
 using gfxstream::EmulatedEglWindowSurfacePtr;
@@ -1465,6 +1466,47 @@ std::vector<HandleType> FrameBuffer::destroyEmulatedEglWindowSurfaceLocked(Handl
         }
     }
     return colorBuffersToCleanUp;
+}
+
+void FrameBuffer::createEmulatedEglFenceSync(EGLenum type,
+                                             int destroyWhenSignaled,
+                                             uint64_t* outSync,
+                                             uint64_t* outSyncThread) {
+    if (!m_emulationGl) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "GL/EGL emulation not available.";
+    }
+
+    // TODO(b/233939967): move RenderThreadInfoGl usage to EmulationGl.
+    RenderThreadInfoGl* const info = RenderThreadInfoGl::get();
+    if (!info) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "RenderThreadInfoGl not available.";
+    }
+    if (!info->currContext) {
+        auto fb = FrameBuffer::getFB();
+        uint32_t syncContext;
+        uint32_t syncSurface;
+        createTrivialContext(0, // There is no context to share.
+                             &syncContext,
+                             &syncSurface);
+        bindContext(syncContext,
+                    syncSurface,
+                    syncSurface);
+        // This context is then cleaned up when the render thread exits.
+    }
+
+    auto sync = m_emulationGl->createEmulatedEglFenceSync(type, destroyWhenSignaled);
+    if (!sync) {
+        return;
+    }
+
+    if (outSync) {
+        *outSync = (uint64_t)(uintptr_t)sync.release();
+    }
+    if (outSyncThread) {
+        *outSyncThread = reinterpret_cast<uint64_t>(SyncThread::get());
+    }
 }
 
 void FrameBuffer::drainGlRenderThreadResources() {
@@ -2982,6 +3024,7 @@ void FrameBuffer::onSave(Stream* stream,
         }
     }
 
+    EmulatedEglFenceSync::onSave(stream);
 }
 
 bool FrameBuffer::onLoad(Stream* stream,
@@ -3189,6 +3232,9 @@ bool FrameBuffer::onLoad(Stream* stream,
     }
 
     repost(false);
+
+    EmulatedEglFenceSync::onLoad(stream);
+
     return true;
     // TODO: restore memory management
 }
@@ -3335,7 +3381,7 @@ std::future<void> FrameBuffer::blockPostWorker(std::future<void> continueSignal)
 }
 
 void FrameBuffer::waitForGpu(uint64_t eglsync) {
-    FenceSync* fenceSync = FenceSync::getFromHandle(eglsync);
+    EmulatedEglFenceSync* fenceSync = EmulatedEglFenceSync::getFromHandle(eglsync);
 
     if (!fenceSync) {
         ERR("err: fence sync 0x%llx not found", (unsigned long long)eglsync);
@@ -3348,20 +3394,20 @@ void FrameBuffer::waitForGpu(uint64_t eglsync) {
 void FrameBuffer::waitForGpuVulkan(uint64_t deviceHandle, uint64_t fenceHandle) {
     (void)deviceHandle;
     if (!m_emulationGl) {
-        // Guest ANGLE should always use the asyncWaitForGpuVulkanWithCb call. FenceSync is a
+        // Guest ANGLE should always use the asyncWaitForGpuVulkanWithCb call. EmulatedEglFenceSync is a
         // wrapper over EGLSyncKHR and should not be used for pure Vulkan environment.
         return;
     }
 
     // Note: this will always be nullptr.
-    FenceSync* fenceSync = FenceSync::getFromHandle(fenceHandle);
+    EmulatedEglFenceSync* fenceSync = EmulatedEglFenceSync::getFromHandle(fenceHandle);
 
     // Note: This will always signal right away.
     SyncThread::get()->triggerBlockedWaitNoTimeline(fenceSync);
 }
 
 void FrameBuffer::asyncWaitForGpuWithCb(uint64_t eglsync, FenceCompletionCallback cb) {
-    FenceSync* fenceSync = FenceSync::getFromHandle(eglsync);
+    EmulatedEglFenceSync* fenceSync = EmulatedEglFenceSync::getFromHandle(eglsync);
 
     if (!fenceSync) {
         ERR("err: fence sync 0x%llx not found", (unsigned long long)eglsync);
