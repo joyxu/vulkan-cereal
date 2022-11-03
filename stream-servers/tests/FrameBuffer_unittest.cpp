@@ -45,6 +45,7 @@
 using android::base::StdioStream;
 using android::snapshot::TextureLoader;
 using android::snapshot::TextureSaver;
+using gfxstream::GLESApi_3_0;
 
 namespace emugl {
 

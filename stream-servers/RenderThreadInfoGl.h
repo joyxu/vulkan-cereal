@@ -62,9 +62,9 @@ struct RenderThreadInfoGl {
     HandleType currDrawSurfHandleFromLoad;
     HandleType currReadSurfHandleFromLoad;
 
-    EmulatedEglContextPtr currContext;
-    EmulatedEglWindowSurfacePtr currDrawSurf;
-    EmulatedEglWindowSurfacePtr currReadSurf;
+    gfxstream::EmulatedEglContextPtr currContext;
+    gfxstream::EmulatedEglWindowSurfacePtr currDrawSurf;
+    gfxstream::EmulatedEglWindowSurfacePtr currReadSurf;
 
     // Decoder states.
     GLESv1Decoder                   m_glDec;

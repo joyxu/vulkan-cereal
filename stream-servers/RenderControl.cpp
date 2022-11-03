@@ -44,6 +44,8 @@ using android::base::AutoLock;
 using android::base::Lock;
 using emugl::emugl_sync_device_exists;
 using emugl::emugl_sync_register_trigger_wait;
+using gfxstream::GLESApi;
+using gfxstream::GLESApi_CM;
 
 #define DEBUG_GRALLOC_SYNC 0
 #define DEBUG_EGL_SYNC 0
@@ -788,7 +790,7 @@ static void rcDestroyContext(uint32_t context)
         return;
     }
 
-    fb->DestroyEmulatedEglContext(context);
+    fb->destroyEmulatedEglContext(context);
 }
 
 static uint32_t rcCreateWindowSurface(uint32_t config,

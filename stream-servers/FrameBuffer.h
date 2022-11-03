@@ -89,9 +89,11 @@ class ProcessResources {
     mutable uint32_t mSequenceNumber;
 };
 
-typedef std::unordered_map<uint64_t, EmulatedEglWindowSurfaceSet> ProcOwnedEmulatedEglWindowSurfaces;
+typedef std::unordered_map<uint64_t, gfxstream::EmulatedEglWindowSurfaceSet>
+    ProcOwnedEmulatedEglWindowSurfaces;
 
-typedef std::unordered_map<uint64_t, EmulatedEglContextSet> ProcOwnedEmulatedEglContexts;
+typedef std::unordered_map<uint64_t, gfxstream::EmulatedEglContextSet>
+    ProcOwnedEmulatedEglContexts;
 
 typedef std::unordered_map<uint64_t, ColorBufferSet> ProcOwnedColorBuffers;
 
@@ -194,7 +196,11 @@ class FrameBuffer {
     // |version| specifies the GLES version as a GLESApi enum.
     // Return a new handle value, which will be 0 in case of error.
     HandleType createEmulatedEglContext(int p_config, HandleType p_share,
-                                        GLESApi version = GLESApi_CM);
+                                        gfxstream::GLESApi version = gfxstream::GLESApi_CM);
+
+    // Destroy a given EmulatedEglContext instance. |p_context| is its handle
+    // value as returned by createEmulatedEglContext().
+    void destroyEmulatedEglContext(HandleType p_context);
 
     // Create a new EmulatedEglWindowSurface instance from this display instance.
     // |p_config| is the index of one of the configs returned by getConfigs().
@@ -248,10 +254,6 @@ class FrameBuffer {
     // host buffers when a guest application crashes, for example.
     void drainGlRenderThreadSurfaces();
 
-    // Destroy a given EmulatedEglContext instance. |p_context| is its handle
-    // value as returned by createEmulatedEglContext().
-    void DestroyEmulatedEglContext(HandleType p_context);
-
     // Destroy a given EmulatedEglWindowSurface instance. |p_surcace| is its
     // handle value as returned by createEmulatedEglWindowSurface().
     void DestroyEmulatedEglWindowSurface(HandleType p_surface);
@@ -290,10 +292,10 @@ class FrameBuffer {
                      HandleType p_readSurface);
 
     // Return a render context pointer from its handle
-    EmulatedEglContextPtr getContext_locked(HandleType p_context);
+    gfxstream::EmulatedEglContextPtr getContext_locked(HandleType p_context);
 
     // Return a color buffer pointer from its handle
-    EmulatedEglWindowSurfacePtr getWindowSurface_locked(HandleType p_windowsurface);
+    gfxstream::EmulatedEglWindowSurfacePtr getWindowSurface_locked(HandleType p_windowsurface);
 
     // Attach a ColorBuffer to a EmulatedEglWindowSurface instance.
     // See the documentation for EmulatedEglWindowSurface::setColorBuffer().
@@ -682,8 +684,8 @@ class FrameBuffer {
     android::base::ReadWriteLock m_contextStructureLock;
     android::base::Lock m_colorBufferMapLock;
     FBNativeWindowType m_nativeWindow = 0;
-    EmulatedEglContextMap m_contexts;
-    EmulatedEglWindowSurfaceMap m_windows;
+    gfxstream::EmulatedEglContextMap m_contexts;
+    gfxstream::EmulatedEglWindowSurfaceMap m_windows;
     ColorBufferMap m_colorbuffers;
     BufferMap m_buffers;
     std::unordered_map<HandleType, HandleType> m_EmulatedEglWindowSurfaceToColorBuffer;

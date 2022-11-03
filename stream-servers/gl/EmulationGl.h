@@ -31,6 +31,7 @@
 #include "Display.h"
 #include "DisplayGl.h"
 #include "DisplaySurface.h"
+#include "EmulatedEglContext.h"
 #include "OpenGLESDispatch/GLESv2Dispatch.h"
 #include "EmulatedEglConfig.h"
 #include "TextureDraw.h"
@@ -86,6 +87,15 @@ class EmulationGl {
     const std::optional<GlesUuid> getGlesDeviceUuid() const { return mGlesDeviceUuid; }
 
     void setUseBoundSurfaceContextForDisplay(bool use);
+
+    std::unique_ptr<EmulatedEglContext> createEmulatedEglContext(
+        uint32_t emulatedEglConfigIndex,
+        const EmulatedEglContext* shareContext,
+        GLESApi api,
+        HandleType handle);
+
+    std::unique_ptr<EmulatedEglContext> loadEmulatedEglContext(
+        android::base::Stream* stream);
 
   private:
     // TODO(b/233939967): Remove this after fully transitioning to EmulationGl.

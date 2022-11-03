@@ -26,6 +26,8 @@
 #include "Handle.h"
 #include "aemu/base/files/Stream.h"
 
+namespace gfxstream {
+
 // Tracks all the possible OpenGL ES API versions.
 enum GLESApi {
     GLESApi_CM = 1,
@@ -45,11 +47,11 @@ class EmulatedEglContext {
     // |config| is the host EGLConfig to use.
     // |sharedContext| is either EGL_NO_CONTEXT of a host EGLContext handle.
     // |version| specifies the GLES version as a GLESApi.
-    static EmulatedEglContext *create(EGLDisplay display,
-                                      EGLConfig config,
-                                      EGLContext sharedContext,
-                                      HandleType hndl,
-                                      GLESApi = GLESApi_CM);
+    static std::unique_ptr<EmulatedEglContext> create(EGLDisplay display,
+                                                      EGLConfig config,
+                                                      EGLContext sharedContext,
+                                                      HandleType hndl,
+                                                      GLESApi = GLESApi_CM);
 
     // Destructor.
     ~EmulatedEglContext();
@@ -69,8 +71,8 @@ class EmulatedEglContext {
     HandleType getHndl() const { return mHndl; }
 
     void onSave(android::base::Stream* stream);
-    static EmulatedEglContext *onLoad(android::base::Stream* stream,
-                                      EGLDisplay display);
+    static std::unique_ptr<EmulatedEglContext> onLoad(android::base::Stream* stream,
+                                                      EGLDisplay display);
   private:
     EmulatedEglContext(EGLDisplay display,
                        EGLContext context,
@@ -81,12 +83,12 @@ class EmulatedEglContext {
     // Implementation of create
     // |stream| is the stream to load from when restoring a snapshot,
     // set |stream| to nullptr if it is not loading from a snapshot
-    static EmulatedEglContext *createImpl(EGLDisplay display,
-                                          EGLConfig config,
-                                          EGLContext sharedContext,
-                                          HandleType hndl,
-                                          GLESApi version,
-                                          android::base::Stream *stream);
+    static std::unique_ptr<EmulatedEglContext> createImpl(EGLDisplay display,
+                                                          EGLConfig config,
+                                                          EGLContext sharedContext,
+                                                          HandleType hndl,
+                                                          GLESApi version,
+                                                          android::base::Stream *stream);
 
     EGLDisplay mDisplay;
     EGLContext mContext;
@@ -98,3 +100,5 @@ class EmulatedEglContext {
 typedef std::shared_ptr<EmulatedEglContext> EmulatedEglContextPtr;
 typedef std::unordered_map<HandleType, EmulatedEglContextPtr> EmulatedEglContextMap;
 typedef std::unordered_set<HandleType> EmulatedEglContextSet;
+
+}  // namespace gfxstream

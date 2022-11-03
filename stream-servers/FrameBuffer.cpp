@@ -61,6 +61,15 @@ using android::base::WorkerProcessingResult;
 using emugl::ABORT_REASON_OTHER;
 using emugl::FatalError;
 using emugl::GfxApiLogger;
+using gfxstream::EmulatedEglContext;
+using gfxstream::EmulatedEglContextMap;
+using gfxstream::EmulatedEglContextPtr;
+using gfxstream::EmulatedEglWindowSurface;
+using gfxstream::EmulatedEglWindowSurfaceMap;
+using gfxstream::EmulatedEglWindowSurfacePtr;
+using gfxstream::GLESApi;
+using gfxstream::GLESApi_CM;
+using gfxstream::GLESApi_2;
 
 // static std::string getTimeStampString() {
 //     const time_t timestamp = android::base::getUnixTimeUs();
@@ -1281,55 +1290,82 @@ HandleType FrameBuffer::createBufferWithHandleLocked(int p_size,
     return handle;
 }
 
-HandleType FrameBuffer::createEmulatedEglContext(int p_config,
-                                                 HandleType p_share,
+HandleType FrameBuffer::createEmulatedEglContext(int config,
+                                                 HandleType shareContextHandle,
                                                  GLESApi version) {
+    if (!m_emulationGl) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "EGL emulation unavailable.";
+    }
+
     AutoLock mutex(m_lock);
     android::base::AutoWriteLock contextLock(m_contextStructureLock);
     // Hold the ColorBuffer map lock so that the new handle won't collide with a ColorBuffer handle.
     AutoLock colorBufferMapLock(m_colorBufferMapLock);
-    HandleType ret = 0;
 
-    const EmulatedEglConfig* config = getConfigs()->get(p_config);
-    if (!config) {
-        return ret;
-    }
-
-    EmulatedEglContextPtr share;
-    if (p_share != 0) {
-        EmulatedEglContextMap::iterator s(m_contexts.find(p_share));
-        if (s == m_contexts.end()) {
-            return ret;
+    EmulatedEglContextPtr shareContext = nullptr;
+    if (shareContextHandle != 0) {
+        auto shareContextIt = m_contexts.find(shareContextHandle);
+        if (shareContextIt == m_contexts.end()) {
+            ERR("Failed to find share EmulatedEglContext:%d", shareContextHandle);
+            return 0;
         }
-        share = (*s).second;
+        shareContext = shareContextIt->second;
     }
-    EGLContext sharedContext =
-            share.get() ? share->getEGLContext() : EGL_NO_CONTEXT;
 
-    ret = genHandle_locked();
-    EmulatedEglContextPtr rctx(EmulatedEglContext::create(
-            getDisplay(), config->getHostEglConfig(), sharedContext, ret, version));
-    if (rctx.get() != NULL) {
-        m_contexts[ret] = rctx;
-        RenderThreadInfo* tinfo = RenderThreadInfo::get();
-        uint64_t puid = tinfo->m_puid;
-        // The new emulator manages render contexts per guest process.
-        // Fall back to per-thread management if the system image does not
-        // support it.
-        if (puid) {
-            m_procOwnedEmulatedEglContexts[puid].insert(ret);
-        } else { // legacy path to manage context lifetime by threads
-            if (!tinfo->m_glInfo) {
-                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-                    << "Render thread GL not available.";
-            }
-            tinfo->m_glInfo->m_contextSet.insert(ret);
+    HandleType contextHandle = genHandle_locked();
+    auto context = m_emulationGl->createEmulatedEglContext(config,
+                                                           shareContext.get(),
+                                                           version,
+                                                           contextHandle);
+    if (!context) {
+        ERR("Failed to create EmulatedEglContext.");
+        return 0;
+    }
+
+    m_contexts[contextHandle] = std::move(context);
+
+    RenderThreadInfo* tinfo = RenderThreadInfo::get();
+    uint64_t puid = tinfo->m_puid;
+    // The new emulator manages render contexts per guest process.
+    // Fall back to per-thread management if the system image does not
+    // support it.
+    if (puid) {
+        m_procOwnedEmulatedEglContexts[puid].insert(contextHandle);
+    } else { // legacy path to manage context lifetime by threads
+        if (!tinfo->m_glInfo) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Render thread GL not available.";
+        }
+        tinfo->m_glInfo->m_contextSet.insert(contextHandle);
+    }
+
+    return contextHandle;
+}
+
+void FrameBuffer::destroyEmulatedEglContext(HandleType contextHandle) {
+    AutoLock mutex(m_lock);
+    sweepColorBuffersLocked();
+
+    android::base::AutoWriteLock contextLock(m_contextStructureLock);
+    m_contexts.erase(contextHandle);
+    RenderThreadInfo* tinfo = RenderThreadInfo::get();
+    uint64_t puid = tinfo->m_puid;
+    // The new emulator manages render contexts per guest process.
+    // Fall back to per-thread management if the system image does not
+    // support it.
+    if (puid) {
+        auto it = m_procOwnedEmulatedEglContexts.find(puid);
+        if (it != m_procOwnedEmulatedEglContexts.end()) {
+            it->second.erase(contextHandle);
         }
     } else {
-        ret = 0;
+        if (!tinfo->m_glInfo) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "Render thread GL not available.";
+        }
+        tinfo->m_glInfo->m_contextSet.erase(contextHandle);
     }
-
-    return ret;
 }
 
 HandleType FrameBuffer::createEmulatedEglWindowSurface(int p_config,
@@ -1452,31 +1488,6 @@ void FrameBuffer::drainGlRenderThreadSurfaces() {
 
     for (auto handle: colorBuffersToCleanup) {
         goldfish_vk::teardownVkColorBuffer(handle);
-    }
-}
-
-void FrameBuffer::DestroyEmulatedEglContext(HandleType p_context) {
-    AutoLock mutex(m_lock);
-    sweepColorBuffersLocked();
-
-    android::base::AutoWriteLock contextLock(m_contextStructureLock);
-    m_contexts.erase(p_context);
-    RenderThreadInfo* tinfo = RenderThreadInfo::get();
-    uint64_t puid = tinfo->m_puid;
-    // The new emulator manages render contexts per guest process.
-    // Fall back to per-thread management if the system image does not
-    // support it.
-    if (puid) {
-        auto it = m_procOwnedEmulatedEglContexts.find(puid);
-        if (it != m_procOwnedEmulatedEglContexts.end()) {
-            it->second.erase(p_context);
-        }
-    } else {
-        if (!tinfo->m_glInfo) {
-            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-                << "Render thread GL not available.";
-        }
-        tinfo->m_glInfo->m_contextSet.erase(p_context);
     }
 }
 
@@ -3054,9 +3065,15 @@ bool FrameBuffer::onLoad(Stream* stream,
 
     loadCollection(stream, &m_contexts,
                    [this](Stream* stream) -> EmulatedEglContextMap::value_type {
-        EmulatedEglContextPtr ctx(EmulatedEglContext::onLoad(stream, getDisplay()));
-        return { ctx ? ctx->getHndl() : 0, ctx };
-    });
+                        if (!m_emulationGl) {
+                            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                                << "GL/EGL emulation not enabled.";
+                        }
+
+                        auto context = m_emulationGl->loadEmulatedEglContext(stream);
+                        auto contextHandle = context ? context->getHndl() : 0;
+                        return { contextHandle, std::move(context) };
+                   });
     assert(!android::base::find(m_contexts, 0));
 
     auto now = android::base::getUnixTimeUs();
