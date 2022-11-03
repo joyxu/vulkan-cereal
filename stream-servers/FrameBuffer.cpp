@@ -1317,7 +1317,7 @@ HandleType FrameBuffer::createEmulatedEglContext(int p_config,
         // Fall back to per-thread management if the system image does not
         // support it.
         if (puid) {
-            m_procOwnedEmulatedEglContext[puid].insert(ret);
+            m_procOwnedEmulatedEglContexts[puid].insert(ret);
         } else { // legacy path to manage context lifetime by threads
             if (!tinfo->m_glInfo) {
                 GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -1332,9 +1332,9 @@ HandleType FrameBuffer::createEmulatedEglContext(int p_config,
     return ret;
 }
 
-HandleType FrameBuffer::createWindowSurface(int p_config,
-                                            int p_width,
-                                            int p_height) {
+HandleType FrameBuffer::createEmulatedEglWindowSurface(int p_config,
+                                                       int p_width,
+                                                       int p_height) {
     AutoLock mutex(m_lock);
     // Hold the ColorBuffer map lock so that the new handle won't collide with a ColorBuffer handle.
     AutoLock colorBufferMapLock(m_colorBufferMapLock);
@@ -1347,14 +1347,14 @@ HandleType FrameBuffer::createWindowSurface(int p_config,
     }
 
     ret = genHandle_locked();
-    WindowSurfacePtr win(WindowSurface::create(
+    EmulatedEglWindowSurfacePtr win(EmulatedEglWindowSurface::create(
             getDisplay(), config->getHostEglConfig(), p_width, p_height, ret));
     if (win.get() != NULL) {
         m_windows[ret] = { win, 0 };
         RenderThreadInfo* tInfo = RenderThreadInfo::get();
         uint64_t puid = tInfo->m_puid;
         if (puid) {
-            m_procOwnedWindowSurfaces[puid].insert(ret);
+            m_procOwnedEmulatedEglWindowSurfaces[puid].insert(ret);
         } else { // legacy path to manage window surface lifetime by threads
             if (!tInfo->m_glInfo) {
                 GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
@@ -1377,7 +1377,7 @@ void FrameBuffer::drainGlRenderThreadResources() {
     // Release references to the current thread's context/surfaces if any
     bindContext(0, 0, 0);
 
-    drainGlRenderThreadWindowSurfaces();
+    drainGlRenderThreadSurfaces();
     drainGlRenderThreadContexts();
 
     if (!s_egl.eglReleaseThread()) {
@@ -1408,7 +1408,7 @@ void FrameBuffer::drainGlRenderThreadContexts() {
     tinfo->m_contextSet.clear();
 }
 
-void FrameBuffer::drainGlRenderThreadWindowSurfaces() {
+void FrameBuffer::drainGlRenderThreadSurfaces() {
     if (isShuttingDown()) {
         return;
     }
@@ -1467,9 +1467,9 @@ void FrameBuffer::DestroyEmulatedEglContext(HandleType p_context) {
     // Fall back to per-thread management if the system image does not
     // support it.
     if (puid) {
-        auto ite = m_procOwnedEmulatedEglContext.find(puid);
-        if (ite != m_procOwnedEmulatedEglContext.end()) {
-            ite->second.erase(p_context);
+        auto it = m_procOwnedEmulatedEglContexts.find(puid);
+        if (it != m_procOwnedEmulatedEglContexts.end()) {
+            it->second.erase(p_context);
         }
     } else {
         if (!tinfo->m_glInfo) {
@@ -1480,12 +1480,12 @@ void FrameBuffer::DestroyEmulatedEglContext(HandleType p_context) {
     }
 }
 
-void FrameBuffer::DestroyWindowSurface(HandleType p_surface) {
+void FrameBuffer::DestroyEmulatedEglWindowSurface(HandleType p_surface) {
     if (m_shuttingDown) {
         return;
     }
     AutoLock mutex(m_lock);
-    auto colorBuffersToCleanup = DestroyWindowSurfaceLocked(p_surface);
+    auto colorBuffersToCleanup = DestroyEmulatedEglWindowSurfaceLocked(p_surface);
 
     mutex.unlock();
 
@@ -1494,7 +1494,7 @@ void FrameBuffer::DestroyWindowSurface(HandleType p_surface) {
     }
 }
 
-std::vector<HandleType> FrameBuffer::DestroyWindowSurfaceLocked(HandleType p_surface) {
+std::vector<HandleType> FrameBuffer::DestroyEmulatedEglWindowSurfaceLocked(HandleType p_surface) {
     std::vector<HandleType> colorBuffersToCleanUp;
     const auto w = m_windows.find(p_surface);
     if (w != m_windows.end()) {
@@ -1514,8 +1514,8 @@ std::vector<HandleType> FrameBuffer::DestroyWindowSurfaceLocked(HandleType p_sur
         RenderThreadInfo* tinfo = RenderThreadInfo::get();
         uint64_t puid = tinfo->m_puid;
         if (puid) {
-            auto ite = m_procOwnedWindowSurfaces.find(puid);
-            if (ite != m_procOwnedWindowSurfaces.end()) {
+            auto ite = m_procOwnedEmulatedEglWindowSurfaces.find(puid);
+            if (ite != m_procOwnedEmulatedEglWindowSurfaces.end()) {
                 ite->second.erase(p_surface);
             }
         } else {
@@ -1777,8 +1777,8 @@ std::vector<HandleType> FrameBuffer::cleanupProcGLObjects_locked(uint64_t puid, 
         }
         // Clean up window surfaces
         {
-            auto procIte = m_procOwnedWindowSurfaces.find(puid);
-            if (procIte != m_procOwnedWindowSurfaces.end()) {
+            auto procIte = m_procOwnedEmulatedEglWindowSurfaces.find(puid);
+            if (procIte != m_procOwnedEmulatedEglWindowSurfaces.end()) {
                 for (auto whndl : procIte->second) {
                     auto w = m_windows.find(whndl);
                     if (!m_guestManagedColorBufferLifetime) {
@@ -1794,7 +1794,7 @@ std::vector<HandleType> FrameBuffer::cleanupProcGLObjects_locked(uint64_t puid, 
                     }
                     m_windows.erase(w);
                 }
-                m_procOwnedWindowSurfaces.erase(procIte);
+                m_procOwnedEmulatedEglWindowSurfaces.erase(procIte);
             }
         }
         // Clean up color buffers.
@@ -1833,12 +1833,12 @@ std::vector<HandleType> FrameBuffer::cleanupProcGLObjects_locked(uint64_t puid, 
     // Unbind before cleaning up contexts
     // Cleanup render contexts
     {
-        auto procIte = m_procOwnedEmulatedEglContext.find(puid);
-        if (procIte != m_procOwnedEmulatedEglContext.end()) {
+        auto procIte = m_procOwnedEmulatedEglContexts.find(puid);
+        if (procIte != m_procOwnedEmulatedEglContexts.end()) {
             for (auto ctx : procIte->second) {
                 m_contexts.erase(ctx);
             }
-            m_procOwnedEmulatedEglContext.erase(procIte);
+            m_procOwnedEmulatedEglContexts.erase(procIte);
         }
     }
 
@@ -1851,12 +1851,12 @@ void FrameBuffer::markOpened(ColorBufferRef* cbRef) {
     cbRef->closedTs = 0;
 }
 
-bool FrameBuffer::flushWindowSurfaceColorBuffer(HandleType p_surface) {
+bool FrameBuffer::flushEmulatedEglWindowSurfaceColorBuffer(HandleType p_surface) {
     AutoLock mutex(m_lock);
 
-    WindowSurfaceMap::iterator w(m_windows.find(p_surface));
+    EmulatedEglWindowSurfaceMap::iterator w(m_windows.find(p_surface));
     if (w == m_windows.end()) {
-        ERR("FB::flushWindowSurfaceColorBuffer: window handle %#x not found",
+        ERR("FB::flushEmulatedEglWindowSurfaceColorBuffer: window handle %#x not found",
             p_surface);
         // bad surface handle
         return false;
@@ -1869,27 +1869,28 @@ bool FrameBuffer::flushWindowSurfaceColorBuffer(HandleType p_surface) {
                 std::hex << resetStatus;
     }
 
-    WindowSurface* surface = (*w).second.first.get();
+    EmulatedEglWindowSurface* surface = (*w).second.first.get();
     surface->flushColorBuffer();
 
     return true;
 }
 
-HandleType FrameBuffer::getWindowSurfaceColorBufferHandle(HandleType p_surface) {
+HandleType FrameBuffer::getEmulatedEglWindowSurfaceColorBufferHandle(HandleType p_surface) {
     AutoLock mutex(m_lock);
 
-    auto it = m_windowSurfaceToColorBuffer.find(p_surface);
-
-    if (it == m_windowSurfaceToColorBuffer.end()) return 0;
+    auto it = m_EmulatedEglWindowSurfaceToColorBuffer.find(p_surface);
+    if (it == m_EmulatedEglWindowSurfaceToColorBuffer.end()) {
+        return 0;
+    }
 
     return it->second;
 }
 
-bool FrameBuffer::setWindowSurfaceColorBuffer(HandleType p_surface,
-                                              HandleType p_colorbuffer) {
+bool FrameBuffer::setEmulatedEglWindowSurfaceColorBuffer(HandleType p_surface,
+                                                         HandleType p_colorbuffer) {
     AutoLock mutex(m_lock);
 
-    WindowSurfaceMap::iterator w(m_windows.find(p_surface));
+    EmulatedEglWindowSurfaceMap::iterator w(m_windows.find(p_surface));
     if (w == m_windows.end()) {
         // bad surface handle
         ERR("bad window surface handle %#x", p_surface);
@@ -1923,7 +1924,7 @@ bool FrameBuffer::setWindowSurfaceColorBuffer(HandleType p_surface,
 
     (*w).second.second = p_colorbuffer;
 
-    m_windowSurfaceToColorBuffer[p_surface] = p_colorbuffer;
+    m_EmulatedEglWindowSurfaceToColorBuffer[p_surface] = p_colorbuffer;
 
     return true;
 }
@@ -2235,7 +2236,7 @@ bool FrameBuffer::bindContext(HandleType p_context,
 
     AutoLock mutex(m_lock);
 
-    WindowSurfacePtr draw, read;
+    EmulatedEglWindowSurfacePtr draw, read;
     EmulatedEglContextPtr ctx;
 
     //
@@ -2245,7 +2246,7 @@ bool FrameBuffer::bindContext(HandleType p_context,
         ctx = getContext_locked(p_context);
         if (!ctx)
             return false;
-        WindowSurfaceMap::iterator w(m_windows.find(p_drawSurface));
+        EmulatedEglWindowSurfaceMap::iterator w(m_windows.find(p_drawSurface));
         if (w == m_windows.end()) {
             // bad surface handle
             return false;
@@ -2253,7 +2254,7 @@ bool FrameBuffer::bindContext(HandleType p_context,
         draw = (*w).second.first;
 
         if (p_readSurface != p_drawSurface) {
-            WindowSurfaceMap::iterator w(m_windows.find(p_readSurface));
+            EmulatedEglWindowSurfaceMap::iterator w(m_windows.find(p_readSurface));
             if (w == m_windows.end()) {
                 // bad surface handle
                 return false;
@@ -2284,7 +2285,7 @@ bool FrameBuffer::bindContext(HandleType p_context,
             << "Render thread GL not available.";
     }
 
-    WindowSurfacePtr bindDraw, bindRead;
+    EmulatedEglWindowSurfacePtr bindDraw, bindRead;
     if (draw.get() == NULL && read.get() == NULL) {
         // Unbind the current read and draw surfaces from the context
         bindDraw = tinfo->currDrawSurf;
@@ -2296,10 +2297,10 @@ bool FrameBuffer::bindContext(HandleType p_context,
 
     if (bindDraw.get() != NULL && bindRead.get() != NULL) {
         if (bindDraw.get() != bindRead.get()) {
-            bindDraw->bind(ctx, WindowSurface::BIND_DRAW);
-            bindRead->bind(ctx, WindowSurface::BIND_READ);
+            bindDraw->bind(ctx, EmulatedEglWindowSurface::BIND_DRAW);
+            bindRead->bind(ctx, EmulatedEglWindowSurface::BIND_READ);
         } else {
-            bindDraw->bind(ctx, WindowSurface::BIND_READDRAW);
+            bindDraw->bind(ctx, EmulatedEglWindowSurface::BIND_READDRAW);
         }
     }
 
@@ -2325,7 +2326,7 @@ EmulatedEglContextPtr FrameBuffer::getContext_locked(HandleType p_context) {
     return android::base::findOrDefault(m_contexts, p_context);
 }
 
-WindowSurfacePtr FrameBuffer::getWindowSurface_locked(HandleType p_windowsurface) {
+EmulatedEglWindowSurfacePtr FrameBuffer::getWindowSurface_locked(HandleType p_windowsurface) {
     return android::base::findOrDefault(m_windows, p_windowsurface).first;
 }
 
@@ -2386,7 +2387,7 @@ void FrameBuffer::createTrivialContext(HandleType shared,
     *contextOut = createEmulatedEglContext(0, shared, GLESApi_2);
     // Zero size is formally allowed here, but SwiftShader doesn't like it and
     // fails.
-    *surfOut = createWindowSurface(0, 1, 1);
+    *surfOut = createEmulatedEglWindowSurface(0, 1, 1);
 }
 
 void FrameBuffer::createSharedTrivialContext(EGLContext* contextOut,
@@ -2905,15 +2906,15 @@ void FrameBuffer::onSave(Stream* stream,
     }
     stream->putBe32(m_lastPostedColorBuffer);
     saveCollection(stream, m_windows,
-                   [](Stream* s, const WindowSurfaceMap::value_type& pair) {
+                   [](Stream* s, const EmulatedEglWindowSurfaceMap::value_type& pair) {
         pair.second.first->onSave(s);
         s->putBe32(pair.second.second); // Color buffer handle.
     });
 
-    saveProcOwnedCollection(stream, m_procOwnedWindowSurfaces);
+    saveProcOwnedCollection(stream, m_procOwnedEmulatedEglWindowSurfaces);
     saveProcOwnedCollection(stream, m_procOwnedColorBuffers);
     saveProcOwnedCollection(stream, m_procOwnedEGLImages);
-    saveProcOwnedCollection(stream, m_procOwnedEmulatedEglContext);
+    saveProcOwnedCollection(stream, m_procOwnedEmulatedEglContexts);
 
     // Save Vulkan state
     if (feature_is_enabled(kFeature_VulkanSnapshots) &&
@@ -2946,8 +2947,8 @@ bool FrameBuffer::onLoad(Stream* stream,
         bool cleanupComplete = false;
         {
             AutoLock colorBufferMapLock(m_colorBufferMapLock);
-            if (m_procOwnedWindowSurfaces.empty() && m_procOwnedColorBuffers.empty() &&
-                m_procOwnedEGLImages.empty() && m_procOwnedEmulatedEglContext.empty() &&
+            if (m_procOwnedEmulatedEglWindowSurfaces.empty() && m_procOwnedColorBuffers.empty() &&
+                m_procOwnedEGLImages.empty() && m_procOwnedEmulatedEglContexts.empty() &&
                 m_procOwnedCleanupCallbacks.empty() &&
                 (!m_contexts.empty() || !m_windows.empty() ||
                  m_colorbuffers.size() > m_colorBufferDelayedCloseList.size())) {
@@ -2962,9 +2963,9 @@ bool FrameBuffer::onLoad(Stream* stream,
         if (!cleanupComplete) {
             std::vector<HandleType> colorBuffersToCleanup;
 
-            while (m_procOwnedWindowSurfaces.size()) {
+            while (m_procOwnedEmulatedEglWindowSurfaces.size()) {
                 auto cleanupHandles = cleanupProcGLObjects_locked(
-                        m_procOwnedWindowSurfaces.begin()->first, true);
+                        m_procOwnedEmulatedEglWindowSurfaces.begin()->first, true);
                 colorBuffersToCleanup.insert(colorBuffersToCleanup.end(),
                     cleanupHandles.begin(), cleanupHandles.end());
             }
@@ -2980,9 +2981,9 @@ bool FrameBuffer::onLoad(Stream* stream,
                 colorBuffersToCleanup.insert(colorBuffersToCleanup.end(),
                     cleanupHandles.begin(), cleanupHandles.end());
             }
-            while (m_procOwnedEmulatedEglContext.size()) {
+            while (m_procOwnedEmulatedEglContexts.size()) {
                 auto cleanupHandles = cleanupProcGLObjects_locked(
-                        m_procOwnedEmulatedEglContext.begin()->first, true);
+                        m_procOwnedEmulatedEglContexts.begin()->first, true);
                 colorBuffersToCleanup.insert(colorBuffersToCleanup.end(),
                     cleanupHandles.begin(), cleanupHandles.end());
             }
@@ -3079,18 +3080,25 @@ bool FrameBuffer::onLoad(Stream* stream,
     m_lastPostedColorBuffer = static_cast<HandleType>(stream->getBe32());
     GL_LOG("Got lasted posted color buffer from snapshot");
 
-    loadCollection(stream, &m_windows,
-                   [this](Stream* stream) -> WindowSurfaceMap::value_type {
-        WindowSurfacePtr window(WindowSurface::onLoad(stream, getDisplay()));
-        HandleType handle = window->getHndl();
-        HandleType colorBufferHandle = stream->getBe32();
-        return { handle, { std::move(window), colorBufferHandle } };
-    });
+    {
+        AutoLock colorBufferMapLock(m_colorBufferMapLock);
+        loadCollection(stream, &m_windows,
+                    [this](Stream* stream) -> EmulatedEglWindowSurfaceMap::value_type {
+            EmulatedEglWindowSurfacePtr window(
+                EmulatedEglWindowSurface::onLoad(stream,
+                                                 getDisplay(),
+                                                 m_colorbuffers,
+                                                 m_contexts));
+            HandleType handle = window->getHndl();
+            HandleType colorBufferHandle = stream->getBe32();
+            return { handle, { std::move(window), colorBufferHandle } };
+        });
+    }
 
-    loadProcOwnedCollection(stream, &m_procOwnedWindowSurfaces);
+    loadProcOwnedCollection(stream, &m_procOwnedEmulatedEglWindowSurfaces);
     loadProcOwnedCollection(stream, &m_procOwnedColorBuffers);
     loadProcOwnedCollection(stream, &m_procOwnedEGLImages);
-    loadProcOwnedCollection(stream, &m_procOwnedEmulatedEglContext);
+    loadProcOwnedCollection(stream, &m_procOwnedEmulatedEglContexts);
 
     if (s_egl.eglPostLoadAllImages) {
         s_egl.eglPostLoadAllImages(getDisplay(), stream);

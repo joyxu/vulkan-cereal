@@ -17,6 +17,8 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
+#include <unordered_set>
 
 #include <EGL/egl.h>
 
@@ -94,3 +96,5 @@ class EmulatedEglContext {
 };
 
 typedef std::shared_ptr<EmulatedEglContext> EmulatedEglContextPtr;
+typedef std::unordered_map<HandleType, EmulatedEglContextPtr> EmulatedEglContextMap;
+typedef std::unordered_set<HandleType> EmulatedEglContextSet;

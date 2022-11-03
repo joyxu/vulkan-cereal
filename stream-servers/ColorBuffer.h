@@ -13,10 +13,12 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#ifndef _LIBRENDER_COLORBUFFER_H
-#define _LIBRENDER_COLORBUFFER_H
+
+#pragma once
 
 #include <memory>
+#include <unordered_map>
+#include <unordered_set>
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -304,4 +306,19 @@ private:
 
 typedef std::shared_ptr<ColorBuffer> ColorBufferPtr;
 
-#endif
+struct ColorBufferRef {
+    ColorBufferPtr cb;
+    uint32_t refcount;  // number of client-side references
+
+    // Tracks whether opened at least once. In O+,
+    // color buffers can be created/closed immediately,
+    // but then registered (opened) afterwards.
+    bool opened;
+
+    // Tracks the time when this buffer got a close request while not being
+    // opened yet.
+    uint64_t closedTs;
+};
+
+typedef std::unordered_map<HandleType, ColorBufferRef> ColorBufferMap;
+typedef std::unordered_multiset<HandleType> ColorBufferSet;
