@@ -32,9 +32,11 @@
 #include "DisplayGl.h"
 #include "DisplaySurface.h"
 #include "EmulatedEglContext.h"
-#include "OpenGLESDispatch/GLESv2Dispatch.h"
 #include "EmulatedEglConfig.h"
+#include "EmulatedEglContext.h"
+#include "EmulatedEglImage.h"
 #include "EmulatedEglWindowSurface.h"
+#include "OpenGLESDispatch/GLESv2Dispatch.h"
 #include "TextureDraw.h"
 
 #define EGL_NO_CONFIG ((EGLConfig)0)
@@ -95,6 +97,12 @@ class EmulationGl {
 
     std::unique_ptr<EmulatedEglContext> loadEmulatedEglContext(
         android::base::Stream* stream);
+
+    std::unique_ptr<EmulatedEglImage> createEmulatedEglImage(
+        EmulatedEglContext* context,
+        EGLenum target,
+        EGLClientBuffer buffer,
+        HandleType handle);
 
     std::unique_ptr<EmulatedEglWindowSurface> createEmulatedEglWindowSurface(
         uint32_t emulatedConfigIndex,

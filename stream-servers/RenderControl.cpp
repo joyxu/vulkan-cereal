@@ -1078,7 +1078,7 @@ static uint32_t rcCreateClientImage(uint32_t context, EGLenum target, GLuint buf
         return 0;
     }
 
-    return fb->createClientImage(context, target, buffer);
+    return fb->createEmulatedEglImage(context, target, buffer);
 }
 
 static int rcDestroyClientImage(uint32_t image)
@@ -1088,7 +1088,7 @@ static int rcDestroyClientImage(uint32_t image)
         return 0;
     }
 
-    return fb->destroyClientImage(image);
+    return fb->destroyEmulatedEglImage(image);
 }
 
 static void rcSelectChecksumHelper(uint32_t protocol, uint32_t reserved) {

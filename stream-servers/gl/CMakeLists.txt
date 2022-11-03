@@ -14,6 +14,7 @@ add_library(gfxstream-gl-server
             DisplaySurfaceGl.cpp
             EmulatedEglConfig.cpp
             EmulatedEglContext.cpp
+            EmulatedEglImage.cpp
             EmulatedEglWindowSurface.cpp
             EmulationGl.cpp
             GLESVersionDetector.cpp

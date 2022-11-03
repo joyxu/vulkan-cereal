@@ -591,6 +591,15 @@ std::unique_ptr<EmulatedEglContext> EmulationGl::loadEmulatedEglContext(
     return EmulatedEglContext::onLoad(stream, mEglDisplay);
 }
 
+std::unique_ptr<EmulatedEglImage> EmulationGl::createEmulatedEglImage(
+        EmulatedEglContext* context,
+        EGLenum target,
+        EGLClientBuffer buffer,
+        HandleType handle) {
+    EGLContext eglContext = context ? context->getEGLContext() : EGL_NO_CONTEXT;
+    return EmulatedEglImage::create(mEglDisplay, eglContext, target, buffer, handle);
+}
+
 std::unique_ptr<EmulatedEglWindowSurface> EmulationGl::createEmulatedEglWindowSurface(
         uint32_t emulatedConfigIndex,
         uint32_t width,

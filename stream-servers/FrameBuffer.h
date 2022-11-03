@@ -52,6 +52,7 @@
 #include "gl/EmulatedEglConfig.h"
 #include "gl/EmulatedEglContext.h"
 #include "gl/EmulatedEglWindowSurface.h"
+#include "gl/EmulatedEglImage.h"
 #include "gl/EmulationGl.h"
 #include "gl/GLESVersionDetector.h"
 #include "gl/TextureDraw.h"
@@ -101,8 +102,8 @@ typedef std::unordered_map<HandleType, BufferRef> BufferMap;
 typedef std::unordered_multiset<HandleType> BufferSet;
 typedef std::unordered_map<uint64_t, BufferSet> ProcOwnedBuffers;
 
-typedef std::unordered_set<HandleType> EGLImageSet;
-typedef std::unordered_map<uint64_t, EGLImageSet> ProcOwnedEGLImages;
+typedef std::unordered_map<uint64_t, gfxstream::EmulatedEglImageSet>
+    ProcOwnedEmulatedEGLImages;
 
 typedef std::unordered_map<void*, std::function<void()>> CallbackMap;
 typedef std::unordered_map<uint64_t, CallbackMap> ProcOwnedCleanupCallbacks;
@@ -491,12 +492,12 @@ class FrameBuffer {
 
     // Create an eglImage and return its handle.  Reference:
     // https://www.khronos.org/registry/egl/extensions/KHR/EGL_KHR_image_base.txt
-    HandleType createClientImage(HandleType context, EGLenum target,
-                                 GLuint buffer);
+    HandleType createEmulatedEglImage(HandleType context, EGLenum target,
+                                      GLuint buffer);
     // Call the implementation of eglDestroyImageKHR, return if succeeds or
     // not. Reference:
     // https://www.khronos.org/registry/egl/extensions/KHR/EGL_KHR_image_base.txt
-    EGLBoolean destroyClientImage(HandleType image);
+    EGLBoolean destroyEmulatedEglImage(HandleType image);
 
     void lockContextStructureRead() { m_contextStructureLock.lockRead(); }
     void unlockContextStructureRead() { m_contextStructureLock.unlockRead(); }
@@ -686,6 +687,7 @@ class FrameBuffer {
     android::base::Lock m_colorBufferMapLock;
     FBNativeWindowType m_nativeWindow = 0;
     gfxstream::EmulatedEglContextMap m_contexts;
+    gfxstream::EmulatedEglImageMap m_images;
     gfxstream::EmulatedEglWindowSurfaceMap m_windows;
     ColorBufferMap m_colorbuffers;
     BufferMap m_buffers;
@@ -765,7 +767,7 @@ class FrameBuffer {
     // cleanup. Guest processes are identified with a host generated unique ID.
     // TODO(kaiyili): move all those resources to the ProcessResources struct.
     ProcOwnedColorBuffers m_procOwnedColorBuffers;
-    ProcOwnedEGLImages m_procOwnedEGLImages;
+    ProcOwnedEmulatedEGLImages m_procOwnedEmulatedEglImages;
     ProcOwnedEmulatedEglContexts m_procOwnedEmulatedEglContexts;
     ProcOwnedEmulatedEglWindowSurfaces m_procOwnedEmulatedEglWindowSurfaces;
     ProcOwnedCleanupCallbacks m_procOwnedCleanupCallbacks;
