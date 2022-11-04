@@ -360,9 +360,18 @@ bool FrameBuffer::initialize(int width, int height, bool useSubWindow, bool egl2
         }
     }
 
+    // Use ANGLE's EGL null backend to prevent from accidentally calling into EGL.
+    if (s_egl.eglUseOsEglApi) {
+        EGLBoolean useNullBackend = EGL_FALSE;
+        if (egl2egl && feature_is_enabled(kFeature_VulkanNativeSwapchain)) {
+            useNullBackend = EGL_TRUE;
+        }
+        s_egl.eglUseOsEglApi(egl2egl, useNullBackend);
+    }
+
     // Do not initialize GL emulation if the guest is using ANGLE.
     if (!feature_is_enabled(kFeature_GuestUsesAngle)) {
-        fb->m_emulationGl = gfxstream::EmulationGl::create(width, height, egl2egl, useSubWindow);
+        fb->m_emulationGl = gfxstream::EmulationGl::create(width, height, useSubWindow);
         if (!fb->m_emulationGl) {
             ERR("Failed to initialize GL emulation.");
             return false;
