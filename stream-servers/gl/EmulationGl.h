@@ -43,10 +43,8 @@ class FrameBuffer;
 namespace gfxstream {
 
 class EmulationGl {
-  public:
-    static std::unique_ptr<EmulationGl> create(uint32_t width,
-                                               uint32_t height,
-                                               bool egl2egl,
+   public:
+    static std::unique_ptr<EmulationGl> create(uint32_t width, uint32_t height,
                                                bool allowWindowSurface);
 
     ~EmulationGl();
