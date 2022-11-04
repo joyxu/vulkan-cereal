@@ -34,6 +34,7 @@
 #include "EmulatedEglContext.h"
 #include "OpenGLESDispatch/GLESv2Dispatch.h"
 #include "EmulatedEglConfig.h"
+#include "EmulatedEglWindowSurface.h"
 #include "TextureDraw.h"
 
 #define EGL_NO_CONFIG ((EGLConfig)0)
@@ -94,6 +95,17 @@ class EmulationGl {
 
     std::unique_ptr<EmulatedEglContext> loadEmulatedEglContext(
         android::base::Stream* stream);
+
+    std::unique_ptr<EmulatedEglWindowSurface> createEmulatedEglWindowSurface(
+        uint32_t emulatedConfigIndex,
+        uint32_t width,
+        uint32_t height,
+        HandleType handle);
+
+    std::unique_ptr<EmulatedEglWindowSurface> loadEmulatedEglWindowSurface(
+        android::base::Stream* stream,
+        const ColorBufferMap& colorBuffers,
+        const EmulatedEglContextMap& contexts);
 
   private:
     // TODO(b/233939967): Remove this after fully transitioning to EmulationGl.

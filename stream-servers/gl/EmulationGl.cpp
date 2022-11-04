@@ -591,4 +591,32 @@ std::unique_ptr<EmulatedEglContext> EmulationGl::loadEmulatedEglContext(
     return EmulatedEglContext::onLoad(stream, mEglDisplay);
 }
 
+std::unique_ptr<EmulatedEglWindowSurface> EmulationGl::createEmulatedEglWindowSurface(
+        uint32_t emulatedConfigIndex,
+        uint32_t width,
+        uint32_t height,
+        HandleType handle) {
+    if (!mEmulatedEglConfigs) {
+        ERR("EmulatedEglConfigs unavailable.");
+        return nullptr;
+    }
+
+    const EmulatedEglConfig* emulatedEglConfig = mEmulatedEglConfigs->get(emulatedConfigIndex);
+    if (!emulatedEglConfig) {
+        ERR("Failed to find emulated EGL config %d", emulatedConfigIndex);
+        return nullptr;
+    }
+
+    EGLConfig config = emulatedEglConfig->getHostEglConfig();
+
+    return EmulatedEglWindowSurface::create(mEglDisplay, config, width, height, handle);
+}
+
+std::unique_ptr<EmulatedEglWindowSurface> EmulationGl::loadEmulatedEglWindowSurface(
+        android::base::Stream* stream,
+        const ColorBufferMap& colorBuffers,
+        const EmulatedEglContextMap& contexts) {
+    return EmulatedEglWindowSurface::onLoad(stream, mEglDisplay, colorBuffers, contexts);
+}
+
 }  // namespace gfxstream

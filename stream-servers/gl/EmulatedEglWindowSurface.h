@@ -39,11 +39,11 @@ class EmulatedEglWindowSurface {
     // |width| and |height| are the initial size of the Pbuffer.
     // Return a new EmulatedEglWindowSurface instance on success, or NULL on
     // failure.
-    static EmulatedEglWindowSurface* create(EGLDisplay display,
-                                            EGLConfig config,
-                                            int width,
-                                            int height,
-                                            HandleType hndl);
+    static std::unique_ptr<EmulatedEglWindowSurface> create(EGLDisplay display,
+                                                            EGLConfig config,
+                                                            int width,
+                                                            int height,
+                                                            HandleType hndl);
 
     // Destructor.
     ~EmulatedEglWindowSurface();
@@ -95,10 +95,12 @@ class EmulatedEglWindowSurface {
     GLuint getHeight() const;
 
     void onSave(android::base::Stream* stream) const;
-    static EmulatedEglWindowSurface *onLoad(android::base::Stream* stream,
-                                            EGLDisplay display,
-                                            const ColorBufferMap& colorBuffers,
-                                            const EmulatedEglContextMap& contexts);
+    static std::unique_ptr<EmulatedEglWindowSurface> onLoad(
+      android::base::Stream* stream,
+      EGLDisplay display,
+      const ColorBufferMap& colorBuffers,
+      const EmulatedEglContextMap& contexts);
+
     HandleType getHndl() const;
 
   private:
