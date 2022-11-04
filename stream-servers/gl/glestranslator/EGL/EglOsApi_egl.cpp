@@ -33,7 +33,6 @@
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include <EGL/eglext_angle.h>
 #include <GLES2/gl2.h>
 #include <cstring>
 #include <memory>
@@ -316,7 +315,7 @@ public:
 
 private:
     bool mVerbose = false;
-    EGLDisplay mDisplay;
+    EGLDisplay mDisplay = EGL_NO_DISPLAY;
     EglOsEglDispatcher mDispatcher;
     bool mHeadless = false;
     std::string mClientExts;
@@ -332,6 +331,7 @@ EglOsEglDisplay::EglOsEglDisplay(bool nullEgl) {
     mVerbose = android::base::getEnvironmentVariable("ANDROID_EMUGL_VERBOSE") == "1";
 
     if (nullEgl) {
+#ifdef EGL_ANGLE_platform_angle
         const EGLAttrib attr[] = {
             EGL_PLATFORM_ANGLE_TYPE_ANGLE,
             EGL_PLATFORM_ANGLE_TYPE_NULL_ANGLE,
@@ -345,7 +345,11 @@ EglOsEglDisplay::EglOsEglDisplay(bool nullEgl) {
         if (mDisplay == EGL_NO_DISPLAY) {
             fprintf(stderr, "%s: no display found that supports null backend\n", __func__);
         }
+#else
+        fprintf(stderr, "EGL Null display not compiled, falling back to default display\n");
+#endif
     } else if (android::base::getEnvironmentVariable("ANDROID_EMUGL_EXPERIMENTAL_FAST_PATH") == "1") {
+#ifdef EGL_ANGLE_platform_angle
         const EGLAttrib attr[] = {
             EGL_PLATFORM_ANGLE_TYPE_ANGLE,
             EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE,
@@ -361,10 +365,11 @@ EglOsEglDisplay::EglOsEglDisplay(bool nullEgl) {
         if (mDisplay == EGL_NO_DISPLAY) {
             fprintf(stderr, "%s: no display found that supports the requested extensions\n", __func__);
         }
+#endif
     }
-    else {
+
+    if (mDisplay == EGL_NO_DISPLAY)
         mDisplay = mDispatcher.eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    }
 
     mDispatcher.eglInitialize(mDisplay, nullptr, nullptr);
     mDispatcher.eglSwapInterval(mDisplay, 0);
@@ -673,8 +678,10 @@ Surface* EglOsEglDisplay::createWindowSurface(PixelFormat* pf,
     std::vector<EGLint> surface_attribs;
     auto exts = mDispatcher.eglQueryString(mDisplay, EGL_EXTENSIONS);
     if (exts != nullptr && emugl::hasExtension(exts, "EGL_ANGLE_direct_composition")) {
+#ifdef EGL_ANGLE_direct_composition
         surface_attribs.push_back(EGL_DIRECT_COMPOSITION_ANGLE);
         surface_attribs.push_back(EGL_TRUE);
+#endif
     }
     surface_attribs.push_back(EGL_NONE);
     EGLSurface surface = mDispatcher.eglCreateWindowSurface(
