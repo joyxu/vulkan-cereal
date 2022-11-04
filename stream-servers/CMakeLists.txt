@@ -8,8 +8,6 @@ add_subdirectory(gl)
 # Vulkan
 add_subdirectory(vulkan)
 
-add_subdirectory(libGLSnapshot)
-
 # RenderControl decoder
 add_subdirectory(renderControl_dec)
 
