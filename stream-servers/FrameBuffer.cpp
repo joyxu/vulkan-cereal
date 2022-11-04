@@ -1380,36 +1380,91 @@ void FrameBuffer::destroyEmulatedEglContext(HandleType contextHandle) {
 HandleType FrameBuffer::createEmulatedEglWindowSurface(int p_config,
                                                        int p_width,
                                                        int p_height) {
+    if (!m_emulationGl) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "EGL emulation unavailable.";
+    }
+
     AutoLock mutex(m_lock);
     // Hold the ColorBuffer map lock so that the new handle won't collide with a ColorBuffer handle.
     AutoLock colorBufferMapLock(m_colorBufferMapLock);
 
-    HandleType ret = 0;
+    HandleType handle = genHandle_locked();
 
-    const EmulatedEglConfig* config = getConfigs()->get(p_config);
-    if (!config) {
-        return ret;
+    auto window = m_emulationGl->createEmulatedEglWindowSurface(p_config,
+                                                                p_width,
+                                                                p_height,
+                                                                handle);
+    if (!window) {
+        ERR("Failed to create EmulatedEglWindowSurface.");
+        return 0;
     }
 
-    ret = genHandle_locked();
-    EmulatedEglWindowSurfacePtr win(EmulatedEglWindowSurface::create(
-            getDisplay(), config->getHostEglConfig(), p_width, p_height, ret));
-    if (win.get() != NULL) {
-        m_windows[ret] = { win, 0 };
-        RenderThreadInfo* tInfo = RenderThreadInfo::get();
-        uint64_t puid = tInfo->m_puid;
+    m_windows[handle] = { std::move(window), 0 };
+
+    RenderThreadInfo* info = RenderThreadInfo::get();
+    if (!info->m_glInfo) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "RRenderThreadInfoGl not available.";
+    }
+
+    uint64_t puid = info->m_puid;
+    if (puid) {
+        m_procOwnedEmulatedEglWindowSurfaces[puid].insert(handle);
+    } else { // legacy path to manage window surface lifetime by threads
+        info->m_glInfo->m_windowSet.insert(handle);
+    }
+
+    return handle;
+}
+
+void FrameBuffer::destroyEmulatedEglWindowSurface(HandleType p_surface) {
+    if (m_shuttingDown) {
+        return;
+    }
+    AutoLock mutex(m_lock);
+    auto colorBuffersToCleanup = destroyEmulatedEglWindowSurfaceLocked(p_surface);
+
+    mutex.unlock();
+
+    for (auto handle : colorBuffersToCleanup) {
+        goldfish_vk::teardownVkColorBuffer(handle);
+    }
+}
+
+std::vector<HandleType> FrameBuffer::destroyEmulatedEglWindowSurfaceLocked(HandleType p_surface) {
+    std::vector<HandleType> colorBuffersToCleanUp;
+    const auto w = m_windows.find(p_surface);
+    if (w != m_windows.end()) {
+        RecursiveScopedContextBind bind(getPbufferSurfaceContextHelper());
+        if (!m_guestManagedColorBufferLifetime) {
+            if (m_refCountPipeEnabled) {
+                if (decColorBufferRefCountLocked(w->second.second)) {
+                    colorBuffersToCleanUp.push_back(w->second.second);
+                }
+            } else {
+                if (closeColorBufferLocked(w->second.second)) {
+                    colorBuffersToCleanUp.push_back(w->second.second);
+                }
+            }
+        }
+        m_windows.erase(w);
+        RenderThreadInfo* tinfo = RenderThreadInfo::get();
+        uint64_t puid = tinfo->m_puid;
         if (puid) {
-            m_procOwnedEmulatedEglWindowSurfaces[puid].insert(ret);
-        } else { // legacy path to manage window surface lifetime by threads
-            if (!tInfo->m_glInfo) {
+            auto ite = m_procOwnedEmulatedEglWindowSurfaces.find(puid);
+            if (ite != m_procOwnedEmulatedEglWindowSurfaces.end()) {
+                ite->second.erase(p_surface);
+            }
+        } else {
+            if (!tinfo->m_glInfo) {
                 GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
                     << "Render thread GL not available.";
             }
-            tInfo->m_glInfo->m_windowSet.insert(ret);
+            tinfo->m_glInfo->m_windowSet.erase(p_surface);
         }
     }
-
-    return ret;
+    return colorBuffersToCleanUp;
 }
 
 void FrameBuffer::drainGlRenderThreadResources() {
@@ -1498,55 +1553,6 @@ void FrameBuffer::drainGlRenderThreadSurfaces() {
     for (auto handle: colorBuffersToCleanup) {
         goldfish_vk::teardownVkColorBuffer(handle);
     }
-}
-
-void FrameBuffer::DestroyEmulatedEglWindowSurface(HandleType p_surface) {
-    if (m_shuttingDown) {
-        return;
-    }
-    AutoLock mutex(m_lock);
-    auto colorBuffersToCleanup = DestroyEmulatedEglWindowSurfaceLocked(p_surface);
-
-    mutex.unlock();
-
-    for (auto handle : colorBuffersToCleanup) {
-        goldfish_vk::teardownVkColorBuffer(handle);
-    }
-}
-
-std::vector<HandleType> FrameBuffer::DestroyEmulatedEglWindowSurfaceLocked(HandleType p_surface) {
-    std::vector<HandleType> colorBuffersToCleanUp;
-    const auto w = m_windows.find(p_surface);
-    if (w != m_windows.end()) {
-        RecursiveScopedContextBind bind(getPbufferSurfaceContextHelper());
-        if (!m_guestManagedColorBufferLifetime) {
-            if (m_refCountPipeEnabled) {
-                if (decColorBufferRefCountLocked(w->second.second)) {
-                    colorBuffersToCleanUp.push_back(w->second.second);
-                }
-            } else {
-                if (closeColorBufferLocked(w->second.second)) {
-                    colorBuffersToCleanUp.push_back(w->second.second);
-                }
-            }
-        }
-        m_windows.erase(w);
-        RenderThreadInfo* tinfo = RenderThreadInfo::get();
-        uint64_t puid = tinfo->m_puid;
-        if (puid) {
-            auto ite = m_procOwnedEmulatedEglWindowSurfaces.find(puid);
-            if (ite != m_procOwnedEmulatedEglWindowSurfaces.end()) {
-                ite->second.erase(p_surface);
-            }
-        } else {
-            if (!tinfo->m_glInfo) {
-                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
-                    << "Render thread GL not available.";
-            }
-            tinfo->m_glInfo->m_windowSet.erase(p_surface);
-        }
-    }
-    return colorBuffersToCleanUp;
 }
 
 int FrameBuffer::openColorBuffer(HandleType p_colorbuffer) {
@@ -3109,16 +3115,21 @@ bool FrameBuffer::onLoad(Stream* stream,
     {
         AutoLock colorBufferMapLock(m_colorBufferMapLock);
         loadCollection(stream, &m_windows,
-                    [this](Stream* stream) -> EmulatedEglWindowSurfaceMap::value_type {
-            EmulatedEglWindowSurfacePtr window(
-                EmulatedEglWindowSurface::onLoad(stream,
-                                                 getDisplay(),
-                                                 m_colorbuffers,
-                                                 m_contexts));
-            HandleType handle = window->getHndl();
-            HandleType colorBufferHandle = stream->getBe32();
-            return { handle, { std::move(window), colorBufferHandle } };
-        });
+                       [this](Stream* stream) -> EmulatedEglWindowSurfaceMap::value_type {
+                            if (!m_emulationGl) {
+                                GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                                    << "GL/EGL emulation not enabled.";
+                            }
+
+                            auto window = m_emulationGl->loadEmulatedEglWindowSurface(
+                                stream,
+                                m_colorbuffers,
+                                m_contexts);
+
+                            HandleType handle = window->getHndl();
+                            HandleType colorBufferHandle = stream->getBe32();
+                            return { handle, { std::move(window), colorBufferHandle } };
+                        });
     }
 
     loadProcOwnedCollection(stream, &m_procOwnedEmulatedEglWindowSurfaces);
