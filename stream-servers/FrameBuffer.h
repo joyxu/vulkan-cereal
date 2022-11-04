@@ -208,6 +208,13 @@ class FrameBuffer {
     // Return a new handle value, or 0 in case of error.
     HandleType createEmulatedEglWindowSurface(int p_config, int p_width, int p_height);
 
+    // Destroy a given EmulatedEglWindowSurface instance. |p_surcace| is its
+    // handle value as returned by createEmulatedEglWindowSurface().
+    void destroyEmulatedEglWindowSurface(HandleType p_surface);
+
+    // Returns the set of ColorBuffers destroyed (for further cleanup)
+    std::vector<HandleType> destroyEmulatedEglWindowSurfaceLocked(HandleType p_surface);
+
     // Create a new ColorBuffer instance from this display instance.
     // |p_width| and |p_height| are its dimensions in pixels.
     // |p_internalFormat| is the OpenGL format of this color buffer.
@@ -253,12 +260,6 @@ class FrameBuffer {
     // remaining window surface it created. Necessary to avoid leaking
     // host buffers when a guest application crashes, for example.
     void drainGlRenderThreadSurfaces();
-
-    // Destroy a given EmulatedEglWindowSurface instance. |p_surcace| is its
-    // handle value as returned by createEmulatedEglWindowSurface().
-    void DestroyEmulatedEglWindowSurface(HandleType p_surface);
-    // Returns the set of ColorBuffers destroyed (for further cleanup)
-    std::vector<HandleType> DestroyEmulatedEglWindowSurfaceLocked(HandleType p_surface);
 
     // Increment the reference count associated with a given ColorBuffer
     // instance. |p_colorbuffer| is its handle value as returned by

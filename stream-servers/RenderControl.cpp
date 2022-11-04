@@ -811,7 +811,7 @@ static void rcDestroyWindowSurface(uint32_t windowSurface)
         return;
     }
 
-    fb->DestroyEmulatedEglWindowSurface(windowSurface);
+    fb->destroyEmulatedEglWindowSurface(windowSurface);
 }
 
 static uint32_t rcCreateColorBuffer(uint32_t width,

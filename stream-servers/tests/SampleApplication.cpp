@@ -291,7 +291,7 @@ SampleApplication::~SampleApplication() {
         }
         mFb->bindContext(0, 0, 0);
         mFb->closeColorBuffer(mColorBuffer);
-        mFb->DestroyEmulatedEglWindowSurface(mSurface);
+        mFb->destroyEmulatedEglWindowSurface(mSurface);
         mFb->finalize();
     }
 }
