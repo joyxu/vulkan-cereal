@@ -2104,41 +2104,112 @@ static void default_post_callback(
     // no-op
 }
 
-VG_EXPORT void gfxstream_backend_init(
-    uint32_t display_width,
-    uint32_t display_height,
-    uint32_t display_type,
-    void* renderer_cookie,
-    int renderer_flags,
-    struct virgl_renderer_callbacks* virglrenderer_callbacks,
-    struct gfxstream_callbacks* gfxstreamcallbacks) {
+VG_EXPORT int stream_renderer_init(
+    struct stream_renderer_param* stream_renderer_params,
+    uint64_t num_params) {
+    // Initialization data.
+    uint32_t display_width = 0;
+    uint32_t display_height = 0;
+    void* renderer_cookie = nullptr;
+    int renderer_flags = 0;
+    virgl_renderer_callbacks virglrenderer_callbacks = {};
 
-    // Set metrics callbacks
-    if (gfxstreamcallbacks) {
-        if (gfxstreamcallbacks->add_instant_event) {
-            MetricsLogger::add_instant_event_callback =
-                gfxstreamcallbacks->add_instant_event;
-        }
-        if (gfxstreamcallbacks->add_instant_event_with_metric) {
-            MetricsLogger::add_instant_event_with_metric_callback =
-                gfxstreamcallbacks->add_instant_event_with_metric;
-        }
-        if (gfxstreamcallbacks->add_instant_event_with_descriptor) {
-            MetricsLogger::add_instant_event_with_descriptor_callback =
-                gfxstreamcallbacks->add_instant_event_with_descriptor;
-        }
-        if (gfxstreamcallbacks->add_vulkan_out_of_memory_event) {
-            MetricsLogger::add_vulkan_out_of_memory_event =
-                gfxstreamcallbacks->add_vulkan_out_of_memory_event;
-        }
-        if (gfxstreamcallbacks->set_annotation) {
-            MetricsLogger::set_crash_annotation_callback =
-                gfxstreamcallbacks->set_annotation;
-        }
-        if (gfxstreamcallbacks->abort) {
-            emugl::setDieFunction(gfxstreamcallbacks->abort);
+    // Iterate all parameters that we support.
+    GFXS_LOG("Reading stream renderer parameters:");
+    for (uint64_t i = 0; i < num_params; ++i) {
+        stream_renderer_param& param = stream_renderer_params[i];
+        switch (param.key) {
+            case STREAM_RENDERER_PARAM_USER_DATA: {
+                renderer_cookie = reinterpret_cast<void*>(static_cast<uintptr_t>(param.value));
+                GFXS_LOG("USER_DATA");
+                break;
+            }
+            case STREAM_RENDERER_PARAM_RENDERER_FLAGS: {
+                renderer_flags = static_cast<int>(param.value);
+                GFXS_LOG("RENDERER_FLAGS: %#x", renderer_flags);
+                break;
+            }
+            case STREAM_RENDERER_PARAM_WRITE_FENCE_CALLBACK: {
+                virglrenderer_callbacks.write_fence =
+                    reinterpret_cast<stream_renderer_param_write_fence_callback>(
+                        static_cast<uintptr_t>(param.value));
+                GFXS_LOG("WRITE_FENCE_CALLBACK");
+                break;
+            }
+            case STREAM_RENDERER_PARAM_WRITE_CONTEXT_FENCE_CALLBACK: {
+#ifdef VIRGL_RENDERER_UNSTABLE_APIS
+                virglrenderer_callbacks.write_context_fence =
+                    reinterpret_cast<stream_renderer_param_write_context_fence_callback>(
+                        static_cast<uintptr_t>(param.value));
+#else
+                ERR("Cannot use WRITE_CONTEXT_FENCE_CALLBACK with unstable APIs OFF.");
+#endif
+                GFXS_LOG("WRITE_CONTEXT_FENCE_CALLBACK");
+                break;
+            }
+            case STREAM_RENDERER_PARAM_WIN0_WIDTH: {
+                display_width = static_cast<uint32_t>(param.value);
+                GFXS_LOG("WIN0_WIDTH: %lu", static_cast<unsigned long>(display_width));
+                break;
+            }
+            case STREAM_RENDERER_PARAM_WIN0_HEIGHT: {
+                display_height = static_cast<uint32_t>(param.value);
+                GFXS_LOG("WIN0_HEIGHT: %lu", static_cast<unsigned long>(display_height));
+                break;
+            }
+            case STREAM_RENDERER_PARAM_METRICS_CALLBACK_ADD_INSTANT_EVENT: {
+                MetricsLogger::add_instant_event_callback =
+                    reinterpret_cast<stream_renderer_param_metrics_callback_add_instant_event>(
+                        static_cast<uintptr_t>(param.value));
+                GFXS_LOG("METRICS_ADD_INSTANT_EVENT");
+                break;
+            }
+            case STREAM_RENDERER_PARAM_METRICS_CALLBACK_ADD_INSTANT_EVENT_WITH_DESCRIPTOR: {
+                MetricsLogger::add_instant_event_with_descriptor_callback = reinterpret_cast<
+                    stream_renderer_param_metrics_callback_add_instant_event_with_descriptor>(
+                    static_cast<uintptr_t>(param.value));
+                GFXS_LOG("METRICS_ADD_INSTANT_EVENT_WITH_DESCRIPTOR");
+                break;
+            }
+            case STREAM_RENDERER_PARAM_METRICS_CALLBACK_ADD_INSTANT_EVENT_WITH_METRIC: {
+                MetricsLogger::add_instant_event_with_metric_callback = reinterpret_cast<
+                    stream_renderer_param_metrics_callback_add_instant_event_with_metric>(
+                    static_cast<uintptr_t>(param.value));
+                GFXS_LOG("METRICS_ADD_INSTANT_EVENT_WITH_METRIC");
+                break;
+            }
+            case STREAM_RENDERER_PARAM_METRICS_CALLBACK_ADD_VULKAN_OUT_OF_MEMORY_EVENT: {
+                MetricsLogger::add_vulkan_out_of_memory_event = reinterpret_cast<
+                    stream_renderer_param_metrics_callback_add_vulkan_out_of_memory_event>(
+                    static_cast<uintptr_t>(param.value));
+                GFXS_LOG("METRICS_ADD_VULKAN_OUT_OF_MEMORY_EVENT");
+                break;
+            }
+            case STREAM_RENDERER_PARAM_METRICS_CALLBACK_SET_ANNOTATION: {
+                MetricsLogger::set_crash_annotation_callback =
+                    reinterpret_cast<stream_renderer_param_metrics_callback_set_annotation>(
+                        static_cast<uintptr_t>(param.value));
+                GFXS_LOG("METRICS_SET_ANNOTATION");
+                break;
+            }
+            case STREAM_RENDERER_PARAM_METRICS_CALLBACK_ABORT: {
+                emugl::setDieFunction(
+                    reinterpret_cast<stream_renderer_param_metrics_callback_abort>(
+                        static_cast<uintptr_t>(param.value)));
+                GFXS_LOG("METRICS_ABORT");
+                break;
+            }
+            default: {
+                // We skip any parameters we don't recognize.
+                ERR("Skipping unknown parameter key: %llu. May need to upgrade gfxstream.",
+                    static_cast<unsigned long long>(param.key));
+                break;
+            }
         }
     }
+    GFXS_LOG("Finished reading parameters");
+
+    // TODO(b/257313414): An error for missing required parameters.
 
     // Set non product-specific callbacks
     vk_util::setVkCheckCallbacks(
@@ -2348,9 +2419,74 @@ VG_EXPORT void gfxstream_backend_init(
 
     sGetPixelsFunc = android_getReadPixelsFunc();
 
-    pipe_virgl_renderer_init(renderer_cookie, renderer_flags, virglrenderer_callbacks);
+    pipe_virgl_renderer_init(renderer_cookie, renderer_flags, &virglrenderer_callbacks);
 
     GFXS_LOG("Started renderer");
+
+    return 0;
+}
+
+VG_EXPORT void gfxstream_backend_init(
+    uint32_t display_width,
+    uint32_t display_height,
+    uint32_t display_type,
+    void* renderer_cookie,
+    int renderer_flags,
+    struct virgl_renderer_callbacks* virglrenderer_callbacks,
+    struct gfxstream_callbacks* gfxstreamcallbacks) {
+    std::vector<stream_renderer_param> streamRendererParams{
+        {STREAM_RENDERER_PARAM_USER_DATA,
+         static_cast<uint64_t>(reinterpret_cast<uintptr_t>(renderer_cookie))},
+        {STREAM_RENDERER_PARAM_RENDERER_FLAGS, static_cast<uint64_t>(renderer_flags)},
+        {STREAM_RENDERER_PARAM_WRITE_FENCE_CALLBACK,
+         static_cast<uint64_t>(reinterpret_cast<uintptr_t>(virglrenderer_callbacks->write_fence))},
+#ifdef VIRGL_RENDERER_UNSTABLE_APIS
+        {STREAM_RENDERER_PARAM_WRITE_CONTEXT_FENCE_CALLBACK,
+         static_cast<uint64_t>(
+             reinterpret_cast<uintptr_t>(virglrenderer_callbacks->write_context_fence))},
+#endif
+        {STREAM_RENDERER_PARAM_WIN0_WIDTH, display_width},
+        {STREAM_RENDERER_PARAM_WIN0_HEIGHT, display_height}};
+
+    // Convert metrics callbacks.
+    if (gfxstreamcallbacks) {
+        if (gfxstreamcallbacks->add_instant_event) {
+            streamRendererParams.push_back(
+                {STREAM_RENDERER_PARAM_METRICS_CALLBACK_ADD_INSTANT_EVENT,
+                 static_cast<uint64_t>(
+                     reinterpret_cast<uintptr_t>(gfxstreamcallbacks->add_instant_event))});
+        }
+        if (gfxstreamcallbacks->add_instant_event_with_descriptor) {
+            streamRendererParams.push_back(
+                {STREAM_RENDERER_PARAM_METRICS_CALLBACK_ADD_INSTANT_EVENT_WITH_DESCRIPTOR,
+                 static_cast<uint64_t>(reinterpret_cast<uintptr_t>(
+                     gfxstreamcallbacks->add_instant_event_with_descriptor))});
+        }
+        if (gfxstreamcallbacks->add_instant_event_with_metric) {
+            streamRendererParams.push_back(
+                {STREAM_RENDERER_PARAM_METRICS_CALLBACK_ADD_INSTANT_EVENT_WITH_METRIC,
+                 static_cast<uint64_t>(reinterpret_cast<uintptr_t>(
+                     gfxstreamcallbacks->add_instant_event_with_metric))});
+        }
+        if (gfxstreamcallbacks->add_vulkan_out_of_memory_event) {
+            streamRendererParams.push_back(
+                {STREAM_RENDERER_PARAM_METRICS_CALLBACK_ADD_VULKAN_OUT_OF_MEMORY_EVENT,
+                 static_cast<uint64_t>(reinterpret_cast<uintptr_t>(
+                     gfxstreamcallbacks->add_vulkan_out_of_memory_event))});
+        }
+        if (gfxstreamcallbacks->set_annotation) {
+            streamRendererParams.push_back({STREAM_RENDERER_PARAM_METRICS_CALLBACK_SET_ANNOTATION,
+                                            static_cast<uint64_t>(reinterpret_cast<uintptr_t>(
+                                                gfxstreamcallbacks->set_annotation))});
+        }
+        if (gfxstreamcallbacks->abort) {
+            streamRendererParams.push_back(
+                {STREAM_RENDERER_PARAM_METRICS_CALLBACK_ABORT,
+                 static_cast<uint64_t>(reinterpret_cast<uintptr_t>(gfxstreamcallbacks->abort))});
+        }
+    }
+
+    stream_renderer_init(streamRendererParams.data(), streamRendererParams.size());
 }
 
 VG_EXPORT void gfxstream_backend_setup_window(
