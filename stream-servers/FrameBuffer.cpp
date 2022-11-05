@@ -70,6 +70,7 @@ using gfxstream::EmulatedEglWindowSurfacePtr;
 using gfxstream::GLESApi;
 using gfxstream::GLESApi_CM;
 using gfxstream::GLESApi_2;
+using gfxstream::ReadbackWorker;
 
 // static std::string getTimeStampString() {
 //     const time_t timestamp = android::base::getUnixTimeUs();
@@ -630,7 +631,6 @@ FrameBuffer::~FrameBuffer() {
     m_postThread.join();
 
     m_postWorker.reset();
-    m_readbackWorker.reset();
 
     goldfish_vk::teardownGlobalVkEmulation();
     SyncThread::destroy();
@@ -641,16 +641,16 @@ FrameBuffer::sendReadbackWorkerCmd(const Readback& readback) {
     ensureReadbackWorker();
     switch (readback.cmd) {
     case ReadbackCmd::Init:
-        m_readbackWorker->initGL();
+        m_readbackWorker->init();
         return WorkerProcessingResult::Continue;
     case ReadbackCmd::GetPixels:
         m_readbackWorker->getPixels(readback.displayId, readback.pixelsOut, readback.bytes);
         return WorkerProcessingResult::Continue;
     case ReadbackCmd::AddRecordDisplay:
-        m_readbackWorker->setRecordDisplay(readback.displayId, readback.width, readback.height, true);
+        m_readbackWorker->initReadbackForDisplay(readback.displayId, readback.width, readback.height);
         return WorkerProcessingResult::Continue;
     case ReadbackCmd::DelRecordDisplay:
-        m_readbackWorker->setRecordDisplay(readback.displayId, 0, 0, false);
+        m_readbackWorker->deinitReadbackForDisplay(readback.displayId);
         return WorkerProcessingResult::Continue;
     case ReadbackCmd::Exit:
         return WorkerProcessingResult::Stop;
@@ -2658,7 +2658,13 @@ void FrameBuffer::flushReadPipeline(int displayId) {
 }
 
 void FrameBuffer::ensureReadbackWorker() {
-    if (!m_readbackWorker) m_readbackWorker.reset(new ReadbackWorker);
+    if (!m_readbackWorker) {
+        if (!m_emulationGl) {
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+                << "GL/EGL emulation not enabled.";
+        }
+        m_readbackWorker = m_emulationGl->getReadbackWorker();
+    }
 }
 
 static void sFrameBuffer_ReadPixelsCallback(

@@ -450,6 +450,33 @@ std::unique_ptr<EmulationGl> EmulationGl::create(uint32_t width, uint32_t height
     emulationGl->mDisplayGl = std::make_unique<DisplayGl>();
     emulationGl->mDisplayGl->bindToSurface(emulationGl->mFakeWindowSurface.get());
 
+    {
+        auto surface1 = DisplaySurfaceGl::createPbufferSurface(emulationGl->mEglDisplay,
+                                                               emulationGl->mEglConfig,
+                                                               emulationGl->mEglContext,
+                                                               getGlesMaxContextAttribs(),
+                                                               /*width=*/1,
+                                                               /*height=*/1);
+        if (!surface1) {
+            ERR("Failed to create pbuffer surface for ReadbackWorkerGl.");
+            return nullptr;
+        }
+
+        auto surface2 = DisplaySurfaceGl::createPbufferSurface(emulationGl->mEglDisplay,
+                                                               emulationGl->mEglConfig,
+                                                               emulationGl->mEglContext,
+                                                               getGlesMaxContextAttribs(),
+                                                               /*width=*/1,
+                                                               /*height=*/1);
+        if (!surface2) {
+            ERR("Failed to create pbuffer surface for ReadbackWorkerGl.");
+            return nullptr;
+        }
+
+        emulationGl->mReadbackWorkerGl = std::make_unique<ReadbackWorkerGl>(std::move(surface1),
+                                                                            std::move(surface2));
+    }
+
     return emulationGl;
 }
 

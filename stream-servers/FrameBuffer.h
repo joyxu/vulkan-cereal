@@ -752,7 +752,7 @@ class FrameBuffer {
         }
     };
     std::map<uint32_t, onPost> m_onPost;
-    std::unique_ptr<ReadbackWorker> m_readbackWorker;
+    gfxstream::ReadbackWorker* m_readbackWorker;
     android::base::WorkerThread<Readback> m_readbackThread;
     std::atomic_bool m_readbackThreadStarted = false;
 
