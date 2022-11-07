@@ -1843,16 +1843,12 @@ std::vector<HandleType> FrameBuffer::cleanupProcGLObjects_locked(uint64_t puid, 
 
         // Clean up EGLImage handles
         {
-            auto procIte = m_procOwnedEGLImages.find(puid);
-            if (procIte != m_procOwnedEGLImages.end()) {
-                if (!procIte->second.empty()) {
-                    for (auto eglImg : procIte->second) {
-                        s_egl.eglDestroyImageKHR(
-                                getDisplay(),
-                                reinterpret_cast<EGLImageKHR>((HandleType)eglImg));
-                    }
+            auto procImagesIt = m_procOwnedEmulatedEglImages.find(puid);
+            if (procImagesIt != m_procOwnedEmulatedEglImages.end()) {
+                for (auto image : procImagesIt->second) {
+                    m_images.erase(image);
                 }
-                m_procOwnedEGLImages.erase(procIte);
+                m_procOwnedEmulatedEglImages.erase(procImagesIt);
             }
         }
     }
@@ -2356,52 +2352,78 @@ EmulatedEglWindowSurfacePtr FrameBuffer::getWindowSurface_locked(HandleType p_wi
     return android::base::findOrDefault(m_windows, p_windowsurface).first;
 }
 
-HandleType FrameBuffer::createClientImage(HandleType context,
-                                          EGLenum target,
-                                          GLuint buffer) {
-    EGLContext eglContext = EGL_NO_CONTEXT;
-    if (context) {
-        AutoLock mutex(m_lock);
-        EmulatedEglContextMap::const_iterator rcIt = m_contexts.find(context);
-        if (rcIt == m_contexts.end()) {
-            // bad context handle
+HandleType FrameBuffer::createEmulatedEglImage(HandleType contextHandle,
+                                               EGLenum target,
+                                               GLuint buffer) {
+    if (!m_emulationGl) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "GL/EGL emulation not enabled.";
+    }
+
+    AutoLock mutex(m_lock);
+
+    EmulatedEglContext* context = nullptr;
+    if (contextHandle) {
+        android::base::AutoWriteLock contextLock(m_contextStructureLock);
+
+        auto it = m_contexts.find(contextHandle);
+        if (it == m_contexts.end()) {
+            ERR("Failed to find EmulatedEglContext:%d", contextHandle);
             return false;
         }
-        eglContext =
-                rcIt->second ? rcIt->second->getEGLContext() : EGL_NO_CONTEXT;
+
+        context = it->second.get();
     }
 
-    EGLImageKHR image = s_egl.eglCreateImageKHR(
-            getDisplay(), eglContext, target,
-            reinterpret_cast<EGLClientBuffer>(buffer), NULL);
-    HandleType imgHnd = (HandleType) reinterpret_cast<uintptr_t>(image);
+    HandleType imageHandle = genHandle_locked();
+
+    auto image = m_emulationGl->createEmulatedEglImage(context,
+                                                       target,
+                                                       reinterpret_cast<EGLClientBuffer>(buffer),
+                                                       imageHandle);
+    if (!image) {
+        ERR("Failed to create EmulatedEglImage");
+        return false;
+    }
+
+    m_images[imageHandle] = std::move(image);
 
     RenderThreadInfo* tInfo = RenderThreadInfo::get();
     uint64_t puid = tInfo->m_puid;
     if (puid) {
-        AutoLock mutex(m_lock);
-        m_procOwnedEGLImages[puid].insert(imgHnd);
+        m_procOwnedEmulatedEglImages[puid].insert(imageHandle);
     }
-    return imgHnd;
+    return imageHandle;
 }
 
-EGLBoolean FrameBuffer::destroyClientImage(HandleType image) {
-    // eglDestroyImageKHR has its own lock  already.
-    EGLBoolean ret = s_egl.eglDestroyImageKHR(
-            getDisplay(), reinterpret_cast<EGLImageKHR>(image));
-    if (!ret)
+EGLBoolean FrameBuffer::destroyEmulatedEglImage(HandleType imageHandle) {
+    if (!m_emulationGl) {
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "GL/EGL emulation not enabled.";
+    }
+
+    AutoLock mutex(m_lock);
+
+    auto imageIt = m_images.find(imageHandle);
+    if (imageIt == m_images.end()) {
+        ERR("Failed to find EmulatedEglImage:%d", imageHandle);
         return false;
+    }
+    auto& image = imageIt->second;
+
+    EGLBoolean success = image->destroy();
+    m_images.erase(imageIt);
+
     RenderThreadInfo* tInfo = RenderThreadInfo::get();
     uint64_t puid = tInfo->m_puid;
     if (puid) {
-        AutoLock mutex(m_lock);
-        m_procOwnedEGLImages[puid].erase(image);
-        // We don't explicitly call m_procOwnedEGLImages.erase(puid) when the
+        m_procOwnedEmulatedEglImages[puid].erase(imageHandle);
+        // We don't explicitly call m_procOwnedEmulatedEglImages.erase(puid) when the
         // size reaches 0, since it could go between zero and one many times in
         // the lifetime of a process. It will be cleaned up by
         // cleanupProcGLObjects(puid) when the process is dead.
     }
-    return true;
+    return success;
 }
 
 void FrameBuffer::createTrivialContext(HandleType shared,
@@ -2939,7 +2961,7 @@ void FrameBuffer::onSave(Stream* stream,
 
     saveProcOwnedCollection(stream, m_procOwnedEmulatedEglWindowSurfaces);
     saveProcOwnedCollection(stream, m_procOwnedColorBuffers);
-    saveProcOwnedCollection(stream, m_procOwnedEGLImages);
+    saveProcOwnedCollection(stream, m_procOwnedEmulatedEglImages);
     saveProcOwnedCollection(stream, m_procOwnedEmulatedEglContexts);
 
     // Save Vulkan state
@@ -2973,9 +2995,11 @@ bool FrameBuffer::onLoad(Stream* stream,
         bool cleanupComplete = false;
         {
             AutoLock colorBufferMapLock(m_colorBufferMapLock);
-            if (m_procOwnedEmulatedEglWindowSurfaces.empty() && m_procOwnedColorBuffers.empty() &&
-                m_procOwnedEGLImages.empty() && m_procOwnedEmulatedEglContexts.empty() &&
-                m_procOwnedCleanupCallbacks.empty() &&
+            if (m_procOwnedCleanupCallbacks.empty() &&
+                m_procOwnedColorBuffers.empty() &&
+                m_procOwnedEmulatedEglContexts.empty() &&
+                m_procOwnedEmulatedEglImages.empty() &&
+                m_procOwnedEmulatedEglWindowSurfaces.empty() &&
                 (!m_contexts.empty() || !m_windows.empty() ||
                  m_colorbuffers.size() > m_colorBufferDelayedCloseList.size())) {
                 // we are likely on a legacy system image, which does not have
@@ -3001,9 +3025,9 @@ bool FrameBuffer::onLoad(Stream* stream,
                 colorBuffersToCleanup.insert(colorBuffersToCleanup.end(),
                     cleanupHandles.begin(), cleanupHandles.end());
             }
-            while (m_procOwnedEGLImages.size()) {
+            while (m_procOwnedEmulatedEglImages.size()) {
                 auto cleanupHandles = cleanupProcGLObjects_locked(
-                        m_procOwnedEGLImages.begin()->first, true);
+                        m_procOwnedEmulatedEglImages.begin()->first, true);
                 colorBuffersToCleanup.insert(colorBuffersToCleanup.end(),
                     cleanupHandles.begin(), cleanupHandles.end());
             }
@@ -3134,7 +3158,7 @@ bool FrameBuffer::onLoad(Stream* stream,
 
     loadProcOwnedCollection(stream, &m_procOwnedEmulatedEglWindowSurfaces);
     loadProcOwnedCollection(stream, &m_procOwnedColorBuffers);
-    loadProcOwnedCollection(stream, &m_procOwnedEGLImages);
+    loadProcOwnedCollection(stream, &m_procOwnedEmulatedEglImages);
     loadProcOwnedCollection(stream, &m_procOwnedEmulatedEglContexts);
 
     if (s_egl.eglPostLoadAllImages) {
