@@ -19,9 +19,3 @@ target_link_libraries(
     apigen-codec-common
     aemu-base.headers
     aemu-host-common.headers)
-
-if(USE_ANGLE_SHADER_PARSER)
-    target_link_libraries(
-       GLES_V2_translator_static PRIVATE
-       angle_shader_translator)
-endif ()
