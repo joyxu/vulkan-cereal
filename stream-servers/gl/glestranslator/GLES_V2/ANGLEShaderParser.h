@@ -30,8 +30,6 @@ namespace ANGLEShaderParser {
 // Convenient to query those
 extern ST_BuiltInResources kResources;
 
-STDispatch* getSTDispatch();
-
 // For performing link-time validation of shader programs.
 struct ShaderLinkInfo {
     int esslVersion;
