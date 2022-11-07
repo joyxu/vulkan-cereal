@@ -643,7 +643,8 @@ VkEmulation* createGlobalVkEmulation(VulkanDispatch* vk) {
     sVkEmulation->vulkanInstanceVersion = appInfo.apiVersion;
 
     sVkEmulation->instanceSupportsExternalMemoryCapabilities = externalMemoryCapabilitiesSupported;
-    sVkEmulation->instanceSupportsExternalSemaphoreCapabilities = externalSemaphoreCapabilitiesSupported;
+    sVkEmulation->instanceSupportsExternalSemaphoreCapabilities =
+        externalSemaphoreCapabilitiesSupported;
 #ifdef VK_MVK_moltenvk
     sVkEmulation->instanceSupportsMoltenVK = moltenVKSupported;
 #endif
@@ -1217,6 +1218,17 @@ void teardownGlobalVkEmulation() {
 
     freeExternalMemoryLocked(sVkEmulation->dvk, &sVkEmulation->staging.memory);
 
+    sVkEmulation->dvk->vkDestroyBuffer(sVkEmulation->device, sVkEmulation->staging.buffer, nullptr);
+
+    sVkEmulation->dvk->vkDestroyFence(sVkEmulation->device, sVkEmulation->commandBufferFence,
+                                      nullptr);
+
+    sVkEmulation->dvk->vkFreeCommandBuffers(sVkEmulation->device, sVkEmulation->commandPool, 1,
+                                            &sVkEmulation->commandBuffer);
+
+    sVkEmulation->dvk->vkDestroyCommandPool(sVkEmulation->device, sVkEmulation->commandPool,
+                                            nullptr);
+
     sVkEmulation->ivk->vkDestroyDevice(sVkEmulation->device, nullptr);
     sVkEmulation->gvk->vkDestroyInstance(sVkEmulation->instance, nullptr);
 
@@ -1226,15 +1238,12 @@ void teardownGlobalVkEmulation() {
 }
 
 std::unique_ptr<gfxstream::DisplaySurface> createDisplaySurface(FBNativeWindowType window,
-                                                                uint32_t width,
-                                                                uint32_t height) {
+                                                                uint32_t width, uint32_t height) {
     if (!sVkEmulation || !sVkEmulation->live) {
         return nullptr;
     }
 
-    auto surfaceVk = DisplaySurfaceVk::create(*sVkEmulation->ivk,
-                                              sVkEmulation->instance,
-                                              window);
+    auto surfaceVk = DisplaySurfaceVk::create(*sVkEmulation->ivk, sVkEmulation->instance, window);
     if (!surfaceVk) {
         VK_COMMON_ERROR("Failed to create DisplaySurfaceVk.");
         return nullptr;
