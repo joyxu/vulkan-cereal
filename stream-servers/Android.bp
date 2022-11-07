@@ -55,7 +55,6 @@ cc_library_shared {
     srcs: [
         "Buffer.cpp",
         "ChannelStream.cpp",
-        "ColorBuffer.cpp",
         "Debug.cpp",
         "DisplaySurface.cpp",
         "DisplaySurfaceUser.cpp",

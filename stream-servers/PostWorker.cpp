@@ -19,11 +19,11 @@
 
 #include <chrono>
 
-#include "ColorBuffer.h"
 #include "Debug.h"
 #include "FrameBuffer.h"
 #include "RenderThreadInfo.h"
 #include "aemu/base/Tracing.h"
+#include "gl/ColorBufferGl.h"
 #include "gl/DisplayGl.h"
 #include "host-common/GfxstreamFatalError.h"
 #include "host-common/logging.h"
