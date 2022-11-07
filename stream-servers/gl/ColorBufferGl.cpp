@@ -13,7 +13,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#include "ColorBuffer.h"
+#include "ColorBufferGl.h"
 
 #include <GLES2/gl2ext.h>
 #include <stdio.h>
@@ -28,9 +28,8 @@
 #include "TextureResize.h"
 #include "gl/YUVConverter.h"
 #include "glestranslator/include/GLcommon/GLutils.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/misc.h"
-#include "vulkan/VkCommonOperations.h"
-#include "vulkan/VulkanDispatch.h"
 
 #define DEBUG_CB_FBO 0
 

@@ -23,8 +23,8 @@
 #include <EGL/egl.h>
 #include <GLES/gl.h>
 
-#include "ColorBuffer.h"
 #include "Handle.h"
+#include "gl/ColorBufferGl.h"
 #include "gl/EmulatedEglContext.h"
 
 namespace gfxstream {

@@ -17,11 +17,12 @@
 
 #include <string.h>                           // for memcpy
 
-#include "ColorBuffer.h"                      // for ColorBuffer
+
 #include "FrameBuffer.h"                      // for FrameBuffer
 #include "OpenGLESDispatch/DispatchTables.h"  // for s_gles2
 #include "OpenGLESDispatch/EGLDispatch.h"     // for EGLDispatch, s_egl
 #include "OpenGLESDispatch/GLESv2Dispatch.h"  // for GLESv2Dispatch
+#include "gl/ColorBufferGl.h"                 // for ColorBufferGl
 #include "host-common/misc.h"                // for getGlesVersion
 
 ReadbackWorker::recordDisplay::recordDisplay(uint32_t displayId, uint32_t w, uint32_t h)

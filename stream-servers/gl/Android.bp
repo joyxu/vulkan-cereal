@@ -12,6 +12,7 @@ cc_library_static {
     name: "gfxstream_gl_server",
     defaults: [ "gfxstream_defaults" ],
     srcs: [
+        "ColorBufferGl.cpp",
         "CompositorGl.cpp",
         "DisplayGl.cpp",
         "DisplaySurfaceGl.cpp",
