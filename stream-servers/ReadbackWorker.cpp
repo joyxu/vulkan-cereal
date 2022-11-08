@@ -70,7 +70,8 @@ void ReadbackWorker::setRecordDisplay(uint32_t displayId, uint32_t w, uint32_t h
     }
 }
 
-void ReadbackWorker::doNextReadback(uint32_t displayId,
+ReadbackWorker::DoNextReadbackResult
+ReadbackWorker::doNextReadback(uint32_t displayId,
                                     ColorBuffer* cb,
                                     void* fbImage,
                                     bool repaint,
@@ -81,6 +82,8 @@ void ReadbackWorker::doNextReadback(uint32_t displayId,
     // fill the 3 buffers in the triple buffering setup and on the 4th, trigger
     // a post callback.
     int numIter = repaint ? 4 : 1;
+
+    DoNextReadbackResult ret = DoNextReadbackResult::OK_NOT_READY_FOR_READ;
 
     // Mailbox-style triple buffering setup:
     // We want to avoid glReadPixels while in the middle of doing
@@ -149,18 +152,20 @@ void ReadbackWorker::doNextReadback(uint32_t displayId,
         // buffers in our triple buffering setup have had chances to readback.
         lock.unlock();
         if (r.m_readbackCount > 3) {
-            mFb->doPostCallback(fbImage, r.mDisplayId);
+            ret = DoNextReadbackResult::OK_READY_FOR_READ;
         }
     }
+
+    return ret;
 }
 
-void ReadbackWorker::flushPipeline(uint32_t displayId) {
+ReadbackWorker::FlushResult ReadbackWorker::flushPipeline(uint32_t displayId) {
     android::base::AutoLock lock(mLock);
     recordDisplay& r = mRecordDisplays[displayId];
     if (r.mIsCopying) {
         // No need to make the last frame available,
         // we are currently being read.
-        return;
+        return FlushResult::OK_NOT_READY_FOR_READ;
     }
 
     auto src = r.mBuffers[r.mPrevReadPixelsIndex];
@@ -169,8 +174,8 @@ void ReadbackWorker::flushPipeline(uint32_t displayId) {
     // This is not called from a renderthread, so let's activate
     // the context.
     if (EGL_FALSE == s_egl.eglMakeCurrent(mFb->getDisplay(), mSurf, mSurf, mContext)) {
-            fprintf(stderr, "ReadbackWorker cannot set normal context, skip flushing.");
-            return;
+        fprintf(stderr, "ReadbackWorker cannot set normal context, skip flushing.");
+        return FlushResult::FAIL;
     }
 
     // We now copy the last frame into slot 4, where no other thread
@@ -184,7 +189,7 @@ void ReadbackWorker::flushPipeline(uint32_t displayId) {
 
     r.mMapCopyIndex = r.mBuffers.size() - 1;
     lock.unlock();
-    mFb->doPostCallback(nullptr, r.mDisplayId);
+    return FlushResult::OK_READY_FOR_READ;
 }
 
 void ReadbackWorker::getPixels(uint32_t displayId, void* buf, uint32_t bytes) {

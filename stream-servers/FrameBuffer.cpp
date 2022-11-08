@@ -2599,8 +2599,14 @@ AsyncResult FrameBuffer::postImpl(HandleType p_colorbuffer,
 
         if (asyncReadbackSupported()) {
             ensureReadbackWorker();
-            m_readbackWorker->doNextReadback(iter.first, cb.get(), iter.second.img,
-                repaint, iter.second.readBgra);
+            const auto status = m_readbackWorker->doNextReadback(iter.first,
+                                                                 cb.get(),
+                                                                 iter.second.img,
+                                                                 repaint,
+                                                                 iter.second.readBgra);
+            if (status == ReadbackWorker::DoNextReadbackResult::OK_READY_FOR_READ) {
+                doPostCallback(iter.second.img, iter.first);
+            }
         } else {
             cb->readback(iter.second.img, iter.second.readBgra);
             doPostCallback(iter.second.img, iter.first);
@@ -2644,7 +2650,11 @@ void FrameBuffer::flushReadPipeline(int displayId) {
     }
 
     ensureReadbackWorker();
-    m_readbackWorker->flushPipeline(displayId);
+
+    const auto status = m_readbackWorker->flushPipeline(displayId);
+    if (status == ReadbackWorker::FlushResult::OK_READY_FOR_READ) {
+        doPostCallback(nullptr, displayId);
+    }
 }
 
 void FrameBuffer::ensureReadbackWorker() {

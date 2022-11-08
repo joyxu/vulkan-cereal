@@ -40,6 +40,12 @@ public:
     // will run getPixels)
     void initGL();
 
+    enum class DoNextReadbackResult {
+      OK_NOT_READY_FOR_READ,
+
+      OK_READY_FOR_READ,
+    };
+
     // doNextReadback(): Call this from the emugl FrameBuffer::post thread
     // or similar rendering thread.
     // This will trigger an async glReadPixels of the current framebuffer.
@@ -50,7 +56,11 @@ public:
     // |readbackBgra|: Whether to force the readback format as GL_BGRA_EXT,
     // so that we get (depending on driver quality, heh) a gpu conversion of the
     // readback image that is suitable for webrtc, which expects formats like that.
-    void doNextReadback(uint32_t displayId, ColorBuffer* cb, void* fbImage, bool repaint, bool readbackBgra);
+    DoNextReadbackResult doNextReadback(uint32_t displayId,
+                                        ColorBuffer* cb,
+                                        void* fbImage,
+                                        bool repaint,
+                                        bool readbackBgra);
 
     // getPixels(): Run this on a separate GL thread. This retrieves the
     // latest framebuffer that has been posted and read with doNextReadback.
@@ -63,7 +73,15 @@ public:
     // there are no read events active.
     // This is usually called when there was no doNextReadback activity
     // for a few ms, to guarantee that end users see the final frame.
-    void flushPipeline(uint32_t displayId);
+    enum class FlushResult {
+      FAIL,
+
+      OK_NOT_READY_FOR_READ,
+
+      OK_READY_FOR_READ,
+    };
+
+    FlushResult flushPipeline(uint32_t displayId);
 
     void setRecordDisplay(uint32_t displayId, uint32_t w, uint32_t h, bool add);
 
