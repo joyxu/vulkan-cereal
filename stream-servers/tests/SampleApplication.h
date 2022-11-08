@@ -18,11 +18,11 @@
 #include <functional>
 #include <memory>
 
-#include "FenceSync.h"
 #include "Hwc2.h"
 #include "OpenGLESDispatch/GLESv2Dispatch.h"
 #include "aemu/base/Compiler.h"
 #include "gl/EmulatedEglContext.h"
+#include "gl/EmulatedEglFenceSync.h"
 
 class FrameBuffer;
 class OSWindow;
@@ -84,7 +84,7 @@ private:
     void drawWorkerWithCompose(ColorBufferQueue& app2sfQueue, ColorBufferQueue& sf2appQueue);
     void drawWorker(ColorBufferQueue& app2sfQueue, ColorBufferQueue& sf2appQueue,
                 ColorBufferQueue& sf2hwcQueue, ColorBufferQueue& hwc2sfQueue);
-    FenceSync* getFenceSync();
+    gfxstream::EmulatedEglFenceSync* getFenceSync();
 
 protected:
     virtual void initialize() = 0;

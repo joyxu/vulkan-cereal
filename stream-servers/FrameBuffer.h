@@ -216,6 +216,11 @@ class FrameBuffer {
     // Returns the set of ColorBuffers destroyed (for further cleanup)
     std::vector<HandleType> destroyEmulatedEglWindowSurfaceLocked(HandleType p_surface);
 
+    void createEmulatedEglFenceSync(EGLenum type,
+                                    int destroyWhenSignaled,
+                                    uint64_t* outSync = nullptr,
+                                    uint64_t* outSyncThread = nullptr);
+
     // Create a new ColorBuffer instance from this display instance.
     // |p_width| and |p_height| are its dimensions in pixels.
     // |p_internalFormat| is the OpenGL format of this color buffer.

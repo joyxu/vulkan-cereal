@@ -16,16 +16,19 @@
 
 #pragma once
 
-#include "aemu/base/Compiler.h"
-#include "aemu/base/files/Stream.h"
-#include "aemu/base/synchronization/Lock.h"
+#include <atomic>
+#include <memory>
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
-#include <atomic>
+#include "aemu/base/Compiler.h"
+#include "aemu/base/files/Stream.h"
+#include "aemu/base/synchronization/Lock.h"
 
-// The FenceSync class wraps actual EGLSyncKHR objects
+namespace gfxstream {
+
+// The EmulatedEglFenceSync class wraps actual EGLSyncKHR objects
 // and issues calls to eglCreateSyncKHR, eglClientWaitSyncKHR,
 // and eglDestroySyncKHR.
 //
@@ -53,16 +56,19 @@
 //     those on the guest, as that would require starting up another guest
 //     thread and OpenGL context (complete with host connection)
 //     to destroy it.
-class FenceSync {
-public:
+class EmulatedEglFenceSync {
+  public:
     // The constructor wraps eglCreateSyncKHR on the host OpenGL driver.
     // |hasNativeFence| specifies whether this sync object
     // is of EGL_SYNC_NATIVE_FENCE_ANDROID nature (2), and
     // |destroyWhenSignaled| specifies whether or not to destroy
     // the sync object when the native fence FD becomes signaled (3).
-    FenceSync(bool hasNativeFence,
-              bool destroyWhenSignaled);
-    ~FenceSync();
+    static std::unique_ptr<EmulatedEglFenceSync> create(
+        EGLSyncKHR sync,
+        bool hasNativeFence,
+        bool destroyWhenSignaled);
+
+    ~EmulatedEglFenceSync();
 
     // wait() wraps eglClientWaitSyncKHR. During such a wait, we need
     // to increment the reference count while the wait is active,
@@ -80,7 +86,7 @@ public:
     }
 
     // When a native fence gets signaled, this function is called to update the
-    // timeline counter in the FenceSync internal timeline and delete old
+    // timeline counter in the EmulatedEglFenceSync internal timeline and delete old
     // fences.
     static void incrementTimelineAndDeleteOldFences();
 
@@ -118,12 +124,18 @@ public:
     void addToRegistry();
     void removeFromRegistry();
 
-    static FenceSync* getFromHandle(uint64_t handle);
+    static EmulatedEglFenceSync* getFromHandle(uint64_t handle);
 
     // Functions for snapshotting all fence state at once
     static void onSave(android::base::Stream* stream);
     static void onLoad(android::base::Stream* stream);
-private:
+
+  private:
+    EmulatedEglFenceSync(EGLDisplay display,
+                         EGLSyncKHR sync,
+                         bool hasNativeFence,
+                         bool destroyWhenSignaled);
+
     bool mDestroyWhenSignaled;
     std::atomic<int> mCount {1};
 
@@ -135,5 +147,7 @@ private:
     // careful control of when eglDestroySyncKHR is actually called.
     void destroy();
 
-    DISALLOW_COPY_AND_ASSIGN(FenceSync);
+    DISALLOW_COPY_AND_ASSIGN(EmulatedEglFenceSync);
 };
+
+}  // namespace gfxstream

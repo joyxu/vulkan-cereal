@@ -591,6 +591,16 @@ std::unique_ptr<EmulatedEglContext> EmulationGl::loadEmulatedEglContext(
     return EmulatedEglContext::onLoad(stream, mEglDisplay);
 }
 
+std::unique_ptr<EmulatedEglFenceSync> EmulationGl::createEmulatedEglFenceSync(
+        EGLenum type,
+        int destroyWhenSignaled) {
+    const bool hasNativeFence = type == EGL_SYNC_NATIVE_FENCE_ANDROID;
+    return EmulatedEglFenceSync::create(mEglDisplay,
+                                        hasNativeFence,
+                                        destroyWhenSignaled);
+
+}
+
 std::unique_ptr<EmulatedEglImage> EmulationGl::createEmulatedEglImage(
         EmulatedEglContext* context,
         EGLenum target,

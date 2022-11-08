@@ -58,7 +58,6 @@ cc_library_shared {
         "Debug.cpp",
         "DisplaySurface.cpp",
         "DisplaySurfaceUser.cpp",
-        "FenceSync.cpp",
         "Hwc2.cpp",
         "PostWorker.cpp",
         "ReadbackWorker.cpp",
