@@ -727,7 +727,6 @@ class FrameBuffer {
     struct Readback {
         ReadbackCmd cmd;
         uint32_t displayId;
-        GLuint bufferId;
         void* pixelsOut;
         uint32_t bytes;
         uint32_t width;

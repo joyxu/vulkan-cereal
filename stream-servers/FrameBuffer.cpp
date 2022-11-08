@@ -819,7 +819,7 @@ void FrameBuffer::setPostCallback(
             m_readbackThread.enqueue({ ReadbackCmd::Init });
         }
         std::future<void> completeFuture = m_readbackThread.enqueue(
-            {ReadbackCmd::AddRecordDisplay, displayId, 0, nullptr, 0, w, h});
+            {ReadbackCmd::AddRecordDisplay, displayId, nullptr, 0, w, h});
         completeFuture.wait();
     } else {
         std::future<void> completeFuture = m_readbackThread.enqueue(
@@ -2632,7 +2632,7 @@ void FrameBuffer::getPixels(void* pixels, uint32_t bytes, uint32_t displayId) {
         return;
     }
     std::future<void> completeFuture = m_readbackThread.enqueue(
-        {ReadbackCmd::GetPixels, displayId, 0, pixels, bytes});
+        {ReadbackCmd::GetPixels, displayId, pixels, bytes});
     completeFuture.wait();
 }
 
