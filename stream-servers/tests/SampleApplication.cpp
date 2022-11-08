@@ -35,6 +35,7 @@ using android::base::FunctorThread;
 using android::base::Lock;
 using android::base::MessageChannel;
 using android::base::TestSystem;
+using gfxstream::EmulatedEglFenceSync;
 using gfxstream::GLESApi;
 using gfxstream::GLESApi_3_0;
 using gfxstream::GLESApi_CM;
@@ -166,13 +167,14 @@ private:
 class ColorBufferQueue { // Note: we could have called this BufferQueue but there is another
                          // class of name BufferQueue that does something totally different
 
-public:
+  public:
     static constexpr int kCapacity = 3;
     class Item {
-    public:
-        Item(unsigned int cb = 0, FenceSync* s = nullptr) : colorBuffer(cb), sync(s) { }
+      public:
+        Item(unsigned int cb = 0, EmulatedEglFenceSync* s = nullptr)
+            : colorBuffer(cb), sync(s) { }
         unsigned int colorBuffer = 0;
-        FenceSync* sync = nullptr;
+        EmulatedEglFenceSync* sync = nullptr;
     };
 
     ColorBufferQueue() = default;
@@ -185,7 +187,7 @@ public:
         mQueue.receive(outItem);
     }
 
-private:
+  private:
     MessageChannel<Item, kCapacity> mQueue;
 };
 
@@ -316,11 +318,10 @@ void SampleApplication::drawLoop() {
     }
 }
 
-FenceSync* SampleApplication::getFenceSync() {
-    auto gl = getGlDispatch();
-    FenceSync* sync = new FenceSync(false, false);
-    gl->glFlush();
-    return sync;
+EmulatedEglFenceSync* SampleApplication::getFenceSync() {
+    uint64_t sync;
+    mFb->createEmulatedEglFenceSync(EGL_SYNC_FENCE_KHR, false, &sync);
+    return EmulatedEglFenceSync::getFromHandle(sync);
 }
 
 void SampleApplication::drawWorkerWithCompose(ColorBufferQueue& app2sfQueue,

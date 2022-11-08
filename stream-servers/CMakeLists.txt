@@ -20,7 +20,6 @@ set(stream-server-core-sources
     Debug.cpp
     DisplaySurface.cpp
     DisplaySurfaceUser.cpp
-    FenceSync.cpp
     Hwc2.cpp
     PostWorker.cpp
     ReadbackWorker.cpp

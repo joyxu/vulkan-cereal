@@ -34,6 +34,7 @@
 #include "EmulatedEglContext.h"
 #include "EmulatedEglConfig.h"
 #include "EmulatedEglContext.h"
+#include "EmulatedEglFenceSync.h"
 #include "EmulatedEglImage.h"
 #include "EmulatedEglWindowSurface.h"
 #include "OpenGLESDispatch/GLESv2Dispatch.h"
@@ -97,6 +98,10 @@ class EmulationGl {
 
     std::unique_ptr<EmulatedEglContext> loadEmulatedEglContext(
         android::base::Stream* stream);
+
+    std::unique_ptr<EmulatedEglFenceSync> createEmulatedEglFenceSync(
+        EGLenum type,
+        int destroyWhenSignaled);
 
     std::unique_ptr<EmulatedEglImage> createEmulatedEglImage(
         EmulatedEglContext* context,
