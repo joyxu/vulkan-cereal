@@ -732,7 +732,6 @@ class FrameBuffer {
     struct Readback {
         ReadbackCmd cmd;
         uint32_t displayId;
-        GLuint bufferId;
         void* pixelsOut;
         uint32_t bytes;
         uint32_t width;
@@ -758,7 +757,7 @@ class FrameBuffer {
         }
     };
     std::map<uint32_t, onPost> m_onPost;
-    std::unique_ptr<ReadbackWorker> m_readbackWorker;
+    gfxstream::ReadbackWorker* m_readbackWorker;
     android::base::WorkerThread<Readback> m_readbackThread;
     std::atomic_bool m_readbackThreadStarted = false;
 

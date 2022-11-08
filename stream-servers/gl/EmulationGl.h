@@ -38,6 +38,7 @@
 #include "EmulatedEglImage.h"
 #include "EmulatedEglWindowSurface.h"
 #include "OpenGLESDispatch/GLESv2Dispatch.h"
+#include "ReadbackWorkerGl.h"
 #include "TextureDraw.h"
 
 #define EGL_NO_CONFIG ((EGLConfig)0)
@@ -81,6 +82,8 @@ class EmulationGl {
     CompositorGl* getCompositor() { return mCompositorGl.get(); }
 
     DisplayGl* getDisplay() { return mDisplayGl.get(); }
+
+    ReadbackWorkerGl* getReadbackWorker() { return mReadbackWorkerGl.get(); }
 
     // TODO(b/233939967): Remove after adding ColorBufferGl and EmulationGl::createColorBuffer().
     TextureDraw* getTextureDraw() const { return mTextureDraw.get(); }
@@ -159,6 +162,7 @@ class EmulationGl {
 
     std::unique_ptr<CompositorGl> mCompositorGl;
     std::unique_ptr<DisplayGl> mDisplayGl;
+    std::unique_ptr<ReadbackWorkerGl> mReadbackWorkerGl;
 
     std::unique_ptr<TextureDraw> mTextureDraw;
 };

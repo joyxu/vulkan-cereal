@@ -13,74 +13,98 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#include "ReadbackWorker.h"
+#include "ReadbackWorkerGl.h"
 
-#include <string.h>                           // for memcpy
+#include <string.h>
 
+#include "ContextHelper.h"
+#include "OpenGLESDispatch/DispatchTables.h"
+#include "OpenGLESDispatch/EGLDispatch.h"
+#include "OpenGLESDispatch/GLESv2Dispatch.h"
+#include "gl/ColorBufferGl.h"
+#include "host-common/logging.h"
+#include "host-common/misc.h"
 
-#include "FrameBuffer.h"                      // for FrameBuffer
-#include "OpenGLESDispatch/DispatchTables.h"  // for s_gles2
-#include "OpenGLESDispatch/EGLDispatch.h"     // for EGLDispatch, s_egl
-#include "OpenGLESDispatch/GLESv2Dispatch.h"  // for GLESv2Dispatch
-#include "gl/ColorBufferGl.h"                 // for ColorBufferGl
-#include "host-common/misc.h"                // for getGlesVersion
+namespace gfxstream {
 
-ReadbackWorker::recordDisplay::recordDisplay(uint32_t displayId, uint32_t w, uint32_t h)
+ReadbackWorkerGl::TrackedDisplay::TrackedDisplay(uint32_t displayId, uint32_t w, uint32_t h)
     : mBufferSize(4 * w * h /* RGBA8 (4 bpp) */),
       mBuffers(4 /* mailbox */,
                0),  // Note, last index is used for duplicating buffer on flush
       mDisplayId(displayId) {}
 
-void ReadbackWorker::initGL() {
-    mFb = FrameBuffer::getFB();
-    mFb->createSharedTrivialContext(&mContext, &mSurf);
-    mFb->createSharedTrivialContext(&mFlushContext, &mFlushSurf);
-    s_egl.eglMakeCurrent(mFb->getDisplay(), mFlushSurf, mFlushSurf, mFlushContext);
+ReadbackWorkerGl::ReadbackWorkerGl(std::unique_ptr<DisplaySurfaceGl> surface,
+                                   std::unique_ptr<DisplaySurfaceGl> flushSurface)
+    : mSurface(std::move(surface)),
+      mFlushSurface(std::move(flushSurface)) {}
+
+void ReadbackWorkerGl::init() {
+    if (!mFlushSurface->getContextHelper()->setupContext()) {
+        ERR("Failed to make ReadbackWorkerGl flush surface current.");
+    }
 }
 
-ReadbackWorker::~ReadbackWorker() {
+ReadbackWorkerGl::~ReadbackWorkerGl() {
     s_gles2.glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
     s_gles2.glBindBuffer(GL_COPY_READ_BUFFER, 0);
-    for (auto& r : mRecordDisplays) {
+    for (auto& r : mTrackedDisplays) {
         s_gles2.glDeleteBuffers(r.second.mBuffers.size(), &r.second.mBuffers[0]);
     }
-    s_egl.eglMakeCurrent(mFb->getDisplay(), EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-    mFb->destroySharedTrivialContext(mContext, mSurf);
-    mFb->destroySharedTrivialContext(mFlushContext, mFlushSurf);
+
+    mFlushSurface->getContextHelper()->teardownContext();
 }
 
-void ReadbackWorker::setRecordDisplay(uint32_t displayId, uint32_t w, uint32_t h, bool add) {
+void ReadbackWorkerGl::initReadbackForDisplay(uint32_t displayId, uint32_t w, uint32_t h) {
     android::base::AutoLock lock(mLock);
-    if (add) {
-        mRecordDisplays.emplace(displayId, recordDisplay(displayId, w, h));
-        recordDisplay& r = mRecordDisplays[displayId];
-        s_gles2.glGenBuffers(r.mBuffers.size(), &r.mBuffers[0]);
-        for (auto buffer : r.mBuffers) {
-            s_gles2.glBindBuffer(GL_PIXEL_PACK_BUFFER, buffer);
-            s_gles2.glBufferData(GL_PIXEL_PACK_BUFFER, r.mBufferSize,
-                             0 /* init, with no data */, GL_STREAM_READ);
-        }
-        s_gles2.glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-    } else {
-        recordDisplay& r = mRecordDisplays[displayId];
-        s_gles2.glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-        s_gles2.glBindBuffer(GL_COPY_READ_BUFFER, 0);
-        s_gles2.glDeleteBuffers(r.mBuffers.size(), &r.mBuffers[0]);
-        mRecordDisplays.erase(displayId);
+
+    auto [it, inserted] =  mTrackedDisplays.emplace(displayId, TrackedDisplay(displayId, w, h));
+    if (!inserted) {
+        ERR("Double init of TrackeDisplay for display:%d", displayId);
+        return;
     }
+
+    TrackedDisplay& display = it->second;
+
+    s_gles2.glGenBuffers(display.mBuffers.size(), &display.mBuffers[0]);
+    for (auto buffer : display.mBuffers) {
+        s_gles2.glBindBuffer(GL_PIXEL_PACK_BUFFER, buffer);
+        s_gles2.glBufferData(GL_PIXEL_PACK_BUFFER, display.mBufferSize, nullptr, GL_STREAM_READ);
+    }
+    s_gles2.glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 }
 
-void ReadbackWorker::doNextReadback(uint32_t displayId,
-                                    ColorBuffer* cb,
-                                    void* fbImage,
-                                    bool repaint,
-                                    bool readbackBgra) {
+void ReadbackWorkerGl::deinitReadbackForDisplay(uint32_t displayId) {
+    android::base::AutoLock lock(mLock);
+
+    auto it = mTrackedDisplays.find(displayId);
+    if (it == mTrackedDisplays.end()) {
+        ERR("Double deinit of TrackedDisplay for display:%d", displayId);
+        return;
+    }
+
+    TrackedDisplay& display = it->second;
+
+    s_gles2.glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    s_gles2.glBindBuffer(GL_COPY_READ_BUFFER, 0);
+    s_gles2.glDeleteBuffers(display.mBuffers.size(), &display.mBuffers[0]);
+
+    mTrackedDisplays.erase(it);
+}
+
+ReadbackWorkerGl::DoNextReadbackResult
+ReadbackWorkerGl::doNextReadback(uint32_t displayId,
+                                 ColorBuffer* cb,
+                                 void* fbImage,
+                                 bool repaint,
+                                 bool readbackBgra) {
     // if |repaint|, make sure that the current frame is immediately sent down
     // the pipeline and made available to the consumer by priming async
     // readback; doing 4 consecutive reads in a row, which should be enough to
     // fill the 3 buffers in the triple buffering setup and on the 4th, trigger
     // a post callback.
     int numIter = repaint ? 4 : 1;
+
+    DoNextReadbackResult ret = DoNextReadbackResult::OK_NOT_READY_FOR_READ;
 
     // Mailbox-style triple buffering setup:
     // We want to avoid glReadPixels while in the middle of doing
@@ -106,7 +130,7 @@ void ReadbackWorker::doNextReadback(uint32_t displayId,
     //   doesn't happen either (avoid sync point in glMapBufferRange)
     for (int i = 0; i < numIter; i++) {
         android::base::AutoLock lock(mLock);
-        recordDisplay& r = mRecordDisplays[displayId];
+        TrackedDisplay& r = mTrackedDisplays[displayId];
         if (r.mIsCopying) {
             switch (r.mMapCopyIndex) {
                 // To keep double buffering effect on
@@ -149,58 +173,73 @@ void ReadbackWorker::doNextReadback(uint32_t displayId,
         // buffers in our triple buffering setup have had chances to readback.
         lock.unlock();
         if (r.m_readbackCount > 3) {
-            mFb->doPostCallback(fbImage, r.mDisplayId);
+            ret = DoNextReadbackResult::OK_READY_FOR_READ;
         }
     }
+
+    return ret;
 }
 
-void ReadbackWorker::flushPipeline(uint32_t displayId) {
+ReadbackWorkerGl::FlushResult ReadbackWorkerGl::flushPipeline(uint32_t displayId) {
     android::base::AutoLock lock(mLock);
-    recordDisplay& r = mRecordDisplays[displayId];
-    if (r.mIsCopying) {
+
+    auto it = mTrackedDisplays.find(displayId);
+    if (it == mTrackedDisplays.end()) {
+        ERR("Failed to find TrackedDisplay for display:%d", displayId);
+        return FlushResult::FAIL;
+    }
+    TrackedDisplay& display = it->second;
+
+    if (display.mIsCopying) {
         // No need to make the last frame available,
         // we are currently being read.
-        return;
+        return FlushResult::OK_NOT_READY_FOR_READ;
     }
 
-    auto src = r.mBuffers[r.mPrevReadPixelsIndex];
-    auto dst = r.mBuffers.back();
+    auto src = display.mBuffers[display.mPrevReadPixelsIndex];
+    auto srcSize = display.mBufferSize;
+    auto dst = display.mBuffers.back();
 
-    // This is not called from a renderthread, so let's activate
-    // the context.
-    if (EGL_FALSE == s_egl.eglMakeCurrent(mFb->getDisplay(), mSurf, mSurf, mContext)) {
-            fprintf(stderr, "ReadbackWorker cannot set normal context, skip flushing.");
-            return;
+    // This is not called from a renderthread, so let's activate the context.
+    {
+        RecursiveScopedContextBind contextBind(mSurface->getContextHelper());
+        if (!contextBind.isOk()) {
+            ERR("Failed to make ReadbackWorkerGl surface current, skipping flush.");
+            return FlushResult::FAIL;
+        }
+
+        // We now copy the last frame into slot 4, where no other thread
+        // ever writes.
+        s_gles2.glBindBuffer(GL_COPY_READ_BUFFER, src);
+        s_gles2.glBindBuffer(GL_COPY_WRITE_BUFFER, dst);
+        s_gles2.glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, srcSize);
     }
 
-    // We now copy the last frame into slot 4, where no other thread
-    // ever writes.
-    s_gles2.glBindBuffer(GL_COPY_READ_BUFFER, src);
-    s_gles2.glBindBuffer(GL_COPY_WRITE_BUFFER, dst);
-    s_gles2.glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0,
-                                r.mBufferSize);
-    s_egl.eglMakeCurrent(mFb->getDisplay(), EGL_NO_SURFACE, EGL_NO_SURFACE,
-                         EGL_NO_CONTEXT);
-
-    r.mMapCopyIndex = r.mBuffers.size() - 1;
-    lock.unlock();
-    mFb->doPostCallback(nullptr, r.mDisplayId);
+    display.mMapCopyIndex = display.mBuffers.size() - 1;
+    return FlushResult::OK_READY_FOR_READ;
 }
 
-void ReadbackWorker::getPixels(uint32_t displayId, void* buf, uint32_t bytes) {
+void ReadbackWorkerGl::getPixels(uint32_t displayId, void* buf, uint32_t bytes) {
     android::base::AutoLock lock(mLock);
-    recordDisplay& r = mRecordDisplays[displayId];
-    r.mIsCopying = true;
+
+    auto it = mTrackedDisplays.find(displayId);
+    if (it == mTrackedDisplays.end()) {
+        ERR("Failed to find TrackedDisplay for display:%d", displayId);
+        return;
+    }
+    TrackedDisplay& display = it->second;
+    display.mIsCopying = true;
     lock.unlock();
 
-    GLuint buffer = r.mBuffers[r.mMapCopyIndex];
+    auto buffer = display.mBuffers[display.mMapCopyIndex];
     s_gles2.glBindBuffer(GL_COPY_READ_BUFFER, buffer);
-    void* pixels = s_gles2.glMapBufferRange(GL_COPY_READ_BUFFER, 0, bytes,
-                                            GL_MAP_READ_BIT);
+    void* pixels = s_gles2.glMapBufferRange(GL_COPY_READ_BUFFER, 0, bytes, GL_MAP_READ_BIT);
     memcpy(buf, pixels, bytes);
     s_gles2.glUnmapBuffer(GL_COPY_READ_BUFFER);
 
     lock.lock();
-    r.mIsCopying = false;
+    display.mIsCopying = false;
     lock.unlock();
 }
+
+}  // namespace gfxstream
