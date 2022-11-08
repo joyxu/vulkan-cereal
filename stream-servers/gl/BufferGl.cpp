@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "Buffer.h"
+#include "BufferGl.h"
 
 // static
 Buffer* Buffer::create(size_t size, HandleType handle, ContextHelper* helper) {
