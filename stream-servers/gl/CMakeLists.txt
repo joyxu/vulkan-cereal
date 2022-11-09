@@ -22,6 +22,7 @@ add_library(gfxstream-gl-server
             EmulatedEglWindowSurface.cpp
             EmulationGl.cpp
             GLESVersionDetector.cpp
+            ReadbackWorkerGl.cpp
             TextureDraw.cpp
             TextureResize.cpp
             YUVConverter.cpp)

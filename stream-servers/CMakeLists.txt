@@ -21,7 +21,6 @@ set(stream-server-core-sources
     DisplaySurfaceUser.cpp
     Hwc2.cpp
     PostWorker.cpp
-    ReadbackWorker.cpp
     ReadBuffer.cpp
     render_api.cpp
     RenderChannelImpl.cpp
